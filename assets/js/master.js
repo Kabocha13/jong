@@ -146,6 +146,74 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
     }
 });
 
+// --- 3. 全員一律ポイント減算機能 (新規追加) ---
+
+document.getElementById('global-penalty-button').addEventListener('click', async () => {
+    const penaltyAmount = -1.0;
+    const messageEl = document.getElementById('global-penalty-message');
+
+    if (!confirm(`全てのプレイヤーの得点を一律で ${penaltyAmount} P 減らします。よろしいですか？`)) {
+        return;
+    }
+
+    // ボタンを無効化し、処理メッセージを表示
+    const button = document.getElementById('global-penalty-button');
+    button.disabled = true;
+    showMessage(messageEl, '全体ポイント減算を処理中...', 'info');
+    
+    try {
+        const currentData = await fetchAllData();
+        let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p.score]));
+        let historyChanges = [];
+
+        // 全プレイヤーに対して減算処理を実行
+        currentData.scores.forEach(player => {
+            const newScore = player.score + penaltyAmount; // penaltyAmountは負の値
+            currentScoresMap.set(player.name, newScore);
+            
+            historyChanges.push({
+                name: player.name, 
+                change: penaltyAmount
+            });
+        });
+
+        // 履歴エントリーを作成
+        const historyEntry = {
+            timestamp: new Date().toISOString(),
+            ranks: ['ADMIN'], 
+            changes: historyChanges,
+            memo: `[全体調整] 全プレイヤーに ${penaltyAmount} Pのペナルティを適用。`,
+            gameId: `GLOBAL-PENALTY-${Date.now()}`
+        };
+
+        // 新しいデータを作成 (sports_bets を忘れずに含める)
+        const newScores = Array.from(currentScoresMap.entries()).map(([name, score]) => ({ name, score }));
+        const newHistory = [...currentData.history, historyEntry];
+        
+        const newData = {
+            scores: newScores,
+            history: newHistory,
+            sports_bets: currentData.sports_bets 
+        };
+
+        // JSONBinに書き込み
+        const response = await updateAllData(newData);
+
+        if (response.status === 'success') {
+            showMessage(messageEl, `✅ 全員から ${Math.abs(penaltyAmount)} P の減算を完了しました。`, 'success');
+            loadPlayerList(); // プレイヤーリストを更新
+        } else {
+            showMessage(messageEl, `❌ 減算エラー: ${response.message}`, 'error');
+        }
+
+    } catch (error) {
+        console.error(error);
+        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+    } finally {
+        button.disabled = false;
+    }
+});
+
 
 /**
  * メッセージを表示するヘルパー関数
