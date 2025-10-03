@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スポーツくじ管理</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>⚽ スポーツくじ管理 🔑</h1>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <a href="index.html" class="input-link">« ランキングに戻る</a>
+            <a href="master.html" class="input-link">マスター管理へ</a>
+        </div>
+    </header>
+
+    <main id="main-content">
+        <section id="auth-section">
+            <h2>認証</h2>
+            <form id="auth-form">
+                <div class="form-group">
+                    <label for="password">パスワード:</label>
+                    <input type="password" id="auth-password" required>
+                </div>
+                <button type="submit">認証</button>
+            </form>
+            <p id="auth-message" class="hidden"></p>
+        </section>
+
+        <section id="sports-tools" class="hidden">
+            <h2>くじ管理ツール</h2>
+
+            <!-- 1. 新規くじ作成フォーム -->
+            <div class="tool-box">
+                <h3>📝 新規くじ作成・オッズ設定</h3>
+                <form id="create-bet-form">
+                    <div class="form-group">
+                        <label for="match-name">試合名/くじ名:</label>
+                        <input type="text" id="match-name" required placeholder="例: 日本代表 vs スペイン (勝利チーム)">
+                    </div>
+                    
+                    <h4>勝利/引き分け オッズ</h4>
+                    <div class="form-group">
+                        <label>オッズ設定 (A勝利 / 引き分け / B勝利):</label>
+                        <div class="odds-group">
+                            <input type="number" id="odds-a" step="0.01" min="1.0" required value="2.0" placeholder="A勝利オッズ">
+                            <input type="number" id="odds-draw" step="0.01" min="1.0" required value="3.0" placeholder="引き分けオッズ">
+                            <input type="number" id="odds-b" step="0.01" min="1.0" required value="2.0" placeholder="B勝利オッズ">
+                        </div>
+                    </div>
+
+                    <!-- スコア予想オッズ (新規追加) -->
+                    <h4>🎯 スコア予想 オッズ (オプショナル)</h4>
+                    <p class="instruction">点数ぴったりのオッズを設定します。A-Bの形式でスコアを入力し、オッズを設定してください。</p>
+                    <div id="score-odds-container">
+                        <div class="score-odds-row form-group">
+                            <input type="text" class="score-input" placeholder="スコア例: 1-0" value="1-0">
+                            <input type="number" class="odds-input" step="0.1" min="5.0" placeholder="オッズ (例: 15.0)" value="15.0">
+                        </div>
+                        <div class="score-odds-row form-group">
+                            <input type="text" class="score-input" placeholder="スコア例: 2-1" value="2-1">
+                            <input type="number" class="odds-input" step="0.1" min="5.0" placeholder="オッズ (例: 20.0)" value="20.0">
+                        </div>
+                    </div>
+                    <button type="button" id="add-score-odds-button" class="action-button" style="background-color: #6c757d; margin-top: 0; width: auto;">+ スコアオッズを追加</button>
+
+                    <button type="submit">くじを作成 (OPEN)</button>
+                </form>
+                <p id="create-message" class="hidden"></p>
+            </div>
+
+            <!-- 2. 現在の開催中/終了済みくじリスト -->
+            <div class="tool-box">
+                <h3>現在のくじ一覧・管理</h3>
+                <div id="bet-list-container">
+                    <p>くじデータを読み込み中...</p>
+                </div>
+            </div>
+
+            <!-- 3. プレイヤーの代理購入フォーム -->
+            <div class="tool-box">
+                <h3>💰 プレイヤー代理購入 (投票)</h3>
+                <form id="wager-form">
+                    <div class="form-group">
+                        <label for="target-bet">対象くじ:</label>
+                        <select id="target-bet" required>
+                            <option value="" disabled selected>開催中のくじを選択</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="wager-player">プレイヤー:</label>
+                        <select id="wager-player" required>
+                            <option value="" disabled selected>プレイヤーを選択</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="wager-amount">掛け金 (ポイント):</label>
+                        <input type="number" id="wager-amount" step="1" min="1" required placeholder="例: 10">
+                    </div>
+                    <div class="form-group">
+                        <label for="wager-selection">選択:</label>
+                        <select id="wager-selection" required>
+                            <!-- オッズ選択肢はJSで動的に更新 -->
+                        </select>
+                    </div>
+                    <button type="submit">投票を登録</button>
+                </form>
+                <p id="wager-message" class="hidden"></p>
+            </div>
+
+        </section>
+    </main>
+
+    <script src="assets/js/common.js"></script>
+    <script src="assets/js/master_sports.js"></script>
+</body>
+</html>
