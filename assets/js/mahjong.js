@@ -5,6 +5,12 @@ const PLAYER_INPUTS_CONTAINER = document.getElementById('player-inputs');
 const MESSAGE_ELEMENT = document.getElementById('message');
 const SUBMIT_BUTTON = document.getElementById('submit-button');
 
+// --- 認証に必要な要素の追加 ---
+const AUTH_FORM = document.getElementById('auth-form');
+const MAHJONG_TOOLS = document.getElementById('mahjong-tools');
+const AUTH_MESSAGE = document.getElementById('auth-message');
+const MASTER_PASSWORD = "21082"; // master.jsから共通のパスワードをコピー
+
 let PARTICIPANT_NAMES = []; 
 
 // --- 定数：麻雀ルール ---
@@ -12,10 +18,26 @@ const POINT_RATE = 1000; // 1000点 = 1ポイント
 const UMA_OKA = [-2, -1, 1, 3]; // 4位, 3位, 2位, 1位 のボーナス/ペナルティ点 (例: 10-20ウマ)
 const STARTING_SCORE = 30000; // 基準点
 
+// --- 認証機能 ---
+AUTH_FORM.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const password = document.getElementById('auth-password').value;
+    
+    if (password === MASTER_PASSWORD) {
+        document.getElementById('auth-section').classList.add('hidden');
+        MAHJONG_TOOLS.classList.remove('hidden');
+        generateForm(); // 認証成功後、フォームを生成
+    } else {
+        showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
+    }
+});
+
+
 /**
  * 参加者リストを取得し、入力フォームを動的に生成する
  */
 async function generateForm() {
+    // フォームが既に表示されている前提で実行
     const scores = await fetchScores();
     if (scores.length === 0) {
         PLAYER_INPUTS_CONTAINER.innerHTML = '<p class="error">参加者リストを取得できませんでした。JSONBinの初期データを確認してください。</p>';
@@ -58,12 +80,12 @@ FORM.addEventListener('submit', async (e) => {
         const score = parseInt(scoreElement.value, 10);
         
         if (!name || isNaN(score) || score < 0) {
-            showMessage('エラー: 名前を選択し、有効な得点を入力してください。', 'error');
+            showMessage(MESSAGE_ELEMENT, 'エラー: 名前を選択し、有効な得点を入力してください。', 'error');
             return;
         }
 
         if (selectedNames.has(name)) {
-            showMessage('エラー: 参加者が重複しています。', 'error');
+            showMessage(MESSAGE_ELEMENT, 'エラー: 参加者が重複しています。', 'error');
             return;
         }
         selectedNames.add(name);
@@ -73,7 +95,7 @@ FORM.addEventListener('submit', async (e) => {
     
     // 合計点チェック (100点の誤差は四捨五入などで生じるため、多少は許容する場合もあるが、厳密にチェック)
     if (totalScore < 119900 || totalScore > 120100) { 
-        showMessage(`警告: 合計点が ${totalScore} です。120000点周辺ではありません。計算を再確認してください。`, 'warning');
+        showMessage(MESSAGE_ELEMENT, `警告: 合計点が ${totalScore} です。120000点周辺ではありません。計算を再確認してください。`, 'warning');
     }
 
     const memo = document.getElementById('memo').value;
@@ -81,7 +103,7 @@ FORM.addEventListener('submit', async (e) => {
     // フォームを無効化
     SUBMIT_BUTTON.disabled = true;
     SUBMIT_BUTTON.textContent = '送信中...';
-    showMessage('結果を計算し、JSONBinに送信中...', 'info');
+    showMessage(MESSAGE_ELEMENT, '結果を計算し、JSONBinに送信中...', 'info');
 
     // 1. JSONBinから最新の全データを取得
     const currentData = await fetchAllData();
@@ -135,14 +157,14 @@ FORM.addEventListener('submit', async (e) => {
 
     // 応答の処理
     if (response.status === 'success') {
-        showMessage(`✅ 成功! ポイントが更新されました。`, 'success');
+        showMessage(MESSAGE_ELEMENT, `✅ 成功! ポイントが更新されました。`, 'success');
         
         // 成功したらランキングページへリダイレクト
         setTimeout(() => {
             window.location.href = 'index.html';
         }, 2000);
     } else {
-        showMessage(`❌ 処理エラー: ${response.message}`, 'error');
+        showMessage(MESSAGE_ELEMENT, `❌ 処理エラー: ${response.message}`, 'error');
     }
     
     // エラー時はフォームを再度有効化
@@ -154,11 +176,10 @@ FORM.addEventListener('submit', async (e) => {
 /**
  * メッセージを表示するヘルパー関数
  */
-function showMessage(text, type) {
-    MESSAGE_ELEMENT.textContent = text;
-    MESSAGE_ELEMENT.className = type; 
-    MESSAGE_ELEMENT.classList.remove('hidden');
+function showMessage(element, text, type) {
+    element.textContent = text;
+    element.className = type; 
+    element.classList.remove('hidden');
 }
 
-// ページ読み込み時にフォームを生成
-generateForm();
+// ページ読み込み時にフォームの生成は行わず、認証を待つ
