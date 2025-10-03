@@ -49,90 +49,127 @@ main {
     padding: 0;
 }
 
-.ranking-list li {
+.ranking-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 10px;
-    border-bottom: 1px solid #eee;
-    font-size: 1.1em;
+    padding: 15px;
+    margin-bottom: 8px;
+    background-color: #fff;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s;
+    border-left: 5px solid transparent;
+}
+.ranking-item:hover {
+    transform: translateY(-2px);
 }
 
-.ranking-list li:last-child {
-    border-bottom: none;
-}
+.rank-1 { border-left-color: gold; background-color: #fffbe6; }
+.rank-2 { border-left-color: silver; background-color: #f0f0f0; }
+.rank-3 { border-left-color: #cd7f32; background-color: #f7f7f7; }
 
-.rank-icon {
-    font-size: 1.5em;
+.rank-num {
+    font-size: 1.2em;
     font-weight: bold;
+    color: #007bff;
     width: 30px;
-    text-align: center;
+    text-align: left;
 }
-
-.rank-1 .rank-icon { color: gold; }
-.rank-2 .rank-icon { color: silver; }
-.rank-3 .rank-icon { color: #cd7f32; /* Bronze */ }
-
+.player-name {
+    flex-grow: 1;
+    font-size: 1.1em;
+    padding: 0 10px;
+}
 .player-score {
+    font-size: 1.4em;
     font-weight: bold;
     color: #28a745;
-    margin-left: auto;
 }
 
-/* ポイント変動 */
-.point-diff {
-    font-size: 0.9em;
-    margin-left: 10px;
-    padding: 3px 6px;
-    border-radius: 3px;
-    font-weight: 600;
-}
-.point-diff.up {
-    color: white;
-    background-color: #28a745; /* Green */
-}
-.point-diff.down {
-    color: white;
-    background-color: #dc3545; /* Red */
-}
-
-/* タイトルボックス */
+/* 情報ボックス */
 .info-box {
     background-color: #e9ecef;
     padding: 15px;
-    border-radius: 5px;
+    border-radius: 6px;
     margin-top: 20px;
 }
 .icon-title {
-    color: #007bff;
     margin-top: 0;
+    color: #495057;
+    border-bottom: 2px solid #ced4da;
+    padding-bottom: 5px;
 }
 .titles-list {
     list-style: none;
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 15px;
+    gap: 10px;
 }
 .titles-list li {
     background-color: #fff;
-    padding: 5px 10px;
+    padding: 8px 15px;
     border-radius: 20px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     font-size: 0.9em;
 }
+.title-icon {
+    margin-right: 5px;
+}
 
-/* フォーム共通スタイル */
+/* 更新情報 */
+.update-info {
+    text-align: right;
+    color: #6c757d;
+    font-size: 0.8em;
+    margin-top: 15px;
+}
+
+#refresh-button {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background-color: #ffc107;
+    border: none;
+    border-radius: 5px;
+    font-size: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+#refresh-button:hover {
+    background-color: #e0a800;
+}
+
+
+/* --- フォーム・ツール共通スタイル --- */
+h2, h3 {
+    color: #007bff;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 5px;
+}
+
+.tool-box {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border: 1px solid #e9ecef;
+}
+
 .form-group {
     margin-bottom: 15px;
 }
 
-label {
+.form-group label {
     display: block;
     margin-bottom: 5px;
     font-weight: bold;
 }
 
+input[type="text"],
+input[type="password"],
 input[type="number"],
 select,
 textarea {
@@ -160,7 +197,9 @@ textarea {
 }
 
 /* 送信ボタン */
-#submit-button {
+#submit-button,
+button[type="submit"]:not(#auth-form button),
+.action-button { /* action-buttonを追加 */
     background-color: #28a745;
     color: white;
     border: none;
@@ -170,40 +209,264 @@ textarea {
     font-size: 1.1em;
     width: 100%;
     transition: background-color 0.3s;
+    margin-top: 10px;
 }
-#submit-button:hover:not(:disabled) {
+#submit-button:hover:not(:disabled),
+button[type="submit"]:not(#auth-form button):hover:not(:disabled),
+.action-button:hover:not(:disabled) {
     background-color: #1e7e34;
 }
-#submit-button:disabled {
+#submit-button:disabled,
+button[type="submit"]:disabled,
+.action-button:disabled {
     background-color: #a5d8b6;
     cursor: not-allowed;
 }
 
+/* 認証ボタンのみスタイルを分ける */
+#auth-form button[type="submit"] {
+    background-color: #ffc107;
+    color: #333;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+    transition: background-color 0.3s;
+    width: auto;
+    margin-top: 5px;
+}
+#auth-form button[type="submit"]:hover {
+    background-color: #e0a800;
+}
+
+
 /* メッセージ */
-#message {
+#message,
+.message {
     padding: 10px;
     border-radius: 4px;
-    margin-top: 15px;
-    text-align: center;
+    margin-top: 10px;
     font-weight: bold;
+    text-align: center;
 }
-.hidden { display: none; }
-.success { background-color: #d4edda; color: #155724; }
-.error { background-color: #f8d7da; color: #721c24; }
-.warning { background-color: #fff3cd; color: #856404; }
-.info { background-color: #cce5ff; color: #004085; }
+.message.success {
+    background-color: #d4edda;
+    color: #155724;
+    border-color: #c3e6cb;
+}
+.message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border-color: #f5c6cb;
+}
+.hidden {
+    display: none !important;
+}
 
-/* その他 */
-#refresh-button {
-    background: none;
-    border: 1px solid #ccc;
-    padding: 8px 15px;
+/* --- スポーツくじ管理 (master_sports.html) スタイル --- */
+
+.odds-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+
+/* スコアオッズ入力用 */
+.score-odds-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.score-odds-row .score-input, 
+.score-odds-row .odds-input {
+    flex-grow: 1;
+}
+.score-odds-row .odds-input {
+    max-width: 100px;
+}
+
+.bet-card {
+    border: 1px solid #ddd;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s;
+}
+
+.bet-card h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #007bff;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.status-label {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.status-open { color: #28a745; } /* 緑 */
+.status-closed { color: #ffc107; } /* 黄 */
+.status-settled { color: #6c757d; } /* 灰 */
+
+.odds-info {
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: #e9f5ff;
     border-radius: 4px;
-    cursor: pointer;
+}
+.score-odds-item {
+    background-color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.9em;
+    margin-right: 5px;
+    display: inline-block;
+    border: 1px solid #ccc;
 }
 
-.update-info {
-    font-size: 0.8em;
+
+.wagers-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+    font-size: 0.9em;
+    max-height: 100px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 5px;
+    border-radius: 4px;
+}
+.wager-item {
+    padding: 3px 0;
+    border-bottom: 1px dotted #f0f0f0;
+}
+.wager-item:last-child {
+    border-bottom: none;
+}
+
+.management-tools {
+    margin-top: 15px;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+}
+.result-tools-score { /* スコア入力グループのラッパー */
+    padding: 10px;
+    border: 1px dashed #dc3545;
+    border-radius: 5px;
+    margin-top: 10px;
+}
+.result-tools-score p {
+    margin: 0 0 10px 0;
+    font-weight: bold;
+    color: #dc3545;
+}
+.result-tools-score button {
+    background-color: #dc3545;
+}
+.result-tools-score button:hover {
+    background-color: #c82333;
+}
+
+
+/* --- スポーツくじ Home画面 (index.html) スタイル --- */
+.bet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.bet-tile {
+    background-color: #f0f8ff; /* 薄い青 */
+    padding: 15px;
+    border-radius: 8px;
+    border: 2px solid #007bff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+}
+.bet-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+}
+.bet-tile.status-closed {
+    border-color: #ffc107;
+    background-color: #fffef2;
+}
+
+
+.bet-tile h4 {
+    margin-top: 0;
+    color: #0056b3;
+    border-bottom: 1px dashed #ced4da;
+    padding-bottom: 5px;
+    font-size: 1.1em;
+}
+
+.odds-info-display {
+    margin: 10px 0;
+    padding: 5px 0;
+    border-bottom: 1px dotted #ddd;
+}
+.odds-list-win-draw span {
+    display: inline-block;
+    margin-right: 10px;
+    font-size: 0.9em;
+}
+.odds-list-win-draw strong {
+    color: #28a745;
+}
+
+.score-odds-header {
+    font-weight: bold;
+    color: #495057;
+    margin: 10px 0 5px 0;
+    font-size: 0.95em;
+}
+.score-odds-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.score-odds-list li {
+    font-size: 0.85em;
+    background-color: #fff;
+    padding: 3px 6px;
+    border-radius: 3px;
+    border: 1px solid #eee;
+}
+.score-odds-list strong {
+    color: #dc3545;
+}
+
+.my-wager-text {
+    font-weight: bold;
+    color: #1e7e34;
+    margin: 5px 0;
+    padding: 5px;
+    background-color: #e6ffe6;
+    border-radius: 4px;
+}
+.my-wagers-list {
+    list-style: none;
+    padding: 0 0 0 15px;
+    margin: 5px 0;
+    font-size: 0.9em;
+}
+.my-wagers-list li {
+    margin-bottom: 3px;
+    border-bottom: 1px dotted #c3e6cb;
+}
+
+.total-wager-text, .bet-id-text {
+    font-size: 0.85em;
     color: #6c757d;
-    text-align: right;
+    margin: 3px 0;
 }
