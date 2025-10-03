@@ -11,7 +11,7 @@ const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
 /**
  * JSONBinから最新の全データを取得する関数
- * @returns {Promise<object>} 全データ (scoresとhistory)
+ * @returns {Promise<object>} 全データ (scores, history, sports_bets)
  */
 async function fetchAllData() {
     try {
@@ -31,7 +31,8 @@ async function fetchAllData() {
         return data.record;
     } catch (error) {
         console.error("ポイントデータ取得中にエラー:", error);
-        return { scores: [], history: [] };
+        // 新しいキー 'sports_bets' を初期データに追加
+        return { scores: [], history: [], sports_bets: [] };
     }
 }
 
@@ -50,7 +51,7 @@ async function fetchScores() {
 
 /**
  * JSONBinに新しい全データを上書き保存する関数 (PUT)
- * @param {object} newData - scoresとhistoryを含む新しい全データ
+ * @param {object} newData - scores, history, sports_bets を含む新しい全データ
  * @returns {Promise<object>} APIからの応答
  */
 async function updateAllData(newData) {
@@ -71,7 +72,31 @@ async function updateAllData(newData) {
         const data = await response.json();
         return { status: "success", message: "ポイントが正常に更新されました。", totalChange: 0 };
     } catch (error) {
-        console.error("結果送信中にエラー:", error);
-        return { status: "error", message: `通信エラーが発生しました: ${error.message}` };
+        console.error("ポイントデータ書き込み中にエラー:", error);
+        return { status: "error", message: `データ書き込み失敗: ${error.message}`, totalChange: 0 };
     }
 }
+
+
+// -----------------------------------------------------------------
+// 共通ヘルパー関数
+// -----------------------------------------------------------------
+
+/**
+ * HTML要素にメッセージを表示するヘルパー関数
+ * @param {HTMLElement} element - メッセージを表示する要素
+ * @param {string} message - 表示するテキスト
+ * @param {('success'|'error')} type - メッセージのタイプ
+ */
+function showMessage(element, message, type) {
+    element.textContent = message;
+    element.className = type === 'success' ? 'message success' : 'message error';
+    element.classList.remove('hidden');
+    // 3秒後にメッセージを非表示にする
+    setTimeout(() => {
+        element.classList.add('hidden');
+    }, 5000);
+}
+
+// 共通パスワードを定義 (master.jsとmahjong.jsで使用)
+const MASTER_PASSWORD = "21082"; 
