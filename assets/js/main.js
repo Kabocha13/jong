@@ -108,7 +108,7 @@ function renderSportsBets(sportsBets, displayScores) {
 
         // 自分の投票情報HTMLを生成
         if (myWagersMap.size > 0) {
-            myWagerInfo = `<p class="my-wager-text">✅ あなたの合計賭け金: ${totalWagers} P</p>`;
+            myWagerInfo = `<p class="my-wager-text">✅ 合計賭け金: ${totalWagers} P</p>`;
             myWagerInfo += '<ul class="my-wagers-list">';
             myWagersMap.forEach((amount, selection) => {
                 myWagerInfo += `<li>${getOutcomeLabel(selection)}: ${amount} P</li>`;
