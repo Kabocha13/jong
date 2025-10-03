@@ -70,7 +70,9 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
 
     const newData = {
         scores: newScores,
-        history: currentData.history // 履歴はそのまま
+        history: currentData.history, // 履歴はそのまま
+        // ★ 修正: sports_bets を保持する ★
+        sports_bets: currentData.sports_bets || [] 
     };
 
     // JSONBinに書き込み
@@ -125,7 +127,9 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
     
     const newData = {
         scores: newScores,
-        history: newHistory
+        history: newHistory,
+        // ★ 修正: sports_bets を保持する ★
+        sports_bets: currentData.sports_bets 
     };
 
     // JSONBinに書き込み
