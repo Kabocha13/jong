@@ -13,20 +13,34 @@
     </header>
 
     <main>
-        <p class="instruction">4人の最終得点 (例: 32500) を入力してください。順位とポイント変動は自動で計算されます。</p>
-        
-        <form id="mahjong-form">
-            <div id="player-inputs">
+        <section id="auth-section">
+            <h2>認証が必要です</h2>
+            <form id="auth-form">
+                <div class="form-group">
+                    <label for="password">パスワード:</label>
+                    <input type="password" id="auth-password" required>
+                </div>
+                <button type="submit">認証</button>
+            </form>
+            <p id="auth-message" class="hidden"></p>
+        </section>
+
+        <div id="mahjong-tools" class="hidden">
+            <p class="instruction">4人の最終得点 (例: 32500) を入力してください。順位とポイント変動は自動で計算されます。</p>
+            
+            <form id="mahjong-form">
+                <div id="player-inputs">
                 </div>
 
-            <div class="form-group">
-                <label for="memo">メモ/理由:</label>
-                <textarea id="memo" placeholder="遅刻の罰則、大きな役の記録など"></textarea>
-            </div>
-            
-            <button type="submit" id="submit-button">結果を反映する</button>
-            <p id="message" class="hidden"></p>
-        </form>
+                <div class="form-group">
+                    <label for="memo">メモ/理由:</label>
+                    <textarea id="memo" placeholder="遅刻の罰則、大きな役の記録など"></textarea>
+                </div>
+                
+                <button type="submit" id="submit-button">結果を反映する</button>
+                <p id="message" class="hidden"></p>
+            </form>
+        </div>
     </main>
 
     <script src="assets/js/common.js"></script>
