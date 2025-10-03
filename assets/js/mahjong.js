@@ -9,7 +9,6 @@ const SUBMIT_BUTTON = document.getElementById('submit-button');
 const AUTH_FORM = document.getElementById('auth-form');
 const MAHJONG_TOOLS = document.getElementById('mahjong-tools');
 const AUTH_MESSAGE = document.getElementById('auth-message');
-const MASTER_PASSWORD = "21082"; // master.jsから共通のパスワードをコピー
 
 let PARTICIPANT_NAMES = []; 
 
