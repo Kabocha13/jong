@@ -1,6 +1,5 @@
 // assets/js/master.js
 
-const MASTER_PASSWORD = "21082"; // 簡易認証パスワード
 const AUTH_FORM = document.getElementById('auth-form');
 const ADMIN_TOOLS = document.getElementById('admin-tools');
 const AUTH_MESSAGE = document.getElementById('auth-message');
