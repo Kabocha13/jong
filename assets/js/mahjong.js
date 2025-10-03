@@ -13,7 +13,7 @@ const AUTH_MESSAGE = document.getElementById('auth-message');
 let PARTICIPANT_NAMES = []; 
 
 // --- 定数：麻雀ルール ---
-const POINT_RATE = 1000; // 1000点 = 1ポイント
+const POINT_RATE = 3000; // 1000点 = 1ポイント
 const UMA_OKA = [-2, -1, 1, 3]; // 4位, 3位, 2位, 1位 のボーナス/ペナルティ点 (例: 10-20ウマ)
 const STARTING_SCORE = 30000; // 基準点
 
