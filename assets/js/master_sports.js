@@ -263,6 +263,48 @@ function addEditOddsRow(container) {
 
 
 /**
+ * 投票フォームの対象くじセレクトボックスを更新する (★修正箇所★)
+ */
+function updateWagerForm(allBets) {
+    const openBets = allBets.filter(bet => bet.status === 'OPEN');
+    let options = ''; // 最初のdisabled selected optionを削除
+    let firstBetId = null;
+    
+    openBets.forEach((bet, index) => {
+        // 最初のくじを自動選択する
+        if (index === 0) {
+            firstBetId = bet.betId;
+        }
+        options += `<option value="${bet.betId}" ${index === 0 ? 'selected' : ''}>${bet.matchName}</option>`;
+    });
+
+    // 開催中のくじがない場合は、デフォルトの選択肢を表示
+    if (openBets.length === 0) {
+        options = '<option value="" disabled selected>開催中のくじはありません</option>';
+    } else {
+        // 開催中のくじがある場合、最初のオプションがselectedになっているため、"開催中のくじを選択"は不要
+    }
+    
+    TARGET_BET_SELECT.innerHTML = options;
+    
+    // 対象くじが選択されたら、選択肢(オッズ)を更新
+    TARGET_BET_SELECT.removeEventListener('change', updateWagerSelectionOptions);
+    TARGET_BET_SELECT.addEventListener('change', updateWagerSelectionOptions);
+
+    // 開催中のくじが存在する場合、最初のくじを強制的に選択し、選択肢のロードを実行
+    if (firstBetId) {
+        TARGET_BET_SELECT.value = firstBetId; // valueを手動で設定
+    } else {
+        // くじがない場合、valueは空のまま
+        TARGET_BET_SELECT.value = "";
+    }
+    
+    // 選択肢のロードを実行
+    updateWagerSelectionOptions();
+}
+
+
+/**
  * 選択されたくじに基づいて、投票選択肢のオッズを表示する
  */
 function updateWagerSelectionOptions() {
@@ -346,7 +388,7 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
         if (response.status === 'success') {
             showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})`, 'success');
             CREATE_BET_FORM.reset();
-            // ★修正: 初期状態のオッズ行をクリアし、デフォルトを再追加する処理をより確実に実行★
+            // 初期状態のオッズ行をクリアし、デフォルトを再追加する処理をより確実に実行
             GENERIC_ODDS_CONTAINER.innerHTML = ''; 
             addGenericOddsRow('馬Aの勝利', 2.5); // デフォルト値を設定
             addGenericOddsRow('プレイヤーBが1位', 5.0); // デフォルト値を設定
@@ -381,7 +423,7 @@ WAGER_FORM.addEventListener('submit', async (e) => {
         const betIndex = currentData.sports_bets.findIndex(b => b.betId === betId);
 
         if (betIndex === -1 || currentData.sports_bets[betIndex].status !== 'OPEN') {
-            // ★このメッセージが出ている場合、対象くじのドロップダウンにOPENのくじが表示されていない可能性があります。
+            // 対象くじがドロップダウンに表示されていても、データ上でCLOSEDになっていればここで弾かれる
             showMessage(messageEl, '❌ 開催中のくじではありません。', 'error');
             return;
         }
@@ -398,8 +440,10 @@ WAGER_FORM.addEventListener('submit', async (e) => {
         if (response.status === 'success') {
             showMessage(messageEl, `✅ ${player}様の ${amount} P (選択: ${selection}) の投票を登録しました。`, 'success');
             WAGER_FORM.reset();
-            loadBettingData(); // リストを再ロード
-            loadPlayerList(); // プレイヤーリストも再ロード（念のため）
+            // プレイヤー選択肢がリセットされるため、再度ロード
+            loadPlayerList(); 
+            // くじリストも再ロード
+            loadBettingData(); 
         } else {
             showMessage(messageEl, `❌ 投票エラー: ${response.message}`, 'error');
         }
