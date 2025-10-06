@@ -31,39 +31,32 @@
         <section id="sports-tools" class="hidden">
             <h2>くじ管理ツール</h2>
 
-            <!-- 1. 新規くじ作成フォーム -->
+            <!-- 1. 新規くじ作成フォーム (変更箇所: 汎用オッズ設定) -->
             <div class="tool-box">
                 <h3>📝 新規くじ作成・オッズ設定</h3>
                 <form id="create-bet-form">
                     <div class="form-group">
-                        <label for="match-name">試合名/くじ名:</label>
-                        <input type="text" id="match-name" required placeholder="例: 日本代表 vs スペイン (勝利チーム)">
+                        <label for="match-name">くじ名:</label>
+                        <input type="text" id="match-name" required placeholder="例: 陸上100m優勝者, 競馬G1結果">
                     </div>
                     
-                    <h4>勝利/引き分け オッズ</h4>
-                    <div class="form-group">
-                        <label>オッズ設定 (A勝利 / 引き分け / B勝利):</label>
-                        <div class="odds-group">
-                            <input type="number" id="odds-a" step="0.01" min="1.0" required value="2.0" placeholder="A勝利オッズ">
-                            <input type="number" id="odds-draw" step="0.01" min="1.0" required value="3.0" placeholder="引き分けオッズ">
-                            <input type="number" id="odds-b" step="0.01" min="1.0" required value="2.0" placeholder="B勝利オッズ">
+                    <!-- 汎用的なオッズ設定フィールド -->
+                    <h4>🏆 順位/結果オッズ設定</h4>
+                    <p class="instruction">くじの選択肢（結果）名と、それぞれのオッズを入力してください。これらはプレイヤーの投票選択肢になります。</p>
+                    
+                    <div id="generic-odds-container">
+                        <div class="generic-odds-row form-group">
+                            <input type="text" class="selection-input" placeholder="選択肢名 (例: 馬Aの勝利)" value="馬Aの勝利">
+                            <input type="number" class="odds-input" step="0.1" min="1.0" required value="2.5" placeholder="オッズ">
+                            <button type="button" class="remove-generic-odds-button action-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
+                        </div>
+                        <div class="generic-odds-row form-group">
+                            <input type="text" class="selection-input" placeholder="選択肢名 (例: プレイヤーBが1位)" value="プレイヤーBが1位">
+                            <input type="number" class="odds-input" step="0.1" min="1.0" required value="5.0" placeholder="オッズ">
+                            <button type="button" class="remove-generic-odds-button action-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
                         </div>
                     </div>
-
-                    <!-- スコア予想オッズ (新規追加) -->
-                    <h4>🎯 スコア予想 オッズ (オプショナル)</h4>
-                    <p class="instruction">点数ぴったりのオッズを設定します。A-Bの形式でスコアを入力し、オッズを設定してください。</p>
-                    <div id="score-odds-container">
-                        <div class="score-odds-row form-group">
-                            <input type="text" class="score-input" placeholder="スコア例: 1-0" value="1-0">
-                            <input type="number" class="odds-input" step="0.1" min="5.0" placeholder="オッズ (例: 15.0)" value="15.0">
-                        </div>
-                        <div class="score-odds-row form-group">
-                            <input type="text" class="score-input" placeholder="スコア例: 2-1" value="2-1">
-                            <input type="number" class="odds-input" step="0.1" min="5.0" placeholder="オッズ (例: 20.0)" value="20.0">
-                        </div>
-                    </div>
-                    <button type="button" id="add-score-odds-button" class="action-button" style="background-color: #6c757d; margin-top: 0; width: auto;">+ スコアオッズを追加</button>
+                    <button type="button" id="add-generic-odds-button" class="action-button" style="background-color: #6c757d; margin-top: 0; width: auto;">+ 選択肢を追加</button>
 
                     <button type="submit">くじを作成 (OPEN)</button>
                 </form>
