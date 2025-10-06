@@ -11,7 +11,7 @@ const TARGET_BET_SELECT = document.getElementById('target-bet');
 const WAGER_PLAYER_SELECT = document.getElementById('wager-player');
 const WAGER_SELECTION_SELECT = document.getElementById('wager-selection');
 
-// 変更箇所: 汎用オッズ入力用のコンテナとボタン
+// 汎用オッズ入力用のコンテナとボタン
 const GENERIC_ODDS_CONTAINER = document.getElementById('generic-odds-container'); 
 const ADD_GENERIC_ODDS_BUTTON = document.getElementById('add-generic-odds-button'); 
 
@@ -38,7 +38,8 @@ async function initializeSportsTools() {
     await loadBettingData();
     // ページロード時に一つも選択肢がない場合のために初期行を一つ追加しておく
     if (GENERIC_ODDS_CONTAINER.children.length === 0) {
-        addGenericOddsRow();
+        addGenericOddsRow('馬Aの勝利', 2.5);
+        addGenericOddsRow('プレイヤーBが1位', 5.0);
     }
 }
 
@@ -75,15 +76,15 @@ async function loadBettingData() {
     updateWagerForm(allBets);
 }
 
-// --- 汎用オッズ入力フィールドの動的追加 (変更箇所) ---
-ADD_GENERIC_ODDS_BUTTON.addEventListener('click', addGenericOddsRow);
+// --- 汎用オッズ入力フィールドの動的追加 ---
+ADD_GENERIC_ODDS_BUTTON.addEventListener('click', () => addGenericOddsRow());
 
-function addGenericOddsRow() {
+function addGenericOddsRow(selection = '', odds = '') {
     const row = document.createElement('div');
     row.className = 'generic-odds-row form-group';
     row.innerHTML = `
-        <input type="text" class="selection-input" placeholder="選択肢名 (例: プレイヤーAが1位)">
-        <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ (例: 2.5)">
+        <input type="text" class="selection-input" placeholder="選択肢名 (例: プレイヤーAが1位)" value="${selection}">
+        <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ (例: 2.5)" value="${odds}">
         <button type="button" class="remove-generic-odds-button action-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
     `;
     GENERIC_ODDS_CONTAINER.appendChild(row);
@@ -92,11 +93,38 @@ function addGenericOddsRow() {
     row.querySelector('.remove-generic-odds-button').addEventListener('click', (e) => {
         e.target.closest('.generic-odds-row').remove();
     });
+    
+    return row;
+}
+
+// **新規追加: 既存のオッズデータから編集フォームのHTMLを生成する関数**
+function generateOddsEditHtml(bet) {
+    let editHtml = `<form class="edit-odds-form" data-bet-id="${bet.betId}">`;
+    editHtml += `<p class="instruction" style="margin-top: 5px;">⚠️ **注意:** 投票受付中のオッズ変更は、公平性を損なう可能性があります。</p>`;
+    editHtml += `<div class="tool-box" style="margin-top: 10px; padding: 10px;" id="edit-odds-container-${bet.betId}">`;
+    
+    const odds = bet.odds || {};
+    Object.entries(odds).forEach(([selection, oddsValue]) => {
+        editHtml += `
+            <div class="generic-odds-row form-group">
+                <input type="text" class="selection-input" placeholder="選択肢名" value="${selection}" required>
+                <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ" value="${oddsValue}">
+                <button type="button" class="remove-edit-odds-button action-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
+            </div>
+        `;
+    });
+    
+    editHtml += '</div>';
+    editHtml += `<button type="button" class="add-edit-odds-button action-button" data-bet-id="${bet.betId}" style="background-color: #6c757d; margin-top: 0; width: auto;">+ 選択肢を追加</button>`;
+    editHtml += `<button type="submit" class="action-button" style="margin-top: 10px; background-color: #007bff;">オッズを更新</button>`;
+    editHtml += `<p id="edit-message-${bet.betId}" class="hidden message"></p>`;
+    editHtml += `</form>`;
+    return editHtml;
 }
 
 
 /**
- * くじ一覧のHTMLを生成し、表示する (変更箇所: 表示ロジックの汎用化)
+ * くじ一覧のHTMLを生成し、表示する (修正: オッズ編集ボタン/フォームの追加)
  * @param {Array<Object>} allBets - すべてのくじのデータ
  */
 function renderBetList(allBets) {
@@ -118,6 +146,7 @@ function renderBetList(allBets) {
         let statusText = '';
         let statusClass = '';
         let managementTools = '';
+        let editFormHtml = ''; // 編集フォーム用の変数
 
         // 汎用オッズリストを生成
         let genericOddsList = '';
@@ -132,13 +161,18 @@ function renderBetList(allBets) {
         if (bet.status === 'OPEN') {
             statusText = '開催中 (投票受付中)';
             statusClass = 'status-open';
+            // オッズ編集ボタンと、編集フォーム表示コンテナを追加
             managementTools = `
                 <button class="action-button close-bet" data-bet-id="${bet.betId}">投票締切</button>
+                <button class="action-button toggle-edit-odds" data-bet-id="${bet.betId}" style="background-color: #ffc107; margin-top: 5px;">オッズ編集</button>
+                <div id="edit-odds-wrapper-${bet.betId}" class="hidden" style="margin-top: 10px;">
+                    ${generateOddsEditHtml(bet)}
+                </div>
             `;
         } else if (bet.status === 'CLOSED') {
             statusText = '締切 (結果待ち)';
             statusClass = 'status-closed';
-            // 結果確定時、当選選択肢の入力が必要になる (変更箇所: 最終結果は選択肢名で入力)
+            // 結果確定時、当選選択肢の入力が必要になる
             managementTools = `
                 <div class="result-tools-score">
                     <p>🎯 当選した選択肢（結果）を入力:</p>
@@ -150,7 +184,7 @@ function renderBetList(allBets) {
                 </div>
             `;
         } else if (bet.status === 'SETTLED') {
-            // 変更箇所: 最終結果キーを表示
+            // 最終結果キーを表示
             statusText = `完了 (当選結果: ${bet.outcome || 'N/A'})`;
             statusClass = 'status-settled';
             managementTools = `<p class="settled-info">このくじは確定済みです。</p>`;
@@ -182,34 +216,53 @@ function renderBetList(allBets) {
 
     // イベントリスナーを再設定
     document.querySelectorAll('.close-bet').forEach(btn => btn.addEventListener('click', handleCloseBet));
-    // 変更箇所: 新しい確定ボタンのセレクタに変更
     document.querySelectorAll('.settle-bet').forEach(btn => btn.addEventListener('click', handleSettleBet));
-}
-
-/**
- * 投票フォームの対象くじセレクトボックスを更新する
- * @param {Array<Object>} allBets - すべてのくじのデータ
- */
-function updateWagerForm(allBets) {
-    const openBets = allBets.filter(bet => bet.status === 'OPEN');
-    let options = '<option value="" disabled selected>開催中のくじを選択</option>';
     
-    openBets.forEach(bet => {
-        options += `<option value="${bet.betId}">${bet.matchName}</option>`;
+    // **新規追加: オッズ編集関連のイベントリスナー**
+    document.querySelectorAll('.toggle-edit-odds').forEach(btn => btn.addEventListener('click', handleToggleEditOdds));
+    
+    // 編集フォーム内の要素のイベントリスナーは、DOMがロードされた後に設定する必要がある
+    document.querySelectorAll('.edit-odds-form').forEach(form => {
+        form.addEventListener('submit', handleEditOdds);
+        
+        // フォーム内の削除ボタンと追加ボタンのイベントリスナーもここで設定
+        const betId = form.dataset.betId;
+        const container = document.getElementById(`edit-odds-container-${betId}`);
+
+        form.querySelector('.add-edit-odds-button').addEventListener('click', (e) => {
+             // 編集フォーム用の追加関数
+             addEditOddsRow(container);
+        });
+        
+        // 既存の削除ボタン
+        container.querySelectorAll('.remove-edit-odds-button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.target.closest('.generic-odds-row').remove();
+            });
+        });
     });
-
-    TARGET_BET_SELECT.innerHTML = options;
-    
-    // 対象くじが選択されたら、選択肢(オッズ)を更新
-    TARGET_BET_SELECT.removeEventListener('change', updateWagerSelectionOptions);
-    TARGET_BET_SELECT.addEventListener('change', updateWagerSelectionOptions);
-
-    // 初期化時にも一度実行
-    updateWagerSelectionOptions();
 }
 
+// **新規追加: 編集フォーム用のオッズ行追加関数**
+function addEditOddsRow(container) {
+    const row = document.createElement('div');
+    row.className = 'generic-odds-row form-group';
+    row.innerHTML = `
+        <input type="text" class="selection-input" placeholder="選択肢名" required>
+        <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ">
+        <button type="button" class="remove-edit-odds-button action-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
+    `;
+    container.appendChild(row);
+    
+    // 削除ボタンのイベントリスナー
+    row.querySelector('.remove-edit-odds-button').addEventListener('click', (e) => {
+        e.target.closest('.generic-odds-row').remove();
+    });
+}
+
+
 /**
- * 選択されたくじに基づいて、投票選択肢のオッズを表示する (変更箇所: 汎用オッズの表示)
+ * 選択されたくじに基づいて、投票選択肢のオッズを表示する
  */
 function updateWagerSelectionOptions() {
     const betId = TARGET_BET_SELECT.value;
@@ -235,10 +288,7 @@ function updateWagerSelectionOptions() {
     }
 }
 
-// --- ヘルパー関数 (不要になったgetOutcomeLabelは削除) ---
-
-
-// --- イベントハンドラ: 新規くじ作成 (変更箇所: 汎用オッズの収集) ---
+// --- イベントハンドラ: 新規くじ作成 ---
 
 CREATE_BET_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -295,10 +345,10 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
         if (response.status === 'success') {
             showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})`, 'success');
             CREATE_BET_FORM.reset();
-            // 初期状態のオッズ行に戻す (既存の行を削除し、デフォルトの行を追加)
+            // 初期状態のオッズ行に戻す
             GENERIC_ODDS_CONTAINER.innerHTML = ''; 
-            addGenericOddsRow(); 
-            addGenericOddsRow(); 
+            addGenericOddsRow('馬Aの勝利', 2.5); // デフォルト値を設定
+            addGenericOddsRow('プレイヤーBが1位', 5.0); // デフォルト値を設定
             loadBettingData(); // リストを再ロード
         } else {
             showMessage(messageEl, `❌ 作成エラー: ${response.message}`, 'error');
@@ -311,7 +361,6 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
 });
 
 // --- イベントハンドラ: 投票（代理購入） ---
-// WAGER_FORMのロジックは変更なし。wager.selectionが汎用的な選択肢名になる。
 
 WAGER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -361,7 +410,6 @@ WAGER_FORM.addEventListener('submit', async (e) => {
 
 
 // --- イベントハンドラ: くじ締切 ---
-// handleCloseBet のロジックは変更なし。
 
 async function handleCloseBet(e) {
     const betId = parseInt(e.target.dataset.betId);
@@ -391,7 +439,97 @@ async function handleCloseBet(e) {
 }
 
 
-// --- イベントハンドラ: 結果確定とポイント反映 (変更箇所: 汎用結果判定) ---
+// **新規追加: オッズ編集フォームの表示切り替え**
+function handleToggleEditOdds(e) {
+    const betId = e.target.dataset.betId;
+    const wrapper = document.getElementById(`edit-odds-wrapper-${betId}`);
+    wrapper.classList.toggle('hidden');
+    
+    if (!wrapper.classList.contains('hidden')) {
+        e.target.textContent = 'オッズ編集を隠す';
+    } else {
+        e.target.textContent = 'オッズ編集';
+    }
+}
+
+
+// **新規追加: オッズ編集の確定処理**
+async function handleEditOdds(e) {
+    e.preventDefault();
+    const form = e.target;
+    const betId = parseInt(form.dataset.betId);
+    const messageEl = document.getElementById(`edit-message-${betId}`);
+
+    // 汎用オッズを収集 (編集フォームから)
+    const genericOdds = {};
+    let allValid = true;
+    let hasAtLeastOne = false;
+    
+    // 編集フォーム内の入力フィールドから値を取得
+    form.querySelectorAll('.generic-odds-row').forEach(row => {
+        const selectionInput = row.querySelector('.selection-input').value.trim();
+        const oddsInput = parseFloat(row.querySelector('.odds-input').value);
+        
+        if (selectionInput && !isNaN(oddsInput) && oddsInput >= 1.0) {
+            genericOdds[selectionInput] = oddsInput;
+            hasAtLeastOne = true;
+        } else if (selectionInput || row.querySelector('.odds-input').value.trim()) {
+            allValid = false;
+            return;
+        }
+    });
+    
+    if (!allValid) {
+        showMessage(messageEl, '❌ 選択肢名と有効なオッズ (1.0以上) を入力してください。', 'error');
+        return;
+    }
+    
+    if (!hasAtLeastOne) {
+        showMessage(messageEl, '❌ オッズを最低一つは設定してください。', 'error');
+        return;
+    }
+    
+    // ボタンを無効化
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    showMessage(messageEl, 'オッズを更新中...', 'info');
+
+
+    try {
+        const currentData = await fetchAllData();
+        const bet = currentData.sports_bets.find(b => b.betId === betId);
+
+        if (!bet || bet.status !== 'OPEN') {
+             showMessage(messageEl, '❌ くじが見つからないか、ステータスが「開催中」ではありません。', 'error');
+             return;
+        }
+
+        // オッズを更新
+        bet.odds = genericOdds;
+
+        // JSONBinに新しい全データをPUTで上書き
+        const response = await updateAllData(currentData);
+
+        if (response.status === 'success') {
+            showMessage(messageEl, `✅ くじ ID:${betId} のオッズを更新しました。`, 'success');
+            // フォームを隠し、リストを再ロードして最新情報を反映
+            document.getElementById(`edit-odds-wrapper-${betId}`).classList.add('hidden');
+            document.querySelector(`.toggle-edit-odds[data-bet-id="${betId}"]`).textContent = 'オッズ編集';
+            loadBettingData();
+        } else {
+            showMessage(messageEl, `❌ 更新エラー: ${response.message}`, 'error');
+        }
+
+    } catch (error) {
+        console.error(error);
+        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+    } finally {
+        submitButton.disabled = false;
+    }
+}
+
+
+// --- イベントハンドラ: 結果確定とポイント反映 ---
 
 async function handleSettleBet(e) {
     const betId = parseInt(e.target.dataset.betId);
