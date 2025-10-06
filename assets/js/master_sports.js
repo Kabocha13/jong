@@ -229,6 +229,7 @@ function renderBetList(allBets) {
         const betId = form.dataset.betId;
         const container = document.getElementById(`edit-odds-container-${betId}`);
 
+        // 追加ボタンのイベントリスナー設定
         form.querySelector('.add-edit-odds-button').addEventListener('click', (e) => {
              // 編集フォーム用の追加関数
              addEditOddsRow(container);
@@ -345,7 +346,7 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
         if (response.status === 'success') {
             showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})`, 'success');
             CREATE_BET_FORM.reset();
-            // 初期状態のオッズ行に戻す
+            // ★修正: 初期状態のオッズ行をクリアし、デフォルトを再追加する処理をより確実に実行★
             GENERIC_ODDS_CONTAINER.innerHTML = ''; 
             addGenericOddsRow('馬Aの勝利', 2.5); // デフォルト値を設定
             addGenericOddsRow('プレイヤーBが1位', 5.0); // デフォルト値を設定
@@ -380,6 +381,7 @@ WAGER_FORM.addEventListener('submit', async (e) => {
         const betIndex = currentData.sports_bets.findIndex(b => b.betId === betId);
 
         if (betIndex === -1 || currentData.sports_bets[betIndex].status !== 'OPEN') {
+            // ★このメッセージが出ている場合、対象くじのドロップダウンにOPENのくじが表示されていない可能性があります。
             showMessage(messageEl, '❌ 開催中のくじではありません。', 'error');
             return;
         }
