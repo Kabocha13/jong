@@ -65,7 +65,7 @@ async function renderScores() {
     // 4. タイトルホルダーの描画
     renderTitles(sortedScores);
     
-    // 5. くじタイルの描画 (修正: 汎用オッズの表示)
+    // 5. くじタイルの描画 (新規追加)
     renderSportsBets(sportsBets, displayScores);
 
     // 6. 最終更新日時の表示
@@ -76,7 +76,7 @@ async function renderScores() {
 }
 
 /**
- * スポーツくじのタイルを描画する関数 (修正: 汎用オッズの表示)
+ * スポーツくじのタイルを描画する関数
  * @param {Array<Object>} sportsBets - sports_betsデータ
  * @param {Array<Object>} displayScores - ランキングに表示されているプレイヤーのスコア
  */
@@ -111,7 +111,6 @@ function renderSportsBets(sportsBets, displayScores) {
             myWagerInfo = `<p class="my-wager-text">✅ 合計賭け金: ${totalWagers} P</p>`;
             myWagerInfo += '<ul class="my-wagers-list">';
             myWagersMap.forEach((amount, selection) => {
-                // selectionは選択肢名そのもの
                 myWagerInfo += `<li>${selection}: ${amount} P</li>`;
             });
             myWagerInfo += '</ul>';
@@ -119,18 +118,17 @@ function renderSportsBets(sportsBets, displayScores) {
             myWagerInfo = `<p class="my-wager-text">まだ投票されていません。</p>`;
         }
         
-        
-        // 汎用オッズを生成
+        // ★修正：汎用オッズリストを生成するロジックをシンプルに変更★
         let genericOddsHtml = '';
         const genericOdds = bet.odds || {};
         if (Object.keys(genericOdds).length > 0) {
-            genericOddsHtml += '<p class="score-odds-header">🏆 選択肢オッズ:</p><ul class="score-odds-list">';
-            Object.entries(genericOdds).slice(0, 5).forEach(([selection, odds]) => { // 最大5つ表示
+            genericOddsHtml += '<p class="score-odds-header">🏆 オッズ:</p><ul class="generic-odds-list-display">';
+            
+            // 制限を設けずに全てのオッズを表示
+            Object.entries(genericOdds).forEach(([selection, odds]) => {
                 genericOddsHtml += `<li>${selection}: <strong>x${odds.toFixed(1)}</strong></li>`;
             });
-            if (Object.keys(genericOdds).length > 5) {
-                genericOddsHtml += `<li>...他${Object.keys(genericOdds).length - 5}件</li>`;
-            }
+            
             genericOddsHtml += '</ul>';
         }
 
@@ -154,22 +152,15 @@ function renderSportsBets(sportsBets, displayScores) {
 }
 
 /**
- * 結果/選択肢のラベルを取得する (この関数はmaster_sports.jsから削除されたため、main.jsからも削除します)
+ * 結果/選択肢のラベルを取得する (この関数は不要になったため削除、代わりに選択肢名を直接使用)
  */
-// function getOutcomeLabel(key) {
-//     switch (key) {
-//         case 'A_WIN': return 'A勝利';
-//         case 'DRAW': return '引き分け';
-//         case 'B_WIN': return 'B勝利';
-//         default: return key; 
-//     }
-// }
+// function getOutcomeLabel(key) { ... }
 
 
 // --- タイトル計算と描画 (既存コード) ---
 function renderTitles(sortedScores) {
     const titles = [];
-
+// ... (後略 - 変更なし)
     if (sortedScores.length === 0) {
         TITLES_CONTAINER.innerHTML = '<p>プレイヤーデータがありません。</p>';
         return;
