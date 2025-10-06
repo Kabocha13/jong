@@ -287,6 +287,19 @@ button[type="submit"]:disabled,
     max-width: 100px;
 }
 
+/* 汎用オッズ入力用 */
+.generic-odds-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.generic-odds-row .selection-input {
+    flex-grow: 1;
+}
+.generic-odds-row .odds-input {
+    max-width: 100px;
+}
+
 .bet-card {
     border: 1px solid #ddd;
     padding: 15px;
@@ -427,6 +440,31 @@ button[type="submit"]:disabled,
     margin: 10px 0 5px 0;
     font-size: 0.95em;
 }
+
+/* ★修正：汎用オッズリストのスタイルを追加/修正★ */
+.generic-odds-list-display {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap; /* ここで折り返しを有効にする */
+    gap: 5px;
+}
+.generic-odds-list-display li {
+    font-size: 0.85em;
+    background-color: #fff;
+    padding: 3px 6px;
+    border-radius: 3px;
+    border: 1px solid #eee;
+    white-space: nowrap; /* 各要素内では折り返さない */
+}
+.generic-odds-list-display strong {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+
+/* 旧スコアオッズリストのスタイル (残しておく) */
 .score-odds-list {
     list-style: none;
     padding: 0;
