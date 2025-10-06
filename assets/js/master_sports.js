@@ -10,8 +10,10 @@ const WAGER_FORM = document.getElementById('wager-form');
 const TARGET_BET_SELECT = document.getElementById('target-bet');
 const WAGER_PLAYER_SELECT = document.getElementById('wager-player');
 const WAGER_SELECTION_SELECT = document.getElementById('wager-selection');
-const SCORE_ODDS_CONTAINER = document.getElementById('score-odds-container'); // スコアオッズコンテナ
-const ADD_SCORE_ODDS_BUTTON = document.getElementById('add-score-odds-button'); // スコアオッズ追加ボタン
+
+// 変更箇所: 汎用オッズ入力用のコンテナとボタン
+const GENERIC_ODDS_CONTAINER = document.getElementById('generic-odds-container'); 
+const ADD_GENERIC_ODDS_BUTTON = document.getElementById('add-generic-odds-button'); 
 
 let ALL_PLAYERS = []; // プレイヤー名を格納する配列
 
@@ -34,6 +36,10 @@ AUTH_FORM.addEventListener('submit', (e) => {
 async function initializeSportsTools() {
     await loadPlayerList();
     await loadBettingData();
+    // ページロード時に一つも選択肢がない場合のために初期行を一つ追加しておく
+    if (GENERIC_ODDS_CONTAINER.children.length === 0) {
+        addGenericOddsRow();
+    }
 }
 
 /**
@@ -69,26 +75,28 @@ async function loadBettingData() {
     updateWagerForm(allBets);
 }
 
-// --- スコアオッズ入力フィールドの動的追加 ---
-ADD_SCORE_ODDS_BUTTON.addEventListener('click', () => {
+// --- 汎用オッズ入力フィールドの動的追加 (変更箇所) ---
+ADD_GENERIC_ODDS_BUTTON.addEventListener('click', addGenericOddsRow);
+
+function addGenericOddsRow() {
     const row = document.createElement('div');
-    row.className = 'score-odds-row form-group';
+    row.className = 'generic-odds-row form-group';
     row.innerHTML = `
-        <input type="text" class="score-input" placeholder="スコア例: 1-0">
-        <input type="number" class="odds-input" step="0.1" min="5.0" placeholder="オッズ">
-        <button type="button" class="remove-score-odds-button action-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
+        <input type="text" class="selection-input" placeholder="選択肢名 (例: プレイヤーAが1位)">
+        <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ (例: 2.5)">
+        <button type="button" class="remove-generic-odds-button action-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
     `;
-    SCORE_ODDS_CONTAINER.appendChild(row);
+    GENERIC_ODDS_CONTAINER.appendChild(row);
 
     // 削除ボタンのイベントリスナー設定
-    row.querySelector('.remove-score-odds-button').addEventListener('click', (e) => {
-        e.target.closest('.score-odds-row').remove();
+    row.querySelector('.remove-generic-odds-button').addEventListener('click', (e) => {
+        e.target.closest('.generic-odds-row').remove();
     });
-});
+}
 
 
 /**
- * くじ一覧のHTMLを生成し、表示する
+ * くじ一覧のHTMLを生成し、表示する (変更箇所: 表示ロジックの汎用化)
  * @param {Array<Object>} allBets - すべてのくじのデータ
  */
 function renderBetList(allBets) {
@@ -111,15 +119,12 @@ function renderBetList(allBets) {
         let statusClass = '';
         let managementTools = '';
 
-        const oddsA = bet.odds.A_WIN.toFixed(2);
-        const oddsD = bet.odds.DRAW.toFixed(2);
-        const oddsB = bet.odds.B_WIN.toFixed(2);
-        
-        let scoreOddsList = '';
-        const scoreOdds = bet.odds.SCORE || {};
-        if (Object.keys(scoreOdds).length > 0) {
-            scoreOddsList = Object.entries(scoreOdds).map(([score, odds]) => 
-                `<span class="score-odds-item">${score}: x${odds.toFixed(1)}</span>`
+        // 汎用オッズリストを生成
+        let genericOddsList = '';
+        const genericOdds = bet.odds || {};
+        if (Object.keys(genericOdds).length > 0) {
+            genericOddsList = Object.entries(genericOdds).map(([selection, odds]) => 
+                `<span class="score-odds-item">${selection}: x${odds.toFixed(1)}</span>`
             ).join(', ');
         }
 
@@ -133,36 +138,34 @@ function renderBetList(allBets) {
         } else if (bet.status === 'CLOSED') {
             statusText = '締切 (結果待ち)';
             statusClass = 'status-closed';
-            // 結果確定時、最終スコアの入力が必要になる
+            // 結果確定時、当選選択肢の入力が必要になる (変更箇所: 最終結果は選択肢名で入力)
             managementTools = `
                 <div class="result-tools-score">
-                    <p>最終スコアを入力:</p>
+                    <p>🎯 当選した選択肢（結果）を入力:</p>
                     <div class="form-group score-input-group">
-                        <input type="number" class="final-score" data-team="A" placeholder="A点" min="0" required style="width: 40%; display: inline;">
-                        <span style="display: inline; font-size: 1.5em; padding: 0 5px;">-</span>
-                        <input type="number" class="final-score" data-team="B" placeholder="B点" min="0" required style="width: 40%; display: inline;">
+                        <input type="text" class="final-outcome-key" placeholder="例: 馬Aの勝利" required style="width: 80%; display: inline;">
                     </div>
                     
-                    <button class="action-button settle-bet-win-draw" data-bet-id="${bet.betId}">勝利/引き分け結果を確定</button>
+                    <button class="action-button settle-bet" data-bet-id="${bet.betId}">結果を確定し、ポイントを反映</button>
                 </div>
             `;
         } else if (bet.status === 'SETTLED') {
-            statusText = `完了 (確定結果: ${getOutcomeLabel(bet.outcome)} - ${bet.finalScore || 'N/A'})`;
+            // 変更箇所: 最終結果キーを表示
+            statusText = `完了 (当選結果: ${bet.outcome || 'N/A'})`;
             statusClass = 'status-settled';
             managementTools = `<p class="settled-info">このくじは確定済みです。</p>`;
         }
         
         let wagersHtml = bet.wagers.length > 0 ? 
-            bet.wagers.map(w => `<li class="wager-item">${w.player}: ${w.amount} P → ${getOutcomeLabel(w.selection)}</li>`).join('') :
-            '<li>まだ投票はありません。</li>';
+            bet.wagers.map(w => `<li class="wager-item">${w.player}: ${w.amount} P → ${w.selection}</li>`).join('') :
+            '<li>まだ投票はありません。</li>'; // w.selectionは既に選択肢名
 
         html += `
             <div class="bet-card ${statusClass}">
                 <h3>${bet.matchName} (#${bet.betId})</h3>
                 <p class="status-label">ステータス: <span class="${statusClass}">${statusText}</span></p>
                 <div class="odds-info">
-                    <strong>勝利/引分:</strong> A(${oddsA}) / D(${oddsD}) / B(${oddsB})
-                    ${scoreOddsList ? `<br><strong>🎯 スコア予想:</strong> ${scoreOddsList}` : ''}
+                    <strong>オッズ:</strong> ${genericOddsList}
                 </div>
                 <div class="wager-info">
                     <strong>合計投票:</strong> ${totalWagers} P (${bet.wagers.length}件)
@@ -179,7 +182,8 @@ function renderBetList(allBets) {
 
     // イベントリスナーを再設定
     document.querySelectorAll('.close-bet').forEach(btn => btn.addEventListener('click', handleCloseBet));
-    document.querySelectorAll('.settle-bet-win-draw').forEach(btn => btn.addEventListener('click', handleSettleBet));
+    // 変更箇所: 新しい確定ボタンのセレクタに変更
+    document.querySelectorAll('.settle-bet').forEach(btn => btn.addEventListener('click', handleSettleBet));
 }
 
 /**
@@ -205,7 +209,7 @@ function updateWagerForm(allBets) {
 }
 
 /**
- * 選択されたくじに基づいて、投票選択肢のオッズを表示する
+ * 選択されたくじに基づいて、投票選択肢のオッズを表示する (変更箇所: 汎用オッズの表示)
  */
 function updateWagerSelectionOptions() {
     const betId = TARGET_BET_SELECT.value;
@@ -217,76 +221,59 @@ function updateWagerSelectionOptions() {
             if (bet) {
                 const odds = bet.odds;
                 
-                // 1. 勝利/引き分け
-                WAGER_SELECTION_SELECT.innerHTML += `<option value="A_WIN">${getOutcomeLabel('A_WIN')} (${odds.A_WIN.toFixed(2)})</option>`;
-                WAGER_SELECTION_SELECT.innerHTML += `<option value="DRAW">${getOutcomeLabel('DRAW')} (${odds.DRAW.toFixed(2)})</option>`;
-                WAGER_SELECTION_SELECT.innerHTML += `<option value="B_WIN">${getOutcomeLabel('B_WIN')} (${odds.B_WIN.toFixed(2)})</option>`;
-                
-                // 2. スコア予想 (SCOREが存在する場合のみ)
-                if (odds.SCORE && Object.keys(odds.SCORE).length > 0) {
-                     WAGER_SELECTION_SELECT.innerHTML += `<option disabled>--- スコア予想 ---</option>`;
-                    Object.entries(odds.SCORE).forEach(([score, scoreOdds]) => {
-                        WAGER_SELECTION_SELECT.innerHTML += `<option value="${score}">${score} (${scoreOdds.toFixed(1)})</option>`;
+                // 汎用オッズ
+                if (odds && Object.keys(odds).length > 0) {
+                    Object.entries(odds).forEach(([selection, selectionOdds]) => {
+                        // valueと表示テキストはどちらも選択肢名（selection）を使用
+                        WAGER_SELECTION_SELECT.innerHTML += `<option value="${selection}">${selection} (x${selectionOdds.toFixed(1)})</option>`;
                     });
+                } else {
+                     WAGER_SELECTION_SELECT.innerHTML += `<option disabled>オッズが設定されていません</option>`;
                 }
             }
         });
     }
 }
 
-// --- ヘルパー関数 ---
+// --- ヘルパー関数 (不要になったgetOutcomeLabelは削除) ---
 
-/**
- * 結果/選択肢のラベルを取得する
- * @param {string} key - A_WIN, DRAW, B_WIN, またはスコア (例: '2-1')
- * @returns {string} ラベル
- */
-function getOutcomeLabel(key) {
-    switch (key) {
-        case 'A_WIN': return 'A勝利';
-        case 'DRAW': return '引き分け';
-        case 'B_WIN': return 'B勝利';
-        default: return key; // スコアの場合はそのまま返す
-    }
-}
 
-// --- イベントハンドラ: 新規くじ作成 ---
+// --- イベントハンドラ: 新規くじ作成 (変更箇所: 汎用オッズの収集) ---
 
 CREATE_BET_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('create-message');
     const matchName = document.getElementById('match-name').value;
-    const oddsA = parseFloat(document.getElementById('odds-a').value);
-    const oddsDraw = parseFloat(document.getElementById('odds-draw').value);
-    const oddsB = parseFloat(document.getElementById('odds-b').value);
 
-    // スコア予想オッズを収集
-    const scoreOdds = {};
-    let scoreValid = true;
-    document.querySelectorAll('#score-odds-container .score-odds-row').forEach(row => {
-        const scoreInput = row.querySelector('.score-input').value.trim();
+    // 汎用オッズを収集
+    const genericOdds = {};
+    let allValid = true;
+    let hasAtLeastOne = false;
+    
+    document.querySelectorAll('#generic-odds-container .generic-odds-row').forEach(row => {
+        const selectionInput = row.querySelector('.selection-input').value.trim();
         const oddsInput = parseFloat(row.querySelector('.odds-input').value);
         
-        if (scoreInput && !isNaN(oddsInput) && oddsInput >= 1.0) {
-             // スコア形式の簡易チェック (数字-数字)
-            if (!/^\d+-\d+$/.test(scoreInput)) {
-                scoreValid = false;
-                return;
-            }
-            scoreOdds[scoreInput] = oddsInput;
+        if (selectionInput && !isNaN(oddsInput) && oddsInput >= 1.0) {
+            genericOdds[selectionInput] = oddsInput;
+            hasAtLeastOne = true;
+        } else if (selectionInput || row.querySelector('.odds-input').value.trim()) {
+            // 一部入力があるが無効な場合
+            allValid = false;
+            return;
         }
-        // 未入力の行は無視する
     });
     
-    if (!scoreValid) {
-        showMessage(messageEl, '❌ スコア予想の形式が不正です（例: 1-0）。', 'error');
+    if (!allValid) {
+        showMessage(messageEl, '❌ 選択肢名と有効なオッズ (1.0以上) を入力してください。', 'error');
+        return;
+    }
+    
+    if (!hasAtLeastOne) {
+        showMessage(messageEl, '❌ オッズを最低一つは設定してください。', 'error');
         return;
     }
 
-    if (isNaN(oddsA) || isNaN(oddsDraw) || isNaN(oddsB)) {
-        showMessage(messageEl, '❌ 勝利/引き分けオッズは数値で入力してください。', 'error');
-        return;
-    }
 
     try {
         const currentData = await fetchAllData();
@@ -297,14 +284,8 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
             betId: newBetId,
             matchName: matchName,
             status: 'OPEN',
-            outcome: null, // 勝利/引分結果
-            finalScore: null, // 最終スコア (例: '2-1')
-            odds: {
-                A_WIN: oddsA,
-                DRAW: oddsDraw,
-                B_WIN: oddsB,
-                SCORE: scoreOdds // スコア予想オッズを追加
-            },
+            outcome: null, // 当選した選択肢のキー (例: '馬Aの勝利')
+            odds: genericOdds, // 汎用オッズを使用
             wagers: [] // プレイヤーの投票
         };
 
@@ -314,6 +295,10 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
         if (response.status === 'success') {
             showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})`, 'success');
             CREATE_BET_FORM.reset();
+            // 初期状態のオッズ行に戻す (既存の行を削除し、デフォルトの行を追加)
+            GENERIC_ODDS_CONTAINER.innerHTML = ''; 
+            addGenericOddsRow(); 
+            addGenericOddsRow(); 
             loadBettingData(); // リストを再ロード
         } else {
             showMessage(messageEl, `❌ 作成エラー: ${response.message}`, 'error');
@@ -326,6 +311,7 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
 });
 
 // --- イベントハンドラ: 投票（代理購入） ---
+// WAGER_FORMのロジックは変更なし。wager.selectionが汎用的な選択肢名になる。
 
 WAGER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -333,7 +319,7 @@ WAGER_FORM.addEventListener('submit', async (e) => {
     const betId = parseInt(TARGET_BET_SELECT.value);
     const player = WAGER_PLAYER_SELECT.value;
     const amount = parseFloat(document.getElementById('wager-amount').value);
-    const selection = WAGER_SELECTION_SELECT.value;
+    const selection = WAGER_SELECTION_SELECT.value; // 選択肢名がそのままキーになる
 
     if (!betId || !player || isNaN(amount) || amount <= 0 || !selection) {
         showMessage(messageEl, '❌ すべての項目を正しく入力してください。', 'error');
@@ -359,7 +345,7 @@ WAGER_FORM.addEventListener('submit', async (e) => {
 
         const response = await updateAllData(currentData);
         if (response.status === 'success') {
-            showMessage(messageEl, `✅ ${player}様の ${amount} P (選択: ${getOutcomeLabel(selection)}) の投票を登録しました。`, 'success');
+            showMessage(messageEl, `✅ ${player}様の ${amount} P (選択: ${selection}) の投票を登録しました。`, 'success');
             WAGER_FORM.reset();
             loadBettingData(); // リストを再ロード
             loadPlayerList(); // プレイヤーリストも再ロード（念のため）
@@ -375,6 +361,7 @@ WAGER_FORM.addEventListener('submit', async (e) => {
 
 
 // --- イベントハンドラ: くじ締切 ---
+// handleCloseBet のロジックは変更なし。
 
 async function handleCloseBet(e) {
     const betId = parseInt(e.target.dataset.betId);
@@ -404,39 +391,25 @@ async function handleCloseBet(e) {
 }
 
 
-// --- イベントハンドラ: 結果確定とポイント反映 (重要機能) ---
+// --- イベントハンドラ: 結果確定とポイント反映 (変更箇所: 汎用結果判定) ---
 
 async function handleSettleBet(e) {
     const betId = parseInt(e.target.dataset.betId);
     
-    // スコア入力を取得
+    // 当選選択肢の入力を取得
     const betCard = e.target.closest('.bet-card');
-    const scoreAInput = betCard.querySelector(`.final-score[data-team="A"]`);
-    const scoreBInput = betCard.querySelector(`.final-score[data-team="B"]`);
+    const finalOutcomeKeyInput = betCard.querySelector(`.final-outcome-key`);
+    const finalOutcomeKey = finalOutcomeKeyInput.value.trim(); // 当選した選択肢名 (例: '馬Aの勝利')
 
-    const scoreA = parseInt(scoreAInput.value, 10);
-    const scoreB = parseInt(scoreBInput.value, 10);
-    const finalScoreKey = `${scoreA}-${scoreB}`;
-
-    if (isNaN(scoreA) || isNaN(scoreB)) {
-        showMessage(document.getElementById('wager-message'), '❌ 最終スコアを正しく入力してください。', 'error');
+    if (!finalOutcomeKey) {
+        showMessage(document.getElementById('wager-message'), '❌ 当選した選択肢名を入力してください。', 'error');
         return;
     }
 
-    if (!confirm(`くじ ID:${betId} の結果を【最終スコア: ${finalScoreKey}】で確定し、ポイントを反映しますか？元に戻せません。`)) {
+    if (!confirm(`くじ ID:${betId} の結果を【当選選択肢: ${finalOutcomeKey}】で確定し、ポイントを反映しますか？元に戻せません。`)) {
         return;
     }
     
-    // 勝利/引き分けの結果を決定
-    let resultOutcome = '';
-    if (scoreA > scoreB) {
-        resultOutcome = 'A_WIN';
-    } else if (scoreA < scoreB) {
-        resultOutcome = 'B_WIN';
-    } else {
-        resultOutcome = 'DRAW';
-    }
-
     // ボタンを無効化して二重送信を防ぐ
     betCard.querySelectorAll('.action-button').forEach(btn => btn.disabled = true);
 
@@ -450,36 +423,30 @@ async function handleSettleBet(e) {
         }
 
         const oddsMap = bet.odds;
+        // 入力された当選キーがオッズに存在するか確認
+        const winningOdds = oddsMap[finalOutcomeKey];
+        if (!winningOdds) {
+             showMessage(document.getElementById('wager-message'), `❌ 入力された結果「${finalOutcomeKey}」はオッズに設定されていません。入力ミスがないか確認してください。`, 'error');
+             betCard.querySelectorAll('.action-button').forEach(btn => btn.disabled = false);
+             return;
+        }
+        
         let scoreChanges = new Map(currentData.scores.map(p => [p.name, p.score]));
         let historyChanges = [];
         let totalPointChange = 0; // ログ用
 
-        // --- ポイント計算ロジック ---
+        // --- ポイント計算ロジック (汎用化) ---
         bet.wagers.forEach(wager => {
             let change = 0;
-            const selectionKey = wager.selection;
+            const selectionKey = wager.selection; // 投票された選択肢名
             
-            // 1. 勝利/引き分け予想の場合
-            if (selectionKey === 'A_WIN' || selectionKey === 'DRAW' || selectionKey === 'B_WIN') {
-                if (selectionKey === resultOutcome) {
-                    // 当選: 獲得ポイント = 掛け金 * (オッズ - 1)
-                    change = wager.amount * (oddsMap[selectionKey] - 1);
-                } else {
-                    // 敗北: ペナルティ = -掛け金
-                    change = -wager.amount;
-                }
-            } 
-            // 2. スコア予想の場合
-            else if (oddsMap.SCORE && oddsMap.SCORE[selectionKey]) {
-                if (selectionKey === finalScoreKey) {
-                    // スコアぴったり当選: 獲得ポイント = 掛け金 * (オッズ - 1)
-                    change = wager.amount * (oddsMap.SCORE[selectionKey] - 1);
-                } else {
-                    // 敗北: ペナルティ = -掛け金
-                    change = -wager.amount;
-                }
+            if (selectionKey === finalOutcomeKey) {
+                // 当選: 獲得ポイント = 掛け金 * (オッズ - 1)
+                change = wager.amount * (winningOdds - 1);
+            } else {
+                // 敗北: ペナルティ = -掛け金
+                change = -wager.amount;
             }
-            // 3. その他（予期せぬ選択肢）はポイント変動なし
 
             const currentScore = scoreChanges.get(wager.player) || 0;
             scoreChanges.set(wager.player, currentScore + change);
@@ -494,8 +461,9 @@ async function handleSettleBet(e) {
         // --- データ更新 ---
         
         // 1. sports_bets を更新
-        bet.outcome = resultOutcome; // 勝利/引分結果を記録
-        bet.finalScore = finalScoreKey; // 最終スコアを記録
+        bet.outcome = finalOutcomeKey; // 当選選択肢のキーを記録
+        // 既存の finalScore は削除またはnullを保持
+        delete bet.finalScore; 
         bet.status = 'SETTLED';
 
         // 2. scores を更新
@@ -509,7 +477,7 @@ async function handleSettleBet(e) {
             timestamp: new Date().toISOString(),
             ranks: ['BET'], // くじであることを示すタイプ
             changes: historyChanges,
-            memo: `[スポーツくじ] ${bet.matchName} 結果確定: ${getOutcomeLabel(resultOutcome)} (スコア: ${finalScoreKey}). 総ポイント変動: ${totalPointChange.toFixed(1)} P`,
+            memo: `[スポーツくじ] ${bet.matchName} 結果確定: 当選選択肢「${finalOutcomeKey}」. 総ポイント変動: ${totalPointChange.toFixed(1)} P`,
             gameId: `BET-${betId}-${Date.now()}`
         };
         currentData.history.push(historyEntry);
@@ -518,7 +486,7 @@ async function handleSettleBet(e) {
         const response = await updateAllData(currentData);
 
         if (response.status === 'success') {
-            showMessage(document.getElementById('wager-message'), `✅ くじ ID:${betId} の結果を【最終スコア: ${finalScoreKey}】で確定し、ポイントを反映しました。`, 'success');
+            showMessage(document.getElementById('wager-message'), `✅ くじ ID:${betId} の結果を【当選選択肢: ${finalOutcomeKey}】で確定し、ポイントを反映しました。`, 'success');
             loadBettingData();
             loadPlayerList();
         } else {
@@ -533,6 +501,3 @@ async function handleSettleBet(e) {
         betCard.querySelectorAll('.action-button').forEach(btn => btn.disabled = false);
     }
 }
-
-// 認証成功時に一度実行
-// initializeSportsTools(); // 認証後に実行するためコメントアウト
