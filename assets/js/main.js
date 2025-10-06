@@ -65,7 +65,7 @@ async function renderScores() {
     // 4. タイトルホルダーの描画
     renderTitles(sortedScores);
     
-    // 5. くじタイルの描画 (新規追加)
+    // 5. くじタイルの描画 (修正: 汎用オッズの表示)
     renderSportsBets(sportsBets, displayScores);
 
     // 6. 最終更新日時の表示
@@ -76,7 +76,7 @@ async function renderScores() {
 }
 
 /**
- * スポーツくじのタイルを描画する関数
+ * スポーツくじのタイルを描画する関数 (修正: 汎用オッズの表示)
  * @param {Array<Object>} sportsBets - sports_betsデータ
  * @param {Array<Object>} displayScores - ランキングに表示されているプレイヤーのスコア
  */
@@ -111,29 +111,27 @@ function renderSportsBets(sportsBets, displayScores) {
             myWagerInfo = `<p class="my-wager-text">✅ 合計賭け金: ${totalWagers} P</p>`;
             myWagerInfo += '<ul class="my-wagers-list">';
             myWagersMap.forEach((amount, selection) => {
-                myWagerInfo += `<li>${getOutcomeLabel(selection)}: ${amount} P</li>`;
+                // selectionは選択肢名そのもの
+                myWagerInfo += `<li>${selection}: ${amount} P</li>`;
             });
             myWagerInfo += '</ul>';
         } else {
             myWagerInfo = `<p class="my-wager-text">まだ投票されていません。</p>`;
         }
         
-        const oddsA = bet.odds.A_WIN.toFixed(2);
-        const oddsD = bet.odds.DRAW.toFixed(2);
-        const oddsB = bet.odds.B_WIN.toFixed(2);
         
-        // スコア予想オッズを生成
-        let scoreOddsHtml = '';
-        const scoreOdds = bet.odds.SCORE || {};
-        if (Object.keys(scoreOdds).length > 0) {
-            scoreOddsHtml += '<p class="score-odds-header">🎯 スコア予想オッズ:</p><ul class="score-odds-list">';
-            Object.entries(scoreOdds).slice(0, 3).forEach(([score, odds]) => { // 最大3つ表示
-                scoreOddsHtml += `<li>${score}: <strong>x${odds.toFixed(1)}</strong></li>`;
+        // 汎用オッズを生成
+        let genericOddsHtml = '';
+        const genericOdds = bet.odds || {};
+        if (Object.keys(genericOdds).length > 0) {
+            genericOddsHtml += '<p class="score-odds-header">🏆 選択肢オッズ:</p><ul class="score-odds-list">';
+            Object.entries(genericOdds).slice(0, 5).forEach(([selection, odds]) => { // 最大5つ表示
+                genericOddsHtml += `<li>${selection}: <strong>x${odds.toFixed(1)}</strong></li>`;
             });
-            if (Object.keys(scoreOdds).length > 3) {
-                scoreOddsHtml += `<li>...他${Object.keys(scoreOdds).length - 3}件</li>`;
+            if (Object.keys(genericOdds).length > 5) {
+                genericOddsHtml += `<li>...他${Object.keys(genericOdds).length - 5}件</li>`;
             }
-            scoreOddsHtml += '</ul>';
+            genericOddsHtml += '</ul>';
         }
 
         const statusClass = bet.status === 'OPEN' ? 'status-open' : 'status-closed';
@@ -143,13 +141,7 @@ function renderSportsBets(sportsBets, displayScores) {
             <div class="bet-tile ${statusClass}">
                 <h4>${statusText} ${bet.matchName} (#${bet.betId})</h4>
                 <div class="odds-info-display">
-                    <p>勝敗オッズ:</p>
-                    <div class="odds-list-win-draw">
-                        <span>A勝利: <strong>x${oddsA}</strong></span>
-                        <span>引分: <strong>x${oddsD}</strong></span>
-                        <span>B勝利: <strong>x${oddsB}</strong></span>
-                    </div>
-                    ${scoreOddsHtml}
+                    ${genericOddsHtml}
                 </div>
                 ${myWagerInfo}
                 <p class="total-wager-text">総賭け金: ${bet.wagers.reduce((sum, w) => sum + w.amount, 0)} P</p>
@@ -162,16 +154,16 @@ function renderSportsBets(sportsBets, displayScores) {
 }
 
 /**
- * 結果/選択肢のラベルを取得する (master_sports.jsと共通ロジック)
+ * 結果/選択肢のラベルを取得する (この関数はmaster_sports.jsから削除されたため、main.jsからも削除します)
  */
-function getOutcomeLabel(key) {
-    switch (key) {
-        case 'A_WIN': return 'A勝利';
-        case 'DRAW': return '引き分け';
-        case 'B_WIN': return 'B勝利';
-        default: return key; // スコアの場合はそのまま返す
-    }
-}
+// function getOutcomeLabel(key) {
+//     switch (key) {
+//         case 'A_WIN': return 'A勝利';
+//         case 'DRAW': return '引き分け';
+//         case 'B_WIN': return 'B勝利';
+//         default: return key; 
+//     }
+// }
 
 
 // --- タイトル計算と描画 (既存コード) ---
