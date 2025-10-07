@@ -70,7 +70,8 @@ async function loadPlayerList() {
  */
 async function loadBettingData() {
     const data = await fetchAllData();
-    const allBets = data.sports_bets || [];
+    // データの安全性を確保
+    const allBets = data.sports_bets || []; 
     
     renderBetList(allBets);
     updateWagerForm(allBets);
@@ -313,7 +314,10 @@ function updateWagerSelectionOptions() {
 
     if (betId) {
         fetchAllData().then(data => {
-            const bet = data.sports_bets.find(b => b.betId == betId);
+            // データの安全性を確保
+            const allBets = data.sports_bets || [];
+            const bet = allBets.find(b => b.betId == betId);
+            
             if (bet) {
                 const odds = bet.odds;
                 
@@ -370,6 +374,7 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
 
     try {
         const currentData = await fetchAllData();
+        // ★修正: currentData.sports_bets が存在しない場合、空の配列で初期化する
         const allBets = currentData.sports_bets || [];
         const newBetId = allBets.length > 0 ? Math.max(...allBets.map(b => b.betId)) + 1 : 1;
         
@@ -382,7 +387,11 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
             wagers: [] // プレイヤーの投票
         };
 
-        currentData.sports_bets.push(newBet);
+        // ★修正: allBets (初期化済み配列) に push する
+        allBets.push(newBet);
+        
+        // currentData に allBets を戻す
+        currentData.sports_bets = allBets;
         
         const response = await updateAllData(currentData);
         if (response.status === 'success') {
@@ -420,22 +429,27 @@ WAGER_FORM.addEventListener('submit', async (e) => {
     
     try {
         const currentData = await fetchAllData();
-        const betIndex = currentData.sports_bets.findIndex(b => b.betId === betId);
+        // データの安全性を確保
+        const allBets = currentData.sports_bets || [];
+        const betIndex = allBets.findIndex(b => b.betId === betId);
 
-        if (betIndex === -1 || currentData.sports_bets[betIndex].status !== 'OPEN') {
+        if (betIndex === -1 || allBets[betIndex].status !== 'OPEN') {
             // 対象くじがドロップダウンに表示されていても、データ上でCLOSEDになっていればここで弾かれる
             showMessage(messageEl, '❌ 開催中のくじではありません。', 'error');
             return;
         }
         
         // 投票情報を追加
-        currentData.sports_bets[betIndex].wagers.push({
+        allBets[betIndex].wagers.push({
             player: player,
             amount: amount,
             selection: selection,
             timestamp: new Date().toISOString()
         });
 
+        // 更新された allBets を currentData に戻す
+        currentData.sports_bets = allBets;
+        
         const response = await updateAllData(currentData);
         if (response.status === 'success') {
             showMessage(messageEl, `✅ ${player}様の ${amount} P (選択: ${selection}) の投票を登録しました。`, 'success');
@@ -466,10 +480,13 @@ async function handleCloseBet(e) {
 
     try {
         const currentData = await fetchAllData();
-        const bet = currentData.sports_bets.find(b => b.betId === betId);
+        // データの安全性を確保
+        const allBets = currentData.sports_bets || [];
+        const bet = allBets.find(b => b.betId === betId);
 
         if (bet && bet.status === 'OPEN') {
             bet.status = 'CLOSED';
+            currentData.sports_bets = allBets; // 変更を currentData に戻す
             const response = await updateAllData(currentData);
             if (response.status === 'success') {
                 showMessage(document.getElementById('wager-message'), `✅ くじ ID:${betId} の投票を締め切りました。`, 'success');
@@ -543,7 +560,9 @@ async function handleEditOdds(e) {
 
     try {
         const currentData = await fetchAllData();
-        const bet = currentData.sports_bets.find(b => b.betId === betId);
+        // データの安全性を確保
+        const allBets = currentData.sports_bets || [];
+        const bet = allBets.find(b => b.betId === betId);
 
         if (!bet || bet.status !== 'OPEN') {
              showMessage(messageEl, '❌ くじが見つからないか、ステータスが「開催中」ではありません。', 'error');
@@ -552,6 +571,7 @@ async function handleEditOdds(e) {
 
         // オッズを更新
         bet.odds = genericOdds;
+        currentData.sports_bets = allBets; // 変更を currentData に戻す
 
         // JSONBinに新しい全データをPUTで上書き
         const response = await updateAllData(currentData);
@@ -599,7 +619,9 @@ async function handleSettleBet(e) {
 
     try {
         const currentData = await fetchAllData();
-        const bet = currentData.sports_bets.find(b => b.betId === betId);
+        // データの安全性を確保
+        const allBets = currentData.sports_bets || [];
+        const bet = allBets.find(b => b.betId === betId);
 
         if (!bet || bet.status !== 'CLOSED') {
             showMessage(document.getElementById('wager-message'), '❌ くじが見つからないか、ステータスが「締切」ではありません。', 'error');
@@ -649,6 +671,8 @@ async function handleSettleBet(e) {
         // 既存の finalScore は削除またはnullを保持
         delete bet.finalScore; 
         bet.status = 'SETTLED';
+        currentData.sports_bets = allBets; // 変更を currentData に戻す
+
 
         // 2. scores を更新
         currentData.scores = Array.from(scoreChanges.entries()).map(([name, score]) => ({ 
@@ -665,7 +689,7 @@ async function handleSettleBet(e) {
             gameId: `BET-${betId}-${Date.now()}`
         };
         currentData.history.push(historyEntry);
-
+        
         // JSONBinに新しい全データをPUTで上書き
         const response = await updateAllData(currentData);
 
