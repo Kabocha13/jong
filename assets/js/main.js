@@ -3,7 +3,9 @@
 const SCORES_CONTAINER = document.getElementById('scores-container');
 const TITLES_CONTAINER = document.getElementById('titles-container');
 const LAST_UPDATE_ELEMENT = document.getElementById('last-update');
-const SPORTS_BETS_CONTAINER = document.getElementById('sports-bets-container'); // 追加
+const SPORTS_BETS_CONTAINER = document.getElementById('sports-bets-container');
+// ★ 新規追加要素
+const RACE_RECORDS_LIST = document.getElementById('race-records-list'); 
 
 // 除外するプレイヤー名を設定
 const EXCLUDED_PLAYERS = ['3mahjong']; // 三麻用のダミー名やその他の除外したい名前を追加可能
@@ -16,12 +18,14 @@ let previousScores = new Map(JSON.parse(localStorage.getItem('previousScores') |
  */
 async function renderScores() {
     SCORES_CONTAINER.innerHTML = '<p>データを読み込み中...</p>';
-    SPORTS_BETS_CONTAINER.innerHTML = '<p>くじデータを読み込み中...</p>'; // 追加
+    SPORTS_BETS_CONTAINER.innerHTML = '<p>くじデータを読み込み中...</p>';
+    RACE_RECORDS_LIST.innerHTML = '<li>記録条件:ローカルフリー　ベリーハード　CPU7　ラップ1　超高速</li><p>記録を読み込み中...</p>'; // ★ ロードメッセージを設定
     
     // 1. データ取得
-    const allData = await fetchAllData(); // 全データ取得に変更
+    const allData = await fetchAllData(); // 全データ取得
     const rawScores = allData.scores;
-    const sportsBets = allData.sports_bets || []; // 追加
+    const sportsBets = allData.sports_bets || []; 
+    const raceRecords = allData.speedstorm_records || []; // ★ レース記録を取得
     
     if (rawScores.length === 0) {
         SCORES_CONTAINER.innerHTML = '<p class=\"error\">データが見つからないか、JSONBinとの通信に失敗しました。JSONBinの初期データを確認してください。</p>';
@@ -29,7 +33,6 @@ async function renderScores() {
     }
 
     // 2. 除外プレイヤーのフィルタリング
-    // 画面表示とタイトル計算に使うデータから除外する
     const displayScores = rawScores.filter(player => 
         !EXCLUDED_PLAYERS.includes(player.name)
     );
@@ -46,7 +49,6 @@ async function renderScores() {
         const rankClass = rank === 1 ? 'rank-1' : (rank === 2 ? 'rank-2' : (rank === 3 ? 'rank-3' : ''));
         const scoreDisplay = player.score.toFixed(1);
         
-        // ローカルストレージに保存するマップを作成
         currentScoresMap.set(player.name, player.score);
         
         // HTML生成
@@ -65,18 +67,67 @@ async function renderScores() {
     // 4. タイトルホルダーの描画
     renderTitles(sortedScores);
     
-    // 5. くじタイルの描画 (新規追加)
+    // 5. くじタイルの描画
     renderSportsBets(sportsBets, displayScores);
+    
+    // 6. ★ 新規追加: レース記録の描画
+    renderRaceRecords(raceRecords);
 
-    // 6. 最終更新日時の表示
+    // 7. 最終更新日時の表示
     LAST_UPDATE_ELEMENT.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
     
-    // 7. 現在のスコアをローカルストレージに保存
+    // 8. 現在のスコアをローカルストレージに保存
     localStorage.setItem('previousScores', JSON.stringify(Array.from(currentScoresMap.entries())));
 }
 
 /**
- * スポーツくじのタイルを描画する関数
+ * ★ 新規追加: スピードストーム レース記録を描画する関数
+ * @param {Array<Object>} raceRecords - speedstorm_recordsデータ
+ */
+function renderRaceRecords(raceRecords) {
+    let html = '<li>記録条件:ローカルフリー　ベリーハード　CPU7　ラップ1　超高速</li>';
+
+    if (raceRecords.length === 0) {
+        html += '<li><p class="info-text" style="color: #6c757d; margin-top: 10px;">まだ記録が登録されていません。</p></li>';
+    } else {
+        // コースをカテゴリ（テーマ）ごとにグループ化して表示
+        const groupedRecords = raceRecords.reduce((groups, record) => {
+            // 例: "メインホール (キャッスル)" -> "キャッスル" をグループキーとして抽出
+            const match = record.courseName.match(/\((.+?)\)/);
+            const groupKey = match ? match[1] : 'その他';
+            
+            if (!groups[groupKey]) {
+                groups[groupKey] = [];
+            }
+            groups[groupKey].push(record);
+            return groups;
+        }, {});
+
+        // グループごとにHTMLを生成
+        Object.entries(groupedRecords).forEach(([groupName, records]) => {
+            html += `<li><strong style="display: block; margin-top: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 3px;">-------${groupName}-------</strong></li>`;
+            
+            records.forEach(record => {
+                const timeDisplay = record.bestTime;
+                // コース名から (グループ名) の部分を除去して表示
+                const cleanCourseName = record.courseName.replace(/\s*\(.+?\)\s*$/, '');
+
+                html += `
+                    <li style="display: flex; justify-content: space-between; padding-left: 20px;">
+                        <span>${cleanCourseName}:</span>
+                        <span style="font-weight: bold; color: #dc3545;">${timeDisplay}</span>
+                        <span style="font-size: 0.8em; color: #6c757d;">by ${record.holder}</span>
+                    </li>
+                `;
+            });
+        });
+    }
+
+    RACE_RECORDS_LIST.innerHTML = html;
+}
+
+/**
+ * スポーツくじのタイルを描画する関数 (変更なし)
  * @param {Array<Object>} sportsBets - sports_betsデータ
  * @param {Array<Object>} displayScores - ランキングに表示されているプレイヤーのスコア
  */
@@ -118,13 +169,11 @@ function renderSportsBets(sportsBets, displayScores) {
             myWagerInfo = `<p class="my-wager-text">まだ投票されていません。</p>`;
         }
         
-        // ★修正：汎用オッズリストを生成するロジックをシンプルに変更★
         let genericOddsHtml = '';
         const genericOdds = bet.odds || {};
         if (Object.keys(genericOdds).length > 0) {
             genericOddsHtml += '<p class="score-odds-header">🏆 オッズ:</p><ul class="generic-odds-list-display">';
             
-            // 制限を設けずに全てのオッズを表示
             Object.entries(genericOdds).forEach(([selection, odds]) => {
                 genericOddsHtml += `<li>${selection}: <strong>x${odds.toFixed(1)}</strong></li>`;
             });
@@ -151,13 +200,7 @@ function renderSportsBets(sportsBets, displayScores) {
     SPORTS_BETS_CONTAINER.innerHTML = html;
 }
 
-/**
- * 結果/選択肢のラベルを取得する (この関数は不要になったため削除、代わりに選択肢名を直接使用)
- */
-// function getOutcomeLabel(key) { ... }
-
-
-// --- タイトル計算と描画 (既存コード) ---
+// --- タイトル計算と描画 (変更なし) ---
 function renderTitles(sortedScores) {
     const titles = [];
 // ... (後略 - 変更なし)
