@@ -105,7 +105,7 @@ function renderRaceRecords(raceRecords) {
 
         // グループごとにHTMLを生成
         Object.entries(groupedRecords).forEach(([groupName, records]) => {
-            html += `<li><strong style="display: block; margin-top: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 3px;">-------${groupName}-------</strong></li>`;
+            html += `<li><strong style="display: block; margin-top: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 3px;">------${groupName}------</strong></li>`;
             
             records.forEach(record => {
                 const timeDisplay = record.bestTime;
