@@ -11,7 +11,7 @@ const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
 /**
  * JSONBinから最新の全データを取得する関数
- * @returns {Promise<object>} 全データ (scores, history, sports_bets)
+ * @returns {Promise<object>} 全データ (scores, history, sports_bets, speedstorm_records)
  */
 async function fetchAllData() {
     try {
@@ -28,11 +28,16 @@ async function fetchAllData() {
         
         const data = await response.json();
         // data.record に実際のJSONデータが入っています
-        return data.record;
+        // 新しいキー 'speedstorm_records' を追加し、存在しない場合は空配列で初期化
+        const record = data.record;
+        if (!record.speedstorm_records) {
+            record.speedstorm_records = [];
+        }
+        return record;
     } catch (error) {
         console.error("ポイントデータ取得中にエラー:", error);
-        // 新しいキー 'sports_bets' を初期データに追加
-        return { scores: [], history: [], sports_bets: [] };
+        // 新しいキー 'sports_bets' と 'speedstorm_records' を初期データに追加
+        return { scores: [], history: [], sports_bets: [], speedstorm_records: [] };
     }
 }
 
@@ -51,7 +56,7 @@ async function fetchScores() {
 
 /**
  * JSONBinに新しい全データを上書き保存する関数 (PUT)
- * @param {object} newData - scores, history, sports_bets を含む新しい全データ
+ * @param {object} newData - scores, history, sports_bets, speedstorm_records を含む新しい全データ
  * @returns {Promise<object>} APIからの応答
  */
 async function updateAllData(newData) {
