@@ -5,6 +5,11 @@ const ADMIN_TOOLS = document.getElementById('admin-tools');
 const AUTH_MESSAGE = document.getElementById('auth-message');
 const TARGET_PLAYER_SELECT = document.getElementById('target-player');
 
+// ★ 新規追加要素
+const RACE_RECORD_FORM = document.getElementById('race-record-form');
+const RACE_RECORD_HOLDER_SELECT = document.getElementById('race-record-holder');
+
+
 // --- 認証機能 ---
 
 AUTH_FORM.addEventListener('submit', (e) => {
@@ -15,6 +20,7 @@ AUTH_FORM.addEventListener('submit', (e) => {
         document.getElementById('auth-section').classList.add('hidden');
         ADMIN_TOOLS.classList.remove('hidden');
         loadPlayerList(); // 認証成功後、プレイヤーリストをロード
+        loadRaceRecordHolders(); // ★ 追加: 記録保持者リストをロード
     } else {
         showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
     }
@@ -39,7 +45,27 @@ async function loadPlayerList() {
     TARGET_PLAYER_SELECT.innerHTML = options;
 }
 
-// --- 1. 新規プレイヤー登録機能 ---
+// --- ★ 新規追加: レース記録保持者リストのロード ---
+
+async function loadRaceRecordHolders() {
+    RACE_RECORD_HOLDER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
+    const scores = await fetchScores(); // common.js からスコアを取得
+
+    if (scores.length === 0) {
+        RACE_RECORD_HOLDER_SELECT.innerHTML = '<option value="" disabled selected>リストの取得に失敗</option>';
+        return;
+    }
+
+    let options = '<option value="" disabled selected>記録保持者を選択</option>';
+    scores.forEach(player => {
+        // ポイントは不要なので名前のみ
+        options += `<option value="${player.name}">${player.name}</option>`;
+    });
+
+    RACE_RECORD_HOLDER_SELECT.innerHTML = options;
+}
+
+// --- 1. 新規プレイヤー登録機能 (変更なし) ---
 
 document.getElementById('register-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -70,9 +96,9 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
 
     const newData = {
         scores: newScores,
-        history: currentData.history, // 履歴はそのまま
-        // ★ 修正: sports_bets を保持する ★
-        sports_bets: currentData.sports_bets || [] 
+        history: currentData.history, 
+        sports_bets: currentData.sports_bets || [],
+        speedstorm_records: currentData.speedstorm_records || [] // ★ レース記録も保持
     };
 
     // JSONBinに書き込み
@@ -83,12 +109,13 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
         nameInput.value = '';
         scoreInput.value = 7.0;
         loadPlayerList(); // プレイヤーリストを更新
+        loadRaceRecordHolders(); // ★ レース記録保持者リストも更新
     } else {
         showMessage(document.getElementById('register-message'), `❌ 登録エラー: ${response.message}`, 'error');
     }
 });
 
-// --- 2. 特殊ポイント調整機能 ---
+// --- 2. 特殊ポイント調整機能 (変更なし) ---
 
 document.getElementById('adjustment-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -128,8 +155,8 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
     const newData = {
         scores: newScores,
         history: newHistory,
-        // ★ 修正: sports_bets を保持する ★
-        sports_bets: currentData.sports_bets 
+        sports_bets: currentData.sports_bets, 
+        speedstorm_records: currentData.speedstorm_records || [] // ★ レース記録も保持
     };
 
     // JSONBinに書き込み
@@ -146,7 +173,7 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
     }
 });
 
-// --- 3. 全員一律ポイント減算機能 (新規追加) ---
+// --- 3. 全員一律ポイント減算機能 (変更なし) ---
 
 document.getElementById('global-penalty-button').addEventListener('click', async () => {
     const penaltyAmount = -1.0;
@@ -186,14 +213,15 @@ document.getElementById('global-penalty-button').addEventListener('click', async
             gameId: `GLOBAL-PENALTY-${Date.now()}`
         };
 
-        // 新しいデータを作成 (sports_bets を忘れずに含める)
+        // 新しいデータを作成 (sports_bets, speedstorm_records を忘れずに含める)
         const newScores = Array.from(currentScoresMap.entries()).map(([name, score]) => ({ name, score }));
         const newHistory = [...currentData.history, historyEntry];
         
         const newData = {
             scores: newScores,
             history: newHistory,
-            sports_bets: currentData.sports_bets 
+            sports_bets: currentData.sports_bets,
+            speedstorm_records: currentData.speedstorm_records || [] // ★ レース記録も保持
         };
 
         // JSONBinに書き込み
@@ -211,6 +239,178 @@ document.getElementById('global-penalty-button').addEventListener('click', async
         showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
     } finally {
         button.disabled = false;
+    }
+});
+
+
+// --- ★ 新規追加: スピードストーム レコード管理機能 ---
+
+// タイム文字列 (例: "0:46.965" または "46.965") をミリ秒に変換するヘルパー関数
+function timeToMilliseconds(timeString) {
+    if (!timeString) return NaN;
+
+    const parts = timeString.split(':');
+    let minutes = 0;
+    let seconds = 0;
+
+    if (parts.length === 2) {
+        minutes = parseInt(parts[0], 10);
+        seconds = parseFloat(parts[1]);
+    } else if (parts.length === 1) {
+        seconds = parseFloat(parts[0]);
+    } else {
+        return NaN;
+    }
+
+    if (isNaN(minutes) || isNaN(seconds)) return NaN;
+    
+    // 少数点以下をミリ秒として扱う
+    // 例: 46.965 -> 46965ミリ秒
+    return Math.round((minutes * 60 + seconds) * 1000);
+}
+
+// ミリ秒を "分:秒.ミリ秒" 形式にフォーマットするヘルパー関数
+function formatMilliseconds(ms) {
+    if (isNaN(ms) || ms < 0) return 'N/A';
+    
+    const totalSeconds = ms / 1000;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    
+    // 秒を xx.xxx の形式でフォーマット
+    const formattedSeconds = seconds.toFixed(3);
+    
+    if (minutes > 0) {
+        // 秒の部分はゼロ埋め（例: 01.234）にする
+        const secPart = seconds < 10 ? '0' + formattedSeconds : formattedSeconds;
+        return `${minutes}:${secPart}`;
+    } else {
+        return formattedSeconds;
+    }
+}
+
+
+RACE_RECORD_FORM.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const messageEl = document.getElementById('race-record-message');
+    const courseName = document.getElementById('race-course-name').value.trim();
+    const timeString = document.getElementById('race-best-time').value.trim();
+    const recordHolder = RACE_RECORD_HOLDER_SELECT.value;
+    
+    const newTimeMs = timeToMilliseconds(timeString);
+
+    if (!courseName || isNaN(newTimeMs) || !recordHolder || newTimeMs <= 0) {
+        showMessage(messageEl, 'エラー: 全ての項目を正しく入力してください (タイムは分:秒.ミリ秒 または 秒.ミリ秒 形式)。', 'error');
+        return;
+    }
+
+    showMessage(messageEl, 'レース記録を更新中...', 'info');
+
+    try {
+        const currentData = await fetchAllData();
+        let records = currentData.speedstorm_records || [];
+        
+        // 既存のコースを探す
+        const existingIndex = records.findIndex(r => r.courseName === courseName);
+        
+        const newRecord = {
+            courseName: courseName,
+            bestTimeMs: newTimeMs,
+            bestTime: formatMilliseconds(newTimeMs), // 表示用フォーマット
+            holder: recordHolder,
+            timestamp: new Date().toISOString()
+        };
+
+        let logMessage = '';
+        // ★ ポイント付与のためのフラグと変数を追加 ★
+        let shouldAwardPoints = false;
+        const AWARD_POINTS = 5.0; // 記録更新時の付与ポイント
+
+        if (existingIndex !== -1) {
+            const existingRecord = records[existingIndex];
+            if (newTimeMs < existingRecord.bestTimeMs) {
+                // 既存記録より早い場合、更新
+                records[existingIndex] = newRecord;
+                logMessage = `✅ 記録を更新しました: ${courseName} | ${existingRecord.bestTime} (旧) → ${newRecord.bestTime} (新)`;
+                shouldAwardPoints = true; // ポイント付与フラグを立てる
+            } else if (newTimeMs === existingRecord.bestTimeMs && recordHolder !== existingRecord.holder) {
+                // 同タイムで別人が記録した場合（保持者変更）も更新し、ポイント付与
+                records[existingIndex] = newRecord;
+                logMessage = `✅ 同タイムで記録を更新（保持者変更）しました: ${courseName} | ${newRecord.bestTime}`;
+                shouldAwardPoints = true; // ポイント付与フラグを立てる
+            } else {
+                // 既存記録より遅い場合、拒否
+                showMessage(messageEl, `❌ 記録は更新されませんでした。入力された ${newRecord.bestTime} は既存の記録 ${existingRecord.bestTime} より遅いです。`, 'error');
+                return;
+            }
+        } else {
+            // 新規コース追加
+            records.push(newRecord);
+            logMessage = `✅ 新規コース ${courseName} の記録を登録しました: ${newRecord.bestTime}`;
+            shouldAwardPoints = true; // ポイント付与フラグを立てる
+        }
+
+        // 記録をタイムの昇順でソート
+        records.sort((a, b) => a.bestTimeMs - b.bestTimeMs);
+
+        // ★ ポイント付与処理を追加 ★
+        let historyChanges = [];
+        let newScores = currentData.scores;
+
+        if (shouldAwardPoints) {
+            let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p.score]));
+            
+            // 記録保持者にポイントを付与
+            const currentScore = currentScoresMap.get(recordHolder) || 0;
+            currentScoresMap.set(recordHolder, currentScore + AWARD_POINTS);
+            
+            // 履歴変更を記録
+            historyChanges.push({name: recordHolder, change: AWARD_POINTS});
+            
+            // スコア配列を更新
+            newScores = Array.from(currentScoresMap.entries()).map(([name, score]) => ({ 
+                name, 
+                score: parseFloat(score.toFixed(1)) // スコアを丸める
+            }));
+
+            // 履歴エントリーを作成
+            const historyEntry = {
+                timestamp: new Date().toISOString(),
+                ranks: ['RACE_RECORD'], 
+                changes: historyChanges,
+                memo: `[レース記録] ${courseName} のベストタイム (${newRecord.bestTime}) を更新し、${recordHolder} に ${AWARD_POINTS} P 付与。`,
+                gameId: `RACE-${Date.now()}`
+            };
+            currentData.history.push(historyEntry);
+            
+            logMessage += ` (報酬: ${AWARD_POINTS} P)`;
+        }
+
+
+        // 新しいデータを作成
+        const newData = {
+            scores: newScores, // 更新されたスコア
+            history: currentData.history, // 更新された履歴
+            sports_bets: currentData.sports_bets,
+            speedstorm_records: records // 更新された記録リスト
+        };
+
+        // JSONBinに書き込み
+        const response = await updateAllData(newData);
+
+        if (response.status === 'success') {
+            showMessage(messageEl, logMessage, 'success');
+            // フォームをリセット
+            RACE_RECORD_FORM.reset();
+            // プレイヤーリストも更新（ポイントが変更されたため）
+            loadPlayerList();
+        } else {
+            showMessage(messageEl, `❌ 更新エラー: ${response.message}`, 'error');
+        }
+
+    } catch (error) {
+        console.error(error);
+        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
     }
 });
 
