@@ -1,151 +1,492 @@
-// assets/js/common.js
+/* assets/css/style.css - Art Deco Theme */
 
-// ★★★ JSONBin.io の設定情報 (提供された情報を使用) ★★★
-const JSONBIN_API_KEY = "$2a$10$jXqWaOsnNAUVPbvzX4ytFeZoXohqmbWD20InKtsiIQr3.vkgXzj36";
-const JSONBIN_BIN_ID = "68de859643b1c97be957f505";
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
-
-// -----------------------------------------------------------------
-// データ取得 (GET)
-// -----------------------------------------------------------------
-
-// リトライを制御するヘルパー関数
-function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+/* --- Colors & Fonts --- */
+:root {
+    --color-primary: #2c3e50;     /* Deep Navy Blue / Dark Grey */
+    --color-accent: #DAA520;      /* Gold */
+    --color-text: #1c1c1c;        /* Near Black */
+    --color-light: #ffffff;       /* White */
+    --color-background: #f0f0f0;  /* Light Background */
+    --font-primary: 'Century Gothic', 'Futura', Arial, sans-serif;
 }
 
-/**
- * JSONBinから最新の全データを取得する関数
- * @returns {Promise<object>} 全データ (scores, history, sports_bets, speedstorm_records)
- */
-async function fetchAllData() {
-    const MAX_RETRIES = 3;
-    let attempt = 0;
-    let delayMs = 1000; // 1秒から開始
-
-    while (attempt < MAX_RETRIES) {
-        try {
-            const response = await fetch(JSONBIN_URL, {
-                method: 'GET',
-                headers: {
-                    'X-Master-Key': JSONBIN_API_KEY,
-                }
-            });
-            
-            if (response.status === 429) {
-                // 429エラーの場合はリトライ
-                throw new Error('429 Too Many Requests');
-            }
-
-            if (!response.ok) {
-                throw new Error(`JSONBinからデータ取得エラー: ${response.status} ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            // data.record に実際のJSONデータが入っています
-            // 新しいキー 'speedstorm_records' を追加し、存在しない場合は空配列で初期化
-            const record = data.record;
-            if (!record.speedstorm_records) {
-                record.speedstorm_records = [];
-            }
-            return record;
-        
-        } catch (error) {
-            // 429エラーか、その他のリトライすべきネットワークエラーの場合
-            if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
-                attempt++;
-                console.warn(`データ取得リトライ (${attempt}/${MAX_RETRIES})。待機: ${delayMs}ms`);
-                await delay(delayMs);
-                delayMs *= 2; // 指数バックオフ
-            } else {
-                console.error("ポイントデータ取得中にエラー:", error);
-                // 最終的に失敗した場合、空の初期データを返す
-                return { scores: [], history: [], sports_bets: [], speedstorm_records: [] };
-            }
-        }
-    }
-     // 最終リトライ後も失敗した場合
-     console.error("ポイントデータ取得に失敗しました。最大リトライ回数を超えました。");
-     return { scores: [], history: [], sports_bets: [], speedstorm_records: [] };
+body {
+    font-family: var(--font-primary);
+    background-color: var(--color-background);
+    color: var(--color-text);
+    margin: 0;
+    padding: 0;
 }
 
-/**
- * ランキング描画用にスコアのみを取得する関数
- * @returns {Promise<Array>} スコアデータ (例: [{name: "友人A", score: 10.0}])
- */
-async function fetchScores() {
-    const data = await fetchAllData();
-    return data.scores;
+/* --- Global Layout & Containers --- */
+header {
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    padding: 30px 20px 20px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+header h1 {
+    margin: 0 0 15px 0;
+    font-size: 1.9em; /* 2.2em -> 1.9em */
+    letter-spacing: 5px;
+    /* 幾何学的なダブルライン装飾 */
+    display: inline-block;
+    padding-bottom: 10px;
+    border-bottom: 3px double var(--color-accent);
+}
+
+main {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 25px;
+    background-color: var(--color-light);
+    border-radius: 0;
+    border: 2px solid var(--color-primary); /* 黒に近い濃紺の枠 */
+    box-shadow: none;
+}
+
+/* --- Links & Buttons --- */
+.input-link {
+    display: inline-block;
+    color: var(--color-text);
+    background-color: var(--color-accent);
+    padding: 8px 15px; /* サイズ調整 */
+    border-radius: 0;
+    text-decoration: none;
+    font-weight: bold;
+    letter-spacing: 1px;
+    font-size: 0.9em; /* 新規追加/調整 */
+    border: 1px solid var(--color-text);
+    transition: background-color 0.3s;
+}
+.input-link:hover {
+    background-color: #b8860b; /* Darker Gold */
+}
+
+/* 送信ボタン/アクションボタン (プライマリ) */
+#submit-button,
+button[type="submit"]:not(#auth-form button),
+.action-button {
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    border: 2px solid var(--color-accent);
+    padding: 10px 18px; /* サイズ調整 */
+    border-radius: 0;
+    cursor: pointer;
+    font-size: 1.0em; /* 1.1em -> 1.0em */
+    width: 100%;
+    transition: background-color 0.3s, border-color 0.3s;
+    margin-top: 15px;
+    letter-spacing: 1px;
+}
+#submit-button:hover:not(:disabled),
+button[type="submit"]:not(#auth-form button):hover:not(:disabled),
+.action-button:hover:not(:disabled) {
+    background-color: #1e3040;
+    border-color: #fff;
+}
+#submit-button:disabled,
+button[type="submit"]:disabled,
+.action-button:disabled {
+    background-color: #6c757d;
+    border-color: #bbb;
+    cursor: not-allowed;
+}
+
+/* セカンダリボタン (オッズ編集追加ボタンなど) */
+.secondary-button {
+    background-color: #6c757d; /* 灰色 */
+    color: var(--color-light);
+    border-color: #999;
+    width: auto !important;
+    margin-top: 0;
+}
+.secondary-button:hover {
+    background-color: #5a6268;
+    border-color: #ccc;
+}
+
+/* 削除/結果確定ボタン (赤) */
+.remove-button, .result-button {
+    background-color: #dc3545 !important;
+    border-color: #ff8e98 !important;
+}
+.remove-button:hover, .result-button:hover {
+    background-color: #c82333 !important;
+}
+
+/* フォーム内の小さな削除ボタン (オッズ行など) */
+.remove-generic-odds-button, .remove-edit-odds-button {
+    width: auto !important;
+    margin: 0 !important;
+    padding: 4px 8px !important; /* サイズ調整 */
+    font-size: 0.8em !important; /* 0.9em -> 0.8em */
+}
+
+/* 認証ボタンのみスタイルを分ける */
+#auth-form button[type="submit"] {
+    background-color: var(--color-accent);
+    color: var(--color-text);
+    border: 1px solid var(--color-text);
+    padding: 8px 12px; /* サイズ調整 */
+    border-radius: 0;
+    cursor: pointer;
+    font-size: 0.9em; /* 1em -> 0.9em */
+    font-weight: bold;
+    transition: background-color 0.3s;
+    width: auto;
+    margin-top: 5px;
+}
+#auth-form button[type="submit"]:hover {
+    background-color: #b8860b;
+}
+
+#refresh-button {
+    background-color: var(--color-accent);
+    color: var(--color-text);
+    border: 2px solid var(--color-text);
+    padding: 8px; /* サイズ調整 */
+    border-radius: 0;
+    font-size: 0.9em; /* 1em -> 0.9em */
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    width: 100%;
+    margin-top: 15px;
+}
+#refresh-button:hover {
+    background-color: #b8860b;
 }
 
 
-/**
- * JSONBinに新しい全データを上書き保存する関数 (PUT)
- * @param {object} newData - scores, history, sports_bets, speedstorm_records を含む新しい全データ
- * @returns {Promise<object>} APIからの応答
- */
-async function updateAllData(newData) {
-    const MAX_RETRIES = 3;
-    let attempt = 0;
-    let delayMs = 1000; // 1秒から開始
+/* --- Forms & Tools --- */
+h2 {
+    color: var(--color-primary);
+    border-bottom: 2px solid var(--color-accent);
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+    font-size: 1.5em; /* 調整 */
+}
+h3 {
+    color: var(--color-primary);
+    border-bottom: 1px dashed var(--color-primary);
+    padding-bottom: 5px;
+    margin-top: 0;
+    font-size: 1.2em; /* 調整 */
+}
 
-    while (attempt < MAX_RETRIES) {
-        try {
-            const response = await fetch(JSONBIN_URL, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': JSONBIN_API_KEY,
-                },
-                body: JSON.stringify(newData)
-            });
-            
-            if (response.status === 429) {
-                throw new Error('429 Too Many Requests on PUT');
-            }
+.tool-box {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 0;
+    margin-bottom: 25px;
+    border: 1px solid #ccc;
+}
 
-            if (!response.ok) {
-                throw new Error(`JSONBinへのデータ書き込みエラー: ${response.status} ${response.statusText}`);
-            }
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+    width: 100%;
+    padding: 8px; /* サイズ調整 */
+    border: 1px solid var(--color-text);
+    border-radius: 0;
+    box-sizing: border-box;
+    font-size: 0.95em; /* 1em -> 0.95em */
+    background-color: #fcfcfc;
+}
 
-            const data = await response.json();
-            return { status: "success", message: "ポイントが正常に更新されました。", totalChange: 0 };
-        } catch (error) {
-             if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
-                attempt++;
-                console.warn(`データ書き込みリトライ (${attempt}/${MAX_RETRIES})。待機: ${delayMs}ms`);
-                await delay(delayMs);
-                delayMs *= 2; // 指数バックオフ
-            } else {
-                console.error("ポイントデータ書き込み中にエラー:", error);
-                return { status: "error", message: `データ書き込み失敗: ${error.message}`, totalChange: 0 };
-            }
-        }
-    }
-    console.error("ポイントデータ書き込みに失敗しました。最大リトライ回数を超えました。");
-    return { status: "error", message: `データ書き込み失敗: 最大リトライ回数を超えました`, totalChange: 0 };
+/* --- Ranking List (index.html) --- */
+.ranking-list {
+    list-style: none;
+    padding: 0;
+}
+
+.ranking-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px; /* サイズ調整 */
+    margin-bottom: 8px; /* サイズ調整 */
+    background-color: var(--color-light);
+    border-radius: 0;
+    box-shadow: 0 4px 0 0 var(--color-primary); /* 立体感を出すためのシャドウ */
+    border: 1px solid var(--color-primary);
+    transition: transform 0.2s, background-color 0.2s;
+}
+.ranking-item:hover {
+    transform: translateY(-2px);
+    background-color: #f9f9f9;
+}
+
+/* ランキングの装飾: ::beforeで幾何学的なシェイプを表現 */
+.rank-1, .rank-2, .rank-3 {
+    border-left: none; /* 既存のボーダーを削除 */
+    position: relative;
+    overflow: hidden;
+}
+
+.rank-1::before, .rank-2::before, .rank-3::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 10px;
+    /* 幾何学的なボーダーエフェクト */
+}
+
+/* ゴールド (1位) */
+.rank-1 {
+    border: 2px solid var(--color-accent);
+    background-color: #fffbe6;
+}
+.rank-1::before {
+    background-color: var(--color-accent);
+}
+
+/* シルバー (2位) */
+.rank-2 {
+    border: 2px solid #a8a8a8;
+    background-color: #f8f8f8;
+}
+.rank-2::before {
+    background-color: #a8a8a8;
+}
+
+/* ブロンズ (3位) */
+.rank-3 {
+    border: 2px solid #cd7f32;
+    background-color: #fcfcfc;
+}
+.rank-3::before {
+    background-color: #cd7f32;
 }
 
 
-// -----------------------------------------------------------------
-// 共通ヘルパー関数
-// -----------------------------------------------------------------
-
-/**
- * HTML要素にメッセージを表示するヘルパー関数
- * @param {HTMLElement} element - メッセージを表示する要素
- * @param {string} message - 表示するテキスト
- * @param {('success'|'error')} type - メッセージのタイプ
- */
-function showMessage(element, message, type) {
-    element.textContent = message;
-    element.className = type === 'success' ? 'message success' : 'message error';
-    element.classList.remove('hidden');
-    // 3秒後にメッセージを非表示にする
-    setTimeout(() => {
-        element.classList.add('hidden');
-    }, 5000);
+.rank-num {
+    font-size: 1.2em; /* 1.4em -> 1.2em */
+    font-weight: bold;
+    color: var(--color-primary);
+    width: 40px;
+    text-align: left;
+    letter-spacing: 1px;
+}
+.player-name {
+    flex-grow: 1;
+    font-size: 1.0em; /* 1.1em -> 1.0em */
+    padding: 0 10px;
+}
+.player-score {
+    font-size: 1.3em; /* 1.6em -> 1.3em */
+    font-weight: bold;
+    color: var(--color-accent);
+    text-shadow: 1px 1px 0 var(--color-text); /* 豪華な強調 */
 }
 
-// 共通パスワードを定義 (master.jsとmahjong.jsで使用)
-const MASTER_PASSWORD = "21082"; 
+/* --- Info Boxes (index.html) --- */
+.info-box {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 0;
+    margin-top: 25px;
+    border: 1px solid var(--color-primary);
+}
+.icon-title {
+    margin-top: 0;
+    color: var(--color-primary);
+    /* 二重線でアールデコ感を強調 */
+    border-bottom: 3px double var(--color-accent);
+    padding-bottom: 5px;
+    letter-spacing: 1px;
+    font-size: 1.2em; /* 調整 */
+}
+.titles-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+.titles-list li {
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    padding: 6px 12px; /* サイズ調整 */
+    border-radius: 0;
+    box-shadow: 4px 4px 0 0 var(--color-accent); /* ゴールドのシャドウ */
+    font-size: 0.8em; /* 0.9em -> 0.8em */
+    border: 1px solid var(--color-accent);
+}
+
+/* --- Utility & Messaging --- */
+.update-info {
+    text-align: right;
+    color: #6c757d;
+    font-size: 0.8em;
+    margin-top: 15px;
+}
+
+.message {
+    padding: 8px; /* サイズ調整 */
+    border-radius: 0;
+    margin-top: 12px; /* サイズ調整 */
+    font-weight: bold;
+    text-align: center;
+    border: 1px solid;
+    letter-spacing: 1px;
+    font-size: 0.9em; /* 調整 */
+}
+.message.success {
+    background-color: #e6ffe6;
+    color: var(--color-text);
+    border-color: #28a745;
+}
+.message.error {
+    background-color: #fff0f0;
+    color: var(--color-text);
+    border-color: #dc3545;
+}
+.message.info {
+    background-color: #e9f5ff;
+    color: var(--color-text);
+    border-color: #007bff;
+}
+.hidden {
+    display: none !important;
+}
+
+/* --- Mahjong (mahjong.html) & Master Tools (master.html) Specific --- */
+.player-input-row {
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+}
+.instruction {
+    color: var(--color-primary);
+    font-weight: 500;
+    border-left: 3px solid var(--color-accent);
+    padding-left: 10px;
+    font-size: 0.9em; /* 調整 */
+}
+
+
+/* --- Sports Bets (master_sports.html & index.html) Specific --- */
+
+.generic-odds-row .selection-input,
+.generic-odds-row .odds-input {
+    border-radius: 0;
+}
+
+.bet-card {
+    border: 1px solid var(--color-primary);
+    padding: 15px; /* サイズ調整 */
+    margin-bottom: 15px; /* サイズ調整 */
+    border-radius: 0;
+    box-shadow: 4px 4px 0 0 #ccc; /* 幾何学的な影 */
+}
+
+.bet-card h3 {
+    color: var(--color-primary);
+    border-bottom: 1px solid var(--color-accent);
+    padding-bottom: 5px;
+}
+
+.status-label {
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.status-open { color: #28a745; } 
+.status-closed { color: #DAA520; } /* 締切はゴールドで */
+.status-settled { color: #6c757d; } 
+
+.odds-info {
+    margin-bottom: 10px; /* サイズ調整 */
+    padding: 8px; /* サイズ調整 */
+    background-color: #f7f7f7;
+    border-radius: 0;
+    border: 1px dashed var(--color-accent);
+}
+.score-odds-item {
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    padding: 2px 8px; /* サイズ調整 */
+    border-radius: 0;
+    font-size: 0.8em; /* 0.9em -> 0.8em */
+    margin-right: 8px;
+    display: inline-block;
+    border: 1px solid var(--color-accent);
+}
+
+.result-tools-score {
+    border: 2px solid #dc3545; /* 強調は赤で維持 */
+    border-radius: 0;
+}
+
+.result-tools-score p {
+    color: #dc3545;
+}
+
+
+/* Sports Bets Home Tile (index.html) */
+.bet-tile {
+    background-color: var(--color-light); 
+    padding: 15px; /* サイズ調整 */
+    border-radius: 0;
+    border: 2px solid var(--color-primary);
+    box-shadow: 4px 4px 0 0 var(--color-accent);
+}
+.bet-tile:hover {
+    transform: none; /* transform削除 */
+    box-shadow: 6px 6px 0 0 var(--color-accent);
+}
+.bet-tile.status-closed {
+    border-color: #b8860b;
+    background-color: #fffef2;
+}
+
+
+.bet-tile h4 {
+    color: var(--color-primary);
+    border-bottom: 2px dashed var(--color-accent);
+    font-size: 1.1em; /* 調整 */
+}
+
+.odds-info-display {
+    border-bottom: 1px solid #ddd;
+}
+
+.generic-odds-list-display li {
+    font-size: 0.75em; /* 0.85em -> 0.75em */
+    background-color: #f9f9f9;
+    padding: 3px 6px; /* サイズ調整 */
+    border-radius: 0;
+    border: 1px solid #ccc;
+}
+.generic-odds-list-display strong {
+    color: var(--color-primary);
+}
+
+.my-wager-text {
+    color: var(--color-primary);
+    border-left: 4px solid #28a745;
+    background-color: #e8f9e8;
+    border-radius: 0;
+    font-size: 0.9em; /* 調整 */
+}
+
+/* Race Records List */
+#race-records-list {
+    font-size: 0.7em; /* ベースフォントをさらに小さく */
+}
+#race-records-list li {
+    padding: 4px 0; /* サイズ調整 */
+    border-bottom: 1px dotted #ccc;
+    font-size: 1em; /* 親要素の0.7emを継承 */
+}
+#race-records-list strong {
+    color: var(--color-accent) !important;
+    font-weight: bold;
+}
