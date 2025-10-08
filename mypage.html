@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マイページ (スポーツくじ購入)</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>👤 マイページ 💰</h1>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <a href="index.html" class="input-link">« ランキングに戻る</a>
+            <a href="master.html" class="input-link">マスター管理へ</a>
+        </div>
+    </header>
+
+    <main id="main-content">
+        <!-- 認証セクション -->
+        <section id="auth-section">
+            <h2>認証</h2>
+            <p class="instruction">ご自身のユーザー名とパスワードを入力してログインしてください。</p>
+            <form id="auth-form">
+                <div class="form-group">
+                    <label for="username">ユーザー名:</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">パスワード:</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit">ログイン</button>
+            </form>
+            <p id="auth-message" class="hidden"></p>
+        </section>
+
+        <!-- マイページコンテンツ (認証成功後に表示) -->
+        <section id="mypage-content" class="hidden">
+            <div class="tool-box">
+                <h3>ようこそ、<span id="authenticated-user-name"></span>様！</h3>
+                <p>現在のポイント残高: <strong id="current-score" style="font-size: 1.5em; color: var(--color-accent);"></strong> P</p>
+                <p id="score-update-message" class="hidden message"></p>
+            </div>
+            
+            <div class="tool-box">
+                <h3>💰 スポーツくじ購入</h3>
+                
+                <!-- 投票履歴表示エリア -->
+                <div id="wager-history-container" style="margin-bottom: 20px;">
+                    <h4>投票履歴 (最新5件)</h4>
+                    <ul id="wager-history-list">
+                        <li>履歴をロード中...</li>
+                    </ul>
+                </div>
+
+                <!-- くじ購入フォーム -->
+                <form id="wager-form">
+                    <p class="instruction">投票は認証されたユーザー (<strong id="fixed-player-name"></strong>) に固定されます。</p>
+                    <div class="form-group">
+                        <label for="target-bet">対象くじ:</label>
+                        <select id="target-bet" required>
+                            <option value="" disabled selected>開催中のくじを選択</option>
+                        </select>
+                    </div>
+                    
+                    <!-- プレイヤー選択フィールドは非表示にして固定値を設定 -->
+                    <input type="hidden" id="wager-player" name="wager-player">
+
+                    <div class="form-group">
+                        <label for="wager-amount">掛け金 (ポイント):</label>
+                        <input type="number" id="wager-amount" step="1" min="1" required placeholder="例: 10">
+                    </div>
+                    <div class="form-group">
+                        <label for="wager-selection">選択:</label>
+                        <select id="wager-selection" required>
+                            <!-- オッズ選択肢はJSで動的に更新 -->
+                        </select>
+                    </div>
+                    <button type="submit">投票を登録</button>
+                </form>
+                <p id="wager-message" class="hidden"></p>
+            </div>
+        </section>
+    </main>
+
+    <script src="assets/js/common.js"></script>
+    <script src="assets/js/mypage.js"></script>
+</body>
+</html>
