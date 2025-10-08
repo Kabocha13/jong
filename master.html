@@ -9,7 +9,11 @@
 <body>
     <header>
         <h1>🔑 マスター管理 🔑</h1>
-        <a href="index.html" class="input-link">« ランキングに戻る</a>
+        <!-- master_sports.htmlへのリンクを修正 -->
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <a href="index.html" class="input-link">« ランキングに戻る</a>
+            <a href="mypage.html" class="input-link">スポーツくじ購入へ</a>
+        </div>
     </header>
 
     <main id="main-content">
@@ -36,6 +40,11 @@
                         <label for="new-player-name">名前:</label>
                         <input type="text" id="new-player-name" required>
                     </div>
+                    <!-- 新規登録時にパスワードフィールドを追加 -->
+                    <div class="form-group">
+                        <label for="new-player-pass">パスワード:</label>
+                        <input type="password" id="new-player-pass" required placeholder="マイページ用パスワード">
+                    </div>
                     <div class="form-group">
                         <label for="initial-score">初期ポイント (7P推奨):</label>
                         <input type="number" id="initial-score" value="7.0" step="0.1" required>
@@ -45,6 +54,65 @@
                 <p id="register-message" class="hidden"></p>
             </div>
 
+            <!-- ★★★ 新規移設: 麻雀結果入力ツール ★★★ -->
+            <div class="tool-box">
+                <h3>🀄 麻雀結果入力</h3>
+                <p class="instruction">4人の最終得点を入力(30000点越え3000点で1P, 1位3P, 2位1P, 3位-1P, 4位-2P)</p>
+                
+                <form id="mahjong-form">
+                    <div id="mahjong-player-inputs">
+                        <!-- JSでプレイヤー選択と得点入力が動的に生成される -->
+                        <p>プレイヤーリストをロード中...</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mahjong-memo">メモ/理由:</label>
+                        <textarea id="mahjong-memo" placeholder="遅刻の罰則、大きな役の記録など"></textarea>
+                    </div>
+                    
+                    <button type="submit" id="mahjong-submit-button">結果を反映する</button>
+                    <p id="mahjong-message" class="hidden"></p>
+                </form>
+            </div>
+            <!-- 麻雀結果入力ツール 終了 -->
+
+
+            <!-- スポーツくじ管理ツール (既存) -->
+            <div class="tool-box">
+                <h2>⚽ スポーツくじ管理</h2>
+                <!-- 1. 新規くじ作成フォーム -->
+                <div class="tool-box" style="border: none; padding: 0;">
+                    <h3>📝 新規くじ作成・オッズ設定</h3>
+                    <form id="create-bet-form">
+                        <div class="form-group">
+                            <label for="match-name">くじ名:</label>
+                            <input type="text" id="match-name" required placeholder="例: 陸上100m優勝者, 競馬G1結果">
+                        </div>
+                        
+                        <!-- 汎用的なオッズ設定フィールド -->
+                        <h4>🏆 順位/結果オッズ設定</h4>
+                        <p class="instruction">くじの選択肢（結果）名と、それぞれのオッズを入力してください。</p>
+                        
+                        <div id="generic-odds-container">
+                            <!-- JSで動的に追加される -->
+                        </div>
+                        <button type="button" id="add-generic-odds-button" class="action-button secondary-button" style="width: auto;">+ 選択肢を追加</button>
+
+                        <button type="submit">くじを作成 (OPEN)</button>
+                    </form>
+                    <p id="create-message" class="hidden"></p>
+                </div>
+
+                <!-- 2. 現在の開催中/終了済みくじリスト -->
+                <div class="tool-box" style="border: none; padding: 0; margin-top: 25px;">
+                    <h3>現在のくじ一覧・管理</h3>
+                    <div id="bet-list-container">
+                        <p>くじデータを読み込み中...</p>
+                    </div>
+                </div>
+            </div>
+            <!-- スポーツくじ管理ツール 終了 -->
+            
             <div class="tool-box">
                 <h3>± 特殊ポイント調整</h3>
                 <form id="adjustment-form">
@@ -58,12 +126,36 @@
                         <label for="adjust-amount">増減ポイント:</label>
                         <input type="number" id="adjust-amount" step="0.1" placeholder="例: 遅刻で-5, 罰ゲームで+10" required>
                     </div>
-                    <!-- 理由（履歴用）のフィールドを削除しました -->
                     <button type="submit">ポイントを調整</button>
                 </form>
                 <p id="adjustment-message" class="hidden"></p>
             </div>
             
+            <div class="tool-box">
+                <h3>💸 ポイント送金 (プレイヤー間)</h3>
+                <p class="instruction">あるプレイヤーから別のプレイヤーへポイントを移動させ、履歴に記録します。</p>
+                <form id="transfer-form">
+                    <div class="form-group">
+                        <label for="sender-player">送金元プレイヤー:</label>
+                        <select id="sender-player" required>
+                            <option value="" disabled selected>ロード中...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="receiver-player">送金先プレイヤー:</label>
+                        <select id="receiver-player" required>
+                            <option value="" disabled selected>ロード中...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="transfer-amount">送金ポイント:</label>
+                        <input type="number" id="transfer-amount" step="0.1" min="0.1" placeholder="例: 5.0" required>
+                    </div>
+                    <button type="submit" class="action-button" style="background-color: #28a745;">送金を実行</button>
+                </form>
+                <p id="transfer-message" class="hidden"></p>
+            </div>
+
             <div class="tool-box">
                 <h3>🚨 全員一律ポイント減算</h3>
                 <p>全てのプレイヤーの得点を一律で-1.0Pします。</p>
@@ -73,7 +165,6 @@
                 <p id="global-penalty-message" class="hidden"></p>
             </div>
             
-            <!-- ★★★ スピードストーム BestTime 管理ツール (新規追加) ★★★ -->
             <div class="tool-box">
                 <h3>🏎️ スピードストーム 記録更新/コース追加</h3>
                 <form id="race-record-form">
@@ -95,9 +186,8 @@
                 </form>
                 <p id="race-record-message" class="hidden"></p>
             </div>
-            <!-- ★★★ 新規追加 終了 ★★★ -->
 
-            </section>
+        </section>
     </main>
 
     <script src="assets/js/common.js"></script>
