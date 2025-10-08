@@ -217,6 +217,7 @@ function renderTitles(sortedScores) {
     if (bottomPlayer.score < topPlayer.score) {
         titles.push({ name: bottomPlayer.name, title: 'カモ', icon: '🔥' });
     }
+    titles.push({name:"Kabocha",title:"嶺上開花", icon:🪷});
     
     // 3. 今日の波乗り (前回比で最もポイントを稼いだ人)
     let maxDiff = -Infinity;
