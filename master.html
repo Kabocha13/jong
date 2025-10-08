@@ -166,11 +166,15 @@
             </div>
             
             <div class="tool-box">
-                <h3>🏎️ スピードストーム 記録更新/コース追加</h3>
+                <h3>🏎️ スピードストーム 記録更新</h3>
+                <p class="instruction">既存コースのベストタイム記録を更新します。新規コースの追加はできません。</p>
                 <form id="race-record-form">
                     <div class="form-group">
-                        <label for="race-course-name">コース名:</label>
-                        <input type="text" id="race-course-name" required placeholder="例: メインホール (キャッスル)">
+                        <label for="race-course-select">コース名:</label>
+                        <select id="race-course-select" name="race-course-name" required>
+                            <option value="" disabled selected>既存のコースを選択</option>
+                            <!-- JSで既存コースがロードされます -->
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="race-best-time">ベストタイム (分:秒.ミリ秒):</label>
@@ -182,7 +186,7 @@
                             <option value="" disabled selected>ロード中...</option>
                         </select>
                     </div>
-                    <button type="submit" class="action-button" style="background-color: #007bff;">記録を更新/コースを追加</button>
+                    <button type="submit" class="action-button" style="background-color: #007bff;">記録を更新</button>
                 </form>
                 <p id="race-record-message" class="hidden"></p>
             </div>
