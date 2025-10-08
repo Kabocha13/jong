@@ -1,49 +1,205 @@
-/* assets/css/style.css */
+/* assets/css/style.css - Art Deco Theme */
+
+/* --- Colors & Fonts --- */
+:root {
+    --color-primary: #2c3e50;     /* Deep Navy Blue / Dark Grey */
+    --color-accent: #DAA520;      /* Gold */
+    --color-text: #1c1c1c;        /* Near Black */
+    --color-light: #ffffff;       /* White */
+    --color-background: #f0f0f0;  /* Light Background */
+    --font-primary: 'Century Gothic', 'Futura', Arial, sans-serif;
+}
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #f4f7f9;
-    color: #333;
+    font-family: var(--font-primary);
+    background-color: var(--color-background);
+    color: var(--color-text);
     margin: 0;
     padding: 0;
 }
 
+/* --- Global Layout & Containers --- */
 header {
-    background-color: #007bff;
-    color: white;
-    padding: 20px;
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    padding: 30px 20px 20px;
     text-align: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
 
 header h1 {
-    margin: 0 0 10px 0;
+    margin: 0 0 15px 0;
+    font-size: 1.9em; /* 2.2em -> 1.9em */
+    letter-spacing: 5px;
+    /* 幾何学的なダブルライン装飾 */
+    display: inline-block;
+    padding-bottom: 10px;
+    border-bottom: 3px double var(--color-accent);
 }
 
 main {
     max-width: 800px;
-    margin: 30px auto;
-    padding: 20px;
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+    margin: 40px auto;
+    padding: 25px;
+    background-color: var(--color-light);
+    border-radius: 0;
+    border: 2px solid var(--color-primary); /* 黒に近い濃紺の枠 */
+    box-shadow: none;
 }
 
-/* リンクボタン */
+/* --- Links & Buttons --- */
 .input-link {
     display: inline-block;
-    color: #fff;
-    background-color: #0056b3;
-    padding: 8px 15px;
-    border-radius: 5px;
+    color: var(--color-text);
+    background-color: var(--color-accent);
+    padding: 8px 15px; /* サイズ調整 */
+    border-radius: 0;
     text-decoration: none;
     font-weight: bold;
+    letter-spacing: 1px;
+    font-size: 0.9em; /* 新規追加/調整 */
+    border: 1px solid var(--color-text);
     transition: background-color 0.3s;
 }
 .input-link:hover {
-    background-color: #003a75;
+    background-color: #b8860b; /* Darker Gold */
 }
 
-/* ランキングリスト */
+/* 送信ボタン/アクションボタン (プライマリ) */
+#submit-button,
+button[type="submit"]:not(#auth-form button),
+.action-button {
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    border: 2px solid var(--color-accent);
+    padding: 10px 18px; /* サイズ調整 */
+    border-radius: 0;
+    cursor: pointer;
+    font-size: 1.0em; /* 1.1em -> 1.0em */
+    width: 100%;
+    transition: background-color 0.3s, border-color 0.3s;
+    margin-top: 15px;
+    letter-spacing: 1px;
+}
+#submit-button:hover:not(:disabled),
+button[type="submit"]:not(#auth-form button):hover:not(:disabled),
+.action-button:hover:not(:disabled) {
+    background-color: #1e3040;
+    border-color: #fff;
+}
+#submit-button:disabled,
+button[type="submit"]:disabled,
+.action-button:disabled {
+    background-color: #6c757d;
+    border-color: #bbb;
+    cursor: not-allowed;
+}
+
+/* セカンダリボタン (オッズ編集追加ボタンなど) */
+.secondary-button {
+    background-color: #6c757d; /* 灰色 */
+    color: var(--color-light);
+    border-color: #999;
+    width: auto !important;
+    margin-top: 0;
+}
+.secondary-button:hover {
+    background-color: #5a6268;
+    border-color: #ccc;
+}
+
+/* 削除/結果確定ボタン (赤) */
+.remove-button, .result-button {
+    background-color: #dc3545 !important;
+    border-color: #ff8e98 !important;
+}
+.remove-button:hover, .result-button:hover {
+    background-color: #c82333 !important;
+}
+
+/* フォーム内の小さな削除ボタン (オッズ行など) */
+.remove-generic-odds-button, .remove-edit-odds-button {
+    width: auto !important;
+    margin: 0 !important;
+    padding: 4px 8px !important; /* サイズ調整 */
+    font-size: 0.8em !important; /* 0.9em -> 0.8em */
+}
+
+/* 認証ボタンのみスタイルを分ける */
+#auth-form button[type="submit"] {
+    background-color: var(--color-accent);
+    color: var(--color-text);
+    border: 1px solid var(--color-text);
+    padding: 8px 12px; /* サイズ調整 */
+    border-radius: 0;
+    cursor: pointer;
+    font-size: 0.9em; /* 1em -> 0.9em */
+    font-weight: bold;
+    transition: background-color 0.3s;
+    width: auto;
+    margin-top: 5px;
+}
+#auth-form button[type="submit"]:hover {
+    background-color: #b8860b;
+}
+
+#refresh-button {
+    background-color: var(--color-accent);
+    color: var(--color-text);
+    border: 2px solid var(--color-text);
+    padding: 8px; /* サイズ調整 */
+    border-radius: 0;
+    font-size: 0.9em; /* 1em -> 0.9em */
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    width: 100%;
+    margin-top: 15px;
+}
+#refresh-button:hover {
+    background-color: #b8860b;
+}
+
+
+/* --- Forms & Tools --- */
+h2 {
+    color: var(--color-primary);
+    border-bottom: 2px solid var(--color-accent);
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+    font-size: 1.5em; /* 調整 */
+}
+h3 {
+    color: var(--color-primary);
+    border-bottom: 1px dashed var(--color-primary);
+    padding-bottom: 5px;
+    margin-top: 0;
+    font-size: 1.2em; /* 調整 */
+}
+
+.tool-box {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 0;
+    margin-bottom: 25px;
+    border: 1px solid #ccc;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+    width: 100%;
+    padding: 8px; /* サイズ調整 */
+    border: 1px solid var(--color-text);
+    border-radius: 0;
+    box-sizing: border-box;
+    font-size: 0.95em; /* 1em -> 0.95em */
+    background-color: #fcfcfc;
+}
+
+/* --- Ranking List (index.html) --- */
 .ranking-list {
     list-style: none;
     padding: 0;
@@ -53,72 +209,119 @@ main {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px;
-    margin-bottom: 8px;
-    background-color: #fff;
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    transition: transform 0.2s;
-    border-left: 5px solid transparent;
+    padding: 12px; /* サイズ調整 */
+    margin-bottom: 8px; /* サイズ調整 */
+    background-color: var(--color-light);
+    border-radius: 0;
+    box-shadow: 0 4px 0 0 var(--color-primary); /* 立体感を出すためのシャドウ */
+    border: 1px solid var(--color-primary);
+    transition: transform 0.2s, background-color 0.2s;
 }
 .ranking-item:hover {
     transform: translateY(-2px);
+    background-color: #f9f9f9;
 }
 
-.rank-1 { border-left-color: gold; background-color: #fffbe6; }
-.rank-2 { border-left-color: silver; background-color: #f0f0f0; }
-.rank-3 { border-left-color: #cd7f32; background-color: #f7f7f7; }
+/* ランキングの装飾: ::beforeで幾何学的なシェイプを表現 */
+.rank-1, .rank-2, .rank-3 {
+    border-left: none; /* 既存のボーダーを削除 */
+    position: relative;
+    overflow: hidden;
+}
+
+.rank-1::before, .rank-2::before, .rank-3::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 10px;
+    /* 幾何学的なボーダーエフェクト */
+}
+
+/* ゴールド (1位) */
+.rank-1 {
+    border: 2px solid var(--color-accent);
+    background-color: #fffbe6;
+}
+.rank-1::before {
+    background-color: var(--color-accent);
+}
+
+/* シルバー (2位) */
+.rank-2 {
+    border: 2px solid #a8a8a8;
+    background-color: #f8f8f8;
+}
+.rank-2::before {
+    background-color: #a8a8a8;
+}
+
+/* ブロンズ (3位) */
+.rank-3 {
+    border: 2px solid #cd7f32;
+    background-color: #fcfcfc;
+}
+.rank-3::before {
+    background-color: #cd7f32;
+}
+
 
 .rank-num {
-    font-size: 1.2em;
+    font-size: 1.2em; /* 1.4em -> 1.2em */
     font-weight: bold;
-    color: #007bff;
-    width: 30px;
+    color: var(--color-primary);
+    width: 40px;
     text-align: left;
+    letter-spacing: 1px;
 }
 .player-name {
     flex-grow: 1;
-    font-size: 1.1em;
+    font-size: 1.0em; /* 1.1em -> 1.0em */
     padding: 0 10px;
 }
 .player-score {
-    font-size: 1.4em;
+    font-size: 1.3em; /* 1.6em -> 1.3em */
     font-weight: bold;
-    color: #28a745;
+    color: var(--color-accent);
+    text-shadow: 1px 1px 0 var(--color-text); /* 豪華な強調 */
 }
 
-/* 情報ボックス */
+/* --- Info Boxes (index.html) --- */
 .info-box {
-    background-color: #e9ecef;
-    padding: 15px;
-    border-radius: 6px;
-    margin-top: 20px;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 0;
+    margin-top: 25px;
+    border: 1px solid var(--color-primary);
 }
 .icon-title {
     margin-top: 0;
-    color: #495057;
-    border-bottom: 2px solid #ced4da;
+    color: var(--color-primary);
+    /* 二重線でアールデコ感を強調 */
+    border-bottom: 3px double var(--color-accent);
     padding-bottom: 5px;
+    letter-spacing: 1px;
+    font-size: 1.2em; /* 調整 */
 }
 .titles-list {
     list-style: none;
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 15px;
 }
 .titles-list li {
-    background-color: #fff;
-    padding: 8px 15px;
-    border-radius: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    font-size: 0.9em;
-}
-.title-icon {
-    margin-right: 5px;
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    padding: 6px 12px; /* サイズ調整 */
+    border-radius: 0;
+    box-shadow: 4px 4px 0 0 var(--color-accent); /* ゴールドのシャドウ */
+    font-size: 0.8em; /* 0.9em -> 0.8em */
+    border: 1px solid var(--color-accent);
 }
 
-/* 更新情報 */
+/* --- Utility & Messaging --- */
 .update-info {
     text-align: right;
     color: #6c757d;
@@ -126,385 +329,164 @@ main {
     margin-top: 15px;
 }
 
-#refresh-button {
-    display: block;
-    width: 100%;
-    padding: 10px;
-    background-color: #ffc107;
-    border: none;
-    border-radius: 5px;
-    font-size: 1em;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-#refresh-button:hover {
-    background-color: #e0a800;
-}
-
-
-/* --- フォーム・ツール共通スタイル --- */
-h2, h3 {
-    color: #007bff;
-    border-bottom: 1px solid #dee2e6;
-    padding-bottom: 5px;
-}
-
-.tool-box {
-    background-color: #f8f9fa;
-    padding: 15px;
-    border-radius: 6px;
-    margin-bottom: 20px;
-    border: 1px solid #e9ecef;
-}
-
-.form-group {
-    margin-bottom: 15px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-input[type="text"],
-input[type="password"],
-input[type="number"],
-select,
-textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box;
-    font-size: 1em;
-}
-
-/* mahjong.htmlのプレイヤー入力 */
-.player-input-row {
-    display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 10px;
-    border-bottom: 1px dashed #eee;
-    padding-bottom: 10px;
-}
-
-.player-input-row label {
-    margin-bottom: 0;
-}
-
-/* 送信ボタン */
-#submit-button,
-button[type="submit"]:not(#auth-form button),
-.action-button { /* action-buttonを追加 */
-    background-color: #28a745;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1.1em;
-    width: 100%;
-    transition: background-color 0.3s;
-    margin-top: 10px;
-}
-#submit-button:hover:not(:disabled),
-button[type="submit"]:not(#auth-form button):hover:not(:disabled),
-.action-button:hover:not(:disabled) {
-    background-color: #1e7e34;
-}
-#submit-button:disabled,
-button[type="submit"]:disabled,
-.action-button:disabled {
-    background-color: #a5d8b6;
-    cursor: not-allowed;
-}
-
-/* 認証ボタンのみスタイルを分ける */
-#auth-form button[type="submit"] {
-    background-color: #ffc107;
-    color: #333;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1em;
-    font-weight: bold;
-    transition: background-color 0.3s;
-    width: auto;
-    margin-top: 5px;
-}
-#auth-form button[type="submit"]:hover {
-    background-color: #e0a800;
-}
-
-
-/* メッセージ */
-#message,
 .message {
-    padding: 10px;
-    border-radius: 4px;
-    margin-top: 10px;
+    padding: 8px; /* サイズ調整 */
+    border-radius: 0;
+    margin-top: 12px; /* サイズ調整 */
     font-weight: bold;
     text-align: center;
+    border: 1px solid;
+    letter-spacing: 1px;
+    font-size: 0.9em; /* 調整 */
 }
 .message.success {
-    background-color: #d4edda;
-    color: #155724;
-    border-color: #c3e6cb;
+    background-color: #e6ffe6;
+    color: var(--color-text);
+    border-color: #28a745;
 }
 .message.error {
-    background-color: #f8d7da;
-    color: #721c24;
-    border-color: #f5c6cb;
+    background-color: #fff0f0;
+    color: var(--color-text);
+    border-color: #dc3545;
+}
+.message.info {
+    background-color: #e9f5ff;
+    color: var(--color-text);
+    border-color: #007bff;
 }
 .hidden {
     display: none !important;
 }
 
-/* --- スポーツくじ管理 (master_sports.html) スタイル --- */
-
-.odds-group {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 10px;
+/* --- Mahjong (mahjong.html) & Master Tools (master.html) Specific --- */
+.player-input-row {
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+}
+.instruction {
+    color: var(--color-primary);
+    font-weight: 500;
+    border-left: 3px solid var(--color-accent);
+    padding-left: 10px;
+    font-size: 0.9em; /* 調整 */
 }
 
-/* スコアオッズ入力用 */
-.score-odds-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-.score-odds-row .score-input, 
-.score-odds-row .odds-input {
-    flex-grow: 1;
-}
-.score-odds-row .odds-input {
-    max-width: 100px;
-}
 
-/* 汎用オッズ入力用 */
-.generic-odds-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-.generic-odds-row .selection-input {
-    flex-grow: 1;
-}
+/* --- Sports Bets (master_sports.html & index.html) Specific --- */
+
+.generic-odds-row .selection-input,
 .generic-odds-row .odds-input {
-    max-width: 100px;
+    border-radius: 0;
 }
 
 .bet-card {
-    border: 1px solid #ddd;
-    padding: 15px;
-    margin-bottom: 15px;
-    border-radius: 8px;
-    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
-    transition: all 0.2s;
+    border: 1px solid var(--color-primary);
+    padding: 15px; /* サイズ調整 */
+    margin-bottom: 15px; /* サイズ調整 */
+    border-radius: 0;
+    box-shadow: 4px 4px 0 0 #ccc; /* 幾何学的な影 */
 }
 
 .bet-card h3 {
-    margin-top: 0;
-    margin-bottom: 10px;
-    color: #007bff;
-    border-bottom: none;
-    padding-bottom: 0;
+    color: var(--color-primary);
+    border-bottom: 1px solid var(--color-accent);
+    padding-bottom: 5px;
 }
 
 .status-label {
     font-weight: bold;
-    margin-bottom: 10px;
+    letter-spacing: 1px;
 }
 
-.status-open { color: #28a745; } /* 緑 */
-.status-closed { color: #ffc107; } /* 黄 */
-.status-settled { color: #6c757d; } /* 灰 */
+.status-open { color: #28a745; } 
+.status-closed { color: #DAA520; } /* 締切はゴールドで */
+.status-settled { color: #6c757d; } 
 
 .odds-info {
-    margin-bottom: 10px;
-    padding: 10px;
-    background-color: #e9f5ff;
-    border-radius: 4px;
+    margin-bottom: 10px; /* サイズ調整 */
+    padding: 8px; /* サイズ調整 */
+    background-color: #f7f7f7;
+    border-radius: 0;
+    border: 1px dashed var(--color-accent);
 }
 .score-odds-item {
-    background-color: #fff;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 0.9em;
-    margin-right: 5px;
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    padding: 2px 8px; /* サイズ調整 */
+    border-radius: 0;
+    font-size: 0.8em; /* 0.9em -> 0.8em */
+    margin-right: 8px;
     display: inline-block;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-accent);
 }
 
-
-.wagers-list {
-    list-style: none;
-    padding: 0;
-    margin: 10px 0;
-    font-size: 0.9em;
-    max-height: 100px;
-    overflow-y: auto;
-    border: 1px solid #eee;
-    padding: 5px;
-    border-radius: 4px;
-}
-.wager-item {
-    padding: 3px 0;
-    border-bottom: 1px dotted #f0f0f0;
-}
-.wager-item:last-child {
-    border-bottom: none;
+.result-tools-score {
+    border: 2px solid #dc3545; /* 強調は赤で維持 */
+    border-radius: 0;
 }
 
-.management-tools {
-    margin-top: 15px;
-    border-top: 1px solid #eee;
-    padding-top: 10px;
-}
-.result-tools-score { /* スコア入力グループのラッパー */
-    padding: 10px;
-    border: 1px dashed #dc3545;
-    border-radius: 5px;
-    margin-top: 10px;
-}
 .result-tools-score p {
-    margin: 0 0 10px 0;
-    font-weight: bold;
     color: #dc3545;
 }
-.result-tools-score button {
-    background-color: #dc3545;
-}
-.result-tools-score button:hover {
-    background-color: #c82333;
-}
 
 
-/* --- スポーツくじ Home画面 (index.html) スタイル --- */
-.bet-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 15px;
-    margin-top: 10px;
-}
-
+/* Sports Bets Home Tile (index.html) */
 .bet-tile {
-    background-color: #f0f8ff; /* 薄い青 */
-    padding: 15px;
-    border-radius: 8px;
-    border: 2px solid #007bff;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s;
+    background-color: var(--color-light); 
+    padding: 15px; /* サイズ調整 */
+    border-radius: 0;
+    border: 2px solid var(--color-primary);
+    box-shadow: 4px 4px 0 0 var(--color-accent);
 }
 .bet-tile:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+    transform: none; /* transform削除 */
+    box-shadow: 6px 6px 0 0 var(--color-accent);
 }
 .bet-tile.status-closed {
-    border-color: #ffc107;
+    border-color: #b8860b;
     background-color: #fffef2;
 }
 
 
 .bet-tile h4 {
-    margin-top: 0;
-    color: #0056b3;
-    border-bottom: 1px dashed #ced4da;
-    padding-bottom: 5px;
-    font-size: 1.1em;
+    color: var(--color-primary);
+    border-bottom: 2px dashed var(--color-accent);
+    font-size: 1.1em; /* 調整 */
 }
 
 .odds-info-display {
-    margin: 10px 0;
-    padding: 5px 0;
-    border-bottom: 1px dotted #ddd;
-}
-.odds-list-win-draw span {
-    display: inline-block;
-    margin-right: 10px;
-    font-size: 0.9em;
-}
-.odds-list-win-draw strong {
-    color: #28a745;
+    border-bottom: 1px solid #ddd;
 }
 
-.score-odds-header {
-    font-weight: bold;
-    color: #495057;
-    margin: 10px 0 5px 0;
-    font-size: 0.95em;
-}
-
-/* ★修正：汎用オッズリストのスタイルを追加/修正★ */
-.generic-odds-list-display {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap; /* ここで折り返しを有効にする */
-    gap: 5px;
-}
 .generic-odds-list-display li {
-    font-size: 0.85em;
-    background-color: #fff;
-    padding: 3px 6px;
-    border-radius: 3px;
-    border: 1px solid #eee;
-    white-space: nowrap; /* 各要素内では折り返さない */
+    font-size: 0.75em; /* 0.85em -> 0.75em */
+    background-color: #f9f9f9;
+    padding: 3px 6px; /* サイズ調整 */
+    border-radius: 0;
+    border: 1px solid #ccc;
 }
 .generic-odds-list-display strong {
-    color: #dc3545;
-    font-weight: bold;
-}
-
-
-/* 旧スコアオッズリストのスタイル (残しておく) */
-.score-odds-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-.score-odds-list li {
-    font-size: 0.85em;
-    background-color: #fff;
-    padding: 3px 6px;
-    border-radius: 3px;
-    border: 1px solid #eee;
-}
-.score-odds-list strong {
-    color: #dc3545;
+    color: var(--color-primary);
 }
 
 .my-wager-text {
-    font-weight: bold;
-    color: #1e7e34;
-    margin: 5px 0;
-    padding: 5px;
-    background-color: #e6ffe6;
-    border-radius: 4px;
-}
-.my-wagers-list {
-    list-style: none;
-    padding: 0 0 0 15px;
-    margin: 5px 0;
-    font-size: 0.9em;
-}
-.my-wagers-list li {
-    margin-bottom: 3px;
-    border-bottom: 1px dotted #c3e6cb;
+    color: var(--color-primary);
+    border-left: 4px solid #28a745;
+    background-color: #e8f9e8;
+    border-radius: 0;
+    font-size: 0.9em; /* 調整 */
 }
 
-.total-wager-text, .bet-id-text {
-    font-size: 0.85em;
-    color: #6c757d;
-    margin: 3px 0;
+/* Race Records List */
+#race-records-list {
+    font-size: 0.7em; /* ベースフォントをさらに小さく */
+}
+#race-records-list li {
+    padding: 4px 0; /* サイズ調整 */
+    border-bottom: 1px dotted #ccc;
+    font-size: 1em; /* 親要素の0.7emを継承 */
+}
+#race-records-list strong {
+    color: var(--color-accent) !important;
+    font-weight: bold;
 }
