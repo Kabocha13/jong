@@ -7,7 +7,6 @@ const SPORTS_BETS_CONTAINER = document.getElementById('sports-bets-container');
 // ★ 新規追加要素
 const RACE_RECORDS_LIST = document.getElementById('race-records-list'); 
 
-// 除外するプレイヤー名を設定
 const EXCLUDED_PLAYERS = ['3mahjong']; // 三麻用のダミー名やその他の除外したい名前を追加可能
 
 let previousScores = new Map(JSON.parse(localStorage.getItem('previousScores') || '[]'));
