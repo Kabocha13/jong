@@ -14,9 +14,12 @@ const TRANSFER_FORM = document.getElementById('transfer-form');
 const SENDER_PLAYER_SELECT = document.getElementById('sender-player');
 const RECEIVER_PLAYER_SELECT = document.getElementById('receiver-player');
 
-// ★ レース記録機能 (既存)
+// ★ レース記録機能 (修正)
 const RACE_RECORD_FORM = document.getElementById('race-record-form');
 const RACE_RECORD_HOLDER_SELECT = document.getElementById('race-record-holder');
+// ★ 修正: コース名入力フィールドをプルダウンに変更
+const RACE_COURSE_SELECT = document.getElementById('race-course-select'); 
+
 
 // ★ スポーツくじ管理機能 (既存)
 const BET_LIST_CONTAINER = document.getElementById('bet-list-container');
@@ -48,7 +51,8 @@ AUTH_FORM.addEventListener('submit', (e) => {
         ADMIN_TOOLS.classList.remove('hidden');
         loadPlayerList(); // ポイント調整用
         loadTransferPlayerLists(); // 送金用
-        loadRaceRecordHolders(); // レース記録用
+        loadRaceRecordHolders(); // レース記録保持者用
+        loadRaceCourses(); // ★ 追加: レースコースプルダウンをロード
         initializeSportsMasterTools(); // スポーツくじ管理
         loadMahjongForm(); // ★ 追加: 麻雀フォームをロード
     } else {
@@ -185,6 +189,33 @@ async function loadRaceRecordHolders() {
     });
 
     RACE_RECORD_HOLDER_SELECT.innerHTML = options;
+}
+
+// ★ 新規追加: 既存コースリストをロードする関数
+async function loadRaceCourses() {
+    RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
+    
+    try {
+        const allData = await fetchAllData();
+        const records = allData.speedstorm_records || [];
+        
+        // 既存のコース名リストを重複なく取得
+        const courseNames = [...new Set(records.map(r => r.courseName))].sort();
+
+        if (courseNames.length === 0) {
+            RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>コースが未登録です</option>';
+            // 新規登録の意図がないため、このままボタンを無効化する方が良いが、今回は更新のみに特化
+        } else {
+            let options = '<option value="" disabled selected>更新するコースを選択</option>';
+            courseNames.forEach(name => {
+                options += `<option value="${name}">${name}</option>`;
+            });
+            RACE_COURSE_SELECT.innerHTML = options;
+        }
+    } catch (error) {
+        console.error("レースコースリストのロード中にエラー:", error);
+        RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>リストの取得に失敗</option>';
+    }
 }
 
 
@@ -502,7 +533,7 @@ document.getElementById('global-penalty-button').addEventListener('click', async
 });
 
 
-// --- 4. スピードストーム レコード管理機能 (passフィールドの保持対応のため修正) ---
+// --- 4. スピードストーム レコード管理機能 (修正版) ---
 
 // タイム文字列 (例: "0:46.965" または "46.965") をミリ秒に変換するヘルパー関数
 function timeToMilliseconds(timeString) {
@@ -548,16 +579,19 @@ function formatMilliseconds(ms) {
 RACE_RECORD_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('race-record-message');
-    const courseName = document.getElementById('race-course-name').value.trim();
+    // ★ 修正: プルダウンからコース名を取得
+    const courseName = RACE_COURSE_SELECT.value; 
     const timeString = document.getElementById('race-best-time').value.trim();
     const recordHolder = RACE_RECORD_HOLDER_SELECT.value;
     
     const newTimeMs = timeToMilliseconds(timeString);
 
     if (!courseName || isNaN(newTimeMs) || !recordHolder || newTimeMs <= 0) {
-        showMessage(messageEl, 'エラー: 全ての項目を正しく入力してください (タイムは分:秒.ミリ秒 または 秒.ミリ秒 形式)。', 'error');
+        showMessage(messageEl, 'エラー: 全ての項目を正しく選択・入力してください (タイムは分:秒.ミリ秒 または 秒.ミリ秒 形式)。', 'error');
         return;
     }
+    
+    // ★ 修正: ここから新規コースの追加はできず、既存コースの更新のみを行う
 
     showMessage(messageEl, 'レース記録を更新中...', 'info');
 
@@ -565,8 +599,16 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
         const currentData = await fetchAllData();
         let records = currentData.speedstorm_records || [];
         
+        // 既存のレコードの中から、選択されたコース名と一致するものを探す
         const existingIndex = records.findIndex(r => r.courseName === courseName);
         
+        // ★ 修正: 既存コースが見つからない場合はエラーとする
+        if (existingIndex === -1) {
+            showMessage(messageEl, `❌ エラー: コース名「${courseName}」は既存のコースリストに見つかりませんでした。新規コースの追加はできません。`, 'error');
+            return;
+        }
+
+        const existingRecord = records[existingIndex];
         const newRecord = {
             courseName: courseName,
             bestTimeMs: newTimeMs,
@@ -579,26 +621,22 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
         let shouldAwardPoints = false;
         const AWARD_POINTS = 5.0;
 
-        if (existingIndex !== -1) {
-            const existingRecord = records[existingIndex];
-            if (newTimeMs < existingRecord.bestTimeMs) {
-                records[existingIndex] = newRecord;
-                logMessage = `✅ 記録を更新しました: ${courseName} | ${existingRecord.bestTime} (旧) → ${newRecord.bestTime} (新)`;
-                shouldAwardPoints = true;
-            } else if (newTimeMs === existingRecord.bestTimeMs && recordHolder !== existingRecord.holder) {
-                records[existingIndex] = newRecord;
-                logMessage = `✅ 同タイムで記録を更新（保持者変更）しました: ${newRecord.bestTime}`;
-                shouldAwardPoints = true;
-            } else {
-                showMessage(messageEl, `❌ 記録は更新されませんでした。入力された ${newRecord.bestTime} は既存の記録 ${existingRecord.bestTime} より遅いです。`, 'error');
-                return;
-            }
-        } else {
-            records.push(newRecord);
-            logMessage = `✅ 新規コース ${courseName} の記録を登録しました: ${newRecord.bestTime}`;
+        // 新しい記録が既存の記録より速いか、同タイムで保持者が異なる場合のみ更新
+        if (newTimeMs < existingRecord.bestTimeMs) {
+            records[existingIndex] = newRecord;
+            logMessage = `✅ 記録を更新しました: ${courseName} | ${existingRecord.bestTime} (旧) → ${newRecord.bestTime} (新)`;
             shouldAwardPoints = true;
+        } else if (newTimeMs === existingRecord.bestTimeMs && recordHolder !== existingRecord.holder) {
+            // 同タイムの場合は、保持者変更として記録を更新し、ポイント付与対象とする（競り合いの評価）
+            records[existingIndex] = newRecord;
+            logMessage = `✅ 同タイムで記録を更新（保持者変更）しました: ${newRecord.bestTime}`;
+            shouldAwardPoints = true;
+        } else {
+            showMessage(messageEl, `❌ 記録は更新されませんでした。入力された ${newRecord.bestTime} は既存の記録 ${existingRecord.bestTime} より遅いか同タイムです(保持者も同じ)。`, 'error');
+            return;
         }
-
+        
+        // 更新後のリストをソート (念のため)
         records.sort((a, b) => a.bestTimeMs - b.bestTimeMs);
 
         let historyChanges = [];
@@ -637,7 +675,7 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
                 timestamp: new Date().toISOString(),
                 ranks: ['RACE_RECORD'], 
                 changes: historyChanges,
-                memo: `[レース記録] ${courseName} のベストタイム (${newRecord.bestTime}) を更新し、${recordHolder} に ${AWARD_POINTS} P ${kabochaPlayer ? `+ ${KABOCHA_NAME} に ${KABOCHA_BONUS} P` : ''} 付与。`,
+                memo: `[レース記録] ${courseName} のベストタイム (${newRecord.bestTime}) を更新し、${recordHolder} に ${AWARD_POINTS} P ${kabochaPlayer ? `+ ${KABOCHA_BONUS} P` : ''} 付与。`,
                 gameId: `RACE-${Date.now()}`
             };
             currentData.history.push(historyEntry);
@@ -658,6 +696,7 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
             loadPlayerList();
             loadTransferPlayerLists();
             loadMahjongForm(); // 麻雀フォームも更新
+            loadRaceCourses(); // コースリストを再ロード
         } else {
             showMessage(messageEl, `❌ 更新エラー: ${response.message}`, 'error');
         }
