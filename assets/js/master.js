@@ -115,15 +115,16 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     }
 });
 
-// --- 2. 特殊ポイント調整機能 (変更なし) ---
+// --- 2. 特殊ポイント調整機能 (修正済み) ---
 
 document.getElementById('adjustment-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const player = TARGET_PLAYER_SELECT.value;
     const amount = parseFloat(document.getElementById('adjust-amount').value);
-    const reason = document.getElementById('adjust-reason').value.trim();
+    // 理由欄を削除したため、空文字列で代替
+    const reason = ''; 
 
-    if (!player || isNaN(amount) || !reason) {
+    if (!player || isNaN(amount)) {
         showMessage(document.getElementById('adjustment-message'), 'エラー: 全ての項目を入力してください。', 'error');
         return;
     }
@@ -144,9 +145,14 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
         timestamp: new Date().toISOString(),
         ranks: ['ADMIN'], // 管理者による調整であることを示す
         changes: [{name: player, change: amount}],
-        memo: `[調整] ${reason}`,
+        // 理由フィールドを削除したため、メモ内容を修正
+        memo: `[調整] 管理者によるポイント調整: ${amount > 0 ? '+' : ''}${amount.toFixed(1)} P`,
         gameId: Date.now()
     };
+    // 理由テキストが空でない場合のみ、メモに追加（今回は常に空だが、念のためロジックを残す）
+    if (reason) {
+        historyEntry.memo += `: ${reason}`;
+    }
 
     // 新しいデータを作成
     const newScores = Array.from(currentScoresMap.entries()).map(([name, score]) => ({ name, score }));
@@ -336,7 +342,7 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
             } else if (newTimeMs === existingRecord.bestTimeMs && recordHolder !== existingRecord.holder) {
                 // 同タイムで別人が記録した場合（保持者変更）も更新し、ポイント付与
                 records[existingIndex] = newRecord;
-                logMessage = `✅ 同タイムで記録を更新（保持者変更）しました: ${courseName} | ${newRecord.bestTime}`;
+                logMessage = `✅ 同タイムで記録を更新（保持者変更）しました: ${newRecord.bestTime}`;
                 shouldAwardPoints = true; // ポイント付与フラグを立てる
             } else {
                 // 既存記録より遅い場合、拒否
@@ -360,13 +366,29 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
         if (shouldAwardPoints) {
             let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p.score]));
             
-            // 記録保持者にポイントを付与
+            // 1. 記録保持者にポイントを付与 (5.0 P)
             const currentScore = currentScoresMap.get(recordHolder) || 0;
             currentScoresMap.set(recordHolder, currentScore + AWARD_POINTS);
             
             // 履歴変更を記録
             historyChanges.push({name: recordHolder, change: AWARD_POINTS});
             
+            // === ★ 追加要件: Kabochaに1P追加 ★ ===
+            const KABOCHA_NAME = "Kabocha"; 
+            const KABOCHA_BONUS = 1.0;     
+            
+            // Kabochaに1Pを追加 (Kabochaが存在する場合のみ)
+            if (currentScoresMap.has(KABOCHA_NAME)) {
+                const kabochaCurrentScore = currentScoresMap.get(KABOCHA_NAME);
+                currentScoresMap.set(KABOCHA_NAME, kabochaCurrentScore + KABOCHA_BONUS);
+                historyChanges.push({name: KABOCHA_NAME, change: KABOCHA_BONUS});
+                logMessage += ` (報酬: ${AWARD_POINTS} P + ${KABOCHA_NAME}に ${KABOCHA_BONUS} P)`; // ログメッセージを更新
+            } else {
+                 logMessage += ` (報酬: ${AWARD_POINTS} P)`;
+            }
+            // === ★ 追加要件 終了 ★ ===
+
+
             // スコア配列を更新
             newScores = Array.from(currentScoresMap.entries()).map(([name, score]) => ({ 
                 name, 
@@ -377,13 +399,12 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
             const historyEntry = {
                 timestamp: new Date().toISOString(),
                 ranks: ['RACE_RECORD'], 
+                // historyChangesには記録保持者とKabochaの両方の変更が含まれる
                 changes: historyChanges,
-                memo: `[レース記録] ${courseName} のベストタイム (${newRecord.bestTime}) を更新し、${recordHolder} に ${AWARD_POINTS} P 付与。`,
+                memo: `[レース記録] ${courseName} のベストタイム (${newRecord.bestTime}) を更新し、${recordHolder} に ${AWARD_POINTS} P ${currentScoresMap.has(KABOCHA_NAME) ? `+ ${KABOCHA_NAME} に ${KABOCHA_BONUS} P` : ''} 付与。`,
                 gameId: `RACE-${Date.now()}`
             };
             currentData.history.push(historyEntry);
-            
-            logMessage += ` (報酬: ${AWARD_POINTS} P)`;
         }
 
 
