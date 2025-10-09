@@ -21,21 +21,11 @@ const RACE_RECORD_HOLDER_SELECT = document.getElementById('race-record-holder');
 const RACE_COURSE_SELECT = document.getElementById('race-course-select'); 
 
 
-// ★ スポーツくじ管理機能 (更新)
+// ★ スポーツくじ管理機能 (既存)
 const BET_LIST_CONTAINER = document.getElementById('bet-list-container');
 const CREATE_BET_FORM = document.getElementById('create-bet-form');
 const GENERIC_ODDS_CONTAINER = document.getElementById('generic-odds-container'); 
 const ADD_GENERIC_ODDS_BUTTON = document.getElementById('add-generic-odds-button'); 
-
-// ★ 新規/変更: くじ種類関連の要素
-const BET_TYPE_SELECT = document.getElementById('bet-type');
-const RANKING_OPTIONS_DIV = document.getElementById('ranking-options');
-// const RANKING_PREDICTION_TYPE_SELECT = document.getElementById('ranking-prediction-type'); // 削除
-// ★ 新規追加: 自動生成関連の要素
-const COMPETITOR_COUNT_INPUT = document.getElementById('competitor-count');
-const GENERATE_RANKING_ODDS_BUTTON = document.getElementById('generate-ranking-odds-button');
-const ODDS_INSTRUCTION_ELEMENT = document.getElementById('odds-instruction');
-
 
 // ★★★ 麻雀結果入力機能 (新規追加) ★★★
 const MAHJONG_FORM = document.getElementById('mahjong-form');
@@ -71,7 +61,7 @@ AUTH_FORM.addEventListener('submit', (e) => {
 });
 
 
-// --- ★★★ 新規プレイヤー登録機能の修正 (変更なし) ★★★ ---
+// --- ★★★ 新規プレイヤー登録機能の修正 ★★★ ---
 
 REGISTER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -129,7 +119,7 @@ REGISTER_FORM.addEventListener('submit', async (e) => {
     }
 });
 
-// --- プレイヤーリストのロード関数群 (変更なし) ---
+// --- プレイヤーリストのロード関数群 (共通データ取得とフォーム更新) ---
 
 async function fetchAndSetPlayerNames() {
     // fetchScores()はcommon.jsから全データを取得しscoresのみを返す
@@ -201,7 +191,7 @@ async function loadRaceRecordHolders() {
     RACE_RECORD_HOLDER_SELECT.innerHTML = options;
 }
 
-// ★ 新規追加: 既存コースリストをロードする関数 (変更なし)
+// ★ 新規追加: 既存コースリストをロードする関数
 async function loadRaceCourses() {
     RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     
@@ -214,6 +204,7 @@ async function loadRaceCourses() {
 
         if (courseNames.length === 0) {
             RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>コースが未登録です</option>';
+            // 新規登録の意図がないため、このままボタンを無効化する方が良いが、今回は更新のみに特化
         } else {
             let options = '<option value="" disabled selected>更新するコースを選択</option>';
             courseNames.forEach(name => {
@@ -228,7 +219,7 @@ async function loadRaceCourses() {
 }
 
 
-// --- ★★★ 麻雀結果フォーム生成 (変更なし) ★★★
+// --- ★★★ 麻雀結果フォーム生成 ★★★
 async function loadMahjongForm() {
     const success = await fetchAndSetPlayerNames();
 
@@ -362,184 +353,15 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
 // --- 麻雀結果フォーム処理 終了 ---
 
 
-// --- スポーツくじ管理機能: ヘルパー関数群を先頭に移動 (修正箇所) ---
-
-// --- 汎用オッズ入力フィールドの動的追加 ---
-function addGenericOddsRow(selection = '', odds = '') {
-    const row = document.createElement('div');
-    row.className = 'generic-odds-row form-group';
-    row.innerHTML = `
-        <input type="text" class="selection-input" placeholder="選択肢名 (例: プレイヤーAが1位)" value="${selection}">
-        <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ (例: 2.5)" value="${odds}">
-        <button type="button" class="remove-generic-odds-button action-button secondary-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
-    `;
-    GENERIC_ODDS_CONTAINER.appendChild(row);
-
-    // 削除ボタンのイベントリスナー設定
-    row.querySelector('.remove-generic-odds-button').addEventListener('click', (e) => {
-        e.target.closest('.generic-odds-row').remove();
-    });
-    
-    return row;
-}
-
-// **既存のオッズデータから編集フォームのHTMLを生成する関数** (変更なし)
-function generateOddsEditHtml(bet) {
-    let editHtml = `<form class="edit-odds-form" data-bet-id="${bet.betId}">`;
-    editHtml += `<p class="instruction" style="margin-top: 5px;">⚠️ **注意:** 投票受付中のオッズ変更は、公平性を損なう可能性があります。</p>`;
-    editHtml += `<div class="tool-box" style="margin-top: 10px; padding: 10px;" id="edit-odds-container-${bet.betId}">`;
-    
-    const odds = bet.odds || {};
-    Object.entries(odds).forEach(([selection, oddsValue]) => {
-        editHtml += `
-            <div class="generic-odds-row form-group">
-                <input type="text" class="selection-input" placeholder="選択肢名" value="${selection}" required>
-                <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ" value="${oddsValue}">
-                <button type="button" class="remove-edit-odds-button action-button secondary-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
-            </div>
-        `;
-    });
-    
-    editHtml += '</div>';
-    editHtml += `<button type="button" class="add-edit-odds-button action-button secondary-button" data-bet-id="${bet.betId}" style="width: auto;">+ 選択肢を追加</button>`;
-    editHtml += `<button type="submit" class="action-button" style="margin-top: 10px; background-color: #007bff;">オッズを更新</button>`;
-    editHtml += `<p id="edit-message-${bet.betId}" class="hidden message"></p>`;
-    editHtml += `</form>`;
-    return editHtml;
-}
-
-
-// **編集フォーム用のオッズ行追加関数** (変更なし)
-function addEditOddsRow(container) {
-    const row = document.createElement('div');
-    row.className = 'generic-odds-row form-group';
-    row.innerHTML = `
-        <input type="text" class="selection-input" placeholder="選択肢名" required>
-        <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ">
-        <button type="button" class="remove-edit-odds-button action-button secondary-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
-    `;
-    container.appendChild(row);
-    
-    // 削除ボタンのイベントリスナー
-    row.querySelector('.remove-edit-odds-button').addEventListener('click', (e) => {
-        e.target.closest('.generic-odds-row').remove();
-    });
-}
-
-// --- スポーツくじ管理機能: メインロジック ---
+// --- スポーツくじ管理機能 (既存) ---
 
 async function initializeSportsMasterTools() {
-    // ★ 変更: くじの種類選択のイベントリスナー設定
-    BET_TYPE_SELECT.addEventListener('change', toggleRankingOptions);
-    // ★ 新規: 自動生成ボタンにイベントリスナーを設定
-    GENERATE_RANKING_ODDS_BUTTON.addEventListener('click', generateRankingOdds);
-    // ★ 新規: 頭数変更時も自動生成を促す
-    COMPETITOR_COUNT_INPUT.addEventListener('input', () => {
-         ODDS_INSTRUCTION_ELEMENT.textContent = '競走頭数が変更されました。「オッズ選択肢を自動生成」を押し直してください。';
-    });
-    
-    // 初期表示
-    toggleRankingOptions();
-    
     if (GENERIC_ODDS_CONTAINER.children.length === 0) {
-        // デフォルトの選択肢をより汎用的なものに
-        addGenericOddsRow('ホームチームの勝利 (1点差)', 2.5);
-        addGenericOddsRow('馬Aが1着', 5.0);
+        addGenericOddsRow('馬Aの勝利', 2.5);
+        addGenericOddsRow('プレイヤーBが1位', 5.0);
     }
     await loadBettingData();
 }
-
-/**
- * ★ 更新: くじの種類に応じてオプション表示を切り替える
- */
-function toggleRankingOptions() {
-    if (BET_TYPE_SELECT.value === 'RANKING') {
-        RANKING_OPTIONS_DIV.classList.remove('hidden');
-        ODDS_INSTRUCTION_ELEMENT.textContent = '競走頭数を入力し、「自動生成」を押すと、単勝・二連複・三連単の全組み合わせとオッズが設定されます。';
-        // ランキング選択時は手動入力を一旦クリアし、ボタンも非表示に
-        GENERIC_ODDS_CONTAINER.innerHTML = '';
-        ADD_GENERIC_ODDS_BUTTON.classList.add('hidden');
-    } else {
-        RANKING_OPTIONS_DIV.classList.add('hidden');
-        ODDS_INSTRUCTION_ELEMENT.textContent = 'くじの選択肢（結果）名と、それぞれのオッズを入力してください。';
-        ADD_GENERIC_ODDS_BUTTON.classList.remove('hidden'); // 汎用時は手動追加ボタンを表示
-        if (GENERIC_ODDS_CONTAINER.children.length === 0) {
-            // GENERICに戻った場合で、かつ空の場合はデフォルトを再設定
-            addGenericOddsRow('ホームチームの勝利 (1点差)', 2.5);
-            addGenericOddsRow('馬Aが1着', 5.0);
-        }
-    }
-}
-
-/**
- * ★ 新規: 順位予想の選択肢を自動生成する (単勝、二連複、三連単の全組み合わせ)
- */
-function generateRankingOdds() {
-    const messageEl = document.getElementById('create-message');
-    const count = parseInt(COMPETITOR_COUNT_INPUT.value, 10);
-    
-    // 3頭未満では三連単が成立しないため、最低頭数を3に修正
-    if (isNaN(count) || count < 3 || count > 18) {
-        showMessage(messageEl, '❌ 競走頭数は**3**から18の間の数値を入力してください。', 'error');
-        return;
-    }
-
-    GENERIC_ODDS_CONTAINER.innerHTML = ''; // 既存のオッズをクリア
-    ADD_GENERIC_ODDS_BUTTON.classList.remove('hidden'); // 生成後も手動追加はできるように
-
-    const selections = [];
-    const competitorNames = Array.from({length: count}, (_, i) => `馬${i + 1}`);
-    
-    // 簡易的なオッズを設定 (頭数に応じて倍率を調整する簡易ロジック)
-    // 均等オッズをベースとし、組み合わせ数が少ないほどオッズが低くなるよう調整
-    const baseOdds = 1.0 + 0.1 * count;
-
-    // --- 1. 単勝 (WIN) ---
-    // 1着を予想 (組み合わせ数: N)
-    for (let i = 0; i < count; i++) {
-        const competitor = competitorNames[i];
-        const selection = `単勝: ${competitor}`; 
-        // オッズ: 単勝は最も組み合わせ数が少ないため、倍率低めに設定
-        const odds = parseFloat(Math.max(1.1, baseOdds * 1.5 - (i * 0.1 * baseOdds)).toFixed(1));
-        selections.push({ selection, odds });
-    }
-
-    // --- 2. 二連複 (PLACE) ---
-    // 1着-2着の組み合わせ、順不同 (組み合わせ数: N * (N-1) / 2)
-    for (let i = 0; i < count; i++) {
-        for (let j = i + 1; j < count; j++) {
-            const selection = `2連複: ${competitorNames[i]} - ${competitorNames[j]}`;
-            // オッズ: 単勝より高めに設定
-            const odds = parseFloat(Math.max(1.5, baseOdds * 3.0 - (i * 0.2 * baseOdds)).toFixed(1));
-            selections.push({ selection, odds });
-        }
-    }
-    
-    // --- 3. 三連単 (TRIFECTA) ---
-    // 1着-2着-3着の順序通り (組み合わせ数: N * (N-1) * (N-2))
-    for (let i = 0; i < count; i++) {
-        for (let j = 0; j < count; j++) {
-            if (i === j) continue;
-            for (let k = 0; k < count; k++) {
-                if (k === i || k === j) continue;
-                
-                const selection = `3連単: ${competitorNames[i]} → ${competitorNames[j]} → ${competitorNames[k]}`;
-                // オッズ: 最も組み合わせ数が多いため、最も高めに設定
-                const odds = parseFloat(Math.max(2.0, baseOdds * 6.0 - (i * 0.3 * baseOdds)).toFixed(1));
-                selections.push({ selection, odds });
-            }
-        }
-    }
-    
-    // 生成された選択肢をオッズコンテナに追加
-    selections.forEach(item => {
-        addGenericOddsRow(item.selection, item.odds);
-    });
-    
-    ODDS_INSTRUCTION_ELEMENT.textContent = `✅ 単勝、二連複、三連単を合わせた ${selections.length} 件の選択肢が自動生成されました。必要に応じてオッズを調整し、「くじを作成」してください。`;
-    showMessage(messageEl, `✅ 単勝、二連複、三連単の全 ${selections.length} 件のオッズ選択肢を自動生成しました。`, 'success');
-}
-
 
 async function loadBettingData() {
     const data = await fetchAllData();
@@ -547,7 +369,7 @@ async function loadBettingData() {
     renderBetList(allBets);
 }
 
-// --- 3. ポイント送金機能 (変更なし) ---
+// --- 3. ポイント送金機能 ---
 TRANSFER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('transfer-message');
@@ -641,7 +463,7 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
 });
 
 
-// --- 3. 全員一律ポイント減算機能 (変更なし) ---
+// --- 3. 全員一律ポイント減算機能 ---
 document.getElementById('global-penalty-button').addEventListener('click', async () => {
     const penaltyAmount = -1.0;
     const messageEl = document.getElementById('global-penalty-message');
@@ -711,7 +533,7 @@ document.getElementById('global-penalty-button').addEventListener('click', async
 });
 
 
-// --- 4. スピードストーム レコード管理機能 (変更なし) ---
+// --- 4. スピードストーム レコード管理機能 (修正版) ---
 
 // タイム文字列 (例: "0:46.965" または "46.965") をミリ秒に変換するヘルパー関数
 function timeToMilliseconds(timeString) {
@@ -886,8 +708,57 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
 });
 
 
+// --- 6. スポーツくじ管理機能 (passフィールドの保持対応のため修正) ---
+
+// --- 汎用オッズ入力フィールドの動的追加 (変更なし) ---
+ADD_GENERIC_ODDS_BUTTON.addEventListener('click', () => addGenericOddsRow());
+
+function addGenericOddsRow(selection = '', odds = '') {
+    const row = document.createElement('div');
+    row.className = 'generic-odds-row form-group';
+    row.innerHTML = `
+        <input type="text" class="selection-input" placeholder="選択肢名 (例: プレイヤーAが1位)" value="${selection}">
+        <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ (例: 2.5)" value="${odds}">
+        <button type="button" class="remove-generic-odds-button action-button secondary-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
+    `;
+    GENERIC_ODDS_CONTAINER.appendChild(row);
+
+    // 削除ボタンのイベントリスナー設定
+    row.querySelector('.remove-generic-odds-button').addEventListener('click', (e) => {
+        e.target.closest('.generic-odds-row').remove();
+    });
+    
+    return row;
+}
+
+// **既存のオッズデータから編集フォームのHTMLを生成する関数** (変更なし)
+function generateOddsEditHtml(bet) {
+    let editHtml = `<form class="edit-odds-form" data-bet-id="${bet.betId}">`;
+    editHtml += `<p class="instruction" style="margin-top: 5px;">⚠️ **注意:** 投票受付中のオッズ変更は、公平性を損なう可能性があります。</p>`;
+    editHtml += `<div class="tool-box" style="margin-top: 10px; padding: 10px;" id="edit-odds-container-${bet.betId}">`;
+    
+    const odds = bet.odds || {};
+    Object.entries(odds).forEach(([selection, oddsValue]) => {
+        editHtml += `
+            <div class="generic-odds-row form-group">
+                <input type="text" class="selection-input" placeholder="選択肢名" value="${selection}" required>
+                <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ" value="${oddsValue}">
+                <button type="button" class="remove-edit-odds-button action-button secondary-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
+            </div>
+        `;
+    });
+    
+    editHtml += '</div>';
+    editHtml += `<button type="button" class="add-edit-odds-button action-button secondary-button" data-bet-id="${bet.betId}" style="width: auto;">+ 選択肢を追加</button>`;
+    editHtml += `<button type="submit" class="action-button" style="margin-top: 10px; background-color: #007bff;">オッズを更新</button>`;
+    editHtml += `<p id="edit-message-${bet.betId}" class="hidden message"></p>`;
+    editHtml += `</form>`;
+    return editHtml;
+}
+
+
 /**
- * くじ一覧のHTMLを生成し、表示する (更新)
+ * くじ一覧のHTMLを生成し、表示する
  * @param {Array<Object>} allBets - すべてのくじのデータ
  */
 function renderBetList(allBets) {
@@ -909,25 +780,13 @@ function renderBetList(allBets) {
         let statusText = '';
         let statusClass = '';
         let managementTools = '';
-        
-        // ★ 変更: くじ種類と予想タイプの表示
-        const betType = bet.betType || 'GENERIC'; // デフォルトはGENERIC
-        let betTypeLabel = '';
-        if (betType === 'RANKING') {
-             // 予想タイプはCOMBINED、頭数を表示
-             const countInfo = bet.competitorCount ? ` (${bet.competitorCount}頭)` : '';
-             betTypeLabel = `<span style="background-color: #ffc107; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">順位予想: 全賭式${countInfo}</span>`;
-        } else {
-             betTypeLabel = `<span style="background-color: #20c997; padding: 2px 6px; border-radius: 4px; font-size: 0.8em;">汎用/簡易予想</span>`;
-        }
 
         // 汎用オッズリストを生成
         let genericOddsList = '';
         const genericOdds = bet.odds || {};
         if (Object.keys(genericOdds).length > 0) {
-            genericOddsList = Object.entries(genericOdds).map(([selection, oddsValue]) => 
-                // オッズ値が数値であることを確認
-                `<span class="score-odds-item">${selection}: x${parseFloat(oddsValue).toFixed(1)}</span>` 
+            genericOddsList = Object.entries(genericOdds).map(([selection, odds]) => 
+                `<span class="score-odds-item">${selection}: x${odds.toFixed(1)}</span>`
             ).join(', ');
         }
 
@@ -947,19 +806,29 @@ function renderBetList(allBets) {
             statusText = '締切 (結果待ち)';
             statusClass = 'status-closed';
             
-            // 結果確定ツール (複数選択肢対応)
+            // ★ 修正箇所：結果確定ツールをプルダウン式に変更
+            const oddsOptions = Object.keys(bet.odds || {}).map(selection => 
+                `<option value="${selection}">${selection}</option>`
+            ).join('');
+
             managementTools = `
                 <div class="result-tools-score">
-                    <p>🎯 **当選となる選択肢** を1行に1つずつ入力してください:</p>
-                    <textarea class="final-outcome-keys" required rows="3" placeholder="例:&#10;単勝: 馬1&#10;2連複: 馬1 - 馬2&#10;3連単: 馬1 → 馬2 → 馬3"></textarea>
+                    <p>🎯 当選した選択肢（結果）を選択:</p>
+                    <div class="form-group score-input-group">
+                        <select class="final-outcome-key" required style="width: 80%; display: inline; padding: 10px;">
+                            <option value="" disabled selected>-- 当選選択肢を選択 --</option>
+                            ${oddsOptions}
+                        </select>
+                    </div>
+                    
                     <button class="action-button settle-bet result-button" data-bet-id="${bet.betId}">結果を確定し、ポイントを反映</button>
                 </div>
             `;
+            // ★ 修正箇所ここまで
             
         } else if (bet.status === 'SETTLED') {
             // 最終結果キーを表示
-            const outcomes = Array.isArray(bet.outcome) ? bet.outcome.join(' / ') : (bet.outcome || 'N/A');
-            statusText = `完了 (当選結果: ${outcomes})`;
+            statusText = `完了 (当選結果: ${bet.outcome || 'N/A'})`;
             statusClass = 'status-settled';
             managementTools = `<p class="settled-info">このくじは確定済みです。</p>`;
         }
@@ -970,7 +839,7 @@ function renderBetList(allBets) {
 
         html += `
             <div class="bet-card ${statusClass}">
-                <h3>${bet.matchName} (#${bet.betId}) ${betTypeLabel}</h3>
+                <h3>${bet.matchName} (#${bet.betId})</h3>
                 <p class="status-label">ステータス: <span class="${statusClass}">${statusText}</span></p>
                 <div class="odds-info">
                     <strong>オッズ:</strong> ${genericOddsList}
@@ -988,7 +857,7 @@ function renderBetList(allBets) {
 
     BET_LIST_CONTAINER.innerHTML = html;
 
-    // イベントリスナーを再設定 (変更なし)
+    // イベントリスナーを再設定
     document.querySelectorAll('.close-bet').forEach(btn => btn.addEventListener('click', handleCloseBet));
     document.querySelectorAll('.settle-bet').forEach(btn => btn.addEventListener('click', handleSettleBet));
     
@@ -1015,20 +884,29 @@ function renderBetList(allBets) {
     });
 }
 
+// **編集フォーム用のオッズ行追加関数** (変更なし)
+function addEditOddsRow(container) {
+    const row = document.createElement('div');
+    row.className = 'generic-odds-row form-group';
+    row.innerHTML = `
+        <input type="text" class="selection-input" placeholder="選択肢名" required>
+        <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ">
+        <button type="button" class="remove-edit-odds-button action-button secondary-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
+    `;
+    container.appendChild(row);
+    
+    // 削除ボタンのイベントリスナー
+    row.querySelector('.remove-edit-odds-button').addEventListener('click', (e) => {
+        e.target.closest('.generic-odds-row').remove();
+    });
+}
 
-// --- イベントハンドラ: 新規くじ作成 (更新) ---
+// --- イベントハンドラ: 新規くじ作成 ---
 
 CREATE_BET_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('create-message');
     const matchName = document.getElementById('match-name').value;
-    // ★ 新規: くじ種類を取得
-    const betType = BET_TYPE_SELECT.value;
-    
-    // ランキングタイプの場合のみ、predictionTypeをCOMBINED、countをcompetitorCountとして保存
-    const predictionType = betType === 'RANKING' ? 'COMBINED' : null;
-    const competitorCount = betType === 'RANKING' ? parseInt(COMPETITOR_COUNT_INPUT.value, 10) : null;
-
 
     const genericOdds = {};
     let allValid = true;
@@ -1056,12 +934,6 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
         showMessage(messageEl, '❌ オッズを最低一つは設定してください。', 'error');
         return;
     }
-    
-    // ランキングの場合の追加バリデーション
-    if (betType === 'RANKING' && (isNaN(competitorCount) || competitorCount < 3 || competitorCount > 18)) {
-        showMessage(messageEl, '❌ 順位予想の場合、競走頭数は**3**から18の間の数値を入力してください。', 'error');
-        return;
-    }
 
 
     try {
@@ -1075,11 +947,7 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
             status: 'OPEN',
             outcome: null,
             odds: genericOdds,
-            wagers: [],
-            // ★ 新規: くじの種類と予想タイプ、頭数を保存
-            betType: betType, 
-            predictionType: predictionType, // COMBINED
-            competitorCount: competitorCount 
+            wagers: []
         };
 
         allBets.push(newBet);
@@ -1090,16 +958,9 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
         if (response.status === 'success') {
             showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})`, 'success');
             CREATE_BET_FORM.reset();
-            // フォームの状態をリセット
             GENERIC_ODDS_CONTAINER.innerHTML = ''; 
-            toggleRankingOptions(); // オプションをリセットし、デフォルト表示に戻す
-            
-            // 汎用くじの場合はデフォルトのオッズを再設定
-            if (betType === 'GENERIC') {
-                 addGenericOddsRow('ホームチームの勝利 (1点差)', 2.5);
-                 addGenericOddsRow('馬Aが1着', 5.0);
-            }
-            
+            addGenericOddsRow('馬Aの勝利', 2.5);
+            addGenericOddsRow('プレイヤーBが1位', 5.0);
             loadBettingData();
         } else {
             showMessage(messageEl, `❌ 作成エラー: ${response.message}`, 'error');
@@ -1112,7 +973,7 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
 });
 
 
-// --- イベントハンドラ: くじ締切 (変更なし) ---
+// --- イベントハンドラ: くじ締切 ---
 
 async function handleCloseBet(e) {
     const betId = parseInt(e.target.dataset.betId);
@@ -1231,26 +1092,25 @@ async function handleEditOdds(e) {
 }
 
 
-// --- イベントハンドラ: 結果確定とポイント反映 (変更なし) ---
+// --- イベントハンドラ: 結果確定とポイント反映 ---
 
 async function handleSettleBet(e) {
     const betId = parseInt(e.target.dataset.betId);
     
     const betCard = e.target.closest('.bet-card');
-    // ★ 修正: テキストエリアから当選選択肢を取得 (改行で分割)
-    const finalOutcomeKeysText = betCard.querySelector(`.final-outcome-keys`).value.trim();
-    // 空行を無視して、有効な当選キーの配列を作成
-    const finalOutcomeKeys = finalOutcomeKeysText.split('\n').map(key => key.trim()).filter(key => key.length > 0);
-    
+    // finalOutcomeKeyInputは、<select>要素または古い<input>要素を取得
+    const finalOutcomeKeyInput = betCard.querySelector(`.final-outcome-key`);
+    const finalOutcomeKey = finalOutcomeKeyInput.value.trim(); // <select>要素から選択された値を取得
+
     const messageEl = document.getElementById('create-message');
 
-    if (finalOutcomeKeys.length === 0) {
-        showMessage(messageEl, '❌ 当選となる選択肢を1つ以上入力してください。', 'error');
+    if (!finalOutcomeKey) {
+        showMessage(messageEl, '❌ 当選した選択肢名を選択してください。', 'error');
         return;
     }
 
     // alert/confirmはカスタムモーダルに置き換える必要があるが、このタスクでは既存のconfirmを使用
-    if (!window.confirm(`くじ ID:${betId} の結果を【当選選択肢: ${finalOutcomeKeys.join(' / ')}】で確定し、ポイントを反映しますか？元に戻せません。`)) {
+    if (!window.confirm(`くじ ID:${betId} の結果を【当選選択肢: ${finalOutcomeKey}】で確定し、ポイントを反映しますか？元に戻せません。`)) {
         return;
     }
     
@@ -1267,32 +1127,29 @@ async function handleSettleBet(e) {
         }
 
         const oddsMap = bet.odds;
-        
-        // 当選キーがオッズに存在するかチェック
-        const invalidKeys = finalOutcomeKeys.filter(key => !oddsMap[key]);
-        if (invalidKeys.length > 0) {
-            showMessage(messageEl, `❌ 以下の選択肢はオッズに設定されていません: ${invalidKeys.join(', ')}。入力ミスがないか確認してください。`, 'error');
+        const winningOdds = oddsMap[finalOutcomeKey];
+        if (!winningOdds) {
+             showMessage(messageEl, `❌ 選択された結果「${finalOutcomeKey}」はオッズに設定されていません。入力ミスがないか確認してください。`, 'error');
              betCard.querySelectorAll('.action-button').forEach(btn => btn.disabled = false);
              return;
         }
-
+        
         // passフィールドを保持するために、scores全体をマップとして処理
         let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
         let historyChanges = [];
         let totalPointChange = 0;
-        
-        // 当選選択肢をSetにして高速ルックアップできるようにする
-        const winningSelections = new Set(finalOutcomeKeys);
 
         bet.wagers.forEach(wager => {
             let change = 0;
             const selectionKey = wager.selection;
             const player = wager.player;
             
-            // ★ ポイント計算ロジックを修正: 投票した選択肢が当選リストに含まれるかチェック
-            if (winningSelections.has(selectionKey)) {
-                // 当選: 掛け金 * オッズ
-                const winningOdds = oddsMap[selectionKey];
+            // ★ ポイント計算ロジックを修正
+            //   購入時の減算は既に行われているため、
+            //   当選者には (掛け金 * オッズ) を加算。
+            //   外れた人には 0 を加算/減算 (既に購入時に減算済み)。
+            if (selectionKey === finalOutcomeKey) {
+                // 当選: 掛け金 * オッズ (例: 10P * x2.0 = +20P。購入時の-10Pと相殺し、実質+10Pの利益)
                 change = wager.amount * winningOdds; 
             } else {
                 // 外れ: 0P (購入時に既に-wager.amountされているため、ここで0にすることで二重減算を回避)
@@ -1315,8 +1172,7 @@ async function handleSettleBet(e) {
             totalPointChange += change;
         });
 
-        // outcomeは当選キーの配列として保存
-        bet.outcome = finalOutcomeKeys;
+        bet.outcome = finalOutcomeKey;
         delete bet.finalScore; 
         bet.status = 'SETTLED';
         currentData.sports_bets = allBets;
@@ -1326,8 +1182,8 @@ async function handleSettleBet(e) {
         const historyEntry = {
             timestamp: new Date().toISOString(),
             ranks: ['BET'],
-            // 配列を文字列に変換してメモに保存
-            memo: `[スポーツくじ] ${bet.matchName} 結果確定: 当選選択肢「${finalOutcomeKeys.join(' / ')}」. 総ポイント変動: ${totalPointChange.toFixed(1)} P`,
+            changes: historyChanges,
+            memo: `[スポーツくじ] ${bet.matchName} 結果確定: 当選選択肢「${finalOutcomeKey}」. 総ポイント変動: ${totalPointChange.toFixed(1)} P`,
             gameId: `BET-${betId}-${Date.now()}`
         };
         currentData.history.push(historyEntry);
@@ -1335,7 +1191,7 @@ async function handleSettleBet(e) {
         const response = await updateAllData(currentData);
 
         if (response.status === 'success') {
-            showMessage(messageEl, `✅ くじ ID:${betId} の結果を確定し、ポイントを反映しました。`, 'success');
+            showMessage(messageEl, `✅ くじ ID:${betId} の結果を【当選選択肢: ${finalOutcomeKey}】で確定し、ポイントを反映しました。`, 'success');
             loadBettingData();
             loadPlayerList();
             loadTransferPlayerLists();
@@ -1366,7 +1222,7 @@ function showMessage(element, text, type) {
     }, 5000);
 }
 
-// --- 特殊ポイント調整機能 (変更なし) ---
+// --- 特殊ポイント調整機能 (pass保持のため修正) ---
 document.getElementById('adjustment-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('adjustment-message');
