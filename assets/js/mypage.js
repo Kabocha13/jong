@@ -17,6 +17,7 @@ let authenticatedUser = null; // 認証されたユーザー情報 ({name: '...'
 // --- 認証機能 ---
 
 AUTH_FORM.addEventListener('submit', async (e) => {
+// ... (変更なし)
     e.preventDefault();
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
@@ -47,6 +48,7 @@ AUTH_FORM.addEventListener('submit', async (e) => {
 // --- 初期化: マイページコンテンツの表示とロード ---
 
 async function initializeMyPageContent() {
+// ... (変更なし)
     // 1. ユーザー情報の表示と固定
     AUTHENTICATED_USER_NAME.textContent = authenticatedUser.name;
     CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1);
@@ -61,6 +63,7 @@ async function initializeMyPageContent() {
  * 最新のくじデータと投票履歴を取得し、表示を更新する
  */
 async function loadBettingDataAndHistory() {
+// ... (変更なし)
     const data = await fetchAllData();
     const allBets = data.sports_bets || []; 
     
@@ -73,6 +76,7 @@ async function loadBettingDataAndHistory() {
  * 投票フォームの対象くじセレクトボックスを更新する
  */
 function updateWagerForm(allBets) {
+// ... (変更なし)
     const openBets = allBets.filter(bet => bet.status === 'OPEN');
     let options = ''; 
     let firstBetId = null;
@@ -81,7 +85,21 @@ function updateWagerForm(allBets) {
         if (index === 0) {
             firstBetId = bet.betId;
         }
-        options += `<option value="${bet.betId}" ${index === 0 ? 'selected' : ''}>${bet.matchName}</option>`;
+        // ★ 変更: くじの種類をオプションに表示
+        let betLabel = bet.matchName;
+        if (bet.betType === 'RANKING') {
+            let predLabel = '';
+            switch(bet.predictionType) {
+                 case 'EXACTA': predLabel = '二連単'; break;
+                 case 'PLACE': predLabel = '二連複'; break;
+                 case 'WIN': predLabel = '単勝'; break;
+            }
+            betLabel += ` (順位予想: ${predLabel})`;
+        } else {
+            betLabel += ` (簡易予想)`;
+        }
+
+        options += `<option value="${bet.betId}" ${index === 0 ? 'selected' : ''}>${betLabel}</option>`;
     });
 
     if (openBets.length === 0) {
@@ -110,6 +128,7 @@ function updateWagerForm(allBets) {
  * 選択されたくじに基づいて、投票選択肢のオッズを表示する
  */
 function updateWagerSelectionOptions() {
+// ... (変更なし)
     const betId = TARGET_BET_SELECT.value;
     WAGER_SELECTION_SELECT.innerHTML = '<option value="" disabled selected>選択肢</option>';
 
@@ -135,7 +154,7 @@ function updateWagerSelectionOptions() {
 }
 
 /**
- * 認証ユーザーの投票履歴を表示する
+ * 認証ユーザーの投票履歴を表示する (更新)
  */
 function renderWagerHistory(allBets) {
     const playerName = authenticatedUser.name;
@@ -153,7 +172,7 @@ function renderWagerHistory(allBets) {
                 betName: betName,
                 betId: betId,
                 status: status,
-                outcome: bet.outcome || 'N/A'
+                outcome: bet.outcome || [] // outcomeは配列になった可能性があるので初期値を[]とする
             });
         });
     });
@@ -172,6 +191,9 @@ function renderWagerHistory(allBets) {
             let statusText = '';
             let statusClass = 'info'; // デフォルトはinfo
             let outcomeText = '';
+            
+            // ★ 変更: 当選判定を配列に対応
+            const isWinningWager = Array.isArray(wager.outcome) && wager.outcome.includes(wager.selection);
 
             if (wager.status === 'OPEN') {
                 statusText = '開催中';
@@ -179,9 +201,12 @@ function renderWagerHistory(allBets) {
                 statusText = '結果待ち';
             } else if (wager.status === 'SETTLED') {
                 statusText = '確定済';
-                // 履歴からポイント変動を計算するのは難しいため、ここでは簡易的な結果表示に留める
-                outcomeText = (wager.selection === wager.outcome) ? ' (✅ 当選)' : ' (❌ 外れ)';
-                statusClass = (wager.selection === wager.outcome) ? 'success' : 'error';
+                outcomeText = isWinningWager ? ' (✅ 当選)' : ' (❌ 外れ)';
+                statusClass = isWinningWager ? 'success' : 'error';
+                // 確定結果を表示 (配列の場合はカンマ区切り)
+                if (wager.outcome.length > 0) {
+                    outcomeText += ` [結果: ${wager.outcome.join(' / ')}]`;
+                }
             }
 
             const formattedTime = new Date(wager.timestamp).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }) + ' ' + 
@@ -199,9 +224,10 @@ function renderWagerHistory(allBets) {
 }
 
 
-// --- イベントハンドラ: 投票（くじ購入） ---
+// --- イベントハンドラ: 投票（くじ購入） (変更なし) ---
 
 WAGER_FORM.addEventListener('submit', async (e) => {
+// ... (変更なし)
     e.preventDefault();
     const messageEl = document.getElementById('wager-message');
     const betId = parseInt(TARGET_BET_SELECT.value);
