@@ -34,7 +34,7 @@ const MAHJONG_SUBMIT_BUTTON = document.getElementById('mahjong-submit-button');
 
 // --- 定数：麻雀ルール (mahjong.jsから移動) ---
 const POINT_RATE = 1000; // 1000点 = 1ポイント
-const UMA_OKA = [-20, -10, 10, 30]; // 4位, 3位, 2位, 1位 のボーナス/ペナルティ点 (例: 10-20ウマ)
+const UMA_OKA = [30, 10, -10, -20]; // 4位, 3位, 2位, 1位 のボーナス/ペナルティ点 (例: 10-20ウマ)
 const STARTING_SCORE = 30000; // 基準点
 let ALL_PLAYER_NAMES = []; // 全プレイヤー名を保持
 
