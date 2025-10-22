@@ -247,7 +247,7 @@ DARK_MODE_TOGGLE_BUTTON.addEventListener('click', () => {
 
 
 // -----------------------------------------------------------------
-// ★★★ Proボーナス機能 (変更なし) ★★★
+// ★★★ Proボーナス機能 (制限解除＆0.1Pに変更) ★★★
 // -----------------------------------------------------------------
 
 /**
@@ -259,39 +259,31 @@ function initializeProBonusFeature() {
     
     if (isPro) {
         PRO_BONUS_TOOL.classList.remove('hidden');
-        checkProBonusStatus();
+        // ★ 変更: 1日1回のチェックロジックを削除し、常に有効状態にする表示に更新
+        updateProBonusDisplay(); 
     } else {
         PRO_BONUS_TOOL.classList.add('hidden');
     }
 }
 
 /**
- * Proボーナスボタンの状態をチェックし、表示を更新する
+ * Proボーナスボタンの状態をチェックし、表示を更新する (制限を撤廃し、常時有効化)
  */
-function checkProBonusStatus() {
-    const lastBonusDate = localStorage.getItem(`lastProBonus_${authenticatedUser.name}`);
-    const today = new Date().toDateString(); // 日付部分のみ比較
-
-    if (lastBonusDate === today) {
-        // 本日既にボーナスを受け取り済み
-        PRO_BONUS_BUTTON.disabled = true;
-        PRO_BONUS_BUTTON.textContent = '本日分のボーナスは受け取り済みです';
-        document.getElementById('pro-bonus-instruction').innerHTML = '本日分のボーナスは受け取り済みです。明日またお越しください。';
-        showMessage(PRO_BONUS_MESSAGE, '⚠️ 本日分のボーナスは既に獲得されています。', 'info');
-    } else {
-        // ボーナス受け取り可能
-        PRO_BONUS_BUTTON.disabled = false;
-        PRO_BONUS_BUTTON.textContent = 'ボーナス (+10 P) を受け取る';
-        document.getElementById('pro-bonus-instruction').innerHTML = 'Proプレイヤー特典: 1日1回ボーナスポイントを獲得できます。';
-        PRO_BONUS_MESSAGE.classList.add('hidden');
-    }
+function updateProBonusDisplay() {
+    // ★ 変更: 1日1回のチェックロジックを完全に削除
+    
+    PRO_BONUS_BUTTON.disabled = false;
+    PRO_BONUS_BUTTON.textContent = 'ボーナス (+0.1 P) を受け取る'; // ★ 0.1 P に変更
+    document.getElementById('pro-bonus-instruction').innerHTML = 'Proプレイヤー特典: 何度でもボーナスポイントを獲得できます (0.1 P)。'; // ★ 0.1 P と「何度でも」に変更
+    PRO_BONUS_MESSAGE.classList.add('hidden');
 }
 
 /**
- * Proボーナスポイントを付与する処理 (変更なし)
+ * Proボーナスポイントを付与する処理
  */
 PRO_BONUS_BUTTON.addEventListener('click', async () => {
-    const BONUS_AMOUNT = 10.0;
+    // ★ 変更: 0.1 P に変更
+    const BONUS_AMOUNT = 0.1; 
     const player = authenticatedUser.name;
     const messageEl = PRO_BONUS_MESSAGE;
     
@@ -301,13 +293,7 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
         return;
     }
     
-    const lastBonusDate = localStorage.getItem(`lastProBonus_${player}`);
-    const today = new Date().toDateString();
-
-    if (lastBonusDate === today) {
-        showMessage(messageEl, '⚠️ 本日分のボーナスは既に獲得されています。', 'info');
-        return;
-    }
+    // ★ 削除: 1日1回の制限チェックロジックを削除
 
     PRO_BONUS_BUTTON.disabled = true;
     showMessage(messageEl, 'ポイントを付与中...', 'info');
@@ -336,8 +322,10 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
         const historyEntry = {
             timestamp: new Date().toISOString(),
             ranks: ['PRO_BONUS'],
-            changes: [{name: player, change: BONUS_AMOUNT}],
-            memo: `[Proボーナス] ${player} に 1日ボーナスとして ${BONUS_AMOUNT.toFixed(1)} P を付与。`,
+            // ★ 変更: BONUS_AMOUNTは0.1P
+            changes: [{name: player, change: BONUS_AMOUNT}], 
+            // ★ 変更: メッセージを0.1 P に変更
+            memo: `[Proボーナス] ${player} に ボーナスとして ${BONUS_AMOUNT.toFixed(1)} P を付与。`, 
             gameId: `PRO-BONUS-${Date.now()}`
         };
 
@@ -354,14 +342,16 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
         const response = await updateAllData(newData);
 
         if (response.status === 'success') {
+            // ★ 変更: メッセージを0.1 P に変更
             showMessage(messageEl, `✅ Proボーナスとして ${BONUS_AMOUNT.toFixed(1)} P を獲得しました！`, 'success');
             
-            // ローカルストレージとメモリ上の情報を更新
-            localStorage.setItem(`lastProBonus_${player}`, today);
+            // ★ 削除: ローカルストレージへの記録ロジックを削除 (1日1回制限用のため)
+            
             authenticatedUser.score = newScore;
             CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
             
-            checkProBonusStatus(); // ボタンを無効化
+            // ★ 変更: ボタンの状態を更新 (常時有効)
+            updateProBonusDisplay(); 
             
         } else {
             showMessage(messageEl, `❌ ボーナス付与エラー: ${response.message}`, 'error');
