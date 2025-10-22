@@ -62,5 +62,15 @@
 
     <script src="assets/js/common.js"></script>
     <script src="assets/js/main.js"></script>
+    <!-- ★★★ ダークモード初期化スクリプトの追加 ★★★ -->
+    <script>
+        // ページロード時にlocalStorageをチェックし、ダークモードを適用
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                document.body.classList.add('dark-mode');
+            }
+        });
+    </script>
+    <!-- ★★★ ダークモード初期化スクリプトの追加 終了 ★★★ -->
 </body>
 </html>
