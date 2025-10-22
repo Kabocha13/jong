@@ -5,8 +5,12 @@ const ADMIN_TOOLS = document.getElementById('admin-tools');
 const AUTH_MESSAGE = document.getElementById('auth-message');
 const TARGET_PLAYER_SELECT = document.getElementById('target-player');
 
-// ★ 新規プレイヤー登録フォーム (master.htmlにパスワードフィールドを追加)
-const REGISTER_FORM = document.getElementById('register-form');
+// ★ 削除: 新規プレイヤー登録フォーム (master.htmlから削除)
+// const REGISTER_FORM = document.getElementById('register-form');
+
+// ★ 削除: プロ認定/解除機能の要素
+// const PRO_TOGGLE_FORM = document.getElementById('pro-toggle-form');
+// const PRO_TARGET_PLAYER_SELECT = document.getElementById('pro-target-player');
 
 
 // ★ 送金機能 (既存)
@@ -39,7 +43,7 @@ const STARTING_SCORE = 30000; // 基準点
 let ALL_PLAYER_NAMES = []; // 全プレイヤー名を保持
 
 
-// --- 認証機能 (変更なし) ---
+// --- 認証機能 (初期化処理から削除された機能を削除) ---
 
 AUTH_FORM.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -51,74 +55,38 @@ AUTH_FORM.addEventListener('submit', (e) => {
         loadPlayerList(); // ポイント調整用
         loadTransferPlayerLists(); // 送金用
         loadRaceRecordHolders(); // レース記録保持者用
-        loadRaceCourses(); // ★ 追加: レースコースプルダウンをロード
+        loadRaceCourses(); // レースコースプルダウンをロード
         initializeSportsMasterTools(); // スポーツくじ管理 (修正)
-        loadMahjongForm(); // ★ 追加: 麻雀フォームをロード
+        loadMahjongForm(); // 麻雀フォームをロード
+        // ★ 削除: loadProTogglePlayerList(); // プロ認定リストをロード
     } else {
         showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
     }
 });
 
 
-// --- 新規プレイヤー登録機能 (変更なし) ---
-
+// --- 削除された機能: 新規プレイヤー登録機能 ---
+/*
 REGISTER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const messageEl = document.getElementById('register-message');
-    const newPlayerName = document.getElementById('new-player-name').value.trim();
-    const newPlayerPass = document.getElementById('new-player-pass').value.trim(); // パスワードを取得
-    const initialScore = parseFloat(document.getElementById('initial-score').value);
-
-    if (!newPlayerName || !newPlayerPass || isNaN(initialScore)) {
-        showMessage(messageEl, 'エラー: 名前、パスワード、および有効な初期ポイントを入力してください。', 'error');
-        return;
-    }
-
-    try {
-        const currentData = await fetchAllData();
-        const existingPlayer = currentData.scores.find(p => p.name === newPlayerName);
-
-        if (existingPlayer) {
-            showMessage(messageEl, 'エラー: その名前のプレイヤーは既に存在します。', 'error');
-            return;
-        }
-
-        const newPlayer = {
-            name: newPlayerName,
-            score: initialScore,
-            pass: newPlayerPass, // ★ パスワードフィールドを追加
-        };
-
-        currentData.scores.push(newPlayer);
-        
-        const historyEntry = {
-            timestamp: new Date().toISOString(),
-            ranks: ['ADMIN'],
-            changes: [{name: newPlayerName, change: initialScore}],
-            memo: `[新規登録] ${newPlayerName} を ${initialScore.toFixed(1)} Pで登録。`,
-            gameId: `REGISTER-${Date.now()}`
-        };
-        currentData.history.push(historyEntry);
-
-        const response = await updateAllData(currentData);
-
-        if (response.status === 'success') {
-            showMessage(messageEl, `✅ ${newPlayerName} を ${initialScore.toFixed(1)} Pで登録しました。`, 'success');
-            REGISTER_FORM.reset();
-            loadPlayerList(); // リストを更新
-            loadTransferPlayerLists();
-            loadMahjongForm();
-        } else {
-            showMessage(messageEl, `❌ 登録エラー: ${response.message}`, 'error');
-        }
-
-    } catch (error) {
-        console.error(error);
-        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-    }
+    // ... (削除された処理)
 });
+*/
 
-// --- プレイヤーリストのロード関数群 (変更なし) ---
+
+// --- 削除された機能: プロ認定/解除機能のロード関数とイベントリスナー ---
+/*
+async function loadProTogglePlayerList() {
+    // ... (削除された処理)
+}
+
+PRO_TOGGLE_FORM.addEventListener('submit', async (e) => {
+    // ... (削除された処理)
+});
+*/
+
+
+// --- プレイヤーリストのロード関数群 (proステータス表示ロジックを削除) ---
 
 async function fetchAndSetPlayerNames() {
     // fetchScores()はcommon.jsから全データを取得しscoresのみを返す
@@ -130,7 +98,7 @@ async function fetchAndSetPlayerNames() {
     return true;
 }
 
-// ポイント調整用リストのロード（既存）
+// ポイント調整用リストのロード（proステータス表示を削除）
 async function loadPlayerList() {
     TARGET_PLAYER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     const scores = await fetchScores();
@@ -141,15 +109,15 @@ async function loadPlayerList() {
     }
 
     let options = '<option value="" disabled selected>プレイヤーを選択</option>';
-    // scoreにはpassフィールドは含まれない（fetchScores()の戻り値がscores配列全体ではないため）が、ここではnameとscoreのみで良い。
     scores.forEach(player => { 
+        // ★ 修正: proステータス表示ロジックを削除
         options += `<option value="${player.name}">${player.name} (${player.score.toFixed(1)} P)</option>`;
     });
 
     TARGET_PLAYER_SELECT.innerHTML = options;
 }
 
-// 送金プレイヤーリストのロード（既存）
+// 送金プレイヤーリストのロード（proステータス表示を削除）
 async function loadTransferPlayerLists() {
     SENDER_PLAYER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     RECEIVER_PLAYER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
@@ -165,6 +133,7 @@ async function loadTransferPlayerLists() {
 
     let options = '<option value="" disabled selected>プレイヤーを選択</option>';
     scores.forEach(player => {
+        // ★ 修正: proステータス表示ロジックを削除
         options += `<option value="${player.name}">${player.name}</option>`;
     });
 
@@ -172,7 +141,7 @@ async function loadTransferPlayerLists() {
     RECEIVER_PLAYER_SELECT.innerHTML = options;
 }
 
-// レース記録保持者リストのロード（既存）
+// レース記録保持者リストのロード（proステータス表示を削除）
 async function loadRaceRecordHolders() {
     RACE_RECORD_HOLDER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     const scores = await fetchScores();
@@ -184,6 +153,7 @@ async function loadRaceRecordHolders() {
 
     let options = '<option value="" disabled selected>記録保持者を選択</option>';
     scores.forEach(player => {
+        // ★ 修正: proステータス表示ロジックを削除
         options += `<option value="${player.name}">${player.name}</option>`;
     });
 
@@ -217,7 +187,7 @@ async function loadRaceCourses() {
 }
 
 
-// --- 麻雀結果フォーム生成/処理 (変更なし) ---
+// --- 麻雀結果フォーム生成/処理 (pass/proフィールド保持対応は変更なし) ---
 async function loadMahjongForm() {
     const success = await fetchAndSetPlayerNames();
 
@@ -282,7 +252,7 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
 
     try {
         const currentData = await fetchAllData();
-        // passフィールドを保持するために、scores全体をマップとして処理
+        // pass/proフィールドを保持するために、scores全体をマップとして処理
         let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p])); 
         
         results.sort((a, b) => b.score - a.score);
@@ -310,8 +280,11 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
             if (currentPlayer) {
                 const currentScore = currentPlayer.score || 0;
                 const newScore = currentScore + finalPointChange;
-                // passフィールドを保持したままscoreを更新
-                currentScoresMap.set(result.name, { ...currentPlayer, score: parseFloat(newScore.toFixed(1)) });
+                // pass/proフィールドを保持したままscoreを更新
+                currentScoresMap.set(result.name, { 
+                    ...currentPlayer, 
+                    score: parseFloat(newScore.toFixed(1)) 
+                });
             }
         }
 
@@ -321,7 +294,7 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
 
         // 麻雀結果にはsports_betsとspeedstorm_recordsを含める
         const newData = {
-            scores: newScores, // ★ passフィールドを保持したscores
+            scores: newScores, // pass/proフィールドを保持したscores
             history: newHistory,
             sports_bets: currentData.sports_bets || [],
             speedstorm_records: currentData.speedstorm_records || []
@@ -351,7 +324,7 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
 // --- 麻雀結果フォーム処理 終了 ---
 
 
-// --- スポーツくじ管理機能 (大幅修正) ---
+// --- スポーツくじ管理機能 (変更なし) ---
 
 async function initializeSportsMasterTools() {
     // オッズ追加ボタンの初期化は不要になった
@@ -386,7 +359,7 @@ async function loadBettingData() {
 }
 
 
-// --- 3. ポイント送金機能 (変更なし) ---
+// --- 3. ポイント送金機能 (pass/proフィールド保持対応は変更なし) ---
 TRANSFER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('transfer-message');
@@ -407,7 +380,7 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
 
     try {
         const currentData = await fetchAllData();
-        // passフィールドを保持するために、scores全体をマップとして処理
+        // pass/proフィールドを保持するために、scores全体をマップとして処理
         let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
         
         const senderPlayer = currentScoresMap.get(sender);
@@ -426,12 +399,18 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
         }
 
         // 送信元スコアを更新
-        currentScoresMap.set(sender, { ...senderPlayer, score: parseFloat((senderScore - amount).toFixed(1)) });
+        currentScoresMap.set(sender, { 
+            ...senderPlayer, 
+            score: parseFloat((senderScore - amount).toFixed(1)) 
+        });
         
         // 受信先スコアを更新（存在しない場合は初期化）
         if (receiverPlayer) {
             const receiverScore = receiverPlayer.score || 0;
-            currentScoresMap.set(receiver, { ...receiverPlayer, score: parseFloat((receiverScore + amount).toFixed(1)) });
+            currentScoresMap.set(receiver, { 
+                ...receiverPlayer, 
+                score: parseFloat((receiverScore + amount).toFixed(1)) 
+            });
         } else {
              // 存在しないプレイヤーに送金しようとした場合はエラーとするか、新規登録として扱う。
              // 今回は、プレイヤーリストから選択するため、基本は存在するはず。
@@ -450,7 +429,7 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
             gameId: `TRANSFER-${Date.now()}`
         };
 
-        const newScores = Array.from(currentScoresMap.values()); // passフィールドを保持したscores
+        const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
         const newHistory = [...currentData.history, historyEntry];
         
         const newData = {
@@ -468,7 +447,7 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
             TRANSFER_FORM.reset();
             loadPlayerList();
             loadTransferPlayerLists(); 
-            loadMahjongForm(); // 麻雀フォームも更新
+            loadMahjongForm(); 
         } else {
             showMessage(messageEl, `❌ 送金エラー: ${response.message}`, 'error');
         }
@@ -480,7 +459,7 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
 });
 
 
-// --- 3. 全員一律ポイント減算機能 (変更なし) ---
+// --- 4. 全員一律ポイント減算機能 (pass/proフィールド保持対応は変更なし) ---
 document.getElementById('global-penalty-button').addEventListener('click', async () => {
     const penaltyAmount = -1.0;
     const messageEl = document.getElementById('global-penalty-message');
@@ -495,15 +474,18 @@ document.getElementById('global-penalty-button').addEventListener('click', async
     
     try {
         const currentData = await fetchAllData();
-        // passフィールドを保持するために、scores全体をマップとして処理
+        // pass/proフィールドを保持するために、scores全体をマップとして処理
         let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
         let historyChanges = [];
 
         currentData.scores.forEach(player => {
             const newScore = player.score + penaltyAmount;
             
-            // passフィールドを保持したままscoreを更新
-            currentScoresMap.set(player.name, { ...player, score: parseFloat(newScore.toFixed(1)) });
+            // pass/proフィールドを保持したままscoreを更新
+            currentScoresMap.set(player.name, { 
+                ...player, 
+                score: parseFloat(newScore.toFixed(1)) 
+            });
             
             historyChanges.push({
                 name: player.name, 
@@ -519,7 +501,7 @@ document.getElementById('global-penalty-button').addEventListener('click', async
             gameId: `GLOBAL-PENALTY-${Date.now()}`
         };
 
-        const newScores = Array.from(currentScoresMap.values()); // passフィールドを保持したscores
+        const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
         const newHistory = [...currentData.history, historyEntry];
         
         const newData = {
@@ -535,7 +517,7 @@ document.getElementById('global-penalty-button').addEventListener('click', async
             showMessage(messageEl, `✅ 全員から ${Math.abs(penaltyAmount)} P の減算を完了しました。`, 'success');
             loadPlayerList(); 
             loadTransferPlayerLists();
-            loadMahjongForm(); // 麻雀フォームも更新
+            loadMahjongForm(); 
         } else {
             showMessage(messageEl, `❌ 減算エラー: ${response.message}`, 'error');
         }
@@ -549,7 +531,7 @@ document.getElementById('global-penalty-button').addEventListener('click', async
 });
 
 
-// --- 4. スピードストーム レコード管理機能 (変更なし) ---
+// --- 5. スピードストーム レコード管理機能 (pass/proフィールド保持対応は変更なし) ---
 
 // タイム文字列 (例: "0:46.965" または "46.965") をミリ秒に変換するヘルパー関数
 function timeToMilliseconds(timeString) {
@@ -659,14 +641,17 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
         let newScores = currentData.scores;
 
         if (shouldAwardPoints) {
-            // passフィールドを保持するために、scores全体をマップとして処理
+            // pass/proフィールドを保持するために、scores全体をマップとして処理
             let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
             
             const holderPlayer = currentScoresMap.get(recordHolder);
             if(holderPlayer) {
                 const currentScore = holderPlayer.score || 0;
-                // passフィールドを保持したままscoreを更新
-                currentScoresMap.set(recordHolder, { ...holderPlayer, score: parseFloat((currentScore + AWARD_POINTS).toFixed(1)) });
+                // pass/proフィールドを保持したままscoreを更新
+                currentScoresMap.set(recordHolder, { 
+                    ...holderPlayer, 
+                    score: parseFloat((currentScore + AWARD_POINTS).toFixed(1)) 
+                });
                 historyChanges.push({name: recordHolder, change: AWARD_POINTS});
             }
             
@@ -676,8 +661,11 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
             const kabochaPlayer = currentScoresMap.get(KABOCHA_NAME);
             if (kabochaPlayer) {
                 const kabochaCurrentScore = kabochaPlayer.score;
-                // passフィールドを保持したままscoreを更新
-                currentScoresMap.set(KABOCHA_NAME, { ...kabochaPlayer, score: parseFloat((kabochaCurrentScore + KABOCHA_BONUS).toFixed(1)) });
+                // pass/proフィールドを保持したままscoreを更新
+                currentScoresMap.set(KABOCHA_NAME, { 
+                    ...kabochaPlayer, 
+                    score: parseFloat((kabochaCurrentScore + KABOCHA_BONUS).toFixed(1)) 
+                });
                 historyChanges.push({name: KABOCHA_NAME, change: KABOCHA_BONUS});
                 logMessage += ` (報酬: ${AWARD_POINTS} P + ${KABOCHA_NAME}に ${KABOCHA_BONUS} P)`;
             } else {
@@ -698,7 +686,7 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
         }
 
         const newData = {
-            scores: newScores, // ★ passフィールドを保持したscores
+            scores: newScores, // pass/proフィールドを保持したscores
             history: currentData.history,
             sports_bets: currentData.sports_bets,
             speedstorm_records: records
@@ -711,7 +699,7 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
             RACE_RECORD_FORM.reset();
             loadPlayerList();
             loadTransferPlayerLists();
-            loadMahjongForm(); // 麻雀フォームも更新
+            loadMahjongForm(); 
             loadRaceCourses(); // コースリストを再ロード
         } else {
             showMessage(messageEl, `❌ 更新エラー: ${response.message}`, 'error');
@@ -724,9 +712,9 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
 });
 
 
-// --- 6. スポーツくじ管理機能 (大幅修正: 新規くじ作成、結果確定ロジック) ---
+// --- 6. スポーツくじ管理機能 (変更なし) ---
 
-// --- イベントハンドラ: 新規くじ作成 ---
+// イベントハンドラ: 新規くじ作成 (変更なし)
 
 CREATE_BET_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -791,7 +779,7 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
 });
 
 
-// --- イベントハンドラ: くじ締切 (ロジック修正) ---
+// イベントハンドラ: くじ締切 (変更なし)
 
 async function handleCloseBet(e) {
     const betId = parseInt(e.target.dataset.betId);
@@ -825,7 +813,7 @@ async function handleCloseBet(e) {
 
 
 /**
- * くじ一覧のHTMLを生成し、表示する (大幅修正)
+ * くじ一覧のHTMLを生成し、表示する (変更なし)
  * @param {Array<Object>} allBets - すべてのくじのデータ
  */
 function renderBetList(allBets) {
@@ -958,7 +946,7 @@ function renderBetList(allBets) {
 
 
 /**
- * 投票結果確定用の入力フィールドを生成する
+ * 投票結果確定用の入力フィールドを生成する (変更なし)
  * @param {Object} bet - くじオブジェクト
  */
 function generateWagerResultInputs(bet) {
@@ -1011,7 +999,7 @@ function generateWagerResultInputs(bet) {
     });
 }
 
-// --- イベントハンドラ: 個別投票結果の確定とポイント反映 ---
+// --- イベントハンドラ: 個別投票結果の確定とポイント反映 (pass/proフィールド保持対応は変更なし) ---
 
 async function handleSettleWagers(e) {
     e.preventDefault();
@@ -1044,7 +1032,7 @@ async function handleSettleWagers(e) {
         let historyChanges = [];
         let updatedWagersCount = 0;
         
-        // passフィールドを保持するために、scores全体をマップとして処理
+        // pass/proフィールドを保持するために、scores全体をマップとして処理
         let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
         
         // フォームから結果データを収集し、元のwagers配列に反映させる
@@ -1101,8 +1089,11 @@ async function handleSettleWagers(e) {
 
             if (currentPlayer) {
                 const currentScore = currentPlayer.score || 0;
-                // passフィールドを保持したままscoreを更新
-                currentScoresMap.set(player, { ...currentPlayer, score: parseFloat((currentScore + pointChange).toFixed(1)) });
+                // pass/proフィールドを保持したままscoreを更新
+                currentScoresMap.set(player, { 
+                    ...currentPlayer, 
+                    score: parseFloat((currentScore + pointChange).toFixed(1)) 
+                });
                 
                 // 履歴記録用の変更点を蓄積
                 historyChanges.push({
@@ -1141,7 +1132,7 @@ async function handleSettleWagers(e) {
         bet.wagers = originalWagers;
         allBets[betIndex] = bet;
         currentData.sports_bets = allBets;
-        currentData.scores = Array.from(currentScoresMap.values()); // passフィールドを保持したscores
+        currentData.scores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
         
         const response = await updateAllData(currentData);
 
@@ -1163,7 +1154,7 @@ async function handleSettleWagers(e) {
     }
 }
 
-// --- イベントハンドラ: くじ完了 (SETTLED) にする ---
+// --- イベントハンドラ: くじ完了 (SETTLED) にする (変更なし) ---
 
 async function handleFinalizeBet(e) {
     const betId = parseInt(e.target.dataset.betId);
@@ -1225,7 +1216,7 @@ function showMessage(element, text, type) {
     }, 5000);
 }
 
-// --- 特殊ポイント調整機能 (変更なし) ---
+// --- 特殊ポイント調整機能 (pass/proフィールド保持対応は変更なし) ---
 document.getElementById('adjustment-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('adjustment-message');
@@ -1239,7 +1230,7 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
 
     try {
         const currentData = await fetchAllData();
-        // passフィールドを保持するために、scores全体をマップとして処理
+        // pass/proフィールドを保持するために、scores全体をマップとして処理
         let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
         
         const player = currentScoresMap.get(targetPlayerName);
@@ -1251,8 +1242,11 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
         
         const newScore = player.score + adjustAmount;
         
-        // passフィールドを保持したままscoreを更新
-        currentScoresMap.set(targetPlayerName, { ...player, score: parseFloat(newScore.toFixed(1)) });
+        // pass/proフィールドを保持したままscoreを更新
+        currentScoresMap.set(targetPlayerName, { 
+            ...player, 
+            score: parseFloat(newScore.toFixed(1)) 
+        });
         
         const historyEntry = {
             timestamp: new Date().toISOString(),
@@ -1262,7 +1256,7 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
             gameId: `ADJUST-${Date.now()}`
         };
 
-        const newScores = Array.from(currentScoresMap.values()); // passフィールドを保持したscores
+        const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
         const newHistory = [...currentData.history, historyEntry];
 
         const newData = {
