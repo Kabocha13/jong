@@ -77,27 +77,30 @@
             <!-- 麻雀結果入力ツール 終了 -->
 
 
-            <!-- スポーツくじ管理ツール (既存) -->
+            <!-- スポーツくじ管理ツール (既存から大幅修正) -->
             <div class="tool-box">
                 <h2>⚽ スポーツくじ管理</h2>
                 <!-- 1. 新規くじ作成フォーム -->
                 <div class="tool-box" style="border: none; padding: 0;">
-                    <h3>📝 新規くじ作成・オッズ設定</h3>
+                    <h3>📝 新規くじ作成・公開</h3>
+                    <p class="instruction">くじの基本情報と締切日時を設定してください。オッズは後から個別に設定します。</p>
                     <form id="create-bet-form">
                         <div class="form-group">
                             <label for="match-name">くじ名:</label>
-                            <input type="text" id="match-name" required placeholder="例: 陸上100m優勝者, 競馬G1結果">
+                            <input type="text" id="match-name" required placeholder="例: 競馬G1結果, 陸上100m優勝者">
                         </div>
                         
-                        <!-- 汎用的なオッズ設定フィールド -->
-                        <h4>🏆 順位/結果オッズ設定</h4>
-                        <p class="instruction">くじの選択肢（結果）名と、それぞれのオッズを入力してください。</p>
-                        
-                        <div id="generic-odds-container">
-                            <!-- JSで動的に追加される -->
+                        <div class="form-group">
+                            <label for="creator-name">開設者名:</label>
+                            <input type="text" id="creator-name" required placeholder="例: Kabocha">
                         </div>
-                        <button type="button" id="add-generic-odds-button" class="action-button secondary-button" style="width: auto;">+ 選択肢を追加</button>
-
+                        
+                        <!-- ★ 締切日時フィールドを追加 ★ -->
+                        <div class="form-group">
+                            <label for="deadline-datetime">締切日時:</label>
+                            <input type="datetime-local" id="deadline-datetime" required>
+                        </div>
+                        
                         <button type="submit">くじを作成 (OPEN)</button>
                     </form>
                     <p id="create-message" class="hidden"></p>
