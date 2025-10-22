@@ -53,7 +53,7 @@
                     </ul>
                 </div>
 
-                <!-- くじ購入フォーム -->
+                <!-- くじ購入フォーム (大幅修正) -->
                 <form id="wager-form">
                     <p class="instruction">投票は認証されたユーザー (<strong id="fixed-player-name"></strong>) に固定されます。</p>
                     <div class="form-group">
@@ -66,17 +66,16 @@
                     <!-- プレイヤー選択フィールドは非表示にして固定値を設定 -->
                     <input type="hidden" id="wager-player" name="wager-player">
 
-                    <div class="form-group">
-                        <label for="wager-amount">掛け金 (ポイント):</label>
-                        <input type="number" id="wager-amount" step="1" min="1" required placeholder="例: 10">
+                    <p class="instruction" style="margin-top: 20px;">賭けの内容（かけるもの）と掛け金を複数入力できます。</p>
+                    
+                    <!-- 賭け内容の動的入力エリア -->
+                    <div id="wager-inputs-container">
+                        <!-- JSで動的に追加される -->
                     </div>
-                    <div class="form-group">
-                        <label for="wager-selection">選択:</label>
-                        <select id="wager-selection" required>
-                            <!-- オッズ選択肢はJSで動的に更新 -->
-                        </select>
-                    </div>
-                    <button type="submit">投票を登録</button>
+
+                    <button type="button" id="add-wager-row-button" class="action-button secondary-button" style="width: auto; margin-top: 10px;">+ 賭けを追加</button>
+                    
+                    <button type="submit" style="margin-top: 20px;">投票を登録</button>
                 </form>
                 <p id="wager-message" class="hidden"></p>
             </div>
