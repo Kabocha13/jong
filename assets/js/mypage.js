@@ -287,7 +287,7 @@ function updateProBonusDisplay() {
     // ★ 修正: 定数 PRO_BONUS_INSTRUCTION が null でないことを確認してinnerHTMLを設定
     if (PRO_BONUS_INSTRUCTION) {
         // ★ 変更: 説明文を0.1 Pと「何度でも」に変更
-        PRO_BONUS_INSTRUCTION.innerHTML = 'Proプレイヤー特典: 何度でもボーナスポイントを獲得できます (0.1 P)。'; 
+        PRO_BONUS_INSTRUCTION.innerHTML = 'Proプレイヤー特典: 1日1000回以上の利用はお控えください。'; 
     }
     
     if (PRO_BONUS_MESSAGE) {
