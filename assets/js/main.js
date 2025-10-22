@@ -48,13 +48,16 @@ async function renderScores() {
         const rankClass = rank === 1 ? 'rank-1' : (rank === 2 ? 'rank-2' : (rank === 3 ? 'rank-3' : ''));
         const scoreDisplay = player.score.toFixed(1);
         
+        // ★ proステータスをチェックし、マークを追加
+        const proMark = player.pro ? '<span class="pro-mark" title="プロプレイヤー">⭐</span>' : '';
+
         currentScoresMap.set(player.name, player.score);
         
         // HTML生成
         html += `
             <li class="ranking-item ${rankClass}">
                 <span class="rank-num">#${rank}</span>
-                <span class="player-name">${player.name}</span>
+                <span class="player-name">${player.name} ${proMark}</span>
                 <span class="player-score">${scoreDisplay} P</span>
             </li>
         `;
@@ -209,6 +212,7 @@ function renderTitles(sortedScores) {
         TITLES_CONTAINER.innerHTML = '<p>プレイヤーデータがありません。</p>';
         return;
     }
+    titles.push({name:"Kabocha",title:"Pro", icon:"🃏"});
 
     // 1. トップランカー (1位)
     const topPlayer = sortedScores[0];
@@ -220,6 +224,7 @@ function renderTitles(sortedScores) {
         titles.push({ name: bottomPlayer.name, title: 'カモ', icon: '🔥' });
     }
     titles.push({name:"Yasu",title:"追加資金", icon:"💸"});
+    titles.push({name:"matsu",title:"追加資金", icon:"💸"});
     titles.push({name:"Kabocha",title:"嶺上開花", icon:"🪷"});
     
     // 3. 今日の波乗り (前回比で最もポイントを稼いだ人)
