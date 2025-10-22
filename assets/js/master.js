@@ -21,11 +21,10 @@ const RACE_RECORD_HOLDER_SELECT = document.getElementById('race-record-holder');
 const RACE_COURSE_SELECT = document.getElementById('race-course-select'); 
 
 
-// ★ スポーツくじ管理機能 (既存)
+// ★ スポーツくじ管理機能 (大幅修正)
 const BET_LIST_CONTAINER = document.getElementById('bet-list-container');
 const CREATE_BET_FORM = document.getElementById('create-bet-form');
-const GENERIC_ODDS_CONTAINER = document.getElementById('generic-odds-container'); 
-const ADD_GENERIC_ODDS_BUTTON = document.getElementById('add-generic-odds-button'); 
+// 廃止された要素: GENERIC_ODDS_CONTAINER, ADD_GENERIC_ODDS_BUTTON 
 
 // ★★★ 麻雀結果入力機能 (新規追加) ★★★
 const MAHJONG_FORM = document.getElementById('mahjong-form');
@@ -53,7 +52,7 @@ AUTH_FORM.addEventListener('submit', (e) => {
         loadTransferPlayerLists(); // 送金用
         loadRaceRecordHolders(); // レース記録保持者用
         loadRaceCourses(); // ★ 追加: レースコースプルダウンをロード
-        initializeSportsMasterTools(); // スポーツくじ管理
+        initializeSportsMasterTools(); // スポーツくじ管理 (修正)
         loadMahjongForm(); // ★ 追加: 麻雀フォームをロード
     } else {
         showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
@@ -61,7 +60,7 @@ AUTH_FORM.addEventListener('submit', (e) => {
 });
 
 
-// --- ★★★ 新規プレイヤー登録機能の修正 ★★★ ---
+// --- 新規プレイヤー登録機能 (変更なし) ---
 
 REGISTER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -119,7 +118,7 @@ REGISTER_FORM.addEventListener('submit', async (e) => {
     }
 });
 
-// --- プレイヤーリストのロード関数群 (共通データ取得とフォーム更新) ---
+// --- プレイヤーリストのロード関数群 (変更なし) ---
 
 async function fetchAndSetPlayerNames() {
     // fetchScores()はcommon.jsから全データを取得しscoresのみを返す
@@ -191,7 +190,7 @@ async function loadRaceRecordHolders() {
     RACE_RECORD_HOLDER_SELECT.innerHTML = options;
 }
 
-// ★ 新規追加: 既存コースリストをロードする関数
+// 既存コースリストをロードする関数 (変更なし)
 async function loadRaceCourses() {
     RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     
@@ -204,7 +203,6 @@ async function loadRaceCourses() {
 
         if (courseNames.length === 0) {
             RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>コースが未登録です</option>';
-            // 新規登録の意図がないため、このままボタンを無効化する方が良いが、今回は更新のみに特化
         } else {
             let options = '<option value="" disabled selected>更新するコースを選択</option>';
             courseNames.forEach(name => {
@@ -219,7 +217,7 @@ async function loadRaceCourses() {
 }
 
 
-// --- ★★★ 麻雀結果フォーム生成 ★★★
+// --- 麻雀結果フォーム生成/処理 (変更なし) ---
 async function loadMahjongForm() {
     const success = await fetchAndSetPlayerNames();
 
@@ -273,7 +271,7 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
     }
     
     if (totalScore < 119900 || totalScore > 120100) { 
-        showMessage(MAHJONG_MESSAGE_ELEMENT, `警告: 合計点が ${totalScore} です。120000点周辺ではありません。計算を再確認してください。`, 'warning');
+        showMessage(MAHJONG_MESSAGE_ELEMENT, `警告: 合計点が ${totalScore} です。120000点周辺ではありません。計算を再確認してください。`, 'error');
     }
 
     const memo = document.getElementById('mahjong-memo').value;
@@ -353,15 +351,33 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
 // --- 麻雀結果フォーム処理 終了 ---
 
 
-// --- スポーツくじ管理機能 (既存) ---
+// --- スポーツくじ管理機能 (大幅修正) ---
 
 async function initializeSportsMasterTools() {
-    if (GENERIC_ODDS_CONTAINER.children.length === 0) {
-        addGenericOddsRow('馬Aの勝利', 2.5);
-        addGenericOddsRow('プレイヤーBが1位', 5.0);
+    // オッズ追加ボタンの初期化は不要になった
+    // デフォルトで現在時刻から1時間後に締切を設定
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    const deadlineInput = document.getElementById('deadline-datetime');
+    if (deadlineInput) {
+        deadlineInput.value = formatDateTimeLocal(now);
     }
+
     await loadBettingData();
 }
+
+/**
+ * Dateオブジェクトを <input type="datetime-local"> 形式の文字列にフォーマット
+ */
+function formatDateTimeLocal(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 
 async function loadBettingData() {
     const data = await fetchAllData();
@@ -369,7 +385,8 @@ async function loadBettingData() {
     renderBetList(allBets);
 }
 
-// --- 3. ポイント送金機能 ---
+
+// --- 3. ポイント送金機能 (変更なし) ---
 TRANSFER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('transfer-message');
@@ -463,12 +480,11 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
 });
 
 
-// --- 3. 全員一律ポイント減算機能 ---
+// --- 3. 全員一律ポイント減算機能 (変更なし) ---
 document.getElementById('global-penalty-button').addEventListener('click', async () => {
     const penaltyAmount = -1.0;
     const messageEl = document.getElementById('global-penalty-message');
 
-    // alert/confirmはカスタムモーダルに置き換える必要があるが、このタスクでは既存のconfirmを使用
     if (!window.confirm(`全てのプレイヤーの得点を一律で ${penaltyAmount} P 減らします。よろしいですか？`)) {
         return;
     }
@@ -533,7 +549,7 @@ document.getElementById('global-penalty-button').addEventListener('click', async
 });
 
 
-// --- 4. スピードストーム レコード管理機能 (修正版) ---
+// --- 4. スピードストーム レコード管理機能 (変更なし) ---
 
 // タイム文字列 (例: "0:46.965" または "46.965") をミリ秒に変換するヘルパー関数
 function timeToMilliseconds(timeString) {
@@ -708,230 +724,26 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
 });
 
 
-// --- 6. スポーツくじ管理機能 (passフィールドの保持対応のため修正) ---
-
-// --- 汎用オッズ入力フィールドの動的追加 (変更なし) ---
-ADD_GENERIC_ODDS_BUTTON.addEventListener('click', () => addGenericOddsRow());
-
-function addGenericOddsRow(selection = '', odds = '') {
-    const row = document.createElement('div');
-    row.className = 'generic-odds-row form-group';
-    row.innerHTML = `
-        <input type="text" class="selection-input" placeholder="選択肢名 (例: プレイヤーAが1位)" value="${selection}">
-        <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ (例: 2.5)" value="${odds}">
-        <button type="button" class="remove-generic-odds-button action-button secondary-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
-    `;
-    GENERIC_ODDS_CONTAINER.appendChild(row);
-
-    // 削除ボタンのイベントリスナー設定
-    row.querySelector('.remove-generic-odds-button').addEventListener('click', (e) => {
-        e.target.closest('.generic-odds-row').remove();
-    });
-    
-    return row;
-}
-
-// **既存のオッズデータから編集フォームのHTMLを生成する関数** (変更なし)
-function generateOddsEditHtml(bet) {
-    let editHtml = `<form class="edit-odds-form" data-bet-id="${bet.betId}">`;
-    editHtml += `<p class="instruction" style="margin-top: 5px;">⚠️ **注意:** 投票受付中のオッズ変更は、公平性を損なう可能性があります。</p>`;
-    editHtml += `<div class="tool-box" style="margin-top: 10px; padding: 10px;" id="edit-odds-container-${bet.betId}">`;
-    
-    const odds = bet.odds || {};
-    Object.entries(odds).forEach(([selection, oddsValue]) => {
-        editHtml += `
-            <div class="generic-odds-row form-group">
-                <input type="text" class="selection-input" placeholder="選択肢名" value="${selection}" required>
-                <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ" value="${oddsValue}">
-                <button type="button" class="remove-edit-odds-button action-button secondary-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
-            </div>
-        `;
-    });
-    
-    editHtml += '</div>';
-    editHtml += `<button type="button" class="add-edit-odds-button action-button secondary-button" data-bet-id="${bet.betId}" style="width: auto;">+ 選択肢を追加</button>`;
-    editHtml += `<button type="submit" class="action-button" style="margin-top: 10px; background-color: #007bff;">オッズを更新</button>`;
-    editHtml += `<p id="edit-message-${bet.betId}" class="hidden message"></p>`;
-    editHtml += `</form>`;
-    return editHtml;
-}
-
-
-/**
- * くじ一覧のHTMLを生成し、表示する
- * @param {Array<Object>} allBets - すべてのくじのデータ
- */
-function renderBetList(allBets) {
-    if (allBets.length === 0) {
-        BET_LIST_CONTAINER.innerHTML = '<p>まだくじが作成されていません。</p>';
-        return;
-    }
-
-    let html = '';
-    
-    // ソート: OPEN -> CLOSED -> SETTLED
-    const sortedBets = allBets.sort((a, b) => {
-        const order = { 'OPEN': 1, 'CLOSED': 2, 'SETTLED': 3 };
-        return order[a.status] - order[b.status];
-    });
-
-    sortedBets.forEach(bet => {
-        const totalWagers = bet.wagers.reduce((sum, w) => sum + w.amount, 0);
-        let statusText = '';
-        let statusClass = '';
-        let managementTools = '';
-
-        // 汎用オッズリストを生成
-        let genericOddsList = '';
-        const genericOdds = bet.odds || {};
-        if (Object.keys(genericOdds).length > 0) {
-            genericOddsList = Object.entries(genericOdds).map(([selection, odds]) => 
-                `<span class="score-odds-item">${selection}: x${odds.toFixed(1)}</span>`
-            ).join(', ');
-        }
-
-
-        if (bet.status === 'OPEN') {
-            statusText = '開催中 (投票受付中)';
-            statusClass = 'status-open';
-            // オッズ編集ボタンと、編集フォーム表示コンテナを追加
-            managementTools = `
-                <button class="action-button close-bet secondary-button" data-bet-id="${bet.betId}" style="width: auto; margin-right: 5px;">投票締切</button>
-                <button class="action-button toggle-edit-odds secondary-button" data-bet-id="${bet.betId}" style="background-color: #ffc107; width: auto;">オッズ編集</button>
-                <div id="edit-odds-wrapper-${bet.betId}" class="hidden" style="margin-top: 10px;">
-                    ${generateOddsEditHtml(bet)}
-                </div>
-            `;
-        } else if (bet.status === 'CLOSED') {
-            statusText = '締切 (結果待ち)';
-            statusClass = 'status-closed';
-            
-            // ★ 修正箇所：結果確定ツールをプルダウン式に変更
-            const oddsOptions = Object.keys(bet.odds || {}).map(selection => 
-                `<option value="${selection}">${selection}</option>`
-            ).join('');
-
-            managementTools = `
-                <div class="result-tools-score">
-                    <p>🎯 当選した選択肢（結果）を選択:</p>
-                    <div class="form-group score-input-group">
-                        <select class="final-outcome-key" required style="width: 80%; display: inline; padding: 10px;">
-                            <option value="" disabled selected>-- 当選選択肢を選択 --</option>
-                            ${oddsOptions}
-                        </select>
-                    </div>
-                    
-                    <button class="action-button settle-bet result-button" data-bet-id="${bet.betId}">結果を確定し、ポイントを反映</button>
-                </div>
-            `;
-            // ★ 修正箇所ここまで
-            
-        } else if (bet.status === 'SETTLED') {
-            // 最終結果キーを表示
-            statusText = `完了 (当選結果: ${bet.outcome || 'N/A'})`;
-            statusClass = 'status-settled';
-            managementTools = `<p class="settled-info">このくじは確定済みです。</p>`;
-        }
-        
-        let wagersHtml = bet.wagers.length > 0 ? 
-            bet.wagers.map(w => `<li class="wager-item">${w.player}: ${w.amount} P → ${w.selection}</li>`).join('') :
-            '<li>まだ投票はありません。</li>';
-
-        html += `
-            <div class="bet-card ${statusClass}">
-                <h3>${bet.matchName} (#${bet.betId})</h3>
-                <p class="status-label">ステータス: <span class="${statusClass}">${statusText}</span></p>
-                <div class="odds-info">
-                    <strong>オッズ:</strong> ${genericOddsList}
-                </div>
-                <div class="wager-info">
-                    <strong>合計投票:</strong> ${totalWagers} P (${bet.wagers.length}件)
-                </div>
-                <ul class="wagers-list">${wagersHtml}</ul>
-                <div class="management-tools">
-                    ${managementTools}
-                </div>
-            </div>
-        `;
-    });
-
-    BET_LIST_CONTAINER.innerHTML = html;
-
-    // イベントリスナーを再設定
-    document.querySelectorAll('.close-bet').forEach(btn => btn.addEventListener('click', handleCloseBet));
-    document.querySelectorAll('.settle-bet').forEach(btn => btn.addEventListener('click', handleSettleBet));
-    
-    // オッズ編集関連のイベントリスナー
-    document.querySelectorAll('.toggle-edit-odds').forEach(btn => btn.addEventListener('click', handleToggleEditOdds));
-    
-    document.querySelectorAll('.edit-odds-form').forEach(form => {
-        form.addEventListener('submit', handleEditOdds);
-        
-        const betId = form.dataset.betId;
-        const container = document.getElementById(`edit-odds-container-${betId}`);
-
-        // 追加ボタンのイベントリスナー設定
-        form.querySelector('.add-edit-odds-button').addEventListener('click', () => {
-             addEditOddsRow(container);
-        });
-        
-        // 既存の削除ボタン
-        container.querySelectorAll('.remove-edit-odds-button').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.target.closest('.generic-odds-row').remove();
-            });
-        });
-    });
-}
-
-// **編集フォーム用のオッズ行追加関数** (変更なし)
-function addEditOddsRow(container) {
-    const row = document.createElement('div');
-    row.className = 'generic-odds-row form-group';
-    row.innerHTML = `
-        <input type="text" class="selection-input" placeholder="選択肢名" required>
-        <input type="number" class="odds-input" step="0.1" min="1.0" required placeholder="オッズ">
-        <button type="button" class="remove-edit-odds-button action-button secondary-button" style="background-color: #dc3545; width: auto; margin: 0; padding: 5px 10px;">削除</button>
-    `;
-    container.appendChild(row);
-    
-    // 削除ボタンのイベントリスナー
-    row.querySelector('.remove-edit-odds-button').addEventListener('click', (e) => {
-        e.target.closest('.generic-odds-row').remove();
-    });
-}
+// --- 6. スポーツくじ管理機能 (大幅修正: 新規くじ作成、結果確定ロジック) ---
 
 // --- イベントハンドラ: 新規くじ作成 ---
 
 CREATE_BET_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('create-message');
-    const matchName = document.getElementById('match-name').value;
+    const matchName = document.getElementById('match-name').value.trim();
+    const creatorName = document.getElementById('creator-name').value.trim();
+    const deadline = document.getElementById('deadline-datetime').value; // ISO 8601形式の文字列を取得
 
-    const genericOdds = {};
-    let allValid = true;
-    let hasAtLeastOne = false;
-    
-    document.querySelectorAll('#generic-odds-container .generic-odds-row').forEach(row => {
-        const selectionInput = row.querySelector('.selection-input').value.trim();
-        const oddsInput = parseFloat(row.querySelector('.odds-input').value);
-        
-        if (selectionInput && !isNaN(oddsInput) && oddsInput >= 1.0) {
-            genericOdds[selectionInput] = oddsInput;
-            hasAtLeastOne = true;
-        } else if (selectionInput || row.querySelector('.odds-input').value.trim()) {
-            allValid = false;
-            return;
-        }
-    });
-    
-    if (!allValid) {
-        showMessage(messageEl, '❌ 選択肢名と有効なオッズ (1.0以上) を入力してください。', 'error');
+    if (!matchName || !creatorName || !deadline) {
+        showMessage(messageEl, '❌ くじ名、開設者名、締切日時をすべて入力してください。', 'error');
         return;
     }
     
-    if (!hasAtLeastOne) {
-        showMessage(messageEl, '❌ オッズを最低一つは設定してください。', 'error');
+    // 締切時刻の有効性チェック
+    const deadlineDate = new Date(deadline);
+    if (isNaN(deadlineDate.getTime()) || deadlineDate <= new Date()) {
+        showMessage(messageEl, '❌ 締切日時は現在時刻よりも後の有効な日時を選択してください。', 'error');
         return;
     }
 
@@ -941,13 +753,16 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
         const allBets = currentData.sports_bets || [];
         const newBetId = allBets.length > 0 ? Math.max(...allBets.map(b => b.betId)) + 1 : 1;
         
+        // ★ オッズを廃止し、作成者と締切日時を追加
         const newBet = {
             betId: newBetId,
             matchName: matchName,
+            creator: creatorName, // 新規: 開設者名
+            deadline: deadlineDate.toISOString(), // 新規: 締切日時 (ISO文字列)
             status: 'OPEN',
             outcome: null,
-            odds: genericOdds,
-            wagers: []
+            // odds: {} は廃止
+            wagers: [] // 投票はwagers配列に直接格納
         };
 
         allBets.push(newBet);
@@ -958,9 +773,12 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
         if (response.status === 'success') {
             showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})`, 'success');
             CREATE_BET_FORM.reset();
-            GENERIC_ODDS_CONTAINER.innerHTML = ''; 
-            addGenericOddsRow('馬Aの勝利', 2.5);
-            addGenericOddsRow('プレイヤーBが1位', 5.0);
+            
+            // フォームリセット後、締切日時を再度設定
+            const now = new Date();
+            now.setHours(now.getHours() + 1);
+            document.getElementById('deadline-datetime').value = formatDateTimeLocal(now);
+            
             loadBettingData();
         } else {
             showMessage(messageEl, `❌ 作成エラー: ${response.message}`, 'error');
@@ -973,12 +791,11 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
 });
 
 
-// --- イベントハンドラ: くじ締切 ---
+// --- イベントハンドラ: くじ締切 (ロジック修正) ---
 
 async function handleCloseBet(e) {
     const betId = parseInt(e.target.dataset.betId);
     
-    // alert/confirmはカスタムモーダルに置き換える必要があるが、このタスクでは既存のconfirmを使用
     if (!window.confirm(`くじ ID:${betId} の投票を締め切りますか？この操作後は投票できません。`)) {
         return;
     }
@@ -989,6 +806,7 @@ async function handleCloseBet(e) {
         const bet = allBets.find(b => b.betId === betId);
 
         if (bet && bet.status === 'OPEN') {
+            // 締切処理
             bet.status = 'CLOSED';
             currentData.sports_bets = allBets;
             const response = await updateAllData(currentData);
@@ -1006,81 +824,335 @@ async function handleCloseBet(e) {
 }
 
 
-// **オッズ編集フォームの表示切り替え** (変更なし)
-function handleToggleEditOdds(e) {
-    const betId = e.target.dataset.betId;
-    const wrapper = document.getElementById(`edit-odds-wrapper-${betId}`);
-    wrapper.classList.toggle('hidden');
-    
-    if (!wrapper.classList.contains('hidden')) {
-        e.target.textContent = 'オッズ編集を隠す';
-    } else {
-        e.target.textContent = 'オッズ編集';
+/**
+ * くじ一覧のHTMLを生成し、表示する (大幅修正)
+ * @param {Array<Object>} allBets - すべてのくじのデータ
+ */
+function renderBetList(allBets) {
+    if (allBets.length === 0) {
+        BET_LIST_CONTAINER.innerHTML = '<p>まだくじが作成されていません。</p>';
+        return;
     }
+
+    let html = '';
+    const now = new Date();
+    
+    // ソート: OPEN -> CLOSED -> SETTLED
+    const sortedBets = allBets.sort((a, b) => {
+        const order = { 'OPEN': 1, 'CLOSED': 2, 'SETTLED': 3 };
+        return order[a.status] - order[b.status];
+    });
+
+    sortedBets.forEach(bet => {
+        // OPEN状態のくじについて、締切時間を過ぎていたら強制的にCLOSEDとして扱う (表示上のみ)
+        let currentStatus = bet.status;
+        if (currentStatus === 'OPEN' && new Date(bet.deadline) <= now) {
+            currentStatus = 'CLOSED_AUTO'; // 自動締切
+        }
+
+        const totalWagers = bet.wagers.reduce((sum, w) => sum + w.amount, 0);
+        let statusText = '';
+        let statusClass = '';
+        let managementTools = '';
+
+        const formattedDeadline = new Date(bet.deadline).toLocaleString('ja-JP', { 
+            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
+        });
+
+        // 汎用オッズリストは廃止されたため表示しない
+
+        if (currentStatus === 'OPEN') {
+            statusText = '開催中 (投票受付中)';
+            statusClass = 'status-open';
+            managementTools = `
+                <p>締切: ${formattedDeadline}</p>
+                <button class="action-button close-bet secondary-button" data-bet-id="${bet.betId}" style="width: auto;">投票締切</button>
+            `;
+        } else if (currentStatus === 'CLOSED' || currentStatus === 'CLOSED_AUTO') {
+            statusText = currentStatus === 'CLOSED_AUTO' ? '自動締切 (結果待ち)' : '締切済 (結果待ち)';
+            statusClass = 'status-closed';
+            
+            // ★ 大幅修正箇所：結果確定ツール
+            // 各投票に対する結果入力フォームを生成
+            const unsettledWagers = bet.wagers.filter(w => w.isWin === null); // isWinがnullの結果未入力の投票
+            
+            if (unsettledWagers.length > 0) {
+                managementTools = `
+                    <form class="settle-wagers-form" data-bet-id="${bet.betId}">
+                        <div class="result-tools-score">
+                            <p style="margin-top: 10px;">🎯 **未確定の投票結果入力** (${unsettledWagers.length}件)</p>
+                            <div id="wager-result-inputs-${bet.betId}" style="max-height: 400px; overflow-y: auto; padding: 10px; border: 1px solid #ccc; margin-bottom: 15px;">
+                                <!-- 個別の投票結果入力がJSで生成される -->
+                            </div>
+                            <button type="submit" class="action-button result-button">確定した結果を反映</button>
+                            <p class="instruction" style="color: #dc3545;">※ 当選時はオッズ (1.0以上) を入力してください。</p>
+                        </div>
+                    </form>
+                `;
+            } else {
+                managementTools = '<p class="settled-info" style="color: #28a745; font-weight: bold;">全ての投票結果が確定済みです。</p>';
+                // 全ての投票結果が確定したら、くじ自体をSETTLEDに更新するボタン
+                managementTools += `<button class="action-button finalize-bet secondary-button" data-bet-id="${bet.betId}" style="width: auto;">くじを完了済みにする</button>`;
+            }
+            
+        } else if (bet.status === 'SETTLED') {
+            statusText = `完了`;
+            statusClass = 'status-settled';
+            managementTools = `<p class="settled-info">このくじは完了済みです。</p>`;
+        }
+        
+        let wagersHtml = bet.wagers.length > 0 ? 
+            bet.wagers.map(w => {
+                let winStatus = '';
+                if (w.isWin === true) {
+                    winStatus = ` (✅ x${w.appliedOdds.toFixed(1)})`;
+                } else if (w.isWin === false) {
+                    winStatus = ' (❌)';
+                } else {
+                    winStatus = ' (?)';
+                }
+                const playerInitials = w.player.substring(0, 3);
+                return `<li class="wager-item" title="${w.item}">${playerInitials}: ${w.amount} P - ${w.item} ${winStatus}</li>`;
+            }).join('') :
+            '<li>まだ投票はありません。</li>';
+
+        html += `
+            <div class="bet-card ${statusClass}">
+                <h3>${bet.matchName} (#${bet.betId})</h3>
+                <p class="bet-creator">開設者: <strong>${bet.creator || 'N/A'}</strong></p>
+                <div class="odds-info">
+                    <strong>締切:</strong> ${formattedDeadline}
+                </div>
+                <p class="status-label">ステータス: <span class="${statusClass}">${statusText}</span></p>
+                <div class="wager-info">
+                    <strong>合計投票:</strong> ${totalWagers} P (${bet.wagers.length}件)
+                </div>
+                <ul class="wagers-list" style="font-size: 0.9em;">${wagersHtml}</ul>
+                <div class="management-tools">
+                    ${managementTools}
+                </div>
+            </div>
+        `;
+    });
+
+    BET_LIST_CONTAINER.innerHTML = html;
+
+    // イベントリスナーを再設定
+    document.querySelectorAll('.close-bet').forEach(btn => btn.addEventListener('click', handleCloseBet));
+    document.querySelectorAll('.finalize-bet').forEach(btn => btn.addEventListener('click', handleFinalizeBet));
+    
+    // ★ 新規: 投票結果確定フォームのセットアップ
+    document.querySelectorAll('.settle-wagers-form').forEach(form => {
+        const betId = parseInt(form.dataset.betId);
+        const bet = sortedBets.find(b => b.betId === betId);
+        
+        if (bet) {
+            // 個別投票結果の入力フィールドを生成
+            generateWagerResultInputs(bet);
+            
+            // フォーム送信イベント
+            form.addEventListener('submit', handleSettleWagers);
+        }
+    });
 }
 
 
-// **オッズ編集の確定処理** (変更なし)
-async function handleEditOdds(e) {
+/**
+ * 投票結果確定用の入力フィールドを生成する
+ * @param {Object} bet - くじオブジェクト
+ */
+function generateWagerResultInputs(bet) {
+    const container = document.getElementById(`wager-result-inputs-${bet.betId}`);
+    if (!container) return;
+
+    // 結果未入力の投票のみを対象とする
+    const unsettledWagers = bet.wagers.filter(w => w.isWin === null); 
+    
+    let html = '';
+
+    unsettledWagers.forEach((wager, index) => {
+        // isWin: null, appliedOdds: null のものが対象
+        const uniqueId = `${bet.betId}-${index}`;
+        
+        html += `
+            <div class="wager-result-row" style="padding: 5px 0; border-bottom: 1px dotted #ddd;">
+                <p style="margin: 5px 0;">
+                    <strong>${wager.player}:</strong> ${wager.amount} P / ${wager.item}
+                </p>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="flex: 0 0 auto;"><input type="radio" name="result-${uniqueId}" value="win" class="wager-result-radio" data-wager-index="${index}"> 当選</label>
+                    <label style="flex: 0 0 auto;"><input type="radio" name="result-${uniqueId}" value="lose" class="wager-result-radio" data-wager-index="${index}"> 外れ</label>
+                    <div style="flex-grow: 1; display: flex; gap: 5px;">
+                        <input type="number" step="0.1" min="1.0" class="applied-odds-input" data-wager-index="${index}" placeholder="オッズ (当選時)" style="width: 100px; display: none;">
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // ラジオボタンの変更イベントリスナーを追加
+    container.querySelectorAll('.wager-result-radio').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const index = e.target.dataset.wagerIndex;
+            const oddsInput = container.querySelector(`.applied-odds-input[data-wager-index="${index}"]`);
+            
+            if (e.target.value === 'win') {
+                oddsInput.style.display = 'inline';
+                oddsInput.required = true;
+                oddsInput.value = oddsInput.value || 1.0; // デフォルト値を設定
+            } else {
+                oddsInput.style.display = 'none';
+                oddsInput.required = false;
+                oddsInput.value = '';
+            }
+        });
+    });
+}
+
+// --- イベントハンドラ: 個別投票結果の確定とポイント反映 ---
+
+async function handleSettleWagers(e) {
     e.preventDefault();
     const form = e.target;
     const betId = parseInt(form.dataset.betId);
-    const messageEl = document.getElementById(`edit-message-${betId}`);
-
-    const genericOdds = {};
-    let allValid = true;
-    let hasAtLeastOne = false;
-    
-    form.querySelectorAll('.generic-odds-row').forEach(row => {
-        const selectionInput = row.querySelector('.selection-input').value.trim();
-        const oddsInput = parseFloat(row.querySelector('.odds-input').value);
-        
-        if (selectionInput && !isNaN(oddsInput) && oddsInput >= 1.0) {
-            genericOdds[selectionInput] = oddsInput;
-            hasAtLeastOne = true;
-        } else if (selectionInput || row.querySelector('.odds-input').value.trim()) {
-            allValid = false;
-            return;
-        }
-    });
-    
-    if (!allValid) {
-        showMessage(messageEl, '❌ 選択肢名と有効なオッズ (1.0以上) を入力してください。', 'error');
-        return;
-    }
-    
-    if (!hasAtLeastOne) {
-        showMessage(messageEl, '❌ オッズを最低一つは設定してください。', 'error');
-        return;
-    }
+    const messageEl = document.getElementById('create-message');
     
     const submitButton = form.querySelector('button[type="submit"]');
     submitButton.disabled = true;
-    showMessage(messageEl, 'オッズを更新中...', 'info');
 
+    // ★ 修正: allValid をここで初期化する
+    let allValid = true; 
 
     try {
         const currentData = await fetchAllData();
         const allBets = currentData.sports_bets || [];
-        const bet = allBets.find(b => b.betId === betId);
+        const betIndex = allBets.findIndex(b => b.betId === betId);
+        
+        if (betIndex === -1 || allBets[betIndex].status === 'SETTLED') {
+            showMessage(messageEl, '❌ くじが見つからないか、既に完了済みです。', 'error');
+            submitButton.disabled = false;
+            return;
+        }
 
-        if (!bet || bet.status !== 'OPEN') {
-             showMessage(messageEl, '❌ くじが見つからないか、ステータスが「開催中」ではありません。', 'error');
+        const bet = allBets[betIndex];
+        // 元のwagers配列（未確定を含む）
+        const originalWagers = bet.wagers; 
+        
+        let totalPointChange = 0;
+        let historyChanges = [];
+        let updatedWagersCount = 0;
+        
+        // passフィールドを保持するために、scores全体をマップとして処理
+        let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+        
+        // フォームから結果データを収集し、元のwagers配列に反映させる
+        const wagerResultInputs = form.querySelectorAll('.wager-result-row');
+
+        // 未確定の投票リストを取得 (フォームのインデックスと対応させるための工夫)
+        const unsettledWagersIndices = originalWagers
+            .map((w, index) => w.isWin === null ? index : -1)
+            .filter(index => index !== -1);
+
+        wagerResultInputs.forEach((row, formIndex) => {
+            // formIndexは0, 1, 2... とフォームに表示されている未確定投票の順序
+            const radioWin = row.querySelector('input[value="win"]');
+            const radioLose = row.querySelector('input[value="lose"]');
+            const oddsInput = row.querySelector('.applied-odds-input');
+            
+            // フォームのインデックスに対応する元のwagers配列のインデックス
+            const originalWagerIndex = unsettledWagersIndices[formIndex];
+            
+            if (originalWagerIndex === undefined || originalWagerIndex === null) return; // 念のためのチェック
+
+            let isWin = null;
+            let appliedOdds = null;
+            let pointChange = 0; // 反映するポイントの増減
+
+            if (radioWin && radioWin.checked) {
+                isWin = true;
+                appliedOdds = parseFloat(oddsInput.value);
+                
+                if (isNaN(appliedOdds) || appliedOdds < 1.0) {
+                    allValid = false; // エラーフラグを立てる
+                    showMessage(messageEl, `❌ 当選結果のオッズが不正です (${originalWagers[originalWagerIndex].item})。`, 'error');
+                    return; 
+                }
+                // ポイント計算: 掛け金 * オッズ (利益分)
+                pointChange = originalWagers[originalWagerIndex].amount * appliedOdds;
+                
+            } else if (radioLose && radioLose.checked) {
+                isWin = false;
+                appliedOdds = 0; // 外れの場合はオッズなし
+                pointChange = 0; // 既に購入時に減算済みのため、追加の増減なし
+            } else {
+                // 結果が選択されていない場合はスキップ
+                return;
+            }
+
+            // データの更新
+            originalWagers[originalWagerIndex].isWin = isWin;
+            originalWagers[originalWagerIndex].appliedOdds = appliedOdds;
+
+            // スコアの更新
+            const player = originalWagers[originalWagerIndex].player;
+            const currentPlayer = currentScoresMap.get(player);
+
+            if (currentPlayer) {
+                const currentScore = currentPlayer.score || 0;
+                // passフィールドを保持したままscoreを更新
+                currentScoresMap.set(player, { ...currentPlayer, score: parseFloat((currentScore + pointChange).toFixed(1)) });
+                
+                // 履歴記録用の変更点を蓄積
+                historyChanges.push({
+                    name: player,
+                    change: parseFloat(pointChange.toFixed(1))
+                });
+                totalPointChange += pointChange;
+            }
+            
+            updatedWagersCount++;
+        });
+
+        // ★ 修正: allValid のチェックをここで行う
+        if (!allValid) {
+             submitButton.disabled = false;
              return;
         }
 
-        bet.odds = genericOdds;
-        currentData.sports_bets = allBets;
+        if (updatedWagersCount === 0) {
+            showMessage(messageEl, '⚠️ 反映する結果が選択されていません。', 'info');
+            submitButton.disabled = false;
+            return;
+        }
 
+        // 履歴エントリーを作成
+        const historyEntry = {
+            timestamp: new Date().toISOString(),
+            ranks: ['BET_SETTLE'],
+            changes: historyChanges,
+            memo: `[くじ結果確定] ${bet.matchName} (${updatedWagersCount}件)の結果を確定。総ポイント変動: ${totalPointChange.toFixed(1)} P`,
+            gameId: `BET-SETTLE-${betId}-${Date.now()}`
+        };
+        currentData.history.push(historyEntry);
+
+        // データ全体を更新
+        bet.wagers = originalWagers;
+        allBets[betIndex] = bet;
+        currentData.sports_bets = allBets;
+        currentData.scores = Array.from(currentScoresMap.values()); // passフィールドを保持したscores
+        
         const response = await updateAllData(currentData);
 
         if (response.status === 'success') {
-            showMessage(messageEl, `✅ くじ ID:${betId} のオッズを更新しました。`, 'success');
-            document.getElementById(`edit-odds-wrapper-${betId}`).classList.add('hidden');
-            document.querySelector(`.toggle-edit-odds[data-bet-id="${betId}"]`).textContent = 'オッズ編集';
-            loadBettingData();
+            showMessage(messageEl, `✅ ${updatedWagersCount}件の結果を確定し、ポイントを反映しました。`, 'success');
+            loadBettingData(); // リストを再ロードして更新されたフォームを表示
+            loadPlayerList();
+            loadTransferPlayerLists();
+            loadMahjongForm();
         } else {
-            showMessage(messageEl, `❌ 更新エラー: ${response.message}`, 'error');
+            showMessage(messageEl, `❌ ポイント反映エラー: ${response.message}`, 'error');
         }
 
     } catch (error) {
@@ -1091,125 +1163,56 @@ async function handleEditOdds(e) {
     }
 }
 
+// --- イベントハンドラ: くじ完了 (SETTLED) にする ---
 
-// --- イベントハンドラ: 結果確定とポイント反映 ---
-
-async function handleSettleBet(e) {
+async function handleFinalizeBet(e) {
     const betId = parseInt(e.target.dataset.betId);
-    
-    const betCard = e.target.closest('.bet-card');
-    // finalOutcomeKeyInputは、<select>要素または古い<input>要素を取得
-    const finalOutcomeKeyInput = betCard.querySelector(`.final-outcome-key`);
-    const finalOutcomeKey = finalOutcomeKeyInput.value.trim(); // <select>要素から選択された値を取得
-
     const messageEl = document.getElementById('create-message');
 
-    if (!finalOutcomeKey) {
-        showMessage(messageEl, '❌ 当選した選択肢名を選択してください。', 'error');
+    if (!window.confirm(`くじ ID:${betId} を「完了済み」にマークしますか？この操作は元に戻せません。`)) {
         return;
     }
-
-    // alert/confirmはカスタムモーダルに置き換える必要があるが、このタスクでは既存のconfirmを使用
-    if (!window.confirm(`くじ ID:${betId} の結果を【当選選択肢: ${finalOutcomeKey}】で確定し、ポイントを反映しますか？元に戻せません。`)) {
-        return;
-    }
-    
-    betCard.querySelectorAll('.action-button').forEach(btn => btn.disabled = true);
 
     try {
         const currentData = await fetchAllData();
         const allBets = currentData.sports_bets || [];
-        const bet = allBets.find(b => b.betId === betId);
-
-        if (!bet || bet.status !== 'CLOSED') {
-            showMessage(messageEl, '❌ くじが見つからないか、ステータスが「締切」ではありません。', 'error');
+        const betIndex = allBets.findIndex(b => b.betId === betId);
+        
+        if (betIndex === -1 || allBets[betIndex].status === 'SETTLED') {
+            showMessage(messageEl, '❌ くじが見つからないか、既に完了済みです。', 'error');
             return;
         }
 
-        const oddsMap = bet.odds;
-        const winningOdds = oddsMap[finalOutcomeKey];
-        if (!winningOdds) {
-             showMessage(messageEl, `❌ 選択された結果「${finalOutcomeKey}」はオッズに設定されていません。入力ミスがないか確認してください。`, 'error');
-             betCard.querySelectorAll('.action-button').forEach(btn => btn.disabled = false);
-             return;
-        }
+        const bet = allBets[betIndex];
         
-        // passフィールドを保持するために、scores全体をマップとして処理
-        let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
-        let historyChanges = [];
-        let totalPointChange = 0;
+        // 未確定の投票がないか最終チェック
+        const unsettledCount = bet.wagers.filter(w => w.isWin === null).length;
+        if (unsettledCount > 0) {
+            showMessage(messageEl, `❌ まだ ${unsettledCount}件の投票結果が未確定です。全ての結果を確定してから完了にしてください。`, 'error');
+            return;
+        }
 
-        bet.wagers.forEach(wager => {
-            let change = 0;
-            const selectionKey = wager.selection;
-            const player = wager.player;
-            
-            // ★ ポイント計算ロジックを修正
-            //   購入時の減算は既に行われているため、
-            //   当選者には (掛け金 * オッズ) を加算。
-            //   外れた人には 0 を加算/減算 (既に購入時に減算済み)。
-            if (selectionKey === finalOutcomeKey) {
-                // 当選: 掛け金 * オッズ (例: 10P * x2.0 = +20P。購入時の-10Pと相殺し、実質+10Pの利益)
-                change = wager.amount * winningOdds; 
-            } else {
-                // 外れ: 0P (購入時に既に-wager.amountされているため、ここで0にすることで二重減算を回避)
-                change = 0; 
-            }
-            // ★ 修正ここまで
-
-            const currentPlayer = currentScoresMap.get(player);
-
-            if (currentPlayer) {
-                const currentScore = currentPlayer.score || 0;
-                // passフィールドを保持したままscoreを更新
-                currentScoresMap.set(player, { ...currentPlayer, score: parseFloat((currentScore + change).toFixed(1)) });
-            }
-
-            historyChanges.push({
-                name: player,
-                change: parseFloat(change.toFixed(1))
-            });
-            totalPointChange += change;
-        });
-
-        bet.outcome = finalOutcomeKey;
-        delete bet.finalScore; 
         bet.status = 'SETTLED';
         currentData.sports_bets = allBets;
-
-        currentData.scores = Array.from(currentScoresMap.values()); // passフィールドを保持したscores
-        
-        const historyEntry = {
-            timestamp: new Date().toISOString(),
-            ranks: ['BET'],
-            changes: historyChanges,
-            memo: `[スポーツくじ] ${bet.matchName} 結果確定: 当選選択肢「${finalOutcomeKey}」. 総ポイント変動: ${totalPointChange.toFixed(1)} P`,
-            gameId: `BET-${betId}-${Date.now()}`
-        };
-        currentData.history.push(historyEntry);
         
         const response = await updateAllData(currentData);
 
         if (response.status === 'success') {
-            showMessage(messageEl, `✅ くじ ID:${betId} の結果を【当選選択肢: ${finalOutcomeKey}】で確定し、ポイントを反映しました。`, 'success');
+            showMessage(messageEl, `✅ くじ ID:${betId} を「完了済み」にしました。`, 'success');
             loadBettingData();
-            loadPlayerList();
-            loadTransferPlayerLists();
-            loadMahjongForm(); // 麻雀フォームも更新
         } else {
-            showMessage(messageEl, `❌ ポイント反映エラー: ${response.message}`, 'error');
+            showMessage(messageEl, `❌ 完了処理エラー: ${response.message}`, 'error');
         }
 
     } catch (error) {
         console.error(error);
         showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-    } finally {
-        betCard.querySelectorAll('.action-button').forEach(btn => btn.disabled = false);
     }
 }
 
+
 /**
- * HTML要素にメッセージを表示するヘルパー関数
+ * HTML要素にメッセージを表示するヘルパー関数 (変更なし)
  */
 function showMessage(element, text, type) {
     element.textContent = text;
@@ -1222,7 +1225,7 @@ function showMessage(element, text, type) {
     }, 5000);
 }
 
-// --- 特殊ポイント調整機能 (pass保持のため修正) ---
+// --- 特殊ポイント調整機能 (変更なし) ---
 document.getElementById('adjustment-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('adjustment-message');
