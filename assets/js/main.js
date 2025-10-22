@@ -126,7 +126,7 @@ function renderRaceRecords(raceRecords) {
 }
 
 /**
- * スポーツくじのタイルを描画する関数 (変更なし)
+ * スポーツくじのタイルを描画する関数 (仕様変更に伴い修正)
  * @param {Array<Object>} sportsBets - sports_betsデータ
  * @param {Array<Object>} displayScores - ランキングに表示されているプレイヤーのスコア
  */
@@ -147,47 +147,49 @@ function renderSportsBets(sportsBets, displayScores) {
     activeBets.forEach(bet => {
         let myWagerInfo = '';
         let totalWagers = 0;
-        let myWagersMap = new Map(); // プレイヤーごとの選択肢と合計掛け金
-
+        
         // 自分の投票情報を集計 (ランキングに表示されているプレイヤーのみ対象)
-        bet.wagers.filter(w => playerNames.includes(w.player)).forEach(wager => {
-            totalWagers += wager.amount;
-            const currentAmount = myWagersMap.get(wager.selection) || 0;
-            myWagersMap.set(wager.selection, currentAmount + wager.amount);
-        });
+        // 新しいwagers構造: [{player: "A", amount: 10, item: "X"}, {player: "A", amount: 5, item: "Y"}]
+        const playerWagers = bet.wagers.filter(w => playerNames.includes(w.player));
+        
+        // プレイヤーごとの合計掛け金を計算
+        const playerTotalWagers = playerWagers.reduce((sum, w) => sum + w.amount, 0);
 
-        // 自分の投票情報HTMLを生成
-        if (myWagersMap.size > 0) {
+        if (playerTotalWagers > 0) {
+            totalWagers = playerTotalWagers;
             myWagerInfo = `<p class="my-wager-text">✅ 合計賭け金: ${totalWagers} P</p>`;
             myWagerInfo += '<ul class="my-wagers-list">';
-            myWagersMap.forEach((amount, selection) => {
-                myWagerInfo += `<li>${selection}: ${amount} P</li>`;
+            
+            // プレイヤーごとの個別の賭けを表示
+            playerWagers.forEach(wager => {
+                const itemDisplay = wager.item.length > 30 ? wager.item.substring(0, 30) + '...' : wager.item;
+                // 投票履歴はマイページで確認する形にするため、ここでは簡易表示に
+                myWagerInfo += `<li>${itemDisplay} に ${wager.amount} P</li>`;
             });
+
             myWagerInfo += '</ul>';
         } else {
             myWagerInfo = `<p class="my-wager-text">まだ投票されていません。</p>`;
         }
         
-        let genericOddsHtml = '';
-        const genericOdds = bet.odds || {};
-        if (Object.keys(genericOdds).length > 0) {
-            genericOddsHtml += '<p class="score-odds-header">🏆 オッズ:</p><ul class="generic-odds-list-display">';
-            
-            Object.entries(genericOdds).forEach(([selection, odds]) => {
-                genericOddsHtml += `<li>${selection}: <strong>x${odds.toFixed(1)}</strong></li>`;
-            });
-            
-            genericOddsHtml += '</ul>';
-        }
-
         const statusClass = bet.status === 'OPEN' ? 'status-open' : 'status-closed';
         const statusText = bet.status === 'OPEN' ? '【開催中】' : '【締切済み】';
+
+        // 締切日時の表示 (deadlineが有効な場合)
+        let deadlineHtml = '';
+        if (bet.deadline) {
+            const deadline = new Date(bet.deadline);
+            const formattedDeadline = deadline.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }) + ' ' + 
+                                      deadline.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+            deadlineHtml = `<p class="bet-deadline">締切: ${formattedDeadline}</p>`;
+        }
 
         html += `
             <div class="bet-tile ${statusClass}">
                 <h4>${statusText} ${bet.matchName} (#${bet.betId})</h4>
                 <div class="odds-info-display">
-                    ${genericOddsHtml}
+                    ${deadlineHtml}
+                    <p class="bet-creator">開設者: <strong>${bet.creator || 'N/A'}</strong></p>
                 </div>
                 ${myWagerInfo}
                 <p class="total-wager-text">総賭け金: ${bet.wagers.reduce((sum, w) => sum + w.amount, 0)} P</p>
