@@ -28,6 +28,8 @@ const LOGOUT_BUTTON = document.getElementById('logout-button');
 const PRO_BONUS_TOOL = document.getElementById('pro-bonus-tool');
 const PRO_BONUS_BUTTON = document.getElementById('pro-bonus-button');
 const PRO_BONUS_MESSAGE = document.getElementById('pro-bonus-message');
+// ★ 修正: Proボーナス説明文要素を追加
+const PRO_BONUS_INSTRUCTION = document.getElementById('pro-bonus-instruction'); 
 
 // ★★★ 新規追加: 送金関連の要素 ★★★
 const TRANSFER_FORM_MYPAGE = document.getElementById('transfer-form-mypage');
@@ -258,11 +260,16 @@ function initializeProBonusFeature() {
     const isPro = authenticatedUser.pro === true;
     
     if (isPro) {
-        PRO_BONUS_TOOL.classList.remove('hidden');
+        // PRO_BONUS_TOOLがnullでないことを確認 (安全のため)
+        if (PRO_BONUS_TOOL) {
+            PRO_BONUS_TOOL.classList.remove('hidden');
+        }
         // ★ 変更: 1日1回のチェックロジックを削除し、常に有効状態にする表示に更新
         updateProBonusDisplay(); 
     } else {
-        PRO_BONUS_TOOL.classList.add('hidden');
+         if (PRO_BONUS_TOOL) {
+            PRO_BONUS_TOOL.classList.add('hidden');
+        }
     }
 }
 
@@ -272,10 +279,20 @@ function initializeProBonusFeature() {
 function updateProBonusDisplay() {
     // ★ 変更: 1日1回のチェックロジックを完全に削除
     
-    PRO_BONUS_BUTTON.disabled = false;
-    PRO_BONUS_BUTTON.textContent = 'ボーナス (+0.1 P) を受け取る'; // ★ 0.1 P に変更
-    document.getElementById('pro-bonus-instruction').innerHTML = 'Proプレイヤー特典: 何度でもボーナスポイントを獲得できます (0.1 P)。'; // ★ 0.1 P と「何度でも」に変更
-    PRO_BONUS_MESSAGE.classList.add('hidden');
+    if (PRO_BONUS_BUTTON) {
+        PRO_BONUS_BUTTON.disabled = false;
+        PRO_BONUS_BUTTON.textContent = 'ボーナス (+0.1 P) を受け取る'; // ★ 0.1 P に変更
+    }
+    
+    // ★ 修正: 定数 PRO_BONUS_INSTRUCTION が null でないことを確認してinnerHTMLを設定
+    if (PRO_BONUS_INSTRUCTION) {
+        // ★ 変更: 説明文を0.1 Pと「何度でも」に変更
+        PRO_BONUS_INSTRUCTION.innerHTML = 'Proプレイヤー特典: 何度でもボーナスポイントを獲得できます (0.1 P)。'; 
+    }
+    
+    if (PRO_BONUS_MESSAGE) {
+        PRO_BONUS_MESSAGE.classList.add('hidden');
+    }
 }
 
 /**
@@ -295,7 +312,9 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
     
     // ★ 削除: 1日1回の制限チェックロジックを削除
 
-    PRO_BONUS_BUTTON.disabled = true;
+    if (PRO_BONUS_BUTTON) {
+        PRO_BONUS_BUTTON.disabled = true;
+    }
     showMessage(messageEl, 'ポイントを付与中...', 'info');
 
     try {
@@ -307,7 +326,7 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
         
         if (!targetPlayer) {
             showMessage(messageEl, `❌ プレイヤー ${player} が見つかりません。`, 'error');
-            PRO_BONUS_BUTTON.disabled = false;
+            if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
             return;
         }
         
@@ -355,13 +374,13 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
             
         } else {
             showMessage(messageEl, `❌ ボーナス付与エラー: ${response.message}`, 'error');
-            PRO_BONUS_BUTTON.disabled = false;
+            if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
         }
 
     } catch (error) {
         console.error(error);
         showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-        PRO_BONUS_BUTTON.disabled = false;
+        if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
     }
 });
 
@@ -374,6 +393,9 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
  * 送金先プレイヤーリストのロード
  */
 async function loadTransferReceiverList() {
+    // RECEIVER_PLAYER_SELECT_MYPAGEがnullでないことを確認 (安全のため)
+    if (!RECEIVER_PLAYER_SELECT_MYPAGE) return;
+    
     RECEIVER_PLAYER_SELECT_MYPAGE.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     
     // fetchScores()はcommon.jsから全データを取得しscoresのみを返す
@@ -514,6 +536,9 @@ TRANSFER_FORM_MYPAGE.addEventListener('submit', async (e) => {
  * 賭け入力行を初期化・追加する関数
  */
 function initializeWagerInputs() {
+    // WAGER_INPUTS_CONTAINERがnullでないことを確認 (安全のため)
+    if (!WAGER_INPUTS_CONTAINER) return;
+
     WAGER_INPUTS_CONTAINER.innerHTML = '';
     // 最初の行をデフォルトで追加
     addWagerRow(); 
@@ -523,6 +548,9 @@ function initializeWagerInputs() {
  * 賭け内容と掛け金の入力行を追加する関数
  */
 function addWagerRow(item = '', amount = '') {
+    // WAGER_INPUTS_CONTAINERがnullでないことを確認 (安全のため)
+    if (!WAGER_INPUTS_CONTAINER) return;
+
     const rowCount = WAGER_INPUTS_CONTAINER.querySelectorAll('.wager-row').length + 1;
     const row = document.createElement('div');
     row.className = 'form-group wager-row';
@@ -553,7 +581,9 @@ function addWagerRow(item = '', amount = '') {
 }
 
 // 賭け追加ボタンのイベントリスナー (変更なし)
-ADD_WAGER_ROW_BUTTON.addEventListener('click', () => addWagerRow());
+if (ADD_WAGER_ROW_BUTTON) {
+    ADD_WAGER_ROW_BUTTON.addEventListener('click', () => addWagerRow());
+}
 
 
 /**
@@ -572,6 +602,9 @@ async function loadBettingDataAndHistory() {
  * 投票フォームの対象くじセレクトボックスを更新する
  */
 function updateWagerForm(allBets) {
+    // TARGET_BET_SELECTがnullでないことを確認 (安全のため)
+    if (!TARGET_BET_SELECT) return;
+
     TARGET_BET_SELECT.innerHTML = '<option value="" disabled selected>開催中のくじを選択</option>';
     
     // 開催中のくじのみを対象とする
@@ -599,6 +632,9 @@ function updateWagerForm(allBets) {
  * 認証ユーザーの投票履歴を表示する (新しいデータ構造に対応して修正)
  */
 function renderWagerHistory(allBets) {
+    // WAGER_HISTORY_LISTがnullでないことを確認 (安全のため)
+    if (!WAGER_HISTORY_LIST) return;
+
     const player = authenticatedUser.name;
     
     // すべてのくじから、認証ユーザーの投票のみを抽出
@@ -661,124 +697,128 @@ function renderWagerHistory(allBets) {
 
 // --- イベントハンドラ: 投票（くじ購入） (変更なし) ---
 
-WAGER_FORM.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const messageEl = document.getElementById('wager-message');
-    const betId = parseInt(TARGET_BET_SELECT.value);
-    const player = authenticatedUser.name; 
-    
-    // 1. フォームから有効な賭けのリストを収集 (変更なし)
-    const wagersToSubmit = [];
-    let totalWagerAmount = 0;
-    let allValid = true;
-    let hasAtLeastOneValid = false;
-    
-    WAGER_INPUTS_CONTAINER.querySelectorAll('.wager-row').forEach(row => {
-        const itemInput = row.querySelector('.wager-item-input').value.trim();
-        const amountInput = parseFloat(row.querySelector('.wager-amount-input').value);
+if (WAGER_FORM) {
+    WAGER_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const messageEl = document.getElementById('wager-message');
+        const betId = parseInt(TARGET_BET_SELECT.value);
+        const player = authenticatedUser.name; 
         
-        // itemとamountが両方入力されているかチェック
-        if (itemInput && !isNaN(amountInput) && amountInput >= 1) {
-            wagersToSubmit.push({
-                item: itemInput,
-                amount: amountInput,
-                // 新しいwagersには以下のフィールドを追加:
-                player: player,
-                timestamp: new Date().toISOString(),
-                isWin: null, // 結果確定前はnull
-                appliedOdds: null // 結果確定前はnull
+        // 1. フォームから有効な賭けのリストを収集 (変更なし)
+        const wagersToSubmit = [];
+        let totalWagerAmount = 0;
+        let allValid = true;
+        let hasAtLeastOneValid = false;
+        
+        if (WAGER_INPUTS_CONTAINER) {
+            WAGER_INPUTS_CONTAINER.querySelectorAll('.wager-row').forEach(row => {
+                const itemInput = row.querySelector('.wager-item-input').value.trim();
+                const amountInput = parseFloat(row.querySelector('.wager-amount-input').value);
+                
+                // itemとamountが両方入力されているかチェック
+                if (itemInput && !isNaN(amountInput) && amountInput >= 1) {
+                    wagersToSubmit.push({
+                        item: itemInput,
+                        amount: amountInput,
+                        // 新しいwagersには以下のフィールドを追加:
+                        player: player,
+                        timestamp: new Date().toISOString(),
+                        isWin: null, // 結果確定前はnull
+                        appliedOdds: null // 結果確定前はnull
+                    });
+                    totalWagerAmount += amountInput;
+                    hasAtLeastOneValid = true;
+                } else if (itemInput || !isNaN(amountInput)) {
+                    // 一部でも入力されているが、有効な組み合わせではない場合はエラー
+                    allValid = false;
+                }
             });
-            totalWagerAmount += amountInput;
-            hasAtLeastOneValid = true;
-        } else if (itemInput || !isNaN(amountInput)) {
-            // 一部でも入力されているが、有効な組み合わせではない場合はエラー
-            allValid = false;
+        }
+
+        if (!betId || !allValid || !hasAtLeastOneValid) {
+            showMessage(messageEl, '❌ 対象くじを選択し、少なくとも一つの有効な「かけるもの」と「掛け金 (1P以上)」を入力してください。', 'error');
+            return;
+        }
+
+        const submitButton = WAGER_FORM.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        showMessage(messageEl, `投票 (${totalWagerAmount} P) を処理中...`, 'info');
+        
+        try {
+            // 2. 最新の全データを取得し、残高チェックを厳密に行う
+            const currentData = await fetchAllData();
+            const allBets = currentData.sports_bets || [];
+            const betIndex = allBets.findIndex(b => b.betId === betId);
+            
+            // scoresから認証ユーザーの最新スコアを取得
+            let targetPlayer = currentData.scores.find(p => p.name === player);
+            
+            // ★ pass/proフィールドのチェックを追加
+            if (!targetPlayer || typeof targetPlayer.pass === 'undefined' || typeof targetPlayer.pro === 'undefined') {
+                 showMessage(messageEl, '❌ 認証ユーザーのデータにパスワード情報またはプロ情報が不足しています。', 'error');
+                 return;
+            }
+
+            // 認証時のスコアではなく、最新のスコアで残高チェック
+            if (targetPlayer.score < totalWagerAmount) {
+                showMessage(messageEl, `❌ ポイント残高 (${targetPlayer.score.toFixed(1)} P) が不足しているため、合計 ${totalWagerAmount} Pの投票はできません。`, 'error');
+                return;
+            }
+
+            const currentBet = allBets[betIndex];
+
+            // 締切時刻を過ぎていないかチェック
+            if (betIndex === -1 || currentBet.status !== 'OPEN' || new Date(currentBet.deadline) <= new Date()) {
+                showMessage(messageEl, '❌ 開催中のくじではありません（締切済みの可能性があります）。', 'error');
+                return;
+            }
+
+            // 3. スコアから合計ポイントを減算
+            targetPlayer.score = parseFloat((targetPlayer.score - totalWagerAmount).toFixed(1));
+
+            // 4. 投票情報を既存のwagers配列に追加 (変更なし)
+            currentBet.wagers.push(...wagersToSubmit);
+            
+            // 5. 履歴エントリーを作成 (変更なし)
+            const historyEntry = {
+                timestamp: new Date().toISOString(),
+                ranks: ['WAGER'],
+                changes: [{name: player, change: -totalWagerAmount}],
+                memo: `[くじ投票] ${player}がくじ#${betId} (${currentBet.matchName})に ${totalWagerAmount} Pを投票(内訳: ${wagersToSubmit.length}件)。`,
+                gameId: `WAGER-${betId}-${Date.now()}`
+            };
+            currentData.history.push(historyEntry);
+
+            // 6. 更新された全データを保存
+            currentData.sports_bets = allBets;
+            // ★ scoresの更新時に、targetPlayerの全てのプロパティ（pass, proを含む）が引き継がれていることを確認
+            currentData.scores = currentData.scores.map(p => p.name === player ? targetPlayer : p); 
+
+            const response = await updateAllData(currentData);
+            if (response.status === 'success') {
+                showMessage(messageEl, `✅ ${player}様の ${totalWagerAmount} P の投票 (${wagersToSubmit.length}件) を登録し、ポイントを減算しました。`, 'success');
+                WAGER_FORM.reset();
+                
+                // 7. 認証ユーザー情報を更新し、画面を再表示
+                authenticatedUser.score = targetPlayer.score; // 認証ユーザーのメモリ上のスコアを更新
+                CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1); // 画面上のスコアを更新
+                
+                // 投票履歴とくじリストを再ロード
+                loadBettingDataAndHistory(); 
+                initializeWagerInputs(); // フォームを初期状態に戻す
+                
+            } else {
+                showMessage(messageEl, `❌ 投票エラー: ${response.message}`, 'error');
+            }
+
+        } catch (error) {
+            console.error("投票処理中にエラー:", error);
+            showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+        } finally {
+            submitButton.disabled = false;
         }
     });
-
-    if (!betId || !allValid || !hasAtLeastOneValid) {
-        showMessage(messageEl, '❌ 対象くじを選択し、少なくとも一つの有効な「かけるもの」と「掛け金 (1P以上)」を入力してください。', 'error');
-        return;
-    }
-
-    const submitButton = WAGER_FORM.querySelector('button[type="submit"]');
-    submitButton.disabled = true;
-    showMessage(messageEl, `投票 (${totalWagerAmount} P) を処理中...`, 'info');
-    
-    try {
-        // 2. 最新の全データを取得し、残高チェックを厳密に行う
-        const currentData = await fetchAllData();
-        const allBets = currentData.sports_bets || [];
-        const betIndex = allBets.findIndex(b => b.betId === betId);
-        
-        // scoresから認証ユーザーの最新スコアを取得
-        let targetPlayer = currentData.scores.find(p => p.name === player);
-        
-        // ★ pass/proフィールドのチェックを追加
-        if (!targetPlayer || typeof targetPlayer.pass === 'undefined' || typeof targetPlayer.pro === 'undefined') {
-             showMessage(messageEl, '❌ 認証ユーザーのデータにパスワード情報またはプロ情報が不足しています。', 'error');
-             return;
-        }
-
-        // 認証時のスコアではなく、最新のスコアで残高チェック
-        if (targetPlayer.score < totalWagerAmount) {
-            showMessage(messageEl, `❌ ポイント残高 (${targetPlayer.score.toFixed(1)} P) が不足しているため、合計 ${totalWagerAmount} Pの投票はできません。`, 'error');
-            return;
-        }
-
-        const currentBet = allBets[betIndex];
-
-        // 締切時刻を過ぎていないかチェック
-        if (betIndex === -1 || currentBet.status !== 'OPEN' || new Date(currentBet.deadline) <= new Date()) {
-            showMessage(messageEl, '❌ 開催中のくじではありません（締切済みの可能性があります）。', 'error');
-            return;
-        }
-
-        // 3. スコアから合計ポイントを減算
-        targetPlayer.score = parseFloat((targetPlayer.score - totalWagerAmount).toFixed(1));
-
-        // 4. 投票情報を既存のwagers配列に追加 (変更なし)
-        currentBet.wagers.push(...wagersToSubmit);
-        
-        // 5. 履歴エントリーを作成 (変更なし)
-        const historyEntry = {
-            timestamp: new Date().toISOString(),
-            ranks: ['WAGER'],
-            changes: [{name: player, change: -totalWagerAmount}],
-            memo: `[くじ投票] ${player}がくじ#${betId} (${currentBet.matchName})に ${totalWagerAmount} Pを投票(内訳: ${wagersToSubmit.length}件)。`,
-            gameId: `WAGER-${betId}-${Date.now()}`
-        };
-        currentData.history.push(historyEntry);
-
-        // 6. 更新された全データを保存
-        currentData.sports_bets = allBets;
-        // ★ scoresの更新時に、targetPlayerの全てのプロパティ（pass, proを含む）が引き継がれていることを確認
-        currentData.scores = currentData.scores.map(p => p.name === player ? targetPlayer : p); 
-
-        const response = await updateAllData(currentData);
-        if (response.status === 'success') {
-            showMessage(messageEl, `✅ ${player}様の ${totalWagerAmount} P の投票 (${wagersToSubmit.length}件) を登録し、ポイントを減算しました。`, 'success');
-            WAGER_FORM.reset();
-            
-            // 7. 認証ユーザー情報を更新し、画面を再表示
-            authenticatedUser.score = targetPlayer.score; // 認証ユーザーのメモリ上のスコアを更新
-            CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1); // 画面上のスコアを更新
-            
-            // 投票履歴とくじリストを再ロード
-            loadBettingDataAndHistory(); 
-            initializeWagerInputs(); // フォームを初期状態に戻す
-            
-        } else {
-            showMessage(messageEl, `❌ 投票エラー: ${response.message}`, 'error');
-        }
-
-    } catch (error) {
-        console.error("投票処理中にエラー:", error);
-        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-    } finally {
-        submitButton.disabled = false;
-    }
-});
+}
 
 
 // -----------------------------------------------------------------
