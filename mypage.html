@@ -36,11 +36,30 @@
 
         <!-- マイページコンテンツ (認証成功後に表示) -->
         <section id="mypage-content" class="hidden">
-            <div class="tool-box">
-                <h3>ようこそ、<span id="authenticated-user-name"></span>様！</h3>
-                <p>現在のポイント残高: <strong id="current-score" style="font-size: 1.5em; color: var(--color-accent);"></strong> P</p>
-                <p id="score-update-message" class="hidden message"></p>
+            <!-- ユーザー情報とログアウトボタン -->
+            <div class="tool-box" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+                <div>
+                    <h3>ようこそ、<span id="authenticated-user-name"></span>様！</h3>
+                    <p>現在のポイント残高: <strong id="current-score" style="font-size: 1.5em; color: var(--color-accent);"></strong> P</p>
+                    <p id="score-update-message" class="hidden message"></p>
+                </div>
+                <!-- ★★★ ログアウトボタンの追加 ★★★ -->
+                <button type="button" id="logout-button" class="action-button secondary-button" style="width: auto; margin-top: 10px;">
+                    ログアウト
+                </button>
+                <!-- ★★★ ログアウトボタンの追加 終了 ★★★ -->
             </div>
+
+            <!-- ★★★ 新規追加: Proボーナスボタン ★★★ -->
+            <div id="pro-bonus-tool" class="tool-box hidden">
+                <h4>⭐ Proボーナス</h4>
+                <p class="instruction" id="pro-bonus-instruction">Proプレイヤー特典: 1日1回ボーナスポイントを獲得できます。</p>
+                <button type="button" id="pro-bonus-button" class="action-button" style="width: auto; background-color: #38c172;">
+                    ボーナス (+10 P) を受け取る <!-- ★ 10 P に変更 -->
+                </button>
+                <p id="pro-bonus-message" class="hidden"></p>
+            </div>
+            <!-- ★★★ 新規追加 終了 ★★★ -->
             
             <div class="tool-box">
                 <h3>💰 スポーツくじ購入</h3>
@@ -79,10 +98,53 @@
                 </form>
                 <p id="wager-message" class="hidden"></p>
             </div>
+
+            <!-- ★★★ 新規追加: 送金機能 (マイページ版) ★★★ -->
+            <div class="tool-box">
+                <h3>💸 ポイント送金 (プレイヤーへ)</h3>
+                <p class="instruction">ログイン中のプレイヤー (<strong id="authenticated-user-transfer"></strong>) から、他のプレイヤーへポイントを送金します。</p>
+                <form id="transfer-form-mypage">
+                    <div class="form-group">
+                        <label for="receiver-player-mypage">送金先プレイヤー:</label>
+                        <select id="receiver-player-mypage" required>
+                            <option value="" disabled selected>ロード中...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="transfer-amount-mypage">送金ポイント:</label>
+                        <input type="number" id="transfer-amount-mypage" step="0.1" min="0.1" placeholder="例: 5.0" required>
+                    </div>
+                    <button type="submit" class="action-button" style="background-color: #28a745;">送金を実行</button>
+                </form>
+                <p id="transfer-message-mypage" class="hidden"></p>
+            </div>
+            <!-- ★★★ 送金機能 終了 ★★★ -->
+
+            <!-- ★★★ ダークモード切り替え機能の移動 (画面一番下へ) ★★★ -->
+            <div id="dark-mode-tool" class="tool-box" style="margin-top: 30px;">
+                <h4>🌙 ダークモード設定</h4>
+                <!-- proプレイヤー以外は隠す -->
+                <button type="button" id="dark-mode-toggle-button" class="action-button secondary-button" style="width: auto; margin-top: 5px;">
+                    ダークモードを切り替える
+                </button>
+                <p id="dark-mode-message" class="hidden"></p>
+                <p id="dark-mode-status" style="font-size: 0.9em; margin-top: 10px; color: #6c757d;"></p>
+            </div>
+            <!-- ★★★ ダークモード切り替え機能の移動 終了 ★★★ -->
         </section>
     </main>
 
     <script src="assets/js/common.js"></script>
     <script src="assets/js/mypage.js"></script>
+    <!-- ★★★ ダークモード初期化スクリプトの追加 ★★★ -->
+    <script>
+        // ページロード時にlocalStorageをチェックし、ダークモードを適用
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                document.body.classList.add('dark-mode');
+            }
+        });
+    </script>
+    <!-- ★★★ ダークモード初期化スクリプトの追加 終了 ★★★ -->
 </body>
 </html>
