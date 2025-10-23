@@ -359,7 +359,7 @@ async function loadBettingData() {
 }
 
 
-// --- 3. ポイント送金機能 (pass/proフィールド保持対応は変更なし) ---
+// --- 3. ポイント送金機能 ---
 TRANSFER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('transfer-message');
@@ -418,23 +418,13 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
              return;
         }
 
-        const historyEntry = {
-            timestamp: new Date().toISOString(),
-            ranks: ['TRANSFER'],
-            changes: [
-                {name: sender, change: -amount},
-                {name: receiver, change: amount}
-            ],
-            memo: `[送金] ${sender} から ${receiver} へ ${amount.toFixed(1)} P の送金を実行。`,
-            gameId: `TRANSFER-${Date.now()}`
-        };
+        // ★ 履歴に残さないため historyEntryの生成を削除 ★
 
         const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
-        const newHistory = [...currentData.history, historyEntry];
         
         const newData = {
             scores: newScores,
-            history: newHistory,
+            history: currentData.history, // 既存のhistoryをそのまま渡す
             sports_bets: currentData.sports_bets, 
             speedstorm_records: currentData.speedstorm_records || []
         };
@@ -492,7 +482,8 @@ document.getElementById('global-penalty-button').addEventListener('click', async
                 change: penaltyAmount
             });
         });
-
+        
+        // ★ historyEntryは残す（この操作はマスターによる「全体調整」であり、履歴に記録する価値が高いと判断されるため）
         const historyEntry = {
             timestamp: new Date().toISOString(),
             ranks: ['ADMIN'], 
@@ -1216,7 +1207,7 @@ function showMessage(element, text, type) {
     }, 5000);
 }
 
-// --- 特殊ポイント調整機能 (pass/proフィールド保持対応は変更なし) ---
+// --- 特殊ポイント調整機能 ---
 document.getElementById('adjustment-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('adjustment-message');
@@ -1248,20 +1239,13 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
             score: parseFloat(newScore.toFixed(1)) 
         });
         
-        const historyEntry = {
-            timestamp: new Date().toISOString(),
-            ranks: ['ADJUSTMENT'],
-            changes: [{name: targetPlayerName, change: adjustAmount}],
-            memo: `[ポイント調整] ${targetPlayerName} に ${adjustAmount.toFixed(1)} P を調整。`,
-            gameId: `ADJUST-${Date.now()}`
-        };
+        // ★ 履歴に残さないため historyEntryの生成を削除 ★
 
         const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
-        const newHistory = [...currentData.history, historyEntry];
 
         const newData = {
             scores: newScores,
-            history: newHistory,
+            history: currentData.history, // 既存のhistoryをそのまま渡す
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || []
         };
