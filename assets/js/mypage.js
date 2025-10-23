@@ -338,22 +338,14 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
             score: parseFloat(newScore.toFixed(1)) 
         });
         
-        const historyEntry = {
-            timestamp: new Date().toISOString(),
-            ranks: ['PRO_BONUS'],
-            // ★ 変更: BONUS_AMOUNTは0.1P
-            changes: [{name: player, change: BONUS_AMOUNT}], 
-            // ★ 変更: メッセージを0.1 P に変更
-            memo: `[Proボーナス] ${player} に ボーナスとして ${BONUS_AMOUNT.toFixed(1)} P を付与。`, 
-            gameId: `PRO-BONUS-${Date.now()}`
-        };
-
+        // ★ 履歴に残さないため historyEntryの生成を削除 ★
+        
         const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
-        const newHistory = [...currentData.history, historyEntry];
+        // ★ 履歴に追加しないため newHistoryの生成を削除 ★
 
         const newData = {
             scores: newScores,
-            history: newHistory,
+            history: currentData.history, // 既存のhistoryをそのまま渡す
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || []
         };
@@ -483,24 +475,13 @@ TRANSFER_FORM_MYPAGE.addEventListener('submit', async (e) => {
             score: newReceiverScore
         });
         
-
-        const historyEntry = {
-            timestamp: new Date().toISOString(),
-            ranks: ['TRANSFER'],
-            changes: [
-                {name: sender, change: -amount},
-                {name: receiver, change: amount}
-            ],
-            memo: `[送金] ${sender} から ${receiver} へ ${amount.toFixed(1)} P の送金を実行。(マイページ)`,
-            gameId: `TRANSFER-MYPAGE-${Date.now()}`
-        };
+        // ★ 履歴に残さないため historyEntryの生成を削除 ★
 
         const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
-        const newHistory = [...currentData.history, historyEntry];
         
         const newData = {
             scores: newScores,
-            history: newHistory,
+            history: currentData.history, // 既存のhistoryをそのまま渡す
             sports_bets: currentData.sports_bets, 
             speedstorm_records: currentData.speedstorm_records || []
         };
