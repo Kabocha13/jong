@@ -36,7 +36,7 @@ const TRANSFER_FORM_MYPAGE = document.getElementById('transfer-form-mypage');
 const RECEIVER_PLAYER_SELECT_MYPAGE = document.getElementById('receiver-player-mypage');
 const AUTHENTICATED_USER_TRANSFER = document.getElementById('authenticated-user-transfer');
 
-// 認証されたユーザー情報 ({name: '...', score: ..., pass: '...', pro: ...})
+// 認証されたユーザー情報 ({name: '...', score: ..., pass: '...', pro: ..., lastBonusTime: ...})
 let authenticatedUser = null; 
 
 // -----------------------------------------------------------------
@@ -62,6 +62,7 @@ async function attemptLogin(username, password, isAuto = false) {
     const user = scores.find(p => p.name === username && p.pass === password);
 
     if (user) {
+        // ★ 修正: 認証ユーザー情報を最新のデータで上書き
         authenticatedUser = user; 
         
         // 1. 認証情報をlocalStorageに保存 (自動ログイン用)
@@ -113,6 +114,7 @@ async function autoLogin() {
  * ログアウト処理
  */
 function handleLogout() {
+    // 既存の window.confirm をカスタムモーダルに置き換える指示がないため、一旦そのままにするが、本来はカスタムモーダルが必要
     if (!window.confirm('ログアウトしますか？次回アクセス時に再度ログインが必要です。')) {
         return;
     }
@@ -167,6 +169,7 @@ async function initializeMyPageContent() {
     initializeDarkModeFeature();
 
     // 5. Proボーナス機能の初期化
+    // ★ 認証成功時に最新のデータを取得し、lastBonusTimeに基づいて表示を更新する
     initializeProBonusFeature(); 
     
     // 6. ★★★ 送金機能の初期化 ★★★
@@ -249,7 +252,7 @@ DARK_MODE_TOGGLE_BUTTON.addEventListener('click', () => {
 
 
 // -----------------------------------------------------------------
-// ★★★ Proボーナス機能 (制限解除＆0.1Pに変更) ★★★
+// ★★★ Proボーナス機能 (24時間/10Pに変更) ★★★
 // -----------------------------------------------------------------
 
 /**
@@ -264,7 +267,7 @@ function initializeProBonusFeature() {
         if (PRO_BONUS_TOOL) {
             PRO_BONUS_TOOL.classList.remove('hidden');
         }
-        // ★ 変更: 1日1回のチェックロジックを削除し、常に有効状態にする表示に更新
+        // ★ 変更: 24時間チェックロジックを反映
         updateProBonusDisplay(); 
     } else {
          if (PRO_BONUS_TOOL) {
@@ -274,20 +277,39 @@ function initializeProBonusFeature() {
 }
 
 /**
- * Proボーナスボタンの状態をチェックし、表示を更新する (制限を撤廃し、常時有効化)
+ * Proボーナスボタンの状態をチェックし、表示を更新する
  */
 function updateProBonusDisplay() {
-    // ★ 変更: 1日1回のチェックロジックを完全に削除
+    const now = Date.now();
+    // lastBonusTimeはauthenticatedUserオブジェクトから取得
+    const lastBonusTime = authenticatedUser.lastBonusTime ? new Date(authenticatedUser.lastBonusTime).getTime() : 0;
+    
+    // 24時間 (ミリ秒) = 24 * 60 * 60 * 1000
+    const TWENTY_FOUR_HOURS = 86400000; 
+    
+    const isReady = (now - lastBonusTime) >= TWENTY_FOUR_HOURS;
+    const BONUS_AMOUNT = 10.0;
     
     if (PRO_BONUS_BUTTON) {
-        PRO_BONUS_BUTTON.disabled = false;
-        PRO_BONUS_BUTTON.textContent = 'ボーナス (+0.1 P) を受け取る'; // ★ 0.1 P に変更
+        if (isReady) {
+            PRO_BONUS_BUTTON.disabled = false;
+            // ★ 10 P に変更
+            PRO_BONUS_BUTTON.textContent = `ボーナス (+${BONUS_AMOUNT.toFixed(1)} P) を受け取る`; 
+        } else {
+            PRO_BONUS_BUTTON.disabled = true;
+            // 残り時間を計算
+            const timeRemaining = lastBonusTime + TWENTY_FOUR_HOURS - now;
+            const hours = Math.floor(timeRemaining / 3600000);
+            const minutes = Math.ceil((timeRemaining % 3600000) / 60000);
+            
+            // ★ 10 P に変更
+            PRO_BONUS_BUTTON.textContent = `獲得済み (次の獲得まで: ${hours}時間 ${minutes}分)`;
+        }
     }
     
-    // ★ 修正: 定数 PRO_BONUS_INSTRUCTION が null でないことを確認してinnerHTMLを設定
     if (PRO_BONUS_INSTRUCTION) {
-        // ★ 変更: 説明文を0.1 Pと「何度でも」に変更
-        PRO_BONUS_INSTRUCTION.innerHTML = 'Proプレイヤー特典: 1日1000回以上の利用はお控えください。'; 
+        // ★ 説明文を10 P、24時間ごとにに変更
+        PRO_BONUS_INSTRUCTION.innerHTML = `Proプレイヤー特典: 24時間ごとに ${BONUS_AMOUNT.toFixed(1)} P を獲得できます。`; 
     }
     
     if (PRO_BONUS_MESSAGE) {
@@ -299,10 +321,11 @@ function updateProBonusDisplay() {
  * Proボーナスポイントを付与する処理
  */
 PRO_BONUS_BUTTON.addEventListener('click', async () => {
-    // ★ 変更: 0.1 P に変更
-    const BONUS_AMOUNT = 0.1; 
+    // ★ 10 P に変更
+    const BONUS_AMOUNT = 10.0; 
     const player = authenticatedUser.name;
     const messageEl = PRO_BONUS_MESSAGE;
+    const now = new Date().toISOString();
     
     // 二重チェック
     if (!authenticatedUser.pro) {
@@ -310,16 +333,21 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
         return;
     }
     
-    // ★ 削除: 1日1回の制限チェックロジックを削除
-
+    // UIのdisabledチェック (24時間ルール) は updateProBonusDisplay() で実行済み
+    if (PRO_BONUS_BUTTON && PRO_BONUS_BUTTON.disabled) {
+        showMessage(messageEl, '⚠️ まだ24時間が経過していません。', 'error');
+        return;
+    }
+    
     if (PRO_BONUS_BUTTON) {
         PRO_BONUS_BUTTON.disabled = true;
     }
     showMessage(messageEl, 'ポイントを付与中...', 'info');
 
     try {
+        // ★★★ 修正: 他のページで更新された際にデータが消えないように、全データを取得し、scores内の特定プレイヤーのみを更新する ★★★
         const currentData = await fetchAllData();
-        // pass/proフィールドを保持するために、scores全体をマップとして処理
+        // pass/pro/lastBonusTimeフィールドを保持するために、scores全体をマップとして処理
         let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
         
         const targetPlayer = currentScoresMap.get(player);
@@ -329,19 +357,29 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
             if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
             return;
         }
-        
+
+        // 獲得可能か再チェック（二重獲得防止）
+        const TWENTY_FOUR_HOURS = 86400000; 
+        const lastTime = targetPlayer.lastBonusTime ? new Date(targetPlayer.lastBonusTime).getTime() : 0;
+        if ((Date.now() - lastTime) < TWENTY_FOUR_HOURS) {
+            showMessage(messageEl, '❌ まだ24時間が経過していません。', 'error');
+             if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = true;
+             updateProBonusDisplay();
+            return;
+        }
+
         const newScore = targetPlayer.score + BONUS_AMOUNT;
         
-        // pass/proフィールドを保持したままscoreを更新
+        // pass/proフィールドに加え、lastBonusTimeフィールドも更新
         currentScoresMap.set(player, { 
             ...targetPlayer, 
-            score: parseFloat(newScore.toFixed(1)) 
+            score: parseFloat(newScore.toFixed(1)),
+            lastBonusTime: now // 獲得時刻を記録
         });
         
-        // ★ 履歴に残さないため historyEntryの生成を削除 ★
+        // ★ 履歴に残さないため historyEntryの生成は削除
         
-        const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
-        // ★ 履歴に追加しないため newHistoryの生成を削除 ★
+        const newScores = Array.from(currentScoresMap.values()); // pass/pro/lastBonusTimeフィールドを保持したscores
 
         const newData = {
             scores: newScores,
@@ -353,15 +391,15 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
         const response = await updateAllData(newData);
 
         if (response.status === 'success') {
-            // ★ 変更: メッセージを0.1 P に変更
+            // ★ 10 P に変更
             showMessage(messageEl, `✅ Proボーナスとして ${BONUS_AMOUNT.toFixed(1)} P を獲得しました！`, 'success');
             
-            // ★ 削除: ローカルストレージへの記録ロジックを削除 (1日1回制限用のため)
-            
+            // 認証ユーザー情報を更新
             authenticatedUser.score = newScore;
+            authenticatedUser.lastBonusTime = now; // メモリ上の情報も更新
             CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
             
-            // ★ 変更: ボタンの状態を更新 (常時有効)
+            // ボタンの状態を更新 (24時間後に再度有効になるように)
             updateProBonusDisplay(); 
             
         } else {
@@ -438,7 +476,7 @@ TRANSFER_FORM_MYPAGE.addEventListener('submit', async (e) => {
 
     try {
         const currentData = await fetchAllData();
-        // pass/proフィールドを保持するために、scores全体をマップとして処理
+        // pass/pro/lastBonusTimeフィールドを保持するために、scores全体をマップとして処理
         let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
         
         const senderPlayer = currentScoresMap.get(sender);
@@ -477,7 +515,7 @@ TRANSFER_FORM_MYPAGE.addEventListener('submit', async (e) => {
         
         // ★ 履歴に残さないため historyEntryの生成を削除 ★
 
-        const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
+        const newScores = Array.from(currentScoresMap.values()); // pass/pro/lastBonusTimeフィールドを保持したscores
         
         const newData = {
             scores: newScores,
@@ -732,9 +770,11 @@ if (WAGER_FORM) {
             const betIndex = allBets.findIndex(b => b.betId === betId);
             
             // scoresから認証ユーザーの最新スコアを取得
-            let targetPlayer = currentData.scores.find(p => p.name === player);
+            // ★ scores全体をマップとして取得し、更新後のscores配列を再構築するロジックに変更
+            let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+            let targetPlayer = currentScoresMap.get(player);
             
-            // ★ pass/proフィールドのチェックを追加
+            // ★ pass/pro/lastBonusTimeフィールドのチェックを追加
             if (!targetPlayer || typeof targetPlayer.pass === 'undefined' || typeof targetPlayer.pro === 'undefined') {
                  showMessage(messageEl, '❌ 認証ユーザーのデータにパスワード情報またはプロ情報が不足しています。', 'error');
                  return;
@@ -755,7 +795,14 @@ if (WAGER_FORM) {
             }
 
             // 3. スコアから合計ポイントを減算
-            targetPlayer.score = parseFloat((targetPlayer.score - totalWagerAmount).toFixed(1));
+            const newScore = parseFloat((targetPlayer.score - totalWagerAmount).toFixed(1));
+
+            // ★ pass/pro/lastBonusTimeフィールドを保持したままscoreを更新
+            currentScoresMap.set(player, { 
+                ...targetPlayer, 
+                score: newScore
+            });
+
 
             // 4. 投票情報を既存のwagers配列に追加 (変更なし)
             currentBet.wagers.push(...wagersToSubmit);
@@ -772,8 +819,7 @@ if (WAGER_FORM) {
 
             // 6. 更新された全データを保存
             currentData.sports_bets = allBets;
-            // ★ scoresの更新時に、targetPlayerの全てのプロパティ（pass, proを含む）が引き継がれていることを確認
-            currentData.scores = currentData.scores.map(p => p.name === player ? targetPlayer : p); 
+            currentData.scores = Array.from(currentScoresMap.values()); // pass/pro/lastBonusTimeフィールドを保持したscores
 
             const response = await updateAllData(currentData);
             if (response.status === 'success') {
@@ -781,7 +827,7 @@ if (WAGER_FORM) {
                 WAGER_FORM.reset();
                 
                 // 7. 認証ユーザー情報を更新し、画面を再表示
-                authenticatedUser.score = targetPlayer.score; // 認証ユーザーのメモリ上のスコアを更新
+                authenticatedUser.score = newScore; // 認証ユーザーのメモリ上のスコアを更新
                 CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1); // 画面上のスコアを更新
                 
                 // 投票履歴とくじリストを再ロード
