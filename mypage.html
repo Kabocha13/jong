@@ -50,13 +50,14 @@
                 <!-- ★★★ ログアウトボタンの追加 終了 ★★★ -->
             </div>
 
-            <!-- ★★★ Proボーナスボタン (0.1P/無制限に変更) ★★★ -->
+            <!-- ★★★ Proボーナスボタン (24時間/10Pに変更) ★★★ -->
             <div id="pro-bonus-tool" class="tool-box hidden">
                 <h4>⭐ Proボーナス</h4>
-                <!-- JSで動的に設定されるため、ここは初期値として 0.1P のヒントを残す -->
-                <p class="instruction" id="pro-bonus-instruction">Proプレイヤー特典: 1日1000回以上の利用は控えてください。</p>
+                <!-- JSで動的に設定されるが、初期ヒントを変更 -->
+                <!-- 修正: 説明文を「24時間ごとに10P獲得」に変更 -->
+                <p class="instruction" id="pro-bonus-instruction">Proプレイヤー特典: **24時間ごと**に **10.0 P** を獲得できます。</p>
                 <button type="button" id="pro-bonus-button" class="action-button" style="width: auto; background-color: #38c172;">
-                    ボーナス (+0.1 P) を受け取る
+                    ボーナス (+10.0 P) を受け取る
                 </button>
                 <p id="pro-bonus-message" class="hidden"></p>
             </div>
