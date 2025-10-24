@@ -215,6 +215,7 @@ function renderTitles(sortedScores) {
     titles.push({name:"Kabocha",title:"Pro", icon:"🃏"});
     titles.push({name:"matsui",title:"Pro", icon:"🃏"});
     titles.push({name:"mahhii",title:"Pro", icon:"🃏"});
+    titles.push({name:"Yasu",title:"Pro", icon:"🃏"});
 
     // 1. トップランカー (1位)
     const topPlayer = sortedScores[0];
@@ -225,9 +226,6 @@ function renderTitles(sortedScores) {
     if (bottomPlayer.score < topPlayer.score) {
         titles.push({ name: bottomPlayer.name, title: 'カモ', icon: '🔥' });
     }
-    titles.push({name:"Yasu",title:"追加資金", icon:"💸"});
-    titles.push({name:"matsui",title:"追加資金", icon:"💸"});
-    titles.push({name:"mahhii",title:"追加資金", icon:"💸"});
     
     titles.push({name:"Kabocha",title:"嶺上開花", icon:"🪷"});
     
