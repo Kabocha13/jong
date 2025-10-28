@@ -217,7 +217,7 @@ function renderTitles(sortedScores) {
     titles.push({name:"mahhii",title:"Pro", icon:"🃏"});
     titles.push({name:"Yasu",title:"Pro", icon:"🃏"});
 
-    titles.push({name:"Kabocha",title:"'25秋“, icon:"🎃"});
+    titles.push({name:"Kabocha",title:"'25秋", icon:"🎃"});
 
     // 1. トップランカー (1位)
     const topPlayer = sortedScores[0];
