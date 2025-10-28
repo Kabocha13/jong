@@ -216,6 +216,7 @@ function renderTitles(sortedScores) {
     titles.push({name:"matsui",title:"Pro", icon:"🃏"});
     titles.push({name:"mahhii",title:"Pro", icon:"🃏"});
     titles.push({name:"Yasu",title:"Pro", icon:"🃏"});
+    titles.push({name:"Kosuke",title:"Pro", icon:"🃏"});
 
     titles.push({name:"Kabocha",title:"'25秋", icon:"🎃"});
 
