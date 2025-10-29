@@ -9,11 +9,17 @@
 <body>
     <header>
         <h1>🔑 マスター管理 🔑</h1>
-        <!-- master_sports.htmlへのリンクを修正 -->
         <div style="display: flex; gap: 10px; justify-content: center;">
             <a href="index.html" class="input-link">« ランキングに戻る</a>
             <a href="mypage.html" class="input-link">マイページ</a>
         </div>
+        <!-- ★★★ 新規追加: ログアウトボタン ★★★ -->
+        <div id="master-header-actions" style="margin-top: 10px;">
+            <button type="button" id="master-logout-button" class="action-button secondary-button hidden" style="width: auto; margin: auto;">
+                マスターログアウト
+            </button>
+        </div>
+        <!-- ★★★ 新規追加 終了 ★★★ -->
     </header>
 
     <main id="main-content">
@@ -32,10 +38,6 @@
         <section id="admin-tools" class="hidden">
             <h2>管理者ツール</h2>
             
-            <!-- ★★★ 削除: 新規プレイヤー登録ツール ★★★ -->
-            <!-- ★★★ 削除: プロ認定/解除ツール ★★★ -->
-
-
             <!-- ★★★ 新規移設: 麻雀結果入力ツール ★★★ -->
             <div class="tool-box">
                 <h3>🀄 麻雀結果入力</h3>
