@@ -148,4 +148,4 @@ function showMessage(element, message, type) {
 }
 
 // 共通パスワードを定義 (master.jsとmahjong.jsで使用)
-const MASTER_PASSWORD = "21082"; 
+const MASTER_PASSWORD = "Ishimoda13"; 
