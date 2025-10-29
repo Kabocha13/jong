@@ -4,14 +4,8 @@ const AUTH_FORM = document.getElementById('auth-form');
 const ADMIN_TOOLS = document.getElementById('admin-tools');
 const AUTH_MESSAGE = document.getElementById('auth-message');
 const TARGET_PLAYER_SELECT = document.getElementById('target-player');
-
-// ★ 削除: 新規プレイヤー登録フォーム (master.htmlから削除)
-// const REGISTER_FORM = document.getElementById('register-form');
-
-// ★ 削除: プロ認定/解除機能の要素
-// const PRO_TOGGLE_FORM = document.getElementById('pro-toggle-form');
-// const PRO_TARGET_PLAYER_SELECT = document.getElementById('pro-target-player');
-
+// ★ 新規追加: ログアウトボタン
+const MASTER_LOGOUT_BUTTON = document.getElementById('master-logout-button');
 
 // ★ 送金機能 (既存)
 const TRANSFER_FORM = document.getElementById('transfer-form');
@@ -21,14 +15,12 @@ const RECEIVER_PLAYER_SELECT = document.getElementById('receiver-player');
 // ★ レース記録機能 (修正)
 const RACE_RECORD_FORM = document.getElementById('race-record-form');
 const RACE_RECORD_HOLDER_SELECT = document.getElementById('race-record-holder');
-// ★ 修正: コース名入力フィールドをプルダウンに変更
 const RACE_COURSE_SELECT = document.getElementById('race-course-select'); 
 
 
 // ★ スポーツくじ管理機能 (大幅修正)
 const BET_LIST_CONTAINER = document.getElementById('bet-list-container');
 const CREATE_BET_FORM = document.getElementById('create-bet-form');
-// 廃止された要素: GENERIC_ODDS_CONTAINER, ADD_GENERIC_ODDS_BUTTON 
 
 // ★★★ 麻雀結果入力機能 (新規追加) ★★★
 const MAHJONG_FORM = document.getElementById('mahjong-form');
@@ -43,50 +35,112 @@ const STARTING_SCORE = 30000; // 基準点
 let ALL_PLAYER_NAMES = []; // 全プレイヤー名を保持
 
 
-// --- 認証機能 (初期化処理から削除された機能を削除) ---
+// -----------------------------------------------------------------
+// ★★★ 認証とログイン状態の管理 ★★★
+// -----------------------------------------------------------------
 
+/**
+ * マスターパスワードで認証を試みる処理
+ * @param {string} password - 入力されたパスワード
+ * @param {boolean} isAuto - 自動ログインかどうか
+ * @returns {boolean} 認証成功ならtrue
+ */
+function attemptMasterLogin(password, isAuto = false) {
+    if (!isAuto) {
+        showMessage(AUTH_MESSAGE, '認証中...', 'info');
+    }
+    
+    if (password === MASTER_PASSWORD) {
+        // 1. 認証情報をlocalStorageに保存
+        localStorage.setItem('masterPassword', password);
+
+        // 2. UIの切り替え
+        document.getElementById('auth-section').classList.add('hidden');
+        ADMIN_TOOLS.classList.remove('hidden');
+        MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
+
+        // 3. ツール類の初期化
+        loadPlayerList(); 
+        loadTransferPlayerLists(); 
+        loadRaceRecordHolders(); 
+        loadRaceCourses(); 
+        initializeSportsMasterTools(); 
+        loadMahjongForm(); 
+        
+        if (!isAuto) {
+             showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
+        } else {
+             AUTH_MESSAGE.classList.add('hidden'); // 自動ログイン時はメッセージを非表示
+        }
+
+        return true;
+    } else {
+        // 認証失敗時はLocalStorageの情報をクリア
+        localStorage.removeItem('masterPassword');
+        
+        if (!isAuto) {
+            showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
+        }
+        return false;
+    }
+}
+
+
+/**
+ * ログアウト処理
+ */
+function handleMasterLogout() {
+    if (!window.confirm('マスターモードからログアウトしますか？')) {
+        return;
+    }
+    
+    // 1. localStorageから認証情報を削除
+    localStorage.removeItem('masterPassword');
+
+    // 2. 状態をリセットし、UIを切り替える
+    document.getElementById('auth-section').classList.remove('hidden');
+    ADMIN_TOOLS.classList.add('hidden');
+    MASTER_LOGOUT_BUTTON.classList.add('hidden'); // ログアウトボタンを非表示
+    
+    // フォームをリセット
+    AUTH_FORM.reset();
+    
+    showMessage(AUTH_MESSAGE, '👋 マスターモードを解除しました。', 'info');
+}
+
+/**
+ * ページロード時の自動ログイン処理
+ */
+function autoLogin() {
+    const password = localStorage.getItem('masterPassword');
+
+    if (password) {
+        // 自動ログインを試みる（失敗してもUIは変更しない）
+        attemptMasterLogin(password, true);
+    }
+}
+
+
+// --- イベントリスナーの修正と追加 ---
+
+// 既存のフォーム送信イベントを修正
 AUTH_FORM.addEventListener('submit', (e) => {
     e.preventDefault();
     const password = document.getElementById('password').value;
     
-    if (password === MASTER_PASSWORD) {
-        document.getElementById('auth-section').classList.add('hidden');
-        ADMIN_TOOLS.classList.remove('hidden');
-        loadPlayerList(); // ポイント調整用
-        loadTransferPlayerLists(); // 送金用
-        loadRaceRecordHolders(); // レース記録保持者用
-        loadRaceCourses(); // レースコースプルダウンをロード
-        initializeSportsMasterTools(); // スポーツくじ管理 (修正)
-        loadMahjongForm(); // 麻雀フォームをロード
-        // ★ 削除: loadProTogglePlayerList(); // プロ認定リストをロード
-    } else {
-        showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
-    }
+    attemptMasterLogin(password, false);
 });
 
+// ★ 新規追加: ログアウトボタンのイベントリスナー
+MASTER_LOGOUT_BUTTON.addEventListener('click', handleMasterLogout);
 
-// --- 削除された機能: 新規プレイヤー登録機能 ---
-/*
-REGISTER_FORM.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    // ... (削除された処理)
-});
-*/
+// -----------------------------------------------------------------
+// ★★★ ページロード時に autoLogin を実行 ★★★
+// -----------------------------------------------------------------
+window.onload = autoLogin;
+// -----------------------------------------------------------------
 
-
-// --- 削除された機能: プロ認定/解除機能のロード関数とイベントリスナー ---
-/*
-async function loadProTogglePlayerList() {
-    // ... (削除された処理)
-}
-
-PRO_TOGGLE_FORM.addEventListener('submit', async (e) => {
-    // ... (削除された処理)
-});
-*/
-
-
-// --- プレイヤーリストのロード関数群 (proステータス表示ロジックを削除) ---
+// --- プレイヤーリストのロード関数群 (変更なし) ---
 
 async function fetchAndSetPlayerNames() {
     // fetchScores()はcommon.jsから全データを取得しscoresのみを返す
