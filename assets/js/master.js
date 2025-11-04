@@ -241,7 +241,7 @@ async function loadRaceCourses() {
 }
 
 
-// --- 麻雀結果フォーム生成/処理 (pass/proフィールド保持対応は変更なし) ---
+// --- 麻雀結果フォーム生成/処理 (履歴削除) ---
 async function loadMahjongForm() {
     const success = await fetchAndSetPlayerNames();
 
@@ -311,14 +311,8 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
         
         results.sort((a, b) => b.score - a.score);
         
-        const gameId = Date.now();
-        const historyEntry = {
-            timestamp: new Date().toISOString(),
-            ranks: [results[0].name, results[1].name, results[2].name, results[3].name],
-            changes: [],
-            memo: memo,
-            gameId: gameId
-        };
+        // ★ 修正: 履歴エントリーの生成と追加を削除
+        // const historyEntry = { ... };
         
         for (let i = 0; i < results.length; i++) {
             const result = results[i];
@@ -328,7 +322,7 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
             const bonusPoint = UMA_OKA[rankIndex];
             const finalPointChange = pointDifference + bonusPoint;
             
-            historyEntry.changes.push({name: result.name, change: parseFloat(finalPointChange.toFixed(1))});
+            // historyEntry.changes.push({name: result.name, change: parseFloat(finalPointChange.toFixed(1))});
             
             const currentPlayer = currentScoresMap.get(result.name);
             if (currentPlayer) {
@@ -344,12 +338,12 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
 
         // scores配列を再構築
         const newScores = Array.from(currentScoresMap.values());
-        const newHistory = [...currentData.history, historyEntry];
+        // const newHistory = [...currentData.history, historyEntry]; // 履歴の追加を削除
 
         // 麻雀結果にはsports_betsとspeedstorm_recordsを含める
         const newData = {
             scores: newScores, // pass/proフィールドを保持したscores
-            history: newHistory,
+            // 修正: historyは保存しない
             sports_bets: currentData.sports_bets || [],
             speedstorm_records: currentData.speedstorm_records || []
         };
@@ -413,7 +407,7 @@ async function loadBettingData() {
 }
 
 
-// --- 3. ポイント送金機能 ---
+// --- 3. ポイント送金機能 (履歴削除) ---
 TRANSFER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('transfer-message');
@@ -472,13 +466,13 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
              return;
         }
 
-        // ★ 履歴に残さないため historyEntryの生成を削除 ★
+        // ★ 修正: 履歴エントリーの生成と追加を削除
 
         const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
         
         const newData = {
             scores: newScores,
-            history: currentData.history, // 既存のhistoryをそのまま渡す
+            // 修正: historyは保存しない
             sports_bets: currentData.sports_bets, 
             speedstorm_records: currentData.speedstorm_records || []
         };
@@ -503,7 +497,7 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
 });
 
 
-// --- 4. 全員一律ポイント減算機能 (pass/proフィールド保持対応は変更なし) ---
+// --- 4. 全員一律ポイント減算機能 (履歴削除) ---
 document.getElementById('global-penalty-button').addEventListener('click', async () => {
     const penaltyAmount = -1.0;
     const messageEl = document.getElementById('global-penalty-message');
@@ -520,7 +514,7 @@ document.getElementById('global-penalty-button').addEventListener('click', async
         const currentData = await fetchAllData();
         // pass/proフィールドを保持するために、scores全体をマップとして処理
         let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
-        let historyChanges = [];
+        // let historyChanges = []; // 履歴変更ログを削除
 
         currentData.scores.forEach(player => {
             const newScore = player.score + penaltyAmount;
@@ -531,27 +525,18 @@ document.getElementById('global-penalty-button').addEventListener('click', async
                 score: parseFloat(newScore.toFixed(1)) 
             });
             
-            historyChanges.push({
-                name: player.name, 
-                change: penaltyAmount
-            });
+            // historyChanges.push({ name: player.name, change: penaltyAmount }); // 履歴変更ログの生成を削除
         });
         
-        // ★ historyEntryは残す（この操作はマスターによる「全体調整」であり、履歴に記録する価値が高いと判断されるため）
-        const historyEntry = {
-            timestamp: new Date().toISOString(),
-            ranks: ['ADMIN'], 
-            changes: historyChanges,
-            memo: `[全体調整] 全プレイヤーに ${penaltyAmount} Pのペナルティを適用。`,
-            gameId: `GLOBAL-PENALTY-${Date.now()}`
-        };
-
+        // ★ 修正: 履歴エントリーの生成と追加を完全に削除
+        // const historyEntry = { ... };
+        
         const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
-        const newHistory = [...currentData.history, historyEntry];
+        // const newHistory = [...currentData.history, historyEntry]; // 履歴の追加を削除
         
         const newData = {
             scores: newScores,
-            history: newHistory,
+            // 修正: historyは保存しない
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || []
         };
@@ -576,7 +561,7 @@ document.getElementById('global-penalty-button').addEventListener('click', async
 });
 
 
-// --- 5. スピードストーム レコード管理機能 (pass/proフィールド保持対応は変更なし) ---
+// --- 5. スピードストーム レコード管理機能 (履歴削除) ---
 
 // タイム文字列 (例: "0:46.965" または "46.965") をミリ秒に変換するヘルパー関数
 function timeToMilliseconds(timeString) {
@@ -682,7 +667,7 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
         // 更新後のリストをソート (念のため)
         records.sort((a, b) => a.bestTimeMs - b.bestTimeMs);
 
-        let historyChanges = [];
+        // let historyChanges = []; // 履歴変更ログを削除
         let newScores = currentData.scores;
 
         if (shouldAwardPoints) {
@@ -697,7 +682,7 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
                     ...holderPlayer, 
                     score: parseFloat((currentScore + AWARD_POINTS).toFixed(1)) 
                 });
-                historyChanges.push({name: recordHolder, change: AWARD_POINTS});
+                // historyChanges.push({name: recordHolder, change: AWARD_POINTS}); // 履歴変更ログの生成を削除
             }
             
             const KABOCHA_NAME = "Kabocha"; 
@@ -711,7 +696,7 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
                     ...kabochaPlayer, 
                     score: parseFloat((kabochaCurrentScore + KABOCHA_BONUS).toFixed(1)) 
                 });
-                historyChanges.push({name: KABOCHA_NAME, change: KABOCHA_BONUS});
+                // historyChanges.push({name: KABOCHA_NAME, change: KABOCHA_BONUS}); // 履歴変更ログの生成を削除
                 logMessage += ` (報酬: ${AWARD_POINTS} P + ${KABOCHA_NAME}に ${KABOCHA_BONUS} P)`;
             } else {
                  logMessage += ` (報酬: ${AWARD_POINTS} P)`;
@@ -720,19 +705,14 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
             // scores配列を再構築
             newScores = Array.from(currentScoresMap.values());
 
-            const historyEntry = {
-                timestamp: new Date().toISOString(),
-                ranks: ['RACE_RECORD'], 
-                changes: historyChanges,
-                memo: `[レース記録] ${courseName} のベストタイム (${newRecord.bestTime}) を更新し、${recordHolder} に ${AWARD_POINTS} P ${kabochaPlayer ? `+ ${KABOCHA_BONUS} P` : ''} 付与。`,
-                gameId: `RACE-${Date.now()}`
-            };
-            currentData.history.push(historyEntry);
+            // ★ 修正: 履歴エントリーの生成と追加を完全に削除
+            // const historyEntry = { ... };
+            // currentData.history.push(historyEntry);
         }
 
         const newData = {
             scores: newScores, // pass/proフィールドを保持したscores
-            history: currentData.history,
+            // 修正: historyは保存しない
             sports_bets: currentData.sports_bets,
             speedstorm_records: records
         };
@@ -759,7 +739,7 @@ RACE_RECORD_FORM.addEventListener('submit', async (e) => {
 
 // --- 6. スポーツくじ管理機能 (変更なし) ---
 
-// イベントハンドラ: 新規くじ作成 (変更なし)
+// イベントハンドラ: 新規くじ作成 (履歴削除)
 
 CREATE_BET_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -801,7 +781,13 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
         allBets.push(newBet);
         currentData.sports_bets = allBets;
         
-        const response = await updateAllData(currentData);
+        const newData = {
+            scores: currentData.scores,
+            sports_bets: currentData.sports_bets,
+            speedstorm_records: currentData.speedstorm_records || []
+        };
+
+        const response = await updateAllData(newData);
 
         if (response.status === 'success') {
             showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})`, 'success');
@@ -842,7 +828,14 @@ async function handleCloseBet(e) {
             // 締切処理
             bet.status = 'CLOSED';
             currentData.sports_bets = allBets;
-            const response = await updateAllData(currentData);
+            
+            const newData = {
+                scores: currentData.scores,
+                sports_bets: currentData.sports_bets,
+                speedstorm_records: currentData.speedstorm_records || []
+            };
+            
+            const response = await updateAllData(newData);
             if (response.status === 'success') {
                 showMessage(document.getElementById('create-message'), `✅ くじ ID:${betId} の投票を締め切りました。`, 'success');
                 loadBettingData();
@@ -1044,7 +1037,7 @@ function generateWagerResultInputs(bet) {
     });
 }
 
-// --- イベントハンドラ: 個別投票結果の確定とポイント反映 (pass/proフィールド保持対応は変更なし) ---
+// --- イベントハンドラ: 個別投票結果の確定とポイント反映 (履歴削除) ---
 
 async function handleSettleWagers(e) {
     e.preventDefault();
@@ -1073,8 +1066,8 @@ async function handleSettleWagers(e) {
         // 元のwagers配列（未確定を含む）
         const originalWagers = bet.wagers; 
         
-        let totalPointChange = 0;
-        let historyChanges = [];
+        // let totalPointChange = 0; // 履歴ログ用変数を削除
+        // let historyChanges = []; // 履歴ログ用変数を削除
         let updatedWagersCount = 0;
         
         // pass/proフィールドを保持するために、scores全体をマップとして処理
@@ -1140,12 +1133,9 @@ async function handleSettleWagers(e) {
                     score: parseFloat((currentScore + pointChange).toFixed(1)) 
                 });
                 
-                // 履歴記録用の変更点を蓄積
-                historyChanges.push({
-                    name: player,
-                    change: parseFloat(pointChange.toFixed(1))
-                });
-                totalPointChange += pointChange;
+                // 履歴記録用の変更点を蓄積 (削除)
+                // historyChanges.push({ name: player, change: parseFloat(pointChange.toFixed(1)) });
+                // totalPointChange += pointChange;
             }
             
             updatedWagersCount++;
@@ -1163,15 +1153,9 @@ async function handleSettleWagers(e) {
             return;
         }
 
-        // 履歴エントリーを作成
-        const historyEntry = {
-            timestamp: new Date().toISOString(),
-            ranks: ['BET_SETTLE'],
-            changes: historyChanges,
-            memo: `[くじ結果確定] ${bet.matchName} (${updatedWagersCount}件)の結果を確定。総ポイント変動: ${totalPointChange.toFixed(1)} P`,
-            gameId: `BET-SETTLE-${betId}-${Date.now()}`
-        };
-        currentData.history.push(historyEntry);
+        // ★ 修正: 履歴エントリーの生成と追加を完全に削除
+        // const historyEntry = { ... };
+        // currentData.history.push(historyEntry);
 
         // データ全体を更新
         bet.wagers = originalWagers;
@@ -1179,7 +1163,13 @@ async function handleSettleWagers(e) {
         currentData.sports_bets = allBets;
         currentData.scores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
         
-        const response = await updateAllData(currentData);
+        const newData = {
+            scores: currentData.scores,
+            sports_bets: currentData.sports_bets,
+            speedstorm_records: currentData.speedstorm_records || []
+        };
+        
+        const response = await updateAllData(newData);
 
         if (response.status === 'success') {
             showMessage(messageEl, `✅ ${updatedWagersCount}件の結果を確定し、ポイントを反映しました。`, 'success');
@@ -1231,7 +1221,13 @@ async function handleFinalizeBet(e) {
         bet.status = 'SETTLED';
         currentData.sports_bets = allBets;
         
-        const response = await updateAllData(currentData);
+        const newData = {
+            scores: currentData.scores,
+            sports_bets: currentData.sports_bets,
+            speedstorm_records: currentData.speedstorm_records || []
+        };
+        
+        const response = await updateAllData(newData);
 
         if (response.status === 'success') {
             showMessage(messageEl, `✅ くじ ID:${betId} を「完了済み」にしました。`, 'success');
@@ -1261,7 +1257,7 @@ function showMessage(element, text, type) {
     }, 5000);
 }
 
-// --- 特殊ポイント調整機能 ---
+// --- 特殊ポイント調整機能 (履歴削除) ---
 document.getElementById('adjustment-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('adjustment-message');
@@ -1293,13 +1289,13 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
             score: parseFloat(newScore.toFixed(1)) 
         });
         
-        // ★ 履歴に残さないため historyEntryの生成を削除 ★
+        // ★ 修正: 履歴エントリーの生成と追加を削除
 
         const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
 
         const newData = {
             scores: newScores,
-            history: currentData.history, // 既存のhistoryをそのまま渡す
+            // 修正: historyは保存しない
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || []
         };
