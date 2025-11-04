@@ -377,13 +377,13 @@ PRO_BONUS_BUTTON.addEventListener('click', async () => {
             lastBonusTime: now // 獲得時刻を記録
         });
         
-        // ★ 履歴に残さないため historyEntryの生成は削除
+        // ★ 履歴に残さないため historyEntryの生成は削除 ★
         
         const newScores = Array.from(currentScoresMap.values()); // pass/pro/lastBonusTimeフィールドを保持したscores
 
         const newData = {
             scores: newScores,
-            history: currentData.history, // 既存のhistoryをそのまま渡す
+            // 修正: historyは保存しない
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || []
         };
@@ -519,7 +519,7 @@ TRANSFER_FORM_MYPAGE.addEventListener('submit', async (e) => {
         
         const newData = {
             scores: newScores,
-            history: currentData.history, // 既存のhistoryをそのまま渡す
+            // 修正: historyは保存しない
             sports_bets: currentData.sports_bets, 
             speedstorm_records: currentData.speedstorm_records || []
         };
@@ -649,6 +649,7 @@ function updateWagerForm(allBets) {
 
 /**
  * 認証ユーザーの投票履歴を表示する (新しいデータ構造に対応して修正)
+ * ★ 修正: history配列を使わず、sports_bets.wagers配列のみを参照する
  */
 function renderWagerHistory(allBets) {
     // WAGER_HISTORY_LISTがnullでないことを確認 (安全のため)
@@ -714,7 +715,7 @@ function renderWagerHistory(allBets) {
 }
 
 
-// --- イベントハンドラ: 投票（くじ購入） (変更なし) ---
+// --- イベントハンドラ: 投票（くじ購入） (修正あり) ---
 
 if (WAGER_FORM) {
     WAGER_FORM.addEventListener('submit', async (e) => {
@@ -807,26 +808,26 @@ if (WAGER_FORM) {
             // 4. 投票情報を既存のwagers配列に追加 (変更なし)
             currentBet.wagers.push(...wagersToSubmit);
             
-            // 5. 履歴エントリーを作成 (変更なし)
-            const historyEntry = {
-                timestamp: new Date().toISOString(),
-                ranks: ['WAGER'],
-                changes: [{name: player, change: -totalWagerAmount}],
-                memo: `[くじ投票] ${player}がくじ#${betId} (${currentBet.matchName})に ${totalWagerAmount} Pを投票(内訳: ${wagersToSubmit.length}件)。`,
-                gameId: `WAGER-${betId}-${Date.now()}`
-            };
-            currentData.history.push(historyEntry);
+            // ★ 修正: 履歴エントリーの生成と追加を完全に削除
+            // const historyEntry = { ... };
+            // currentData.history.push(historyEntry);
 
-            // 6. 更新された全データを保存
+            // 5. 更新された全データを保存
             currentData.sports_bets = allBets;
             currentData.scores = Array.from(currentScoresMap.values()); // pass/pro/lastBonusTimeフィールドを保持したscores
 
-            const response = await updateAllData(currentData);
+            const newData = {
+                scores: currentData.scores,
+                sports_bets: currentData.sports_bets,
+                speedstorm_records: currentData.speedstorm_records || []
+            };
+
+            const response = await updateAllData(newData);
             if (response.status === 'success') {
                 showMessage(messageEl, `✅ ${player}様の ${totalWagerAmount} P の投票 (${wagersToSubmit.length}件) を登録し、ポイントを減算しました。`, 'success');
                 WAGER_FORM.reset();
                 
-                // 7. 認証ユーザー情報を更新し、画面を再表示
+                // 6. 認証ユーザー情報を更新し、画面を再表示
                 authenticatedUser.score = newScore; // 認証ユーザーのメモリ上のスコアを更新
                 CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1); // 画面上のスコアを更新
                 
