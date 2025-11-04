@@ -43,8 +43,9 @@ async function fetchAllData() {
             
             const data = await response.json();
             // data.record に実際のJSONデータが入っています
-            // 新しいキー 'speedstorm_records' を追加し、存在しない場合は空配列で初期化
             const record = data.record;
+            // ★ 修正: historyは今後一切使わないので空配列として扱う
+            record.history = []; 
             if (!record.speedstorm_records) {
                 record.speedstorm_records = [];
             }
@@ -60,12 +61,14 @@ async function fetchAllData() {
             } else {
                 console.error("ポイントデータ取得中にエラー:", error);
                 // 最終的に失敗した場合、空の初期データを返す
+                // ★ 修正: historyを空配列で固定
                 return { scores: [], history: [], sports_bets: [], speedstorm_records: [] };
             }
         }
     }
      // 最終リトライ後も失敗した場合
      console.error("ポイントデータ取得に失敗しました。最大リトライ回数を超えました。");
+     // ★ 修正: historyを空配列で固定
      return { scores: [], history: [], sports_bets: [], speedstorm_records: [] };
 }
 
@@ -81,10 +84,15 @@ async function fetchScores() {
 
 /**
  * JSONBinに新しい全データを上書き保存する関数 (PUT)
- * @param {object} newData - scores, history, sports_bets, speedstorm_records を含む新しい全データ
+ * @param {object} newData - scores, sports_bets, speedstorm_records を含む新しい全データ (historyは含まない)
  * @returns {Promise<object>} APIからの応答
  */
 async function updateAllData(newData) {
+    // ★ historyは保存しないため、念のため削除
+    if (newData.history) {
+        delete newData.history;
+    }
+    
     const MAX_RETRIES = 3;
     let attempt = 0;
     let delayMs = 1000; // 1秒から開始
