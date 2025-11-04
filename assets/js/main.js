@@ -1,7 +1,7 @@
 // assets/js/main.js
 
 const SCORES_CONTAINER = document.getElementById('scores-container');
-const TITLES_CONTAINER = document.getElementById('titles-container');
+// 削除: const TITLES_CONTAINER = document.getElementById('titles-container');
 const LAST_UPDATE_ELEMENT = document.getElementById('last-update');
 const SPORTS_BETS_CONTAINER = document.getElementById('sports-bets-container');
 // ★ 新規追加要素
@@ -16,10 +16,18 @@ let previousScores = new Map(JSON.parse(localStorage.getItem('previousScores') |
  * データの取得とランキングの描画を行うメイン関数
  */
 async function renderScores() {
+    // ★ 修正: 致命的な要素がない場合の早期リターンを追加
+    if (!SCORES_CONTAINER || !SPORTS_BETS_CONTAINER || !RACE_RECORDS_LIST || !LAST_UPDATE_ELEMENT) {
+        console.error("致命的なHTML要素の一部が見つかりませんでした。レンダリングを停止します。");
+        // エラーを避けるため、後続の処理を停止
+        return; 
+    }
+
     SCORES_CONTAINER.innerHTML = '<p>データを読み込み中...</p>';
     SPORTS_BETS_CONTAINER.innerHTML = '<p>くじデータを読み込み中...</p>';
     RACE_RECORDS_LIST.innerHTML = '<li>記録条件:ローカルフリー　ベリーハード　CPU7　ラップ1　超高速</li><p>記録を読み込み中...</p>'; // ★ ロードメッセージを設定
-    
+    // 削除: TITLES_CONTAINERの初期化を削除
+
     // 1. データ取得
     const allData = await fetchAllData(); // 全データ取得
     const rawScores = allData.scores;
@@ -66,8 +74,8 @@ async function renderScores() {
     html += '</ul>';
     SCORES_CONTAINER.innerHTML = html;
 
-    // 4. タイトルホルダーの描画
-    renderTitles(sortedScores);
+    // 4. タイトルホルダーの描画 (削除されたためスキップ)
+    // renderTitles(sortedScores);
     
     // 5. くじタイルの描画
     renderSportsBets(sportsBets, displayScores);
@@ -87,6 +95,8 @@ async function renderScores() {
  * @param {Array<Object>} raceRecords - speedstorm_recordsデータ
  */
 function renderRaceRecords(raceRecords) {
+    if (!RACE_RECORDS_LIST) return; // ★ 修正: nullチェックを追加
+    
     let html = '<li>記録条件:ローカルフリー　ベリーハード　CPU7　ラップ1　超高速</li>';
 
     if (raceRecords.length === 0) {
@@ -134,6 +144,8 @@ function renderRaceRecords(raceRecords) {
  * @param {Array<Object>} displayScores - ランキングに表示されているプレイヤーのスコア
  */
 function renderSportsBets(sportsBets, displayScores) {
+    if (!SPORTS_BETS_CONTAINER) return; // ★ 修正: nullチェックを追加
+
     // OPENとCLOSEDのくじを表示
     const activeBets = sportsBets.filter(bet => bet.status === 'OPEN' || bet.status === 'CLOSED');
     
@@ -204,70 +216,9 @@ function renderSportsBets(sportsBets, displayScores) {
     SPORTS_BETS_CONTAINER.innerHTML = html;
 }
 
-// --- タイトル計算と描画 (変更なし) ---
-function renderTitles(sortedScores) {
-    const titles = [];
-// ... (後略 - 変更なし)
-    if (sortedScores.length === 0) {
-        TITLES_CONTAINER.innerHTML = '<p>プレイヤーデータがありません。</p>';
-        return;
-    }
-    titles.push({name:"Kabocha",title:"Pro", icon:"🃏"});
-    titles.push({name:"matsui",title:"Pro", icon:"🃏"});
-    titles.push({name:"mahhii",title:"Pro", icon:"🃏"});
-    titles.push({name:"Yasu",title:"Pro", icon:"🃏"});
-    titles.push({name:"Kosuke",title:"Pro", icon:"🃏"});
+// 削除: renderTitles関数全体を削除
+// function renderTitles(sortedScores) { ... }
 
-    titles.push({name:"Kabocha",title:"'25秋", icon:"🎃"});
-
-    // 1. トップランカー (1位)
-    const topPlayer = sortedScores[0];
-    titles.push({ name: topPlayer.name, title: '頂点', icon: '👑' });
-
-    // 2. 最下位の奮起 (最低ポイント)
-    const bottomPlayer = sortedScores[sortedScores.length - 1];
-    if (bottomPlayer.score < topPlayer.score) {
-        titles.push({ name: bottomPlayer.name, title: 'カモ', icon: '🔥' });
-    }
-    
-    titles.push({name:"Kabocha",title:"嶺上開花", icon:"🪷"});
-    
-    // 3. 今日の波乗り (前回比で最もポイントを稼いだ人)
-    let maxDiff = -Infinity;
-    let waveRider = null;
-    
-    // ローカルストレージの前回スコアをマップとして取得
-    const prevScoresMap = new Map(JSON.parse(localStorage.getItem('previousScores') || '[]'));
-    
-    sortedScores.forEach(player => {
-        const currentScore = player.score;
-        // 前回スコアは、ローカルストレージ（フィルタリング済み）から取得
-        const prevScore = prevScoresMap.get(player.name) || currentScore;
-        const diff = currentScore - prevScore;
-        
-        if (diff > maxDiff && diff > 0.1) { // 0.1ポイント以上の変動があり、かつフィルタリングされたプレイヤー
-            maxDiff = diff;
-            waveRider = player.name;
-        }
-    });
-    
-    if (waveRider) {
-        titles.push({ name: waveRider, title: '波乗り', icon: '🌊' });
-    }
-
-    // 描画
-    let titleHtml = '<ul class=\"titles-list\">';
-    titles.forEach(t => {
-        titleHtml += `
-            <li>
-                <span class="title-icon">${t.icon}</span>
-                <span class="title-text">${t.title} (${t.name})</span>
-            </li>
-        `;
-    });
-    titleHtml += '</ul>';
-    TITLES_CONTAINER.innerHTML = titleHtml;
-}
 
 // 初期ロードとボタンイベント
 window.onload = renderScores;
