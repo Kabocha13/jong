@@ -28,6 +28,10 @@ const MAHJONG_PLAYER_INPUTS_CONTAINER = document.getElementById('mahjong-player-
 const MAHJONG_MESSAGE_ELEMENT = document.getElementById('mahjong-message');
 const MAHJONG_SUBMIT_BUTTON = document.getElementById('mahjong-submit-button');
 
+// ★ 新規追加: 日次ポイント徴収
+const DAILY_TAX_BUTTON = document.getElementById('daily-tax-button');
+const DAILY_TAX_MESSAGE = document.getElementById('daily-tax-message');
+
 // --- 定数：麻雀ルール (mahjong.jsから移動) ---
 const POINT_RATE = 1000; // 1000点 = 1ポイント
 const UMA_OKA = [30, 10, -10, -20]; // 4位, 3位, 2位, 1位 のボーナス/ペナルティ点 (例: 10-20ウマ)
@@ -1313,5 +1317,109 @@ document.getElementById('adjustment-form').addEventListener('submit', async (e) 
     } catch (error) {
         console.error(error);
         showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+    }
+});
+
+
+// --- 日次ポイント徴収機能のロジック (新規追加) ---
+
+DAILY_TAX_BUTTON.addEventListener('click', async () => {
+    const TOTAL_TAX_AMOUNT = 100.0;
+    const EXCLUDED_PLAYER_NAMES = ['3mahjong']; 
+    const messageEl = DAILY_TAX_MESSAGE;
+
+    if (!window.confirm(`全プレイヤーから保有ポイントに比例して合計 ${TOTAL_TAX_AMOUNT} P の徴収を実行します。よろしいですか？`)) {
+        return;
+    }
+
+    DAILY_TAX_BUTTON.disabled = true;
+    showMessage(messageEl, 'ポイント徴収を処理中...', 'info');
+    
+    try {
+        const currentData = await fetchAllData();
+        // pass/pro/lastBonusTimeフィールドを保持するために、scores全体をマップとして処理
+        let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+        
+        // 1. 徴収対象プレイヤーの特定と総ポイントの計算
+        const targetPlayers = currentData.scores.filter(player => 
+            !EXCLUDED_PLAYER_NAMES.includes(player.name)
+        );
+        
+        // 徴収対象プレイヤーの合計ポイントを計算 (ポイントがマイナスの場合は0として扱う)
+        const totalTargetScore = targetPlayers.reduce((sum, player) => sum + Math.max(0, player.score), 0);
+        
+        if (totalTargetScore <= 0) {
+            showMessage(messageEl, '⚠️ 徴収対象プレイヤーの合計ポイントが0以下です。徴収はスキップされました。', 'info');
+            return;
+        }
+
+        let totalTaxCollected = 0;
+        let pointsToDistribute = {}; // 徴収額を保持するオブジェクト
+
+        // 2. 各プレイヤーの徴収額を計算
+        targetPlayers.forEach(player => {
+            // ポイントがマイナスまたはゼロの場合は徴収しない
+            if (player.score <= 0) {
+                 pointsToDistribute[player.name] = 0;
+                 return;
+            }
+
+            // 比例配分で徴収額を計算し、小数点第一位に丸める
+            // Math.max(0, player.score) を使用しているため、ここでは単純に player.score を使用して割合を計算
+            const taxAmount = parseFloat((TOTAL_TAX_AMOUNT * (player.score / totalTargetScore)).toFixed(1));
+            pointsToDistribute[player.name] = taxAmount;
+            totalTaxCollected += taxAmount;
+        });
+        
+        // 3. スコアを更新
+        targetPlayers.forEach(player => {
+            const taxAmount = pointsToDistribute[player.name];
+            
+            if (taxAmount > 0) {
+                const newScore = player.score - taxAmount;
+                
+                // pass/pro/lastBonusTimeフィールドを保持したままscoreを更新
+                currentScoresMap.set(player.name, { 
+                    ...player, 
+                    score: parseFloat(newScore.toFixed(1)) 
+                });
+            }
+        });
+        
+        const newScores = Array.from(currentScoresMap.values()); // pass/pro/lastBonusTimeフィールドを保持したscores
+
+        const newData = {
+            scores: newScores,
+            sports_bets: currentData.sports_bets,
+            speedstorm_records: currentData.speedstorm_records || []
+        };
+
+        const response = await updateAllData(newData);
+
+        if (response.status === 'success') {
+            // 徴収された合計ポイントを再計算し、小数点第一位で表示
+            const finalTaxCollected = newScores
+                .filter(p => targetPlayers.map(tp => tp.name).includes(p.name)) // 徴収対象プレイヤーのみ
+                .reduce((sum, current) => {
+                    const originalPlayer = currentData.scores.find(s => s.name === current.name);
+                    // (元のスコア) - (新しいスコア) を計算
+                    return sum + (originalPlayer.score - current.score);
+                }, 0);
+
+            showMessage(messageEl, `✅ 日次ポイント徴収を完了しました。合計徴収ポイント: ${finalTaxCollected.toFixed(1)} P`, 'success');
+            
+            // UIを更新
+            loadPlayerList(); 
+            loadTransferPlayerLists();
+            loadMahjongForm();
+        } else {
+            showMessage(messageEl, `❌ 徴収エラー: ${response.message}`, 'error');
+        }
+
+    } catch (error) {
+        console.error(error);
+        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+    } finally {
+        DAILY_TAX_BUTTON.disabled = false;
     }
 });
