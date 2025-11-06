@@ -24,12 +24,14 @@ body {
     color: var(--color-text);
     margin: 0;
     padding: 0;
+    padding-bottom: 80px; /* ★ 修正: フッター分のパディング */
 }
 
 /* ★★★ ダークモードスタイル ★★★ */
 body.dark-mode {
     background-color: var(--dm-color-background);
     color: var(--dm-color-text);
+    padding-bottom: 80px; /* ★ 修正: フッター分のパディング */
 }
 
 body.dark-mode header {
@@ -725,4 +727,60 @@ textarea {
 #race-records-list strong {
     color: var(--color-accent) !important;
     font-weight: bold;
+}
+
+/* ★★★ 新規追加: 固定フッターナビゲーション ★★★ */
+footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: var(--color-primary);
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
+    padding: 10px 0;
+    z-index: 100;
+}
+
+.footer-nav {
+    display: flex;
+    justify-content: space-around; /* 均等配置 */
+    align-items: center;
+    max-width: 800px; /* mainの幅と合わせる */
+    margin: 0 auto;
+    padding: 0 10px;
+}
+
+/* フッター内のリンクスタイルを調整 */
+footer .input-link {
+    flex-grow: 1; /* ボタンがスペースを均等に埋める */
+    text-align: center;
+    margin: 0 5px; /* ボタン間の隙間 */
+    padding: 10px 5px; /* パディング調整 */
+    font-size: 0.9em;
+    border: 1px solid var(--color-accent); /* 枠線をゴールドに */
+    background-color: var(--color-primary); /* 背景をヘッダーと同じに */
+    color: var(--color-light); /* テキストを白に */
+    text-decoration: none; 
+    font-weight: bold; 
+    letter-spacing: 1px; 
+    transition: background-color 0.3s; 
+    border-radius: 0; 
+}
+footer .input-link:hover {
+    background-color: #1e3040; /* ホバー色 */
+    border-color: #fff;
+}
+
+body.dark-mode footer {
+    background-color: var(--dm-color-box);
+    box-shadow: 0 -5px 15px rgba(255, 255, 255, 0.1);
+}
+
+body.dark-mode footer .input-link {
+    background-color: var(--dm-color-accent);
+    color: var(--dm-color-text);
+    border: 1px solid var(--dm-color-primary);
+}
+body.dark-mode footer .input-link:hover {
+    background-color: #5a6268;
 }
