@@ -139,7 +139,7 @@ function renderRaceRecords(raceRecords) {
 }
 
 /**
- * スポーツくじのタイルを描画する関数 (仕様変更に伴い修正)
+ * スポーツくじのタイルを描画する関数
  * @param {Array<Object>} sportsBets - sports_betsデータ
  * @param {Array<Object>} displayScores - ランキングに表示されているプレイヤーのスコア
  */
@@ -163,8 +163,6 @@ function renderSportsBets(sportsBets, displayScores) {
         let myWagerInfo = '';
         let totalWagers = 0;
         
-        // 自分の投票情報を集計 (ランキングに表示されているプレイヤーのみ対象)
-        // 新しいwagers構造: [{player: "A", amount: 10, item: "X"}, {player: "A", amount: 5, item: "Y"}]
         const playerWagers = bet.wagers.filter(w => playerNames.includes(w.player));
         
         // プレイヤーごとの合計掛け金を計算
@@ -204,7 +202,8 @@ function renderSportsBets(sportsBets, displayScores) {
                 <h4>${statusText} ${bet.matchName} (#${bet.betId})</h4>
                 <div class="odds-info-display">
                     ${deadlineHtml}
-                    <p class="bet-creator">開設者: <strong>${bet.creator || 'N/A'}</strong></p>
+                    <!-- 削除: 開設者名の表示 -->
+                    <!-- <p class="bet-creator">開設者: <strong>${bet.creator || 'N/A'}</strong></p> -->
                 </div>
                 ${myWagerInfo}
                 <p class="total-wager-text">総賭け金: ${bet.wagers.reduce((sum, w) => sum + w.amount, 0)} P</p>
@@ -215,9 +214,6 @@ function renderSportsBets(sportsBets, displayScores) {
     html += '</div>';
     SPORTS_BETS_CONTAINER.innerHTML = html;
 }
-
-// 削除: renderTitles関数全体を削除
-// function renderTitles(sortedScores) { ... }
 
 
 // 初期ロードとボタンイベント
