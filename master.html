@@ -9,17 +9,12 @@
 <body>
     <header>
         <h1>🔑 マスター管理 🔑</h1>
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <a href="index.html" class="input-link">« ランキングに戻る</a>
-            <a href="mypage.html" class="input-link">マイページ</a>
-        </div>
-        <!-- ★★★ 新規追加: ログアウトボタン ★★★ -->
+        
         <div id="master-header-actions" style="margin-top: 10px;">
             <button type="button" id="master-logout-button" class="action-button secondary-button hidden" style="width: auto; margin: auto;">
                 マスターログアウト
             </button>
         </div>
-        <!-- ★★★ 新規追加 終了 ★★★ -->
     </header>
 
     <main id="main-content">
@@ -38,14 +33,12 @@
         <section id="admin-tools" class="hidden">
             <h2>管理者ツール</h2>
             
-            <!-- ★★★ 新規移設: 麻雀結果入力ツール ★★★ -->
             <div class="tool-box">
                 <h3>🀄 麻雀結果入力</h3>
                 <p class="instruction">4人の最終得点を入力(30000点越え3000点で1P, 1位3P, 2位1P, 3位-1P, 4位-2P)</p>
                 
                 <form id="mahjong-form">
                     <div id="mahjong-player-inputs">
-                        <!-- JSでプレイヤー選択と得点入力が動的に生成される -->
                         <p>プレイヤーリストをロード中...</p>
                     </div>
 
@@ -58,13 +51,10 @@
                     <p id="mahjong-message" class="hidden"></p>
                 </form>
             </div>
-            <!-- 麻雀結果入力ツール 終了 -->
 
 
-            <!-- スポーツくじ管理ツール (既存から大幅修正) -->
             <div class="tool-box">
                 <h2>⚽ スポーツくじ管理</h2>
-                <!-- 1. 新規くじ作成フォーム -->
                 <div class="tool-box" style="border: none; padding: 0;">
                     <h3>📝 新規くじ作成・公開</h3>
                     <p class="instruction">くじの基本情報と締切日時を設定してください。オッズは後から個別に設定します。</p>
@@ -79,7 +69,6 @@
                             <input type="text" id="creator-name" required placeholder="例: Kabocha">
                         </div>
                         
-                        <!-- ★ 締切日時フィールドを追加 ★ -->
                         <div class="form-group">
                             <label for="deadline-datetime">締切日時:</label>
                             <input type="datetime-local" id="deadline-datetime" required>
@@ -90,7 +79,6 @@
                     <p id="create-message" class="hidden"></p>
                 </div>
 
-                <!-- 2. 現在の開催中/終了済みくじリスト -->
                 <div class="tool-box" style="border: none; padding: 0; margin-top: 25px;">
                     <h3>現在のくじ一覧・管理</h3>
                     <div id="bet-list-container">
@@ -98,7 +86,6 @@
                     </div>
                 </div>
             </div>
-            <!-- スポーツくじ管理ツール 終了 -->
             
             <div class="tool-box">
                 <h3>± 特殊ポイント調整</h3>
@@ -152,7 +139,6 @@
                 <p id="global-penalty-message" class="hidden"></p>
             </div>
             
-            <!-- ★★★ 新規追加: 日次ポイント徴収機能 ★★★ -->
             <div class="tool-box">
                 <h3>💰 日次ポイント徴収 (合計100P)</h3>
                 <p class="instruction">毎日0時に実行することを想定したポイント徴収です。合計100Pを保有ポイントに比例して徴収します。</p>
@@ -162,7 +148,6 @@
                 </button>
                 <p id="daily-tax-message" class="hidden"></p>
             </div>
-            <!-- ★★★ 新規追加 終了 ★★★ -->
             
             <div class="tool-box">
                 <h3>🏎️ スピードストーム 記録更新</h3>
@@ -172,7 +157,6 @@
                         <label for="race-course-select">コース名:</label>
                         <select id="race-course-select" name="race-course-name" required>
                             <option value="" disabled selected>既存のコースを選択</option>
-                            <!-- JSで既存コースがロードされます -->
                         </select>
                     </div>
                     <div class="form-group">
@@ -193,17 +177,22 @@
         </section>
     </main>
 
+    <footer>
+        <nav class="footer-nav">
+            <a href="index.html" class="input-link">ランキング</a>
+            <a href="mypage.html" class="input-link">マイページ</a>
+            <a href="master.html" class="input-link">マスター</a>
+        </nav>
+    </footer>
+
     <script src="assets/js/common.js"></script>
     <script src="assets/js/master.js"></script>
-    <!-- ★★★ ダークモード初期化スクリプトの追加 ★★★ -->
     <script>
-        // ページロード時にlocalStorageをチェックし、ダークモードを適用
         document.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('darkMode') === 'enabled') {
                 document.body.classList.add('dark-mode');
             }
         });
     </script>
-    <!-- ★★★ ダークモード初期化スクリプトの追加 終了 ★★★ -->
 </body>
 </html>
