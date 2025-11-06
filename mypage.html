@@ -9,14 +9,9 @@
 <body>
     <header>
         <h1>👤 マイページ 💰</h1>
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <a href="index.html" class="input-link">« ランキングに戻る</a>
-            <a href="master.html" class="input-link">マスター管理へ</a>
-        </div>
     </header>
 
     <main id="main-content">
-        <!-- 認証セクション -->
         <section id="auth-section">
             <h2>認証</h2>
             <p class="instruction">ご自身のユーザー名とパスワードを入力してログインしてください。</p>
@@ -34,39 +29,30 @@
             <p id="auth-message" class="hidden"></p>
         </section>
 
-        <!-- マイページコンテンツ (認証成功後に表示) -->
         <section id="mypage-content" class="hidden">
-            <!-- ユーザー情報とログアウトボタン -->
             <div class="tool-box" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
                 <div>
                     <h3>ようこそ、<span id="authenticated-user-name"></span>様！</h3>
                     <p>現在のポイント残高: <strong id="current-score" style="font-size: 1.5em; color: var(--color-accent);"></strong> P</p>
                     <p id="score-update-message" class="hidden message"></p>
                 </div>
-                <!-- ★★★ ログアウトボタンの追加 ★★★ -->
                 <button type="button" id="logout-button" class="action-button secondary-button" style="width: auto; margin-top: 10px;">
                     ログアウト
                 </button>
-                <!-- ★★★ ログアウトボタンの追加 終了 ★★★ -->
             </div>
 
-            <!-- ★★★ Proボーナスボタン (24時間/10Pに変更) ★★★ -->
             <div id="pro-bonus-tool" class="tool-box hidden">
                 <h4>⭐ Proボーナス</h4>
-                <!-- JSで動的に設定されるが、初期ヒントを変更 -->
-                <!-- 修正: 説明文を「24時間ごとに10P獲得」に変更 -->
                 <p class="instruction" id="pro-bonus-instruction">Proプレイヤー特典: **24時間ごと**に **10.0 P** を獲得できます。</p>
                 <button type="button" id="pro-bonus-button" class="action-button" style="width: auto; background-color: #38c172;">
                     ボーナス (+10.0 P) を受け取る
                 </button>
                 <p id="pro-bonus-message" class="hidden"></p>
             </div>
-            <!-- ★★★ Proボーナスボタン 終了 ★★★ -->
             
             <div class="tool-box">
                 <h3>💰 スポーツくじ購入</h3>
                 
-                <!-- 投票履歴表示エリア -->
                 <div id="wager-history-container" style="margin-bottom: 20px;">
                     <h4>投票履歴 (最新5件)</h4>
                     <ul id="wager-history-list">
@@ -74,7 +60,6 @@
                     </ul>
                 </div>
 
-                <!-- くじ購入フォーム (大幅修正) -->
                 <form id="wager-form">
                     <p class="instruction">投票は認証されたユーザー (<strong id="fixed-player-name"></strong>) に固定されます。</p>
                     <div class="form-group">
@@ -84,14 +69,11 @@
                         </select>
                     </div>
                     
-                    <!-- プレイヤー選択フィールドは非表示にして固定値を設定 -->
                     <input type="hidden" id="wager-player" name="wager-player">
 
                     <p class="instruction" style="margin-top: 20px;">賭けの内容（かけるもの）と掛け金を複数入力できます。</p>
                     
-                    <!-- 賭け内容の動的入力エリア -->
                     <div id="wager-inputs-container">
-                        <!-- JSで動的に追加される -->
                     </div>
 
                     <button type="button" id="add-wager-row-button" class="action-button secondary-button" style="width: auto; margin-top: 10px;">+ 賭けを追加</button>
@@ -101,7 +83,6 @@
                 <p id="wager-message" class="hidden"></p>
             </div>
 
-            <!-- ★★★ 新規追加: 送金機能 (マイページ版) ★★★ -->
             <div class="tool-box">
                 <h3>💸 ポイント送金 (プレイヤーへ)</h3>
                 <p class="instruction">ログイン中のプレイヤー (<strong id="authenticated-user-transfer"></strong>) から、他のプレイヤーへポイントを送金します。</p>
@@ -120,33 +101,34 @@
                 </form>
                 <p id="transfer-message-mypage" class="hidden"></p>
             </div>
-            <!-- ★★★ 送金機能 終了 ★★★ -->
 
-            <!-- ★★★ ダークモード切り替え機能の移動 (画面一番下へ) ★★★ -->
             <div id="dark-mode-tool" class="tool-box" style="margin-top: 30px;">
                 <h4>🌙 ダークモード設定</h4>
-                <!-- proプレイヤー以外は隠す -->
                 <button type="button" id="dark-mode-toggle-button" class="action-button secondary-button" style="width: auto; margin-top: 5px;">
                     ダークモードを切り替える
                 </button>
                 <p id="dark-mode-message" class="hidden"></p>
                 <p id="dark-mode-status" style="font-size: 0.9em; margin-top: 10px; color: #6c757d;"></p>
             </div>
-            <!-- ★★★ ダークモード切り替え機能の移動 終了 ★★★ -->
         </section>
     </main>
 
+    <footer>
+        <nav class="footer-nav">
+            <a href="index.html" class="input-link">ランキング</a>
+            <a href="mypage.html" class="input-link">マイページ</a>
+            <a href="master.html" class="input-link">マスター</a>
+        </nav>
+    </footer>
+
     <script src="assets/js/common.js"></script>
     <script src="assets/js/mypage.js"></script>
-    <!-- ★★★ ダークモード初期化スクリプトの追加 ★★★ -->
     <script>
-        // ページロード時にlocalStorageをチェックし、ダークモードを適用
         document.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('darkMode') === 'enabled') {
                 document.body.classList.add('dark-mode');
             }
         });
     </script>
-    <!-- ★★★ ダークモード初期化スクリプトの追加 終了 ★★★ -->
 </body>
 </html>
