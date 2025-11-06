@@ -302,7 +302,8 @@ MAHJONG_FORM.addEventListener('submit', async (e) => {
         showMessage(MAHJONG_MESSAGE_ELEMENT, `警告: 合計点が ${totalScore} です。120000点周辺ではありません。計算を再確認してください。`, 'error');
     }
 
-    const memo = document.getElementById('mahjong-memo').value;
+    // 削除: メモの取得
+    // const memo = document.getElementById('mahjong-memo').value;
     
     MAHJONG_SUBMIT_BUTTON.disabled = true;
     MAHJONG_SUBMIT_BUTTON.textContent = '送信中...';
@@ -501,68 +502,8 @@ TRANSFER_FORM.addEventListener('submit', async (e) => {
 });
 
 
-// --- 4. 全員一律ポイント減算機能 (履歴削除) ---
-document.getElementById('global-penalty-button').addEventListener('click', async () => {
-    const penaltyAmount = -1.0;
-    const messageEl = document.getElementById('global-penalty-message');
-
-    if (!window.confirm(`全てのプレイヤーの得点を一律で ${penaltyAmount} P 減らします。よろしいですか？`)) {
-        return;
-    }
-
-    const button = document.getElementById('global-penalty-button');
-    button.disabled = true;
-    showMessage(messageEl, '全体ポイント減算を処理中...', 'info');
-    
-    try {
-        const currentData = await fetchAllData();
-        // pass/proフィールドを保持するために、scores全体をマップとして処理
-        let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
-        // let historyChanges = []; // 履歴変更ログを削除
-
-        currentData.scores.forEach(player => {
-            const newScore = player.score + penaltyAmount;
-            
-            // pass/proフィールドを保持したままscoreを更新
-            currentScoresMap.set(player.name, { 
-                ...player, 
-                score: parseFloat(newScore.toFixed(1)) 
-            });
-            
-            // historyChanges.push({ name: player.name, change: penaltyAmount }); // 履歴変更ログの生成を削除
-        });
-        
-        // ★ 修正: 履歴エントリーの生成と追加を完全に削除
-        // const historyEntry = { ... };
-        
-        const newScores = Array.from(currentScoresMap.values()); // pass/proフィールドを保持したscores
-        // const newHistory = [...currentData.history, historyEntry]; // 履歴の追加を削除
-        
-        const newData = {
-            scores: newScores,
-            // 修正: historyは保存しない
-            sports_bets: currentData.sports_bets,
-            speedstorm_records: currentData.speedstorm_records || []
-        };
-
-        const response = await updateAllData(newData);
-
-        if (response.status === 'success') {
-            showMessage(messageEl, `✅ 全員から ${Math.abs(penaltyAmount)} P の減算を完了しました。`, 'success');
-            loadPlayerList(); 
-            loadTransferPlayerLists();
-            loadMahjongForm(); 
-        } else {
-            showMessage(messageEl, `❌ 減算エラー: ${response.message}`, 'error');
-        }
-
-    } catch (error) {
-        console.error(error);
-        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-    } finally {
-        button.disabled = false;
-    }
-});
+// --- 4. 削除: 全員一律ポイント減算機能 ---
+// document.getElementById('global-penalty-button').addEventListener('click', ...); のブロック全体を削除
 
 
 // --- 5. スピードストーム レコード管理機能 (履歴削除) ---
@@ -749,11 +690,13 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('create-message');
     const matchName = document.getElementById('match-name').value.trim();
-    const creatorName = document.getElementById('creator-name').value.trim();
+    // 削除: 開設者名の取得
+    // const creatorName = document.getElementById('creator-name').value.trim();
     const deadline = document.getElementById('deadline-datetime').value; // ISO 8601形式の文字列を取得
 
-    if (!matchName || !creatorName || !deadline) {
-        showMessage(messageEl, '❌ くじ名、開設者名、締切日時をすべて入力してください。', 'error');
+    // 修正: creatorNameのチェックを削除
+    if (!matchName || !deadline) {
+        showMessage(messageEl, '❌ くじ名、締切日時をすべて入力してください。', 'error');
         return;
     }
     
@@ -774,7 +717,8 @@ CREATE_BET_FORM.addEventListener('submit', async (e) => {
         const newBet = {
             betId: newBetId,
             matchName: matchName,
-            creator: creatorName, // 新規: 開設者名
+            // 削除: creatorのフィールド
+            // creator: creatorName, 
             deadline: deadlineDate.toISOString(), // 新規: 締切日時 (ISO文字列)
             status: 'OPEN',
             outcome: null,
@@ -949,7 +893,8 @@ function renderBetList(allBets) {
         html += `
             <div class="bet-card ${statusClass}">
                 <h3>${bet.matchName} (#${bet.betId})</h3>
-                <p class="bet-creator">開設者: <strong>${bet.creator || 'N/A'}</strong></p>
+                <!-- 削除: 開設者名の表示 -->
+                <!-- <p class="bet-creator">開設者: <strong>${bet.creator || 'N/A'}</strong></p> -->
                 <div class="odds-info">
                     <strong>締切:</strong> ${formattedDeadline}
                 </div>
