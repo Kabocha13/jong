@@ -42,13 +42,68 @@
             </div>
 
             <div id="pro-bonus-tool" class="tool-box hidden">
-                <h4>⭐ Proボーナス</h4>
-                <p class="instruction" id="pro-bonus-instruction">Proプレイヤー特典: **24時間ごと**に **10.0 P** を獲得できます。</p>
+                <h4>⭐ 会員ボーナス</h4>
+                <!-- JS側でPro(10P) / Premium(15P)に応じて内容が動的に更新されます -->
+                <p class="instruction" id="pro-bonus-instruction">Pro/Premium会員特典: 24時間ごとにボーナスポイントを獲得できます。</p>
                 <button type="button" id="pro-bonus-button" class="action-button" style="width: auto; background-color: #38c172;">
-                    ボーナス (+10.0 P) を受け取る
+                    ボーナス (+P) を受け取る
                 </button>
                 <p id="pro-bonus-message" class="hidden"></p>
             </div>
+
+            <div class="tool-box">
+                <h3>🎟️ 宝くじ購入</h3>
+                <form id="lottery-purchase-form">
+                    <div class="form-group">
+                        <label for="lottery-select">開催中の宝くじ:</label>
+                        <select id="lottery-select" required>
+                            <option value="" disabled selected>ロード中...</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <div style="flex-grow: 1;">
+                            <label for="lottery-ticket-count">購入枚数:</label>
+                            <input type="number" id="lottery-ticket-count" min="1" max="100" value="1" required>
+                        </div>
+                        <div style="flex: 0 0 120px;">
+                            <strong id="lottery-total-price" style="font-size: 1.1em; color: var(--color-primary);">合計: - P</strong>
+                        </div>
+                    </div>
+                    <button type="submit" class="action-button" style="background-color: #38c172;">宝くじを購入する</button>
+                </form>
+                <p id="lottery-purchase-message" class="hidden"></p>
+            </div>
+
+            <div class="tool-box">
+                <h3>📋 宝くじ結果発表</h3>
+                <p class="instruction">購入した宝くじの結果発表日を過ぎると、「結果を見る」ボタンが表示されます。</p>
+                <div id="lottery-results-container">
+                    <p>購入履歴をロード中...</p>
+                </div>
+            </div>
+
+            <!-- ★★★ Premium会員専用機能: スポーツくじ作成フォームの追加 ★★★ -->
+            <div id="premium-tools-section" class="tool-box hidden">
+                <h2>👑 Premium会員専用ツール</h2>
+                
+                <div class="tool-box" style="border: none; padding: 0;">
+                    <h3>📝 新規スポーツくじ作成・公開</h3>
+                    <p class="instruction">Premium会員は、マスター権限と同様に新しいくじを開催できます。</p>
+                    <form id="premium-create-bet-form">
+                        <div class="form-group">
+                            <label for="premium-match-name">くじ名:</label>
+                            <input type="text" id="premium-match-name" required placeholder="例: 競馬G1結果, 陸上100m優勝者">
+                        </div>
+                        <div class="form-group">
+                            <label for="premium-deadline-datetime">締切日時:</label>
+                            <input type="datetime-local" id="premium-deadline-datetime" required>
+                        </div>
+                        <button type="submit">くじを作成 (OPEN)</button>
+                    </form>
+                    <p id="premium-create-message" class="hidden"></p>
+                </div>
+            </div>
+            <!-- ★★★ ここまでPremiumツール ★★★ -->
             
             <div class="tool-box">
                 <h3>💰 スポーツくじ購入</h3>
