@@ -41,11 +41,71 @@
                     <div id="mahjong-player-inputs">
                         <p>プレイヤーリストをロード中...</p>
                     </div>
-
-                    <!-- 削除: メモ欄 -->
                     
                     <button type="submit" id="mahjong-submit-button">結果を反映する</button>
                     <p id="mahjong-message" class="hidden"></p>
+                </form>
+            </div>
+
+            <div class="tool-box">
+                <h2>🎟️ 宝くじ開催</h2>
+                <p class="instruction">新しい宝くじを開催します。確率は % (0-100) で入力してください。</p>
+                <form id="create-lottery-form">
+                    
+                    <h4>基本情報</h4>
+                    <div class="form-group">
+                        <label for="lottery-name">宝くじ名:</label>
+                        <input type="text" id="lottery-name" required placeholder="例: サマーJongボ 2025">
+                    </div>
+                    <div class="form-group">
+                        <label for="lottery-ticket-price">一口の購入額 (P):</label>
+                        <input type="number" id="lottery-ticket-price" step="0.1" min="0.1" required placeholder="例: 10">
+                    </div>
+                    <div class="form-group">
+                        <label for="lottery-purchase-deadline">購入締切:</label>
+                        <input type="datetime-local" id="lottery-purchase-deadline" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lottery-result-announce">当選発表日:</label>
+                        <input type="datetime-local" id="lottery-result-announce" required>
+                    </div>
+
+                    <h4 style="margin-top: 20px;">当選設定 (1等〜5等)</h4>
+                    <p class="instruction" style="font-size: 0.8em;">※ 確率は合計で100%以下にしてください。「ハズレ」は自動で計算されます。</p>
+                    
+                    <!-- 1等 -->
+                    <div class="form-group prize-input-row" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <label style="flex: 0 0 40px;">1等:</label>
+                        <input type="number" id="lottery-prize-amount-1" placeholder="当選額 (P)" style="flex: 1;">
+                        <input type="number" id="lottery-prize-prob-1" step="0.0000001" min="0" max="100" placeholder="確率 (%)" style="flex: 1;">
+                    </div>
+                    <!-- 2等 -->
+                    <div class="form-group prize-input-row" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <label style="flex: 0 0 40px;">2等:</label>
+                        <input type="number" id="lottery-prize-amount-2" placeholder="当選額 (P)" style="flex: 1;">
+                        <input type="number" id="lottery-prize-prob-2" step="0.0000001" min="0" max="100" placeholder="確率 (%)" style="flex: 1;">
+                    </div>
+                    <!-- 3等 -->
+                    <div class="form-group prize-input-row" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <label style="flex: 0 0 40px;">3等:</label>
+                        <input type="number" id="lottery-prize-amount-3" placeholder="当選額 (P)" style="flex: 1;">
+                        <input type="number" id="lottery-prize-prob-3" step="0.0000001" min="0" max="100" placeholder="確率 (%)" style="flex: 1;">
+                    </div>
+                    <!-- 4等 -->
+                    <div class="form-group prize-input-row" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <label style="flex: 0 0 40px;">4等:</label>
+                        <input type="number" id="lottery-prize-amount-4" placeholder="当選額 (P)" style="flex: 1;">
+                        <input type="number" id="lottery-prize-prob-4" step="0.0000001" min="0" max="100" placeholder="確率 (%)" style="flex: 1;">
+                    </div>
+                    <!-- 5等 -->
+                    <div class="form-group prize-input-row" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <label style="flex: 0 0 40px;">5等:</label>
+                        <input type="number" id="lottery-prize-amount-5" placeholder="当選額 (P)" style="flex: 1;">
+                        <input type="number" id="lottery-prize-prob-5" step="0.0000001" min="0" max="100" placeholder="確率 (%)" style="flex: 1;">
+                    </div>
+
+                    <button type="submit" class="action-button" style="background-color: #38c172;">宝くじを開催</button>
+                    <p id="create-lottery-message" class="hidden"></p>
                 </form>
             </div>
 
@@ -61,7 +121,6 @@
                             <input type="text" id="match-name" required placeholder="例: 競馬G1結果, 陸上100m優勝者">
                         </div>
                         
-                        <!-- 削除: 開設者名 -->
                         
                         <div class="form-group">
                             <label for="deadline-datetime">締切日時:</label>
@@ -123,8 +182,6 @@
                 </form>
                 <p id="transfer-message" class="hidden"></p>
             </div>
-
-            <!-- 削除: 全員一律ポイント減算機能の tool-box を削除 -->
             
             <div class="tool-box">
                 <h3>💰 日次ポイント徴収 (合計100P)</h3>
