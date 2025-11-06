@@ -5,6 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>賭けポイント ランキング</title>
     <link rel="stylesheet" href="assets/css/style.css">
+    <!-- ★ 修正: 宝くじの当選情報テーブル用CSSを追加 -->
+    <style>
+        .lottery-prize-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .lottery-prize-table th, .lottery-prize-table td {
+            border: 1px solid #ddd;
+            padding: 4px 8px;
+            text-align: left;
+        }
+        .lottery-prize-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #333;
+        }
+        .lottery-prize-table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        /* ダークモード対応 */
+        .dark-mode .lottery-prize-table th {
+            background-color: #333;
+            color: #eee;
+        }
+        .dark-mode .lottery-prize-table td {
+            border-color: #444;
+        }
+        .dark-mode .lottery-prize-table tbody tr:nth-child(even) {
+            background-color: #383838;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -15,6 +48,13 @@
         <h2>現在のスコア</h2>
         <div id="scores-container">
             <p>データを読み込み中...</p>
+        </div>
+        
+        <div class="info-box" style="margin-top: 20px;">
+            <h3 class="icon-title">🎟️ 開催中の宝くじ</h3>
+            <div id="lottery-list-container">
+                <p>宝くじデータを読み込み中...</p>
+            </div>
         </div>
         
         <div class="info-box" style="margin-top: 20px;">
