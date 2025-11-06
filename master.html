@@ -42,10 +42,7 @@
                         <p>プレイヤーリストをロード中...</p>
                     </div>
 
-                    <div class="form-group">
-                        <label for="mahjong-memo">メモ/理由:</label>
-                        <textarea id="mahjong-memo" placeholder="遅刻の罰則、大きな役の記録など"></textarea>
-                    </div>
+                    <!-- 削除: メモ欄 -->
                     
                     <button type="submit" id="mahjong-submit-button">結果を反映する</button>
                     <p id="mahjong-message" class="hidden"></p>
@@ -57,17 +54,14 @@
                 <h2>⚽ スポーツくじ管理</h2>
                 <div class="tool-box" style="border: none; padding: 0;">
                     <h3>📝 新規くじ作成・公開</h3>
-                    <p class="instruction">くじの基本情報と締切日時を設定してください。オッズは後から個別に設定します。</p>
+                    <p class="instruction">くじの基本情報と締切日時を設定してください。</p>
                     <form id="create-bet-form">
                         <div class="form-group">
                             <label for="match-name">くじ名:</label>
                             <input type="text" id="match-name" required placeholder="例: 競馬G1結果, 陸上100m優勝者">
                         </div>
                         
-                        <div class="form-group">
-                            <label for="creator-name">開設者名:</label>
-                            <input type="text" id="creator-name" required placeholder="例: Kabocha">
-                        </div>
+                        <!-- 削除: 開設者名 -->
                         
                         <div class="form-group">
                             <label for="deadline-datetime">締切日時:</label>
@@ -130,14 +124,7 @@
                 <p id="transfer-message" class="hidden"></p>
             </div>
 
-            <div class="tool-box">
-                <h3>🚨 全員一律ポイント減算</h3>
-                <p>全てのプレイヤーの得点を一律で-1.0Pします。</p>
-                <button type="button" id="global-penalty-button" class="action-button" style="background-color: #dc3545;">
-                    全員から -1.0 P 減らす
-                </button>
-                <p id="global-penalty-message" class="hidden"></p>
-            </div>
+            <!-- 削除: 全員一律ポイント減算機能の tool-box を削除 -->
             
             <div class="tool-box">
                 <h3>💰 日次ポイント徴収 (合計100P)</h3>
