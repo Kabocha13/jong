@@ -9,10 +9,6 @@
 <body>
     <header>
         <h1>Jong</h1>
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <a href="mypage.html" class="input-link">マイページ &raquo;</a>
-            <a href="master.html" class="input-link">マスター &raquo;</a>
-        </div>
     </header>
 
     <main>
@@ -20,9 +16,6 @@
         <div id="scores-container">
             <p>データを読み込み中...</p>
         </div>
-        
-        <!-- 削除: タイトルホルダーのセクションを削除しました -->
-        <!-- 以前の TITLES_CONTAINER は削除されました -->
         
         <div class="info-box" style="margin-top: 20px;">
             <h3 class="icon-title">⚽ 開催中のスポーツくじ</h3>
@@ -57,17 +50,23 @@
         <button id="refresh-button">🔄 更新</button>
     </main>
 
+    <footer>
+        <nav class="footer-nav">
+            <a href="index.html" class="input-link">ランキング</a>
+            <a href="mypage.html" class="input-link">マイページ</a>
+            <a href="master.html" class="input-link">マスター</a>
+        </nav>
+    </footer>
+
     <script src="assets/js/common.js"></script>
     <script src="assets/js/main.js"></script>
-    <!-- ★★★ ダークモード初期化スクリプトの追加 ★★★ -->
+
     <script>
-        // ページロード時にlocalStorageをチェックし、ダークモードを適用
         document.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('darkMode') === 'enabled') {
                 document.body.classList.add('dark-mode');
             }
         });
     </script>
-    <!-- ★★★ ダークモード初期化スクリプトの追加 終了 ★★★ -->
 </body>
 </html>
