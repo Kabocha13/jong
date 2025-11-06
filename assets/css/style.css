@@ -133,6 +133,23 @@ body.dark-mode .pro-mark {
     color: #ffd700; /* Gold */
     text-shadow: none;
 }
+body.dark-mode .premium-mark { /* ★★★ Premiumマークのダークモードスタイル追加 ★★★ */
+    color: #00bfff; /* Deep Sky Blue */
+    text-shadow: none;
+}
+/* ★★★ Luxuryマークのダークモードスタイル追加 ★★★ */
+body.dark-mode .luxury-mark {
+    color: #ffcc00; /* Bright Gold */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+/* ★★★ Luxury会員の名前フォント（ダークモード） ★★★ */
+body.dark-mode .player-name.luxury-name {
+    font-family: Georgia, 'Times New Roman', Times, serif; /* 高級感を出すセリフ体 */
+    font-weight: bold;
+    color: #ffcc00; /* 明るいゴールド */
+    letter-spacing: 1px;
+}
+
 
 /* 1, 2, 3位のボーダーと背景 */
 body.dark-mode .rank-1 {
@@ -171,8 +188,9 @@ body.dark-mode .titles-list li {
 }
 body.dark-mode .my-wager-text {
     color: var(--dm-color-text);
+    /* 宝くじの当選概要と区別するため、色は統一 */
+    border-left: 4px solid var(--dm-color-accent); 
     background-color: #3a473a;
-    border-left: 4px solid #28a745;
 }
 
 body.dark-mode #refresh-button {
@@ -517,12 +535,34 @@ textarea {
     text-shadow: 1px 1px 0 var(--color-text); /* 豪華な強調 */
 }
 
-/* ★★★ 新規追加: プロマークのスタイル ★★★ */
+/* ★★★ 新規追加: プロ/プレミアム/ラグジュアリーマークのスタイル ★★★ */
 .pro-mark {
     font-size: 0.9em;
     color: gold;
     text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
     margin-left: 5px;
+}
+.premium-mark { /* ★★★ Premiumマークのスタイル追加 ★★★ */
+    font-size: 0.9em;
+    color: #00bfff; /* Deep Sky Blue */
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
+    margin-left: 5px;
+}
+/* ★★★ Luxuryマークのスタイル追加 ★★★ */
+.luxury-mark {
+    font-size: 1.1em; /* 大きめ */
+    color: #ffd700; /* Gold */
+    text-shadow: 2px 2px 3px #daa520, 0 0 5px rgba(255, 255, 255, 0.7); /* 立体的なゴールド */
+    margin-left: 5px;
+}
+
+/* ★★★ Luxury会員の名前フォント ★★★ */
+.player-name.luxury-name {
+    font-family: Georgia, 'Times New Roman', Times, serif; /* 高級感を出すセリフ体 */
+    font-weight: bold;
+    color: #daa520; /* Art Decoのゴールド */
+    font-size: 1.1em;
+    letter-spacing: 1.5px;
 }
 
 /* --- Info Boxes (index.html) --- */
@@ -669,6 +709,24 @@ textarea {
 
 
 /* Sports Bets Home Tile (index.html) */
+
+/* ★★★ 新規追加: タイルを並べるグリッドレイアウト ★★★ */
+.bet-grid {
+    display: grid;
+    /* デフォルトは1列 */
+    grid-template-columns: 1fr; 
+    gap: 15px; /* タイル間の隙間 */
+    margin-top: 15px;
+}
+
+/* 画面幅が広い場合は2列にする */
+@media (min-width: 600px) {
+    .bet-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+
 .bet-tile {
     background-color: var(--color-light); 
     padding: 15px; /* サイズ調整 */
@@ -709,7 +767,8 @@ textarea {
 
 .my-wager-text {
     color: var(--color-primary);
-    border-left: 4px solid #28a745;
+    /* 宝くじの当選概要と区別するため、色は統一 */
+    border-left: 4px solid #28a745; 
     background-color: #e8f9e8;
     border-radius: 0;
     font-size: 0.9em; /* 調整 */
