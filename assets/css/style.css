@@ -1,17 +1,18 @@
-/* assets/css/style.css - Art Deco Theme */
+/* assets/css/style.css - Christmas / Holiday Theme */
 
 /* --- Colors & Fonts --- */
 :root {
-    --color-primary: #2c3e50;     /* Deep Navy Blue / Dark Grey */
-    --color-accent: #DAA520;      /* Gold */
-    --color-text: #1c1c1c;        /* Near Black */
-    --color-light: #ffffff;       /* White */
-    --color-background: #f0f0f0;  /* Light Background */
-    --font-primary: 'Century Gothic', 'Futura', Arial, sans-serif;
+    --color-primary: #006400;     /* Deep Green (Christmas Tree) */
+    --color-accent: #DC143C;      /* Crimson Red (Santa Suit / Ornaments) */
+    --color-text: #1c1c1c;        /* Near Black (for contrast) */
+    --color-light: #ffffff;       /* White / Snow */
+    --color-background: #f0f0f0;  /* Light Background (White Snow) */
+    --color-gold: #FFD700;        /* Gold Accent */
+    --font-primary: 'Playfair Display', 'Times New Roman', serif; /* Classic / Decorative Font */
 
     /* ★★★ ダークモード変数 ★★★ */
-    --dm-color-primary: #DAA520;      /* Gold for accents (DM) */
-    --dm-color-accent: #6C757D;       /* Muted Grey for second accent (DM) */
+    --dm-color-primary: #DC143C;      /* Crimson Red (DM accent) */
+    --dm-color-accent: #006400;       /* Deep Green (DM second accent) */
     --dm-color-text: #EAEAEA;         /* Light Grey text (DM) */
     --dm-color-light: #1c1c1c;        /* Dark background elements (DM) */
     --dm-color-background: #121212;   /* Deep Dark background (DM) */
@@ -24,24 +25,27 @@ body {
     color: var(--color-text);
     margin: 0;
     padding: 0;
-    padding-bottom: 80px; /* ★ 修正: フッター分のパディング */
+    padding-bottom: 80px;
 }
 
 /* ★★★ ダークモードスタイル ★★★ */
 body.dark-mode {
     background-color: var(--dm-color-background);
     color: var(--dm-color-text);
-    padding-bottom: 80px; /* ★ 修正: フッター分のパディング */
+    padding-bottom: 80px;
 }
 
 body.dark-mode header {
     background-color: var(--dm-color-box);
     color: var(--dm-color-text);
-    box-shadow: 0 5px 15px rgba(255, 255, 255, 0.1);
+    /* 白い雪の影 */
+    box-shadow: 0 5px 15px rgba(255, 255, 255, 0.15); 
 }
 
 body.dark-mode header h1 {
-    border-bottom: 3px double var(--dm-color-primary);
+    /* 赤と緑のボーダー */
+    border-bottom: 3px double var(--dm-color-primary); 
+    color: var(--dm-color-primary); /* 赤で強調 */
 }
 
 body.dark-mode main {
@@ -52,8 +56,8 @@ body.dark-mode main {
 body.dark-mode h2,
 body.dark-mode h3,
 body.dark-mode .icon-title {
-    color: var(--dm-color-primary);
-    border-color: var(--dm-color-accent);
+    color: var(--dm-color-primary); /* 赤 */
+    border-color: var(--dm-color-accent); /* 緑 */
 }
 
 body.dark-mode input[type="text"],
@@ -68,43 +72,43 @@ body.dark-mode textarea {
 
 /* リンクとボタン */
 body.dark-mode .input-link {
-    color: var(--dm-color-text);
-    background-color: var(--dm-color-accent);
-    border: 1px solid var(--dm-color-primary);
+    color: var(--dm-color-light); /* Dark box color */
+    background-color: var(--dm-color-primary); /* Red */
+    border: 1px solid var(--dm-color-accent); /* Green */
 }
 body.dark-mode .input-link:hover {
-    background-color: #5a6268;
+    background-color: #a01030; /* Darker Red */
 }
 
 body.dark-mode #submit-button,
 body.dark-mode button[type="submit"]:not(#auth-form button),
 body.dark-mode .action-button {
-    background-color: var(--dm-color-primary); /* Gold */
+    background-color: var(--dm-color-primary); /* Red */
     color: var(--dm-color-box);
     border: 2px solid var(--dm-color-accent);
 }
 body.dark-mode #submit-button:hover:not(:disabled),
 body.dark-mode button[type="submit"]:not(#auth-form button):hover:not(:disabled),
 body.dark-mode .action-button:hover:not(:disabled) {
-    background-color: #b8860b;
+    background-color: #a01030; /* Darker Red */
     border-color: var(--dm-color-primary);
 }
 body.dark-mode .secondary-button {
-    background-color: var(--dm-color-accent) !important;
-    border-color: var(--dm-color-primary) !important;
+    background-color: var(--dm-color-accent) !important; /* Green */
+    border-color: var(--dm-color-primary) !important; /* Red */
     color: var(--dm-color-text) !important;
 }
 body.dark-mode .secondary-button:hover {
-    background-color: #5a6268 !important;
+    background-color: #004d00 !important; /* Darker Green */
 }
 
 body.dark-mode #auth-form button[type="submit"] {
-    background-color: var(--dm-color-primary);
-    color: var(--dm-color-box);
-    border: 1px solid var(--dm-color-accent);
+    background-color: var(--dm-color-accent); /* Green */
+    color: var(--dm-color-text);
+    border: 1px solid var(--dm-color-primary); /* Red */
 }
 body.dark-mode #auth-form button[type="submit"]:hover {
-    background-color: #b8860b;
+    background-color: #004d00; /* Darker Green */
 }
 
 /* ツールボックスとランキングアイテム */
@@ -116,7 +120,7 @@ body.dark-mode .tool-box {
 body.dark-mode .ranking-item {
     background-color: #2c2c2c;
     box-shadow: 0 4px 0 0 var(--dm-color-primary);
-    border: 1px solid var(--dm-color-primary);
+    border: 1px solid var(--dm-color-accent);
 }
 body.dark-mode .ranking-item:hover {
     transform: translateY(-2px);
@@ -133,45 +137,45 @@ body.dark-mode .pro-mark {
     color: #ffd700; /* Gold */
     text-shadow: none;
 }
-body.dark-mode .premium-mark { /* ★★★ Premiumマークのダークモードスタイル追加 ★★★ */
-    color: #00bfff; /* Deep Sky Blue */
+body.dark-mode .premium-mark {
+    color: #87CEEB; /* Light Sky Blue / Icy Blue */
     text-shadow: none;
 }
 /* ★★★ Luxuryマークのダークモードスタイル追加 ★★★ */
 body.dark-mode .luxury-mark {
-    color: #ffcc00; /* Bright Gold */
+    color: #ffd700; /* Bright Gold */
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 }
 /* ★★★ Luxury会員の名前フォント（ダークモード） ★★★ */
 body.dark-mode .player-name.luxury-name {
-    font-family: Georgia, 'Times New Roman', Times, serif; /* 高級感を出すセリフ体 */
+    font-family: 'Times New Roman', serif;
     font-weight: bold;
-    color: #ffcc00; /* 明るいゴールド */
+    color: #ffd700;
     letter-spacing: 1px;
 }
 
 
 /* 1, 2, 3位のボーダーと背景 */
 body.dark-mode .rank-1 {
-    border: 2px solid var(--dm-color-primary);
-    background-color: #35351a;
+    border: 2px solid var(--dm-color-primary); /* 赤 */
+    background-color: #351a1a; /* Dark Reddish */
 }
 body.dark-mode .rank-1::before {
     background-color: var(--dm-color-primary);
 }
 body.dark-mode .rank-2 {
-    border: 2px solid #5a5a5a;
-    background-color: #303030;
+    border: 2px solid var(--dm-color-accent); /* 緑 */
+    background-color: #1a351a; /* Dark Greenish */
 }
 body.dark-mode .rank-2::before {
-    background-color: #5a5a5a;
+    background-color: var(--dm-color-accent);
 }
 body.dark-mode .rank-3 {
-    border: 2px solid #a0522d;
-    background-color: #252525;
+    border: 2px solid #daa520; /* ゴールド */
+    background-color: #35351a; /* Dark Goldish */
 }
 body.dark-mode .rank-3::before {
-    background-color: #a0522d;
+    background-color: #daa520;
 }
 
 /* info-boxとタイル */
@@ -181,16 +185,15 @@ body.dark-mode .info-box {
 }
 
 body.dark-mode .titles-list li {
-    background-color: #3a3a3a;
-    color: var(--dm-color-text);
-    box-shadow: 4px 4px 0 0 var(--dm-color-primary);
+    background-color: var(--dm-color-primary); /* 赤 */
+    color: var(--dm-color-light);
+    box-shadow: 4px 4px 0 0 var(--dm-color-accent); /* 緑のシャドウ */
     border: 1px solid var(--dm-color-accent);
 }
 body.dark-mode .my-wager-text {
     color: var(--dm-color-text);
-    /* 宝くじの当選概要と区別するため、色は統一 */
-    border-left: 4px solid var(--dm-color-accent); 
-    background-color: #3a473a;
+    border-left: 4px solid var(--dm-color-primary); 
+    background-color: #3a1c1c; /* Dark Reddish Background */
 }
 
 body.dark-mode #refresh-button {
@@ -199,7 +202,7 @@ body.dark-mode #refresh-button {
     border: 2px solid var(--dm-color-primary);
 }
 body.dark-mode #refresh-button:hover {
-    background-color: #5a6268;
+    background-color: #004d00;
 }
 
 body.dark-mode .bet-tile {
@@ -208,8 +211,8 @@ body.dark-mode .bet-tile {
     box-shadow: 4px 4px 0 0 var(--dm-color-accent);
 }
 body.dark-mode .bet-tile.status-closed {
-    border-color: #5a5a0a;
-    background-color: #1e1e10;
+    border-color: var(--dm-color-accent);
+    background-color: #1a1e1a; /* Dark Greenish */
 }
 body.dark-mode .bet-tile h4 {
     color: var(--dm-color-primary);
@@ -218,14 +221,14 @@ body.dark-mode .bet-tile h4 {
 
 /* メッセージボックスの調整 */
 body.dark-mode .message.success {
-    background-color: #285028;
+    background-color: #004d00; /* Darker Green */
     color: var(--dm-color-text);
-    border-color: #3a7a3a;
+    border-color: #006400;
 }
 body.dark-mode .message.error {
     background-color: #502828;
     color: var(--dm-color-text);
-    border-color: #7a3a3a;
+    border-color: #DC143C;
 }
 body.dark-mode .message.info {
     background-color: #283a50;
@@ -245,32 +248,32 @@ body.dark-mode .instruction {
 
 /* ★★★ 新規追加: Proボーナスボタンのダークモード調整 ★★★ */
 body.dark-mode #pro-bonus-button {
-    background-color: #38c172 !important; /* Green */
+    background-color: #FFD700 !important; /* Gold */
     color: var(--dm-color-box) !important;
-    border: 2px solid #5cb85c !important;
+    border: 2px solid var(--dm-color-primary) !important; /* Red */
 }
 body.dark-mode #pro-bonus-button:hover:not(:disabled) {
-    background-color: #2d985a !important;
+    background-color: #b8860b !important;
 }
 
 
 /* --- Global Layout & Containers --- */
 header {
-    background-color: var(--color-primary);
+    background-color: var(--color-primary); /* Deep Green */
     color: var(--color-light);
     padding: 30px 20px 20px;
     text-align: center;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
 }
 
 header h1 {
     margin: 0 0 15px 0;
-    font-size: 1.9em; /* 2.2em -> 1.9em */
+    font-size: 1.9em;
     letter-spacing: 5px;
-    /* 幾何学的なダブルライン装飾 */
+    /* クリスマスカラーのダブルライン装飾 */
     display: inline-block;
     padding-bottom: 10px;
-    border-bottom: 3px double var(--color-accent);
+    border-bottom: 3px double var(--color-accent); /* Red double line */
 }
 
 main {
@@ -278,40 +281,40 @@ main {
     margin: 40px auto;
     padding: 25px;
     background-color: var(--color-light);
-    border-radius: 0;
-    border: 2px solid var(--color-primary); /* 黒に近い濃紺の枠 */
-    box-shadow: none;
+    border-radius: 5px; /* ソフトな角丸 */
+    border: 2px solid var(--color-primary); /* Deep Green frame */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); /* ソフトな影 */
 }
 
 /* --- Links & Buttons --- */
 .input-link {
     display: inline-block;
-    color: var(--color-text);
-    background-color: var(--color-accent);
-    padding: 8px 15px; /* サイズ調整 */
-    border-radius: 0;
+    color: var(--color-light); /* White text */
+    background-color: var(--color-accent); /* Red */
+    padding: 8px 15px;
+    border-radius: 5px; /* ソフトな角丸 */
     text-decoration: none;
     font-weight: bold;
     letter-spacing: 1px;
-    font-size: 0.9em; /* 新規追加/調整 */
-    border: 1px solid var(--color-text);
+    font-size: 0.9em;
+    border: 1px solid var(--color-primary); /* Green border */
     transition: background-color 0.3s;
 }
 .input-link:hover {
-    background-color: #b8860b; /* Darker Gold */
+    background-color: #a01030; /* Darker Red */
 }
 
 /* 送信ボタン/アクションボタン (プライマリ) */
 #submit-button,
 button[type="submit"]:not(#auth-form button):not(#dark-mode-tool button),
 .action-button:not(#dark-mode-toggle-button) {
-    background-color: var(--color-primary);
+    background-color: var(--color-primary); /* Green */
     color: var(--color-light);
-    border: 2px solid var(--color-accent);
-    padding: 10px 18px; /* サイズ調整 */
-    border-radius: 0;
+    border: 2px solid var(--color-accent); /* Red border */
+    padding: 10px 18px;
+    border-radius: 5px; /* ソフトな角丸 */
     cursor: pointer;
-    font-size: 1.0em; /* 1.1em -> 1.0em */
+    font-size: 1.0em;
     width: 100%;
     transition: background-color 0.3s, border-color 0.3s;
     margin-top: 15px;
@@ -320,8 +323,8 @@ button[type="submit"]:not(#auth-form button):not(#dark-mode-tool button),
 #submit-button:hover:not(:disabled),
 button[type="submit"]:not(#auth-form button):not(#dark-mode-tool button):hover:not(:disabled),
 .action-button:not(#dark-mode-toggle-button):hover:not(:disabled) {
-    background-color: #1e3040;
-    border-color: #fff;
+    background-color: #004d00; /* Darker Green */
+    border-color: var(--color-gold); /* Gold highlight */
 }
 #submit-button:disabled,
 button[type="submit"]:disabled,
@@ -332,70 +335,61 @@ button[type="submit"]:disabled,
 }
 
 /* セカンダリボタン (オッズ編集追加ボタンなど) */
-/* ★ mypage.htmlのダークモードトグルボタンにも適用されるように修正 */
 .secondary-button {
-    background-color: #6c757d; /* 灰色 */
+    background-color: var(--color-accent); /* Red */
     color: var(--color-light);
-    border-color: #999;
+    border-color: var(--color-primary); /* Green */
     width: auto !important;
     margin-top: 0;
 }
 .secondary-button:hover {
-    background-color: #5a6268;
-    border-color: #ccc;
-}
-body.dark-mode .secondary-button {
-    background-color: var(--dm-color-accent) !important;
-    border-color: var(--dm-color-primary) !important;
-    color: var(--dm-color-text) !important;
-}
-body.dark-mode .secondary-button:hover {
-    background-color: #5a6268 !important;
+    background-color: #a01030; /* Darker Red */
+    border-color: var(--color-gold);
 }
 
 
 /* 削除/結果確定ボタン (赤) */
 .remove-button, .result-button {
-    background-color: #dc3545 !important;
+    background-color: #8b0000 !important; /* Dark Red */
     border-color: #ff8e98 !important;
 }
 .remove-button:hover, .result-button:hover {
-    background-color: #c82333 !important;
+    background-color: #6e0000 !important;
 }
 
 /* フォーム内の小さな削除ボタン (オッズ行など) */
 .remove-generic-odds-button, .remove-edit-odds-button {
     width: auto !important;
     margin: 0 !important;
-    padding: 4px 8px !important; /* サイズ調整 */
-    font-size: 0.8em !important; /* 0.9em -> 0.8em */
+    padding: 4px 8px !important;
+    font-size: 0.8em !important;
 }
 
 /* 認証ボタンのみスタイルを分ける */
 #auth-form button[type="submit"] {
-    background-color: var(--color-accent);
+    background-color: var(--color-gold); /* Gold */
     color: var(--color-text);
-    border: 1px solid var(--color-text);
-    padding: 8px 12px; /* サイズ調整 */
-    border-radius: 0;
+    border: 1px solid var(--color-primary); /* Green */
+    padding: 8px 12px;
+    border-radius: 5px;
     cursor: pointer;
-    font-size: 0.9em; /* 1em -> 0.9em */
+    font-size: 0.9em;
     font-weight: bold;
     transition: background-color 0.3s;
     width: auto;
     margin-top: 5px;
 }
 #auth-form button[type="submit"]:hover {
-    background-color: #b8860b;
+    background-color: #daa520; /* Darker Gold */
 }
 
 #refresh-button {
-    background-color: var(--color-accent);
-    color: var(--color-text);
-    border: 2px solid var(--color-text);
-    padding: 8px; /* サイズ調整 */
-    border-radius: 0;
-    font-size: 0.9em; /* 1em -> 0.9em */
+    background-color: var(--color-accent); /* Red */
+    color: var(--color-light);
+    border: 2px solid var(--color-primary); /* Green */
+    padding: 8px;
+    border-radius: 5px;
+    font-size: 0.9em;
     font-weight: bold;
     cursor: pointer;
     transition: background-color 0.3s;
@@ -403,32 +397,33 @@ body.dark-mode .secondary-button:hover {
     margin-top: 15px;
 }
 #refresh-button:hover {
-    background-color: #b8860b;
+    background-color: #a01030; /* Darker Red */
 }
 
 
 /* --- Forms & Tools --- */
 h2 {
-    color: var(--color-primary);
-    border-bottom: 2px solid var(--color-accent);
+    color: var(--color-primary); /* Green */
+    border-bottom: 2px solid var(--color-accent); /* Red line */
     padding-bottom: 8px;
     margin-bottom: 20px;
-    font-size: 1.5em; /* 調整 */
+    font-size: 1.5em;
 }
 h3 {
     color: var(--color-primary);
-    border-bottom: 1px dashed var(--color-primary);
+    border-bottom: 1px dashed var(--color-accent); /* Red dashed line */
     padding-bottom: 5px;
     margin-top: 0;
-    font-size: 1.2em; /* 調整 */
+    font-size: 1.2em;
 }
 
 .tool-box {
-    background-color: #fff;
+    background-color: var(--color-light);
     padding: 20px;
-    border-radius: 0;
+    border-radius: 5px;
     margin-bottom: 25px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-primary); /* Green border */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 input[type="text"],
@@ -437,11 +432,11 @@ input[type="number"],
 select,
 textarea {
     width: 100%;
-    padding: 8px; /* サイズ調整 */
-    border: 1px solid var(--color-text);
-    border-radius: 0;
+    padding: 8px;
+    border: 1px solid var(--color-primary); /* Green border */
+    border-radius: 3px;
     box-sizing: border-box;
-    font-size: 0.95em; /* 1em -> 0.95em */
+    font-size: 0.95em;
     background-color: #fcfcfc;
 }
 
@@ -455,112 +450,118 @@ textarea {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px; /* サイズ調整 */
-    margin-bottom: 8px; /* サイズ調整 */
+    padding: 12px;
+    margin-bottom: 8px;
     background-color: var(--color-light);
-    border-radius: 0;
-    box-shadow: 0 4px 0 0 var(--color-primary); /* 立体感を出すためのシャドウ */
+    border-radius: 5px;
+    box-shadow: 0 3px 0 0 var(--color-accent); /* Red shadow */
     border: 1px solid var(--color-primary);
     transition: transform 0.2s, background-color 0.2s;
 }
 .ranking-item:hover {
     transform: translateY(-2px);
-    background-color: #f9f9f9;
+    background-color: #fcfcfc;
+    box-shadow: 0 5px 0 0 var(--color-accent);
 }
 
-/* ランキングの装飾: ::beforeで幾何学的なシェイプを表現 */
+/* ランキングの装飾: ::beforeでリボンを表現 */
 .rank-1, .rank-2, .rank-3 {
-    border-left: none; /* 既存のボーダーを削除 */
+    border-left: none;
     position: relative;
     overflow: hidden;
 }
 
 .rank-1::before, .rank-2::before, .rank-3::before {
-    content: '';
+    content: '★'; /* 星/リボンをイメージ */
     position: absolute;
     top: 0;
     left: 0;
-    bottom: 0;
-    width: 10px;
-    /* 幾何学的なボーダーエフェクト */
+    width: 30px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    color: var(--color-light);
+    z-index: 10;
 }
-
-/* ゴールド (1位) */
 .rank-1 {
-    border: 2px solid var(--color-accent);
-    background-color: #fffbe6;
+    border: 2px solid var(--color-gold);
+    background-color: #fffaf0; /* Light Goldish */
 }
 .rank-1::before {
-    background-color: var(--color-accent);
+    content: '🥇';
+    background-color: var(--color-gold);
 }
 
-/* シルバー (2位) */
 .rank-2 {
     border: 2px solid #a8a8a8;
     background-color: #f8f8f8;
 }
 .rank-2::before {
+    content: '🥈';
     background-color: #a8a8a8;
 }
 
-/* ブロンズ (3位) */
 .rank-3 {
     border: 2px solid #cd7f32;
     background-color: #fcfcfc;
 }
 .rank-3::before {
+    content: '🥉';
     background-color: #cd7f32;
 }
 
 
 .rank-num {
-    font-size: 1.2em; /* 1.4em -> 1.2em */
+    font-size: 1.2em;
     font-weight: bold;
     color: var(--color-primary);
     width: 40px;
     text-align: left;
     letter-spacing: 1px;
+    margin-left: 30px; /* ::beforeのスペースを確保 */
 }
 .player-name {
     flex-grow: 1;
-    font-size: 1.0em; /* 1.1em -> 1.0em */
+    font-size: 1.0em;
     padding: 0 10px;
-    display: flex; /* pro-markをインラインで配置するために追加 */
+    display: flex;
     align-items: center;
 }
 .player-score {
-    font-size: 1.3em; /* 1.6em -> 1.3em */
+    font-size: 1.3em;
     font-weight: bold;
-    color: var(--color-accent);
-    text-shadow: 1px 1px 0 var(--color-text); /* 豪華な強調 */
+    color: var(--color-accent); /* Red score */
+    text-shadow: 1px 1px 0 var(--color-primary); /* Green shadow */
 }
 
 /* ★★★ 新規追加: プロ/プレミアム/ラグジュアリーマークのスタイル ★★★ */
 .pro-mark {
     font-size: 0.9em;
-    color: gold;
+    color: var(--color-gold);
     text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
     margin-left: 5px;
 }
-.premium-mark { /* ★★★ Premiumマークのスタイル追加 ★★★ */
+.premium-mark {
     font-size: 0.9em;
-    color: #00bfff; /* Deep Sky Blue */
+    color: #87CEEB; /* Light Sky Blue / Icy Blue */
     text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
     margin-left: 5px;
 }
 /* ★★★ Luxuryマークのスタイル追加 ★★★ */
 .luxury-mark {
-    font-size: 1.1em; /* 大きめ */
+    font-size: 1.1em;
     color: #ffd700; /* Gold */
-    text-shadow: 2px 2px 3px #daa520, 0 0 5px rgba(255, 255, 255, 0.7); /* 立体的なゴールド */
+    text-shadow: 2px 2px 3px #daa520, 0 0 5px rgba(255, 255, 255, 0.7);
     margin-left: 5px;
 }
 
 /* ★★★ Luxury会員の名前フォント ★★★ */
 .player-name.luxury-name {
-    font-family: Georgia, 'Times New Roman', Times, serif; /* 高級感を出すセリフ体 */
+    font-family: 'Times New Roman', serif;
     font-weight: bold;
-    color: #daa520; /* Art Decoのゴールド */
+    color: var(--color-gold);
     font-size: 1.1em;
     letter-spacing: 1.5px;
 }
@@ -569,18 +570,19 @@ textarea {
 .info-box {
     background-color: #fff;
     padding: 20px;
-    border-radius: 0;
+    border-radius: 5px;
     margin-top: 25px;
     border: 1px solid var(--color-primary);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 .icon-title {
     margin-top: 0;
     color: var(--color-primary);
-    /* 二重線でアールデコ感を強調 */
+    /* 赤のダブルライン装飾 */
     border-bottom: 3px double var(--color-accent);
     padding-bottom: 5px;
     letter-spacing: 1px;
-    font-size: 1.2em; /* 調整 */
+    font-size: 1.2em;
 }
 .titles-list {
     list-style: none;
@@ -590,13 +592,13 @@ textarea {
     gap: 15px;
 }
 .titles-list li {
-    background-color: var(--color-primary);
+    background-color: var(--color-accent); /* Red tile */
     color: var(--color-light);
-    padding: 6px 12px; /* サイズ調整 */
-    border-radius: 0;
-    box-shadow: 4px 4px 0 0 var(--color-accent); /* ゴールドのシャドウ */
-    font-size: 0.8em; /* 0.9em -> 0.8em */
-    border: 1px solid var(--color-accent);
+    padding: 6px 12px;
+    border-radius: 3px;
+    box-shadow: 4px 4px 0 0 var(--color-primary); /* Green shadow */
+    font-size: 0.8em;
+    border: 1px solid var(--color-primary);
 }
 
 /* --- Utility & Messaging --- */
@@ -608,28 +610,28 @@ textarea {
 }
 
 .message {
-    padding: 8px; /* サイズ調整 */
-    border-radius: 0;
-    margin-top: 12px; /* サイズ調整 */
+    padding: 8px;
+    border-radius: 5px;
+    margin-top: 12px;
     font-weight: bold;
     text-align: center;
     border: 1px solid;
     letter-spacing: 1px;
-    font-size: 0.9em; /* 調整 */
+    font-size: 0.9em;
 }
 .message.success {
     background-color: #e6ffe6;
-    color: var(--color-text);
-    border-color: #28a745;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
 }
 .message.error {
     background-color: #fff0f0;
-    color: var(--color-text);
-    border-color: #dc3545;
+    color: var(--color-accent);
+    border-color: var(--color-accent);
 }
 .message.info {
     background-color: #e9f5ff;
-    color: var(--color-text);
+    color: #007bff;
     border-color: #007bff;
 }
 .hidden {
@@ -644,9 +646,9 @@ textarea {
 .instruction {
     color: var(--color-primary);
     font-weight: 500;
-    border-left: 3px solid var(--color-accent);
+    border-left: 3px solid var(--color-accent); /* Red left border */
     padding-left: 10px;
-    font-size: 0.9em; /* 調整 */
+    font-size: 0.9em;
 }
 
 
@@ -654,15 +656,15 @@ textarea {
 
 .generic-odds-row .selection-input,
 .generic-odds-row .odds-input {
-    border-radius: 0;
+    border-radius: 3px;
 }
 
 .bet-card {
     border: 1px solid var(--color-primary);
-    padding: 15px; /* サイズ調整 */
-    margin-bottom: 15px; /* サイズ調整 */
-    border-radius: 0;
-    box-shadow: 4px 4px 0 0 #ccc; /* 幾何学的な影 */
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    box-shadow: 4px 4px 0 0 var(--color-accent); /* Red shadow */
 }
 
 .bet-card h3 {
@@ -676,46 +678,44 @@ textarea {
     letter-spacing: 1px;
 }
 
-.status-open { color: #28a745; } 
-.status-closed { color: #DAA520; } /* 締切はゴールドで */
+.status-open { color: var(--color-primary); } 
+.status-closed { color: var(--color-accent); } /* Red for closed */
 .status-settled { color: #6c757d; } 
 
 .odds-info {
-    margin-bottom: 10px; /* サイズ調整 */
-    padding: 8px; /* サイズ調整 */
+    margin-bottom: 10px;
+    padding: 8px;
     background-color: #f7f7f7;
-    border-radius: 0;
+    border-radius: 3px;
     border: 1px dashed var(--color-accent);
 }
 .score-odds-item {
     background-color: var(--color-primary);
     color: var(--color-light);
-    padding: 2px 8px; /* サイズ調整 */
-    border-radius: 0;
-    font-size: 0.8em; /* 0.9em -> 0.8em */
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.8em;
     margin-right: 8px;
     display: inline-block;
     border: 1px solid var(--color-accent);
 }
 
 .result-tools-score {
-    border: 2px solid #dc3545; /* 強調は赤で維持 */
-    border-radius: 0;
+    border: 2px solid var(--color-accent); /* Red border */
+    border-radius: 5px;
 }
 
 .result-tools-score p {
-    color: #dc3545;
+    color: var(--color-accent);
 }
 
 
 /* Sports Bets Home Tile (index.html) */
 
-/* ★★★ 新規追加: タイルを並べるグリッドレイアウト ★★★ */
 .bet-grid {
     display: grid;
-    /* デフォルトは1列 */
     grid-template-columns: 1fr; 
-    gap: 15px; /* タイル間の隙間 */
+    gap: 15px;
     margin-top: 15px;
 }
 
@@ -729,25 +729,25 @@ textarea {
 
 .bet-tile {
     background-color: var(--color-light); 
-    padding: 15px; /* サイズ調整 */
-    border-radius: 0;
+    padding: 15px;
+    border-radius: 5px;
     border: 2px solid var(--color-primary);
     box-shadow: 4px 4px 0 0 var(--color-accent);
 }
 .bet-tile:hover {
-    transform: none; /* transform削除 */
+    transform: none;
     box-shadow: 6px 6px 0 0 var(--color-accent);
 }
 .bet-tile.status-closed {
-    border-color: #b8860b;
-    background-color: #fffef2;
+    border-color: var(--color-accent);
+    background-color: #fffaf0; /* Light Goldish */
 }
 
 
 .bet-tile h4 {
     color: var(--color-primary);
     border-bottom: 2px dashed var(--color-accent);
-    font-size: 1.1em; /* 調整 */
+    font-size: 1.1em;
 }
 
 .odds-info-display {
@@ -755,10 +755,10 @@ textarea {
 }
 
 .generic-odds-list-display li {
-    font-size: 0.75em; /* 0.85em -> 0.75em */
+    font-size: 0.75em;
     background-color: #f9f9f9;
-    padding: 3px 6px; /* サイズ調整 */
-    border-radius: 0;
+    padding: 3px 6px;
+    border-radius: 3px;
     border: 1px solid #ccc;
 }
 .generic-odds-list-display strong {
@@ -766,22 +766,21 @@ textarea {
 }
 
 .my-wager-text {
-    color: var(--color-primary);
-    /* 宝くじの当選概要と区別するため、色は統一 */
-    border-left: 4px solid #28a745; 
-    background-color: #e8f9e8;
-    border-radius: 0;
-    font-size: 0.9em; /* 調整 */
+    color: var(--color-text);
+    border-left: 4px solid var(--color-accent); 
+    background-color: #fff0f0; /* Light Reddish */
+    border-radius: 3px;
+    font-size: 0.9em;
 }
 
 /* Race Records List */
 #race-records-list {
-    font-size: 0.7em; /* ベースフォントをさらに小さく */
+    font-size: 0.7em;
 }
 #race-records-list li {
-    padding: 4px 0; /* サイズ調整 */
+    padding: 4px 0;
     border-bottom: 1px dotted #ccc;
-    font-size: 1em; /* 親要素の0.7emを継承 */
+    font-size: 1em;
 }
 #race-records-list strong {
     color: var(--color-accent) !important;
@@ -795,51 +794,51 @@ footer {
     left: 0;
     width: 100%;
     background-color: var(--color-primary);
-    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.4);
     padding: 10px 0;
     z-index: 100;
 }
 
 .footer-nav {
     display: flex;
-    justify-content: space-around; /* 均等配置 */
+    justify-content: space-around;
     align-items: center;
-    max-width: 800px; /* mainの幅と合わせる */
+    max-width: 800px;
     margin: 0 auto;
     padding: 0 10px;
 }
 
 /* フッター内のリンクスタイルを調整 */
 footer .input-link {
-    flex-grow: 1; /* ボタンがスペースを均等に埋める */
+    flex-grow: 1;
     text-align: center;
-    margin: 0 5px; /* ボタン間の隙間 */
-    padding: 10px 5px; /* パディング調整 */
+    margin: 0 5px;
+    padding: 10px 5px;
     font-size: 0.9em;
-    border: 1px solid var(--color-accent); /* 枠線をゴールドに */
-    background-color: var(--color-primary); /* 背景をヘッダーと同じに */
-    color: var(--color-light); /* テキストを白に */
+    border: 1px solid var(--color-accent); /* Red border */
+    background-color: var(--color-primary); /* Green background */
+    color: var(--color-light);
     text-decoration: none; 
     font-weight: bold; 
     letter-spacing: 1px; 
     transition: background-color 0.3s; 
-    border-radius: 0; 
+    border-radius: 3px; 
 }
 footer .input-link:hover {
-    background-color: #1e3040; /* ホバー色 */
-    border-color: #fff;
+    background-color: #004d00; /* Darker Green */
+    border-color: var(--color-gold);
 }
 
 body.dark-mode footer {
     background-color: var(--dm-color-box);
-    box-shadow: 0 -5px 15px rgba(255, 255, 255, 0.1);
+    box-shadow: 0 -5px 15px rgba(255, 255, 255, 0.15);
 }
 
 body.dark-mode footer .input-link {
-    background-color: var(--dm-color-accent);
+    background-color: var(--dm-color-accent); /* Green */
     color: var(--dm-color-text);
-    border: 1px solid var(--dm-color-primary);
+    border: 1px solid var(--dm-color-primary); /* Red */
 }
 body.dark-mode footer .input-link:hover {
-    background-color: #5a6268;
+    background-color: #004d00;
 }
