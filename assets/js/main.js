@@ -172,7 +172,8 @@ function renderLotteries(lotteries) {
         
         prizesTable += '</tbody></table>';
 
-        const totalTickets = l.tickets.length;
+        // ★★★ 修正箇所: チケット総枚数の計算 (集約型データに対応) ★★★
+        const totalTickets = l.tickets.reduce((sum, t) => sum + (t.count || 1), 0);
 
         html += `
             <div class="bet-tile status-open">
