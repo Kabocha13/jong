@@ -1071,7 +1071,7 @@ if (WAGER_FORM) {
 
 
 // -----------------------------------------------------------------
-// ★★★ 宝くじ購入・結果確認機能 (Luxury 20%割引対応) ★★★
+// ★★★ 宝くじ購入・結果確認機能 (Luxury 20%割引対応 & データ集約化) ★★★
 // -----------------------------------------------------------------
 
 /**
@@ -1155,6 +1155,7 @@ async function loadLotteryData() {
     
     // 2. 結果発表セクションを生成
     const myPlayerName = authenticatedUser.name;
+    // プレイヤーが購入したチケットが含まれる宝くじのみをフィルタリング
     const myLotteries = allLotteries.filter(l => 
         l.tickets.some(t => t.player === myPlayerName)
     );
@@ -1166,8 +1167,12 @@ async function loadLotteryData() {
         myLotteries.sort((a, b) => new Date(b.resultAnnounceDate) - new Date(a.resultAnnounceDate)); // 新しい順
 
         myLotteries.forEach(l => {
+            // ログイン中のプレイヤーのチケット（集約型）のみをフィルタリング
             const myTickets = l.tickets.filter(t => t.player === myPlayerName);
             const resultAnnounceDate = new Date(l.resultAnnounceDate);
+            
+            // ★★★ 修正: チケットの合計枚数を計算 (集約型データに対応) ★★★
+            const totalTicketsCount = myTickets.reduce((sum, t) => sum + t.count, 0);
             
             let statusHtml = '';
             
@@ -1176,30 +1181,37 @@ async function loadLotteryData() {
                 statusHtml = `<p class="status-label status-closed">結果発表待ち (発表日時: ${resultAnnounceDate.toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' })})</p>`;
             } else {
                 // 結果発表後
-                const unclaimedTickets = myTickets.filter(t => !t.isClaimed);
+                // 未請求のチケット総枚数を計算 (isClaimed: false のチケットの count の合計)
+                const unclaimedTicketsCount = myTickets.filter(t => !t.isClaimed).reduce((sum, t) => sum + t.count, 0);
                 
-                // ★★★ 修正: 結果確認済みの内訳表示ロジック ★★★
+                // ★★★ 修正: 結果確認済みの内訳表示ロジック (集約型データに対応) ★★★
                 const claimedTickets = myTickets.filter(t => t.isClaimed);
                 let winnings = 0;
                 let prizeSummary = '';
                 
                 if (claimedTickets.length > 0) {
                     const winCounts = claimedTickets.reduce((counts, t) => {
-                        if (t.isWinner) {
-                            const rank = t.prizeRank || '不明';
-                            counts[rank] = (counts[rank] || { count: 0, amount: 0 })
-                            counts[rank].count += 1;
-                            counts[rank].amount += t.prizeAmount || 0;
-                            winnings += t.prizeAmount || 0;
+                        // isClaimed=true のチケットは、prizeRankとprizeAmountが最終確定した状態
+                        if (t.prizeRank !== null) { // 当選チケットのみ（ハズレはランクがnull）
+                            const rank = t.prizeRank;
+                            counts[rank] = (counts[rank] || { count: 0, amount: 0 });
+                            counts[rank].count += t.count;
+                            counts[rank].amount += t.prizeAmount * t.count; // 単価*枚数
+                            winnings += t.prizeAmount * t.count;
+                        } else {
+                            // ハズレチケットも集計（合計枚数算出用）
+                             counts['ハズレ'] = (counts['ハズレ'] || { count: 0, amount: 0 });
+                             counts['ハズレ'].count += t.count;
                         }
                         return counts;
                     }, {});
 
+                    // 当選ランクのみを抽出してソート
+                    const ranks = Object.keys(winCounts).filter(r => r !== 'ハズレ').sort((a, b) => parseInt(a) - parseInt(b));
+                    
                     if (winnings > 0) {
-                        // 当選の内訳を文字列化
-                        const ranks = Object.keys(winCounts).sort((a, b) => parseInt(a) - parseInt(b));
                         prizeSummary = ranks.map(rank => {
-                            const rankName = isNaN(parseInt(rank)) ? '不明' : `${rank}等`;
+                            const rankName = `${rank}等`;
                             return `${rankName}: ${winCounts[rank].count}枚`;
                         }).join(', ');
                         
@@ -1210,11 +1222,11 @@ async function loadLotteryData() {
                     }
                 }
                 
-                if (unclaimedTickets.length > 0) {
-                    // まだ結果を見ていない
+                if (unclaimedTicketsCount > 0) {
+                    // 未請求チケットがある
                     statusHtml = `
                         <button class="action-button check-lottery-result" data-lottery-id="${l.lotteryId}" style="width: auto; background-color: #28a745;">
-                            結果を見る (${unclaimedTickets.length}枚 未確認)
+                            結果を見る (${unclaimedTicketsCount}枚 未確認)
                         </button>
                         ${prizeSummary}
                     `;
@@ -1233,7 +1245,7 @@ async function loadLotteryData() {
             html += `
                 <div class="bet-card" style="margin-bottom: 10px;">
                     <h4>${l.name} (#${l.lotteryId})</h4>
-                    <p>購入枚数: ${myTickets.length} 枚</p>
+                    <p>購入枚数: ${totalTicketsCount} 枚</p>
                     ${statusHtml}
                     <p id="lottery-result-message-${l.lotteryId}" class="hidden"></p>
                 </div>
@@ -1318,25 +1330,23 @@ if (LOTTERY_PURCHASE_FORM) {
             
             const targetLottery = allLotteries[targetLotteryIndex];
             
-            // 4. 抽選 (B案: 購入時抽選)
-            const newTickets = [];
-            let totalWinningsForLog = 0; // ログ用
-            let winCount = 0; // ログ用
+            // ★★★ 修正: 抽選と集約化 ★★★
+            
+            // 抽選結果をランクごとに集計 { rank: { count: number, amount: number } }
+            const drawResultsMap = {}; 
+            let totalWinningsForLog = 0; 
+            let winCount = 0; 
 
             for (let i = 0; i < count; i++) {
                 const drawResult = performLotteryDraw(targetLottery.prizes);
+                // null (ハズレ) は 'ハズレ' キーとして集計
+                const rankKey = drawResult.prizeRank === null ? 'ハズレ' : drawResult.prizeRank.toString();
                 
-                const newTicket = {
-                    ticketId: `tkt-${new Date().getTime()}-${i}`,
-                    player: authenticatedUser.name,
-                    purchaseDate: new Date().toISOString(),
-                    isWinner: drawResult.prizeRank !== null,
-                    prizeRank: drawResult.prizeRank,
-                    prizeAmount: drawResult.prizeAmount,
-                    isClaimed: false // 結果確認前
-                };
+                if (!drawResultsMap[rankKey]) {
+                     drawResultsMap[rankKey] = { count: 0, amount: drawResult.prizeAmount };
+                }
                 
-                newTickets.push(newTicket);
+                drawResultsMap[rankKey].count++;
                 
                 if(drawResult.isWinner) {
                     totalWinningsForLog += drawResult.prizeAmount;
@@ -1344,14 +1354,43 @@ if (LOTTERY_PURCHASE_FORM) {
                 }
             }
             
+            const newTickets = [];
+            const purchaseDate = new Date().toISOString();
+            
+            // 集計された結果をチケットとして配列に追加
+            Object.keys(drawResultsMap).forEach(rankKey => {
+                const isWinner = rankKey !== 'ハズレ';
+                const prizeRank = isWinner ? parseInt(rankKey) : null;
+                const prizeAmount = drawResultsMap[rankKey].amount; // 1枚あたりの金額
+                const ticketCount = drawResultsMap[rankKey].count;
+                
+                // ★ チケット集約型構造
+                const newTicket = {
+                    // ★ ticketIdは集約されたチケットのユニークIDとして付与（プレイヤー、ランク、購入日でユニーク）
+                    ticketId: `tkt-${authenticatedUser.name}-${lotteryId}-${rankKey}-${purchaseDate}`,
+                    player: authenticatedUser.name,
+                    purchaseDate: purchaseDate, // 集約されたチケットの購入日は共通
+                    prizeRank: prizeRank,
+                    prizeAmount: prizeAmount, // 1枚あたりの金額 (当選時は当選額、ハズレ時は0)
+                    count: ticketCount, // 購入枚数
+                    isClaimed: false // 結果確認前
+                };
+                
+                newTickets.push(newTicket);
+            });
+            // ★★★ 修正ここまで ★★★
+
+            
             // 5. プレイヤーのスコアを減算 (割引後の最終価格を使用)
             const newScore = parseFloat((targetPlayer.score - finalPrice).toFixed(1));
-            // ★ status/lastBonusTimeを保持
+
+            // ★ status/lastBonusTimeフィールドを保持したままscoreを更新
             currentScoresMap.set(authenticatedUser.name, { 
                 ...targetPlayer, 
                 score: newScore
             });
-            
+
+
             // 6. 宝くじデータにチケットを追加
             targetLottery.tickets.push(...newTickets);
             allLotteries[targetLotteryIndex] = targetLottery;
@@ -1397,7 +1436,7 @@ if (LOTTERY_PURCHASE_FORM) {
 /**
  * 宝くじの抽選を実行する (B案)
  * @param {Array} prizes - 当選設定 (例: [{rank: 1, amount: 100, prob: 0.01}, ...])
- * @returns {object} - { prizeRank: (1-5 or null), prizeAmount: (金額 or 0) }
+ * @returns {object} - { prizeRank: (1-5 or null), prizeAmount: (金額 or 0), isWinner: (boolean) }
  */
 function performLotteryDraw(prizes) {
     const randomValue = Math.random(); // 0.0 ... 0.999...
@@ -1451,24 +1490,34 @@ async function handleCheckLotteryResult(e) {
         
         let totalWinnings = 0;
         let winCount = 0;
-        let ticketCount = 0;
+        let ticketCount = 0; // 未確認チケットの総枚数
         
         // ★★★ 修正: 当選ランクごとの枚数を集計するためのオブジェクト ★★★
         const winRankCounts = {};
         
-        // プレイヤーの未請求チケットを処理
+        // プレイヤーの未請求チケット（集約型）を処理
         lottery.tickets.forEach(ticket => {
             if (ticket.player === player && !ticket.isClaimed) {
-                ticketCount++;
-                if (ticket.isWinner && ticket.prizeAmount > 0) {
-                    totalWinnings += ticket.prizeAmount;
-                    winCount++;
+                
+                // チケットの枚数を加算
+                ticketCount += ticket.count; 
+                
+                // 当選チケットの場合のみ集計と獲得額の計算
+                if (ticket.prizeRank !== null && ticket.prizeAmount > 0) {
+                    const winningsThisTicket = ticket.prizeAmount * ticket.count;
+                    totalWinnings += winningsThisTicket;
+                    winCount += ticket.count; // 当選枚数を加算
                     
                     // 当選ランクごとの枚数を集計
-                    const rank = ticket.prizeRank || '不明';
-                    winRankCounts[rank] = (winRankCounts[rank] || 0) + 1;
+                    const rank = ticket.prizeRank;
+                    winRankCounts[rank] = (winRankCounts[rank] || 0) + ticket.count;
+                } else {
+                    // ハズレチケットも合計枚数に含める
+                    const rank = 'ハズレ';
+                    winRankCounts[rank] = (winRankCounts[rank] || 0) + ticket.count;
                 }
-                // 当選・非当選に関わらず、確認したら請求済みにする
+                
+                // 確認したら請求済みにする (集約型エントリ全体を更新)
                 ticket.isClaimed = true;
             }
         });
@@ -1518,9 +1567,9 @@ async function handleCheckLotteryResult(e) {
 
             if (totalWinnings > 0) {
                 // 当選の内訳を文字列化
-                const ranks = Object.keys(winRankCounts).sort((a, b) => parseInt(a) - parseInt(b));
+                const ranks = Object.keys(winRankCounts).filter(r => r !== 'ハズレ').sort((a, b) => parseInt(a) - parseInt(b));
                 const prizeDetails = ranks.map(rank => {
-                    const rankName = isNaN(parseInt(rank)) ? 'ハズレ' : `${rank}等`;
+                    const rankName = `${rank}等`;
                     return `${rankName}: ${winRankCounts[rank]}枚`;
                 }).join(', ');
 
