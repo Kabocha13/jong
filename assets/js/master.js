@@ -1316,11 +1316,13 @@ if (document.getElementById('adjustment-form')) {
 // ★ 修正: DAILY_TAX_BUTTON が存在しないページもあるため、nullチェック
 if (DAILY_TAX_BUTTON) {
     DAILY_TAX_BUTTON.addEventListener('click', async () => {
-        const TOTAL_TAX_AMOUNT = 100.0;
+        // ★ 修正: TOTAL_TAX_AMOUNT を定数から削除
+        // const TOTAL_TAX_AMOUNT = 100.0; // 削除
+        const TAX_RATE = 0.1; // 徴収率 10%
         const EXCLUDED_PLAYER_NAMES = ['3mahjong']; 
         const messageEl = DAILY_TAX_MESSAGE;
     
-        if (!window.confirm(`全プレイヤーから保有ポイントに比例して合計 ${TOTAL_TAX_AMOUNT} P の徴収を実行します。よろしいですか？`)) {
+        if (!window.confirm(`全プレイヤーの保有ポイント合計の ${TAX_RATE * 100}% を比例配分で徴収を実行します。よろしいですか？`)) {
             return;
         }
     
@@ -1340,12 +1342,14 @@ if (DAILY_TAX_BUTTON) {
             // 徴収対象プレイヤーの合計ポイントを計算 (ポイントがマイナスの場合は0として扱う)
             const totalTargetScore = targetPlayers.reduce((sum, player) => sum + Math.max(0, player.score), 0);
             
-            if (totalTargetScore <= 0) {
-                showMessage(messageEl, '⚠️ 徴収対象プレイヤーの合計ポイントが0以下です。徴収はスキップされました。', 'info');
+            // ★ 新規: 徴収合計額を計算 (保有ポイントの合計の1割)
+            const CALCULATED_TAX_AMOUNT = parseFloat((totalTargetScore * TAX_RATE).toFixed(1)); 
+
+            if (totalTargetScore <= 0 || CALCULATED_TAX_AMOUNT <= 0) {
+                showMessage(messageEl, '⚠️ 徴収対象プレイヤーの合計ポイントが0以下、または徴収合計額が0です。徴収はスキップされました。', 'info');
                 return;
             }
     
-            let totalTaxCollected = 0;
             let pointsToDistribute = {}; // 徴収額を保持するオブジェクト
     
             // 2. 各プレイヤーの徴収額を計算
@@ -1357,10 +1361,9 @@ if (DAILY_TAX_BUTTON) {
                 }
     
                 // 比例配分で徴収額を計算し、小数点第一位に丸める
-                // Math.max(0, player.score) を使用しているため、ここでは単純に player.score を使用して割合を計算
-                const taxAmount = parseFloat((TOTAL_TAX_AMOUNT * (player.score / totalTargetScore)).toFixed(1));
+                // CALCULATED_TAX_AMOUNT を使用して比例配分する
+                const taxAmount = parseFloat((CALCULATED_TAX_AMOUNT * (player.score / totalTargetScore)).toFixed(1));
                 pointsToDistribute[player.name] = taxAmount;
-                totalTaxCollected += taxAmount;
             });
             
             // 3. スコアを更新
@@ -1400,7 +1403,7 @@ if (DAILY_TAX_BUTTON) {
                         return sum + (originalPlayer.score - current.score);
                     }, 0);
     
-                showMessage(messageEl, `✅ 日次ポイント徴収を完了しました。合計徴収ポイント: ${finalTaxCollected.toFixed(1)} P`, 'success');
+                showMessage(messageEl, `✅ 日次ポイント徴収を完了しました。合計徴収ポイント: ${finalTaxCollected.toFixed(1)} P (保有ポイント合計 ${totalTargetScore.toFixed(1)} P の約10%)`, 'success');
                 
                 // UIを更新
                 loadPlayerList(); 
