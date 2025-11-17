@@ -1398,7 +1398,7 @@ if (DAILY_TAX_BUTTON) {
                         return sum + (originalPlayer.score - current.score);
                     }, 0);
     
-                showMessage(messageEl, `✅ 日次ポイント徴収を完了しました。合計徴収ポイント: ${finalTaxCollected.toFixed(1)} P (保有ポイント合計 ${totalTargetScore.toFixed(1)} P の約10%)`, 'success');
+                showMessage(messageEl, `✅ 日次ポイント徴収を完了しました。合計徴収ポイント: ${finalTaxCollected.toFixed(1)} P (保有ポイント合計 ${totalTargetScore.toFixed(1)} P の約5%)`, 'success');
                 
                 // UIを更新
                 loadPlayerList(); 
