@@ -530,10 +530,6 @@ if (TRANSFER_FORM) {
 }
 
 
-// --- 4. 削除: 全員一律ポイント減算機能 ---
-// document.getElementById('global-penalty-button').addEventListener('click', ...); のブロック全体を削除
-
-
 // --- 5. スピードストーム レコード管理機能 (履歴削除) ---
 
 // タイム文字列 (例: "0:46.965" または "46.965") をミリ秒に変換するヘルパー関数
@@ -687,7 +683,6 @@ if (RACE_RECORD_FORM) {
             // ★★★ 修正: lotteries フィールドを保持 ★★★
             const newData = {
                 scores: newScores, // pass/pro/status/lastBonusTimeフィールドを保持したscores
-                // 修正: historyは保存しない
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: records,
                 lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
@@ -1318,7 +1313,7 @@ if (DAILY_TAX_BUTTON) {
     DAILY_TAX_BUTTON.addEventListener('click', async () => {
         // ★ 修正: TOTAL_TAX_AMOUNT を定数から削除
         // const TOTAL_TAX_AMOUNT = 100.0; // 削除
-        const TAX_RATE = 0.1; // 徴収率 10%
+        const TAX_RATE = 0.05; // 徴収率 5%
         const EXCLUDED_PLAYER_NAMES = ['3mahjong']; 
         const messageEl = DAILY_TAX_MESSAGE;
     
@@ -1342,7 +1337,7 @@ if (DAILY_TAX_BUTTON) {
             // 徴収対象プレイヤーの合計ポイントを計算 (ポイントがマイナスの場合は0として扱う)
             const totalTargetScore = targetPlayers.reduce((sum, player) => sum + Math.max(0, player.score), 0);
             
-            // ★ 新規: 徴収合計額を計算 (保有ポイントの合計の1割)
+            // ★ 新規: 徴収合計額を計算 (保有ポイントの合計の0.5割)
             const CALCULATED_TAX_AMOUNT = parseFloat((totalTargetScore * TAX_RATE).toFixed(1)); 
 
             if (totalTargetScore <= 0 || CALCULATED_TAX_AMOUNT <= 0) {
