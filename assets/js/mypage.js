@@ -1080,6 +1080,9 @@ if (WAGER_FORM) {
 function initializeLotteryPurchaseForm() {
     if (!LOTTERY_SELECT || !LOTTERY_TICKET_COUNT || !LOTTERY_TOTAL_PRICE_DISPLAY) return;
 
+    // ★ 追加: 購入枚数の上限（もしHTMLで設定されていれば）を撤廃
+    LOTTERY_TICKET_COUNT.removeAttribute('max');
+
     // ★ Luxury会員の割引率を定義
     const DISCOUNT_RATE = authenticatedUser && authenticatedUser.status === 'luxury' ? 0.8 : 1.0; 
     
