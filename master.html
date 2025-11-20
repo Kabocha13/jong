@@ -22,7 +22,13 @@
     <main id="main-content">
         <section id="auth-section">
             <h2>認証</h2>
+            <p class="instruction">マスターユーザー名とパスワードを入力してログインしてください。</p>
             <form id="auth-form">
+                <div class="form-group">
+                    <!-- ★ 修正: ユーザー名入力フィールドを追加 -->
+                    <label for="username">ユーザー名:</label>
+                    <input type="text" id="username" required>
+                </div>
                 <div class="form-group">
                     <label for="password">パスワード:</label>
                     <input type="password" id="password" required>
