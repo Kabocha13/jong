@@ -1,7 +1,7 @@
 // assets/js/common.js
 
 // ★★★ JSONBin.io の設定情報 (提供された情報を使用) ★★★
-const JSONBIN_API_KEY = "$2a$10$jXqWaOsnNAUVPbvzX4ytFeZoXohqmbWD20InKtsiIQr3.vkgXzj36";
+const JSONBIN_API_KEY = ${{ secrets.JSONBIN_API_KEY }};
 const JSONBIN_BIN_ID = "68de859643b1c97be957f505";
 const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
 
