@@ -1,0 +1,11 @@
+# netlify.toml
+
+[build]
+  # ビルド結果のデプロイ先ディレクトリ
+  publish = "." 
+  
+[functions]
+  # サーバーレス関数を配置するディレクトリ
+  directory = "netlify/functions"
+  # Node.jsのバージョンを指定（推奨）
+  node_bundler = "esbuild"
