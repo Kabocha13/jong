@@ -49,18 +49,36 @@ let ALL_PLAYER_NAMES = []; // 全プレイヤー名を保持
 // -----------------------------------------------------------------
 
 /**
- * マスターパスワードで認証を試みる処理
+ * マスター認証を試みる処理
+ * @param {string} username - 入力されたユーザー名
  * @param {string} password - 入力されたパスワード
  * @param {boolean} isAuto - 自動ログインかどうか
- * @returns {boolean} 認証成功ならtrue
+ * @returns {Promise<boolean>} 認証成功ならtrue
  */
-function attemptMasterLogin(password, isAuto = false) {
+async function attemptMasterLogin(username, password, isAuto = false) { // ★ 修正: username, passwordを受け取る
     if (!isAuto) {
         showMessage(AUTH_MESSAGE, '認証中...', 'info');
     }
     
-    if (password === MASTER_PASSWORD) {
+    // 1. マスターユーザー名と比較
+    if (username !== MASTER_USERNAME) {
+        showMessage(AUTH_MESSAGE, '❌ ユーザー名がマスターユーザー名と異なります。', 'error');
+        localStorage.removeItem('masterUsername');
+        localStorage.removeItem('masterPassword');
+        return false;
+    }
+
+    // 2. JSONBinからユーザーデータを取得し、パスワードを照合
+    const allData = await fetchAllData();
+    const scores = allData.scores;
+    
+    // 認証対象のマスターユーザーを探す
+    const masterUser = scores.find(p => p.name === MASTER_USERNAME);
+
+    // ★ 修正: ユーザーが見つかり、パスワードが一致するかどうかをチェック
+    if (masterUser && masterUser.pass === password) {
         // 1. 認証情報をlocalStorageに保存
+        localStorage.setItem('masterUsername', username); // ★ 修正: ユーザー名を保存
         localStorage.setItem('masterPassword', password);
 
         // 2. UIの切り替え
@@ -75,7 +93,6 @@ function attemptMasterLogin(password, isAuto = false) {
         loadRaceCourses(); 
         initializeSportsMasterTools(); 
         loadMahjongForm(); 
-        // ★★★ 新規追加: 宝くじフォームの初期化
         initializeLotteryForm();
         
         if (!isAuto) {
@@ -87,6 +104,7 @@ function attemptMasterLogin(password, isAuto = false) {
         return true;
     } else {
         // 認証失敗時はLocalStorageの情報をクリア
+        localStorage.removeItem('masterUsername');
         localStorage.removeItem('masterPassword');
         
         if (!isAuto) {
@@ -106,6 +124,7 @@ function handleMasterLogout() {
     }
     
     // 1. localStorageから認証情報を削除
+    localStorage.removeItem('masterUsername'); // ★ 修正: ユーザー名を削除
     localStorage.removeItem('masterPassword');
 
     // 2. 状態をリセットし、UIを切り替える
@@ -122,12 +141,13 @@ function handleMasterLogout() {
 /**
  * ページロード時の自動ログイン処理
  */
-function autoLogin() {
+async function autoLogin() { // ★ 修正: async に変更
+    const username = localStorage.getItem('masterUsername'); // ★ 修正: ユーザー名を取得
     const password = localStorage.getItem('masterPassword');
 
-    if (password) {
-        // 自動ログインを試みる（失敗してもUIは変更しない）
-        attemptMasterLogin(password, true);
+    if (username && password) {
+        // 自動ログインを試みる
+        await attemptMasterLogin(username, password, true); // ★ 修正: ユーザー名とパスワードを渡す
     }
 }
 
@@ -135,11 +155,12 @@ function autoLogin() {
 // --- イベントリスナーの修正と追加 ---
 
 // 既存のフォーム送信イベントを修正
-AUTH_FORM.addEventListener('submit', (e) => {
+AUTH_FORM.addEventListener('submit', async (e) => { // ★ 修正: async に変更
     e.preventDefault();
+    const username = document.getElementById('username').value.trim(); // ★ 修正: ユーザー名を取得
     const password = document.getElementById('password').value;
     
-    attemptMasterLogin(password, false);
+    await attemptMasterLogin(username, password, false); // ★ 修正: ユーザー名とパスワードを渡す
 });
 
 // ★ 新規追加: ログアウトボタンのイベントリスナー
@@ -759,7 +780,6 @@ if (CREATE_BET_FORM) {
                 creator: 'Master', // マスター作成
                 deadline: deadlineDate.toISOString(), // 新規: 締切日時 (ISO文字列)
                 status: 'OPEN',
-                outcome: null,
                 // odds: {} は廃止
                 wagers: [] // 投票はwagers配列に直接格納
             };
