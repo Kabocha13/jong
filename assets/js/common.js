@@ -1,9 +1,12 @@
 // assets/js/common.js
 
-// ★★★ JSONBin.io の設定情報 (提供された情報を使用) ★★★
-const JSONBIN_API_KEY = "$2a$10$jXqWaOsnNAUVPbvzX4ytFeZoXohqmbWD20InKtsiIQr3.vkgXzj36";
-const JSONBIN_BIN_ID = "68de859643b1c97be957f505";
-const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+// ★★★ JSONBin.io の設定情報 (APIキーとBIN IDを削除し、関数エンドポイントに変更) ★★★
+
+// Netlify Functionのエンドポイントを定義
+// クライアント側ではAPIキーなしで、サーバーレス関数を呼び出す
+const FETCH_URL = "/.netlify/functions/fetch-data";
+const UPDATE_URL = "/.netlify/functions/update-data";
+
 
 // -----------------------------------------------------------------
 // データ取得 (GET)
@@ -15,21 +18,20 @@ function delay(ms) {
 }
 
 /**
- * JSONBinから最新の全データを取得する関数
- * @returns {Promise<object>} 全データ (scores, history, sports_bets, speedstorm_records, lotteries)
+ * Netlify Functionを経由して、最新の全データを取得する関数
+ * @returns {Promise<object>} 全データ (scores, sports_bets, speedstorm_records, lotteries)
  */
 async function fetchAllData() {
     const MAX_RETRIES = 3;
     let attempt = 0;
-    let delayMs = 1000; // 1秒から開始
+    let delayMs = 1000;
 
     while (attempt < MAX_RETRIES) {
         try {
-            const response = await fetch(JSONBIN_URL, {
+            // ★ 修正: Netlify Functionを呼び出す
+            const response = await fetch(FETCH_URL, {
                 method: 'GET',
-                headers: {
-                    'X-Master-Key': JSONBIN_API_KEY,
-                }
+                // APIキーはサーバーレス関数側で設定するため、ヘッダーから削除
             });
             
             if (response.status === 429) {
@@ -38,33 +40,13 @@ async function fetchAllData() {
             }
 
             if (!response.ok) {
-                throw new Error(`JSONBinからデータ取得エラー: ${response.status} ${response.statusText}`);
+                // Netlify Functionからのエラーメッセージを受け取る
+                const errorData = await response.json();
+                throw new Error(`データ取得エラー: ${response.status} ${errorData.error || response.statusText}`);
             }
             
-            const data = await response.json();
-            // data.record に実際のJSONデータが入っています
-            const record = data.record;
-            
-            // ★ 修正: historyは今後一切使わないので空配列として扱う
-            record.history = []; 
-            
-            // ★ 修正: speedstorm_records がない場合は初期化
-            if (!record.speedstorm_records) {
-                record.speedstorm_records = [];
-            }
-            
-            // ★★★ 新規追加: lotteries (宝くじ) がない場合は初期化 ★★★
-            if (!record.lotteries) {
-                record.lotteries = [];
-            }
-            
-            // ★★★ 修正: scores内の各プレイヤーに status フィールドがない場合、'none' をデフォルトとして追加する
-            if (record.scores) {
-                record.scores = record.scores.map(player => ({
-                    ...player,
-                    status: player.status || 'none' // 'pro', 'premium', 'none'
-                }));
-            }
+            // 関数側で既にデータ構造の調整が行われているため、そのまま record として扱う
+            const record = await response.json();
             
             return record;
         
@@ -78,14 +60,12 @@ async function fetchAllData() {
             } else {
                 console.error("ポイントデータ取得中にエラー:", error);
                 // 最終的に失敗した場合、空の初期データを返す
-                // ★ 修正: historyを空配列で固定, lotteriesを追加
                 return { scores: [], history: [], sports_bets: [], speedstorm_records: [], lotteries: [] };
             }
         }
     }
      // 最終リトライ後も失敗した場合
      console.error("ポイントデータ取得に失敗しました。最大リトライ回数を超えました。");
-     // ★ 修正: historyを空配列で固定, lotteriesを追加
      return { scores: [], history: [], sports_bets: [], speedstorm_records: [], lotteries: [] };
 }
 
@@ -95,48 +75,37 @@ async function fetchAllData() {
  */
 async function fetchScores() {
     const data = await fetchAllData();
-    // ★ 修正: fetchAllData で status が保証されるため、そのまま返す
+    // fetchAllDataでstatusが保証されるため、そのまま返す
     return data.scores;
 }
 
 
 /**
- * JSONBinに新しい全データを上書き保存する関数 (PUT)
- * @param {object} newData - scores, sports_bets, speedstorm_records, lotteries を含む新しい全データ (historyは含まない)
+ * Netlify Functionを経由して、新しい全データを上書き保存する関数 (PUT)
+ * @param {object} newData - scores, sports_bets, speedstorm_records, lotteries を含む新しい全データ
  * @returns {Promise<object>} APIからの応答
  */
 async function updateAllData(newData) {
-    // ★ historyは保存しないため、念のため削除
+    // historyは保存しないため、念のため削除
     if (newData.history) {
         delete newData.history;
     }
     
-    // ★★★ 新規追加: lotteries が newData に含まれていることを確認 ★★★
-    // (呼び出し側が古いデータ構造を渡した場合の保険)
-    if (!newData.lotteries) {
-        // もしnewDataにlotteriesがなければ、現在のデータを取得してマージする
-        console.warn("updateAllData: newDataに lotteries がありません。最新データを取得してマージします。");
-        try {
-            const currentData = await fetchAllData();
-            newData.lotteries = currentData.lotteries || [];
-        } catch (e) {
-             console.error("updateAllData: lotteries のマージに失敗しました。", e);
-             newData.lotteries = []; // 失敗した場合は空配列で上書き（データ損失の可能性あり）
-        }
-    }
+    // lotteriesの有無チェックとマージのロジックはサーバーレス関数側に移すか、呼び出し元が完全なデータを渡すことを前提とする
+    // ここでは呼び出し元が完全なデータを渡すことを前提とする
 
-    
     const MAX_RETRIES = 3;
     let attempt = 0;
-    let delayMs = 1000; // 1秒から開始
+    let delayMs = 1000;
 
     while (attempt < MAX_RETRIES) {
         try {
-            const response = await fetch(JSONBIN_URL, {
+            // ★ 修正: Netlify Functionを呼び出す
+            const response = await fetch(UPDATE_URL, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Master-Key': JSONBIN_API_KEY,
+                    // APIキーはサーバーレス関数側で設定するため、ヘッダーから削除
                 },
                 body: JSON.stringify(newData)
             });
@@ -146,11 +115,14 @@ async function updateAllData(newData) {
             }
 
             if (!response.ok) {
-                throw new Error(`JSONBinへのデータ書き込みエラー: ${response.status} ${response.statusText}`);
+                 // Netlify Functionからのエラーメッセージを受け取る
+                const errorData = await response.json();
+                throw new Error(`データ書き込みエラー: ${response.status} ${errorData.message || response.statusText}`);
             }
 
+            // 関数からの応答をそのまま返す
             const data = await response.json();
-            return { status: "success", message: "ポイントが正常に更新されました。", totalChange: 0 };
+            return data;
         } catch (error) {
              if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
                 attempt++;
