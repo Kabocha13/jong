@@ -173,4 +173,5 @@ function showMessage(element, message, type) {
 }
 
 // 共通パスワードを定義 (master.jsとmahjong.jsで使用)
-const MASTER_PASSWORD = "Ishimoda13";
+// ★ 修正: ハードコードされたパスワードを削除し、マスターユーザー名に置き換える
+const MASTER_USERNAME = "Kabocha";
