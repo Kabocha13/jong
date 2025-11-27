@@ -6,13 +6,10 @@ const AUTH_MESSAGE = document.getElementById('auth-message');
 const WAGER_FORM = document.getElementById('wager-form');
 const TARGET_BET_SELECT = document.getElementById('target-bet');
 const WAGER_PLAYER_INPUT = document.getElementById('wager-player');
-// 廃止された要素: WAGER_SELECTION_SELECT
 const AUTHENTICATED_USER_NAME = document.getElementById('authenticated-user-name');
 const CURRENT_SCORE_ELEMENT = document.getElementById('current-score');
 const FIXED_PLAYER_NAME = document.getElementById('fixed-player-name');
 const WAGER_HISTORY_LIST = document.getElementById('wager-history-list');
-
-// ★ 新規追加要素
 const WAGER_INPUTS_CONTAINER = document.getElementById('wager-inputs-container');
 const ADD_WAGER_ROW_BUTTON = document.getElementById('add-wager-row-button');
 
@@ -30,12 +27,12 @@ const PRO_BONUS_BUTTON = document.getElementById('pro-bonus-button');
 const PRO_BONUS_MESSAGE = document.getElementById('pro-bonus-message');
 const PRO_BONUS_INSTRUCTION = document.getElementById('pro-bonus-instruction'); 
 
-// ★★★ 新規追加: 送金関連の要素 ★★★
+// ★★★ 送金関連の要素
 const TRANSFER_FORM_MYPAGE = document.getElementById('transfer-form-mypage');
 const RECEIVER_PLAYER_SELECT_MYPAGE = document.getElementById('receiver-player-mypage');
 const AUTHENTICATED_USER_TRANSFER = document.getElementById('authenticated-user-transfer');
 
-// ★★★ 新規追加: 宝くじ関連の要素 ★★★
+// ★★★ 宝くじ関連の要素
 const LOTTERY_PURCHASE_FORM = document.getElementById('lottery-purchase-form');
 const LOTTERY_SELECT = document.getElementById('lottery-select');
 const LOTTERY_TICKET_COUNT = document.getElementById('lottery-ticket-count');
@@ -76,14 +73,11 @@ async function attemptLogin(username, password, isAuto = false) {
     const scores = allData.scores;
 
     // ユーザー名とパスワードで照合
-    // ★ 修正: .pro フィールドではなく .status フィールドをチェックする
     const user = scores.find(p => p.name === username && p.pass === password);
 
     if (user) {
-        // ★ 修正: 認証ユーザー情報を最新のデータで上書き
         authenticatedUser = user; 
         
-        // ★ 修正: statusフィールドが存在しない場合、'none' をデフォルトとして設定
         if (!authenticatedUser.status) {
             authenticatedUser.status = 'none';
         }
@@ -297,7 +291,7 @@ if (DARK_MODE_TOGGLE_BUTTON) {
 
 
 // -----------------------------------------------------------------
-// ★★★ 会員ボーナス機能 (Pro 10P / Premium 15P / Luxury 20P) ★★★
+// ★★★ 会員ボーナス機能 (Luxury 5.0P / 1時間ごと) ★★★
 // -----------------------------------------------------------------
 
 /**
@@ -333,17 +327,25 @@ function updateMemberBonusDisplay() {
     
     let BONUS_AMOUNT;
     let MEMBER_TYPE;
+    let REFRESH_INTERVAL; // 獲得間隔（ミリ秒）
+    let REFRESH_TEXT;     // 獲得間隔（表示用テキスト）
 
-    // ★ 修正: Luxury会員 (20.0P) を追加
+    // ★ 修正: Luxury会員のボーナスを変更 (5.0P / 1時間ごと)
     if (MEMBER_STATUS === 'luxury') {
-        BONUS_AMOUNT = 20.0; // Luxuryは20ポイント
+        BONUS_AMOUNT = 5.0; // Luxuryは5ポイント
         MEMBER_TYPE = 'Luxury';
+        REFRESH_INTERVAL = 3600000; // 1時間 (60 * 60 * 1000)
+        REFRESH_TEXT = '1時間ごと';
     } else if (MEMBER_STATUS === 'premium') {
         BONUS_AMOUNT = 15.0; // Premiumは15ポイント
         MEMBER_TYPE = 'Premium';
+        REFRESH_INTERVAL = 86400000; // 24時間
+        REFRESH_TEXT = '24時間ごと';
     } else if (MEMBER_STATUS === 'pro') {
         BONUS_AMOUNT = 10.0; // Proは10ポイント
         MEMBER_TYPE = 'Pro';
+        REFRESH_INTERVAL = 86400000; // 24時間
+        REFRESH_TEXT = '24時間ごと';
     } else {
         // none またはその他の場合
         if (PRO_BONUS_TOOL) PRO_BONUS_TOOL.classList.add('hidden');
@@ -352,9 +354,8 @@ function updateMemberBonusDisplay() {
 
     const now = Date.now();
     const lastBonusTime = authenticatedUser.lastBonusTime ? new Date(authenticatedUser.lastBonusTime).getTime() : 0;
-    const TWENTY_FOUR_HOURS = 86400000; 
     
-    const isReady = (now - lastBonusTime) >= TWENTY_FOUR_HOURS;
+    const isReady = (now - lastBonusTime) >= REFRESH_INTERVAL;
     
     if (PRO_BONUS_BUTTON) {
         if (isReady) {
@@ -362,16 +363,28 @@ function updateMemberBonusDisplay() {
             PRO_BONUS_BUTTON.textContent = `ボーナス (+${BONUS_AMOUNT.toFixed(1)} P) を受け取る`; 
         } else {
             PRO_BONUS_BUTTON.disabled = true;
-            const timeRemaining = lastBonusTime + TWENTY_FOUR_HOURS - now;
-            const hours = Math.floor(timeRemaining / 3600000);
-            const minutes = Math.ceil((timeRemaining % 3600000) / 60000);
+            const timeRemaining = lastBonusTime + REFRESH_INTERVAL - now;
             
-            PRO_BONUS_BUTTON.textContent = `獲得済み (次の獲得まで: ${hours}時間 ${minutes}分)`;
+            // 獲得間隔に応じて表示を調整
+            let displayTime;
+            if (REFRESH_INTERVAL === 3600000) {
+                 // 1時間ごとの場合、分単位で表示
+                const minutes = Math.ceil(timeRemaining / 60000);
+                displayTime = `${minutes}分`;
+            } else {
+                // 24時間ごとの場合、時間/分単位で表示
+                const hours = Math.floor(timeRemaining / 3600000);
+                const minutes = Math.ceil((timeRemaining % 3600000) / 60000);
+                displayTime = `${hours}時間 ${minutes}分`;
+            }
+            
+            PRO_BONUS_BUTTON.textContent = `獲得済み (次の獲得まで: ${displayTime})`;
         }
     }
     
     if (PRO_BONUS_INSTRUCTION) {
-        PRO_BONUS_INSTRUCTION.innerHTML = `${MEMBER_TYPE}会員特典: 24時間ごとに <strong>${BONUS_AMOUNT.toFixed(1)} P</strong> を獲得できます。`; 
+        // ★ 修正: REFRESH_TEXTを使用して表示を更新
+        PRO_BONUS_INSTRUCTION.innerHTML = `${MEMBER_TYPE}会員特典: ${REFRESH_TEXT}に <strong>${BONUS_AMOUNT.toFixed(1)} P</strong> を獲得できます。`; 
     }
     
     if (PRO_BONUS_MESSAGE) {
@@ -392,14 +405,18 @@ if (PRO_BONUS_BUTTON) {
 
         const MEMBER_STATUS = authenticatedUser.status || 'none';
         let BONUS_AMOUNT;
+        let REFRESH_INTERVAL; // 獲得間隔（ミリ秒）
 
-        // ★ 修正: Luxury会員 (20.0P) を追加
+        // ★ 修正: Luxury会員 (5.0P / 1時間ごと) を適用
         if (MEMBER_STATUS === 'luxury') {
-            BONUS_AMOUNT = 20.0; 
+            BONUS_AMOUNT = 5.0;
+            REFRESH_INTERVAL = 3600000; // 1時間
         } else if (MEMBER_STATUS === 'premium') {
             BONUS_AMOUNT = 15.0; 
+            REFRESH_INTERVAL = 86400000; // 24時間
         } else if (MEMBER_STATUS === 'pro') {
             BONUS_AMOUNT = 10.0;
+            REFRESH_INTERVAL = 86400000; // 24時間
         } else {
             showMessage(PRO_BONUS_MESSAGE, '❌ 会員特典の対象外です。', 'error');
             return;
@@ -409,9 +426,9 @@ if (PRO_BONUS_BUTTON) {
         const messageEl = PRO_BONUS_MESSAGE;
         const now = new Date().toISOString();
         
-        // UIのdisabledチェック (24時間ルール) は updateMemberBonusDisplay() で実行済み
+        // UIのdisabledチェック (時間ルール) は updateMemberBonusDisplay() で実行済み
         if (PRO_BONUS_BUTTON && PRO_BONUS_BUTTON.disabled) {
-            showMessage(messageEl, '⚠️ まだ24時間が経過していません。', 'error');
+            showMessage(messageEl, '⚠️ まだ時間が経過していません。', 'error');
             return;
         }
         
@@ -433,10 +450,10 @@ if (PRO_BONUS_BUTTON) {
             }
     
             // 獲得可能か再チェック（二重獲得防止）
-            const TWENTY_FOUR_HOURS = 86400000; 
             const lastTime = targetPlayer.lastBonusTime ? new Date(targetPlayer.lastBonusTime).getTime() : 0;
-            if ((Date.now() - lastTime) < TWENTY_FOUR_HOURS) {
-                showMessage(messageEl, '❌ まだ24時間が経過していません。', 'error');
+            // ★ 修正: REFRESH_INTERVALを使用
+            if ((Date.now() - lastTime) < REFRESH_INTERVAL) {
+                showMessage(messageEl, '❌ まだ時間が経過していません。', 'error');
                  if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = true;
                  updateMemberBonusDisplay();
                 return;
@@ -470,7 +487,7 @@ if (PRO_BONUS_BUTTON) {
                 authenticatedUser.lastBonusTime = now; // メモリ上の情報も更新
                 CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
                 
-                // ボタンの状態を更新 (24時間後に再度有効になるように)
+                // ボタンの状態を更新 (時間が経過後に再度有効になるように)
                 updateMemberBonusDisplay(); 
                 
             } else {
