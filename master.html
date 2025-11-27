@@ -243,6 +243,90 @@
             if (localStorage.getItem('darkMode') === 'enabled') {
                 document.body.classList.add('dark-mode');
             }
+            
+            // ★ 新規追加: パスワードハッシュ化関数 (mypage.jsと同様)
+            async function hashPassword(password) {
+                if (!crypto.subtle) {
+                    console.warn("Web Crypto API is not available.");
+                    return password; 
+                }
+                const encoder = new TextEncoder();
+                const data = encoder.encode(password);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                return hashHex;
+            }
+
+            // ★ 認証ロジックを上書き (master.jsがないため)
+            const AUTH_FORM = document.getElementById('auth-form');
+            const AUTH_MESSAGE = document.getElementById('auth-message');
+            const ADMIN_TOOLS = document.getElementById('admin-tools');
+            const MASTER_LOGOUT_BUTTON = document.getElementById('master-logout-button');
+            const MASTER_USERNAME = "Kabocha"; // common.jsで定義されていることを前提とする
+
+            AUTH_FORM.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
+                
+                // 認証メッセージを表示
+                if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, '認証中...', 'info');
+
+                if (username !== MASTER_USERNAME) {
+                    if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, '❌ ユーザー名がマスターと一致しません。', 'error');
+                    return;
+                }
+
+                // マスターパスワードのハッシュ化（データ内に保存されているマスターのパスワードハッシュと比較するため）
+                // NOTE: master.js内でマスターパスワードハッシュをハードコードするか、データから取得する必要がありますが、
+                // 今回はデモとして、**データからKabochaユーザーのパスワードハッシュを取得して比較する**ロジックを想定します。
+                
+                try {
+                    // 1. 全プレイヤーデータを取得
+                    const allData = await fetchAllData();
+                    const masterUser = allData.scores.find(p => p.name === MASTER_USERNAME);
+
+                    if (!masterUser || !masterUser.pass) {
+                        if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, '❌ マスターのパスワードデータが見つかりません。', 'error');
+                        return;
+                    }
+                    
+                    // 2. 入力パスワードをハッシュ化
+                    const hashedPassword = await hashPassword(password);
+                    
+                    // 3. 比較
+                    if (hashedPassword === masterUser.pass) {
+                        // 認証成功
+                        sessionStorage.setItem('masterAuth', 'true'); // セッションでマスター認証状態を保持
+                        if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, '✅ 認証成功!', 'success');
+                        AUTH_FORM.closest('section').classList.add('hidden');
+                        ADMIN_TOOLS.classList.remove('hidden');
+                        MASTER_LOGOUT_BUTTON.classList.remove('hidden');
+                    } else {
+                         if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
+                    }
+
+                } catch (error) {
+                    console.error("マスター認証エラー:", error);
+                    if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, `❌ データ取得エラー: ${error.message}`, 'error');
+                }
+            });
+            
+            // ログアウト処理
+            if (MASTER_LOGOUT_BUTTON) {
+                MASTER_LOGOUT_BUTTON.addEventListener('click', () => {
+                    sessionStorage.removeItem('masterAuth');
+                    location.reload(); // ページリロードして認証画面に戻る
+                });
+            }
+            
+            // ページロード時の状態チェック
+            if (sessionStorage.getItem('masterAuth') === 'true') {
+                AUTH_FORM.closest('section').classList.add('hidden');
+                ADMIN_TOOLS.classList.remove('hidden');
+                MASTER_LOGOUT_BUTTON.classList.remove('hidden');
+            }
         });
     </script>
 </body>
