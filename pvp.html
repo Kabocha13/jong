@@ -164,11 +164,14 @@
             <div id="login-screen">
                 <h2>👤 プレイヤーログイン</h2>
                 <div class="login-select-area">
-                    <p>ランキングに登録されている自分の名前を選択してください。</p>
+                    <p>ランキングに登録されている自分の名前を選択し、パスワードを入力してください。</p>
                     <select id="player-select" class="input-field" style="width: 100%; margin-bottom: 10px;">
                         <option value="">-- プレイヤーを選択 --</option>
                         <!-- プレイヤーオプションがここに挿入されます -->
                     </select>
+                    <!-- ★ 新規追加: パスワード入力フィールド -->
+                    <input type="password" id="password-input" class="input-field" placeholder="パスワード" style="width: 100%; margin-bottom: 10px;">
+                    
                     <input type="number" id="bet-points-input" class="input-field" placeholder="賭けポイント (例: 100)" min="10" value="100" style="width: 100%; margin-bottom: 10px;">
                     <button id="login-button" class="action-button">ログイン & ゲーム開始</button>
                     <p id="login-error" class="error hidden" style="margin-top: 10px;"></p>
@@ -260,17 +263,21 @@
             name: null,
             userId: null,
             role: null, // 'creator' or 'joiner'
-            betPoints: 100
+            betPoints: 100,
+            passwordHash: null // 認証用ハッシュ
         };
         let currentGame = null;
         let pollingInterval = null;
         const POLLING_RATE = 5000; // 5秒ごとにポーリング
+        
+        let allPlayerData = []; // 全プレイヤーデータ（パスワードハッシュ含む）を保存
 
         // --- DOM要素 ---
         const $loginScreen = document.getElementById('login-screen');
         const $gameSetupScreen = document.getElementById('game-setup-screen');
         const $gamePlayScreen = document.getElementById('game-play-screen');
         const $playerSelect = document.getElementById('player-select');
+        const $passwordInput = document.getElementById('password-input'); // ★ 新規追加
         const $betPointsInput = document.getElementById('bet-points-input');
         const $loginButton = document.getElementById('login-button');
         const $loginError = document.getElementById('login-error');
@@ -327,21 +334,16 @@
          */
         async function loadPlayerList() {
             try {
-                const scores = await fetchScoresForLogin();
+                // common.jsから全プレイヤーデータ（ハッシュ含む）を取得
+                allPlayerData = await fetchPlayerData(); 
                 
-                // userIdはここでは仮のランダムUUIDを使用（ポイント反映時に実際の認証ロジックが必要）
-                const players = scores.map(p => ({
-                    name: p.name,
-                    // プレイヤー名に一意なIDを付与する（スコアデータのnameをそのままIDとする）
-                    userId: p.name 
-                }));
-
                 $playerSelect.innerHTML = '<option value="">-- プレイヤーを選択 --</option>';
-                players.forEach(player => {
+                allPlayerData.forEach(player => {
                     const option = document.createElement('option');
                     option.value = player.name;
                     option.textContent = player.name;
-                    option.dataset.userId = player.userId;
+                    // userIdはプレイヤー名をそのまま使用する
+                    option.dataset.userId = player.name; 
                     $playerSelect.appendChild(option);
                 });
                 
@@ -350,9 +352,34 @@
             }
         }
         
-        $loginButton.addEventListener('click', () => {
+        /**
+         * パスワードをSHA-256でハッシュ化する関数 (マイページで使用されているものと同一であると想定)
+         * @param {string} password - 入力パスワード
+         * @returns {Promise<string>} - SHA-256ハッシュ (小文字の16進数)
+         */
+        async function hashPassword(password) {
+            // パスワードのハッシュ化（マイページやマスター画面で使われているハッシュ化方法に依存）
+            // ここでは標準のWeb Crypto APIを使用 (環境によってはpolyfillが必要な場合あり)
+            if (!crypto.subtle) {
+                 // Web Crypto APIが利用できない場合のフォールバック（本番では推奨されない）
+                 console.warn("Web Crypto API is not available. Using simple hashing fallback.");
+                 return password; 
+            }
+
+            const encoder = new TextEncoder();
+            const data = encoder.encode(password);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            
+            // ハッシュバッファを16進数文字列に変換
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        }
+
+        $loginButton.addEventListener('click', async () => {
             const selectedOption = $playerSelect.options[$playerSelect.selectedIndex];
             const playerName = selectedOption.value;
+            const inputPassword = $passwordInput.value; // ★ パスワードを取得
             const betPoints = parseInt($betPointsInput.value, 10);
 
             showMessage($loginError, '', 'error');
@@ -362,17 +389,43 @@
                 showMessage($loginError, 'プレイヤーを選択してください。', 'error');
                 return;
             }
+            if (!inputPassword) { // ★ パスワードチェックを追加
+                showMessage($loginError, 'パスワードを入力してください。', 'error');
+                return;
+            }
             if (isNaN(betPoints) || betPoints < 10) {
                  showMessage($loginError, '有効な賭けポイント（10P以上）を入力してください。', 'error');
                 return;
             }
             
+            // プレイヤーデータ検索
+            const player = allPlayerData.find(p => p.name === playerName);
+
+            if (!player) {
+                showMessage($loginError, 'プレイヤーデータが見つかりません。', 'error');
+                return;
+            }
+
+            // ★ パスワード認証ロジック
+            try {
+                const hashedPassword = await hashPassword(inputPassword);
+                
+                if (player.passwordHash !== hashedPassword) {
+                    showMessage($loginError, 'パスワードが正しくありません。', 'error');
+                    return;
+                }
+            } catch (e) {
+                showMessage($loginError, '認証処理中にエラーが発生しました。', 'error');
+                return;
+            }
+
             // ログイン成功: ローカル状態を更新し、ゲーム設定画面へ
             localPlayer.name = playerName;
-            localPlayer.userId = selectedOption.dataset.userId; // 仮のUserId
+            localPlayer.userId = player.name; // userIdは名前を使用
             localPlayer.betPoints = betPoints;
+            localPlayer.passwordHash = player.passwordHash; // 認証済みのハッシュを保存
             
-            console.log(`[LOGIN] Player: ${localPlayer.name}, ID: ${localPlayer.userId}, Bet: ${localPlayer.betPoints} P`);
+            console.log(`[LOGIN SUCCESS] Player: ${localPlayer.name}, ID: ${localPlayer.userId}`);
 
             // 成功メッセージ表示はスキップし、画面遷移
             switchScreen('setup');
@@ -626,7 +679,9 @@
                     $currentTurn.classList.add('my-turn');
                     isMyTurn = true;
                 } else {
-                    turnText = `相手 (${opponentPlayer.name}) のターンです。待機中...`;
+                    // 相手プレイヤー情報がまだない場合を考慮
+                    const opponentName = opponentPlayer ? opponentPlayer.name : '相手';
+                    turnText = `${opponentName} のターンです。待機中...`;
                     $currentTurn.classList.remove('my-turn');
                     $currentTurn.classList.add('opponent-turn');
                 }
@@ -661,7 +716,7 @@
             
             const selectedButtons = [
                 ...currentGame.players.creator.selectedButtons.map(i => ({ index: i, role: 'creator' })),
-                ...currentGame.players.joiner.selectedButtons.map(i => ({ index: i, role: 'joiner' }))
+                ...(currentGame.players.joiner ? currentGame.players.joiner.selectedButtons.map(i => ({ index: i, role: 'joiner' })) : [])
             ];
             
             for (let i = 0; i < totalButtons; i++) {
@@ -890,7 +945,7 @@
                 if (updatedGame) {
                     const myPlayerKey = localPlayer.role;
                     // ゲームステータスまたは相手のターンが変更された場合のみ更新
-                    if (updatedGame.status !== currentGame.status || updatedGame.players[myPlayerKey].isTurn !== currentGame.players[myPlayerKey].isTurn) {
+                    if (updatedGame.status !== currentGame.status || (updatedGame.players[myPlayerKey] && updatedGame.players[myPlayerKey].isTurn !== currentGame.players[myPlayerKey].isTurn)) {
                         currentGame = updatedGame;
                         renderGame();
                     }
