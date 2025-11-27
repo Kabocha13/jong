@@ -164,15 +164,16 @@
             <div id="login-screen">
                 <h2>👤 プレイヤーログイン</h2>
                 <div class="login-select-area">
-                    <p>ランキングに登録されている自分の名前を選択し、パスワードを入力してください。</p>
-                    <select id="player-select" class="input-field" style="width: 100%; margin-bottom: 10px;">
-                        <option value="">-- プレイヤーを選択 --</option>
-                        <!-- プレイヤーオプションがここに挿入されます -->
-                    </select>
-                    <!-- ★ 新規追加: パスワード入力フィールド -->
+                    <p>ランキングに登録されている**ユーザー名**と**パスワード**を入力してください。</p>
+                    
+                    <!-- ★ 修正: ユーザー名をテキスト入力に変更 -->
+                    <input type="text" id="player-name-input" class="input-field" placeholder="ユーザー名" style="width: 100%; margin-bottom: 10px;">
+                    
+                    <!-- パスワード入力フィールド -->
                     <input type="password" id="password-input" class="input-field" placeholder="パスワード" style="width: 100%; margin-bottom: 10px;">
                     
-                    <input type="number" id="bet-points-input" class="input-field" placeholder="賭けポイント (例: 100)" min="10" value="100" style="width: 100%; margin-bottom: 10px;">
+                    <!-- ★ 削除: 賭けポイント入力フィールドを削除 -->
+                    
                     <button id="login-button" class="action-button">ログイン & ゲーム開始</button>
                     <p id="login-error" class="error hidden" style="margin-top: 10px;"></p>
                 </div>
@@ -184,9 +185,13 @@
 
                 <div class="action-section">
                     <h3>ゲームを作成する (ホスト)</h3>
+                    <!-- ★ 修正: 賭けポイント設定をゲーム作成時に移動 -->
+                    <input type="number" id="create-bet-points-input" class="input-field" placeholder="賭けポイント (10P以上)" min="10" value="100" style="width: 100%; margin-bottom: 10px;">
                     <button id="create-game-button" class="action-button">ゲームコードを発行</button>
+                    
                     <div id="created-game-info" class="hidden info-box" style="margin-top: 10px;">
                         <p>ゲームコード: <strong id="display-game-code" style="font-size: 1.2em; color: var(--color-accent);"></strong></p>
+                        <p>賭けポイント: <strong id="display-creator-bet-points"></strong> P</p>
                         <p>相手の参加を待っています... (画面を開いたままお待ちください)</p>
                     </div>
                 </div>
@@ -263,7 +268,7 @@
             name: null,
             userId: null,
             role: null, // 'creator' or 'joiner'
-            betPoints: 100,
+            betPoints: 0, // ログイン時に設定されず、ゲーム作成時に決定される
             passwordHash: null // 認証用ハッシュ
         };
         let currentGame = null;
@@ -276,9 +281,9 @@
         const $loginScreen = document.getElementById('login-screen');
         const $gameSetupScreen = document.getElementById('game-setup-screen');
         const $gamePlayScreen = document.getElementById('game-play-screen');
-        const $playerSelect = document.getElementById('player-select');
-        const $passwordInput = document.getElementById('password-input'); // ★ 新規追加
-        const $betPointsInput = document.getElementById('bet-points-input');
+        const $playerNameInput = document.getElementById('player-name-input'); // ★ ユーザー名入力に変更
+        const $passwordInput = document.getElementById('password-input'); 
+        const $createBetPointsInput = document.getElementById('create-bet-points-input'); // ★ ゲーム作成時の賭けポイント入力
         const $loginButton = document.getElementById('login-button');
         const $loginError = document.getElementById('login-error');
         const $gameMessage = document.getElementById('game-message');
@@ -288,6 +293,7 @@
         const $joinGameButton = document.getElementById('join-game-button');
         const $waitingGamesList = document.getElementById('waiting-games-list');
         const $displayGameCode = document.getElementById('display-game-code');
+        const $displayCreatorBetPoints = document.getElementById('display-creator-bet-points'); // ★ 作成時表示用
         const $createdGameInfo = document.getElementById('created-game-info');
         const $currentTurn = document.getElementById('turn-status');
         const $buttonGrid = document.getElementById('button-grid');
@@ -330,25 +336,14 @@
         // --- ログイン処理 ---
 
         /**
-         * プレイヤーリストをロードして、セレクトボックスに表示
+         * 全プレイヤーデータ（ハッシュ含む）をロード
          */
-        async function loadPlayerList() {
+        async function loadAllPlayerData() {
             try {
                 // common.jsから全プレイヤーデータ（ハッシュ含む）を取得
                 allPlayerData = await fetchPlayerData(); 
-                
-                $playerSelect.innerHTML = '<option value="">-- プレイヤーを選択 --</option>';
-                allPlayerData.forEach(player => {
-                    const option = document.createElement('option');
-                    option.value = player.name;
-                    option.textContent = player.name;
-                    // userIdはプレイヤー名をそのまま使用する
-                    option.dataset.userId = player.name; 
-                    $playerSelect.appendChild(option);
-                });
-                
             } catch (error) {
-                showMessage($systemError, `プレイヤーリストの読み込みに失敗しました: ${error.message}`, 'error');
+                showMessage($systemError, `プレイヤーデータの読み込みに失敗しました: ${error.message}`, 'error');
             }
         }
         
@@ -377,24 +372,18 @@
         }
 
         $loginButton.addEventListener('click', async () => {
-            const selectedOption = $playerSelect.options[$playerSelect.selectedIndex];
-            const playerName = selectedOption.value;
-            const inputPassword = $passwordInput.value; // ★ パスワードを取得
-            const betPoints = parseInt($betPointsInput.value, 10);
+            const playerName = $playerNameInput.value.trim(); // ★ テキスト入力から取得
+            const inputPassword = $passwordInput.value; 
 
             showMessage($loginError, '', 'error');
             $loginError.classList.add('hidden');
 
             if (!playerName) {
-                showMessage($loginError, 'プレイヤーを選択してください。', 'error');
+                showMessage($loginError, 'ユーザー名を入力してください。', 'error');
                 return;
             }
-            if (!inputPassword) { // ★ パスワードチェックを追加
+            if (!inputPassword) { 
                 showMessage($loginError, 'パスワードを入力してください。', 'error');
-                return;
-            }
-            if (isNaN(betPoints) || betPoints < 10) {
-                 showMessage($loginError, '有効な賭けポイント（10P以上）を入力してください。', 'error');
                 return;
             }
             
@@ -402,11 +391,11 @@
             const player = allPlayerData.find(p => p.name === playerName);
 
             if (!player) {
-                showMessage($loginError, 'プレイヤーデータが見つかりません。', 'error');
+                showMessage($loginError, 'ユーザー名が見つからないか、ランキングに登録されていません。', 'error');
                 return;
             }
 
-            // ★ パスワード認証ロジック
+            // ★ パスワード認証ロジックを実行
             try {
                 const hashedPassword = await hashPassword(inputPassword);
                 
@@ -415,6 +404,7 @@
                     return;
                 }
             } catch (e) {
+                // ハッシュ化エラー
                 showMessage($loginError, '認証処理中にエラーが発生しました。', 'error');
                 return;
             }
@@ -422,9 +412,9 @@
             // ログイン成功: ローカル状態を更新し、ゲーム設定画面へ
             localPlayer.name = playerName;
             localPlayer.userId = player.name; // userIdは名前を使用
-            localPlayer.betPoints = betPoints;
-            localPlayer.passwordHash = player.passwordHash; // 認証済みのハッシュを保存
-            
+            localPlayer.passwordHash = player.passwordHash; 
+            localPlayer.betPoints = 0; // ログイン時は0、ゲーム作成時に設定
+
             console.log(`[LOGIN SUCCESS] Player: ${localPlayer.name}, ID: ${localPlayer.userId}`);
 
             // 成功メッセージ表示はスキップし、画面遷移
@@ -436,8 +426,6 @@
         $createGameButton.addEventListener('click', createGame);
         $joinGameButton.addEventListener('click', joinGameFromInput);
         $returnToSetup.addEventListener('click', () => {
-             // 進行中のゲームコードを削除する確認ダイアログ（カスタム）が必要だが、今回は簡易的に戻る
-             // TODO: 進行中のゲームは参加者が見つからない場合、自動でキャンセルするロジックが必要
             currentGame = null;
             localPlayer.role = null;
             switchScreen('setup');
@@ -455,6 +443,13 @@
          * ゲーム作成処理
          */
         async function createGame() {
+            const betPoints = parseInt($createBetPointsInput.value, 10); // ★ ゲーム作成時に入力値を取得
+
+            if (isNaN(betPoints) || betPoints < 10) {
+                 showMessage($gameMessage, '有効な賭けポイント（10P以上）を入力してください。', 'error');
+                return;
+            }
+
             showMessage($gameMessage, 'ゲームを作成中...', 'info');
             $createGameButton.disabled = true;
 
@@ -471,9 +466,11 @@
                     showMessage($gameMessage, `既にゲームコード <strong style="color:var(--color-accent);">${existingCreatorGame.gameCode}</strong> で待機中です。`, 'error');
                     // 既存のゲームコードで待機
                     $displayGameCode.textContent = existingCreatorGame.gameCode;
+                    $displayCreatorBetPoints.textContent = existingCreatorGame.betPoints;
                     $createdGameInfo.classList.remove('hidden');
                     currentGame = existingCreatorGame;
                     localPlayer.role = 'creator';
+                    localPlayer.betPoints = existingCreatorGame.betPoints;
                     // 待機ポーリングを開始
                     startPollingWaitingGames(existingCreatorGame.gameCode);
                     $createGameButton.disabled = false;
@@ -488,7 +485,7 @@
                 const newGame = {
                     gameCode: newGameCode,
                     status: "WAITING", 
-                    betPoints: localPlayer.betPoints,
+                    betPoints: betPoints, // ★ 賭けポイントを設定
                     currentTurn: 1,
                     players: {
                         creator: {
@@ -504,7 +501,7 @@
                     gameSettings: {
                         totalButtons: 10,
                         shockButtonIndex: shockButtonIndex,
-                        maxRounds: 5 // 念のための設定（使わない可能性あり）
+                        maxRounds: 5 
                     },
                     createdAt: new Date().toISOString()
                 };
@@ -516,7 +513,9 @@
                 if (updateResult.status === 'success') {
                     currentGame = newGame;
                     localPlayer.role = 'creator';
+                    localPlayer.betPoints = betPoints; // ローカルの状態も更新
                     $displayGameCode.textContent = newGameCode;
+                    $displayCreatorBetPoints.textContent = betPoints;
                     $createdGameInfo.classList.remove('hidden');
                     showMessage($gameMessage, `ゲームコード <strong style="color:var(--color-accent);">${newGameCode}</strong> を発行しました。相手の参加を待っています。`, 'success');
                     // 待機ポーリングを開始
@@ -569,11 +568,9 @@
                     return;
                 }
                 
-                if (game.betPoints !== localPlayer.betPoints) {
-                    showMessage($gameMessage, `このゲームの賭けポイントは <strong style="color:var(--color-accent);">${game.betPoints} P</strong> です。あなたの設定 ${localPlayer.betPoints} P と異なるため参加できません。`, 'error');
-                    return;
-                }
-
+                // 参加者は作成者の賭けポイント設定を自動で適用
+                localPlayer.betPoints = game.betPoints; 
+                
                 // 参加者情報を設定
                 game.players.joiner = {
                     name: localPlayer.name,
@@ -590,7 +587,7 @@
                 if (updateResult.status === 'success') {
                     currentGame = game;
                     localPlayer.role = 'joiner';
-                    showMessage($gameMessage, `ゲーム <strong style="color:var(--color-accent);">${gameCode}</strong> に参加しました！ゲーム開始！`, 'success');
+                    showMessage($gameMessage, `ゲーム <strong style="color:var(--color-accent);">${gameCode}</strong> に参加しました！ゲーム開始！(賭けポイント: ${game.betPoints} P)`, 'success');
                     switchScreen('play');
                 } else {
                     throw new Error(updateResult.message);
@@ -919,6 +916,7 @@
                         // 参加者が見つかった！
                         currentGame = myGame;
                         localPlayer.role = 'creator';
+                        localPlayer.betPoints = myGame.betPoints;
                         showMessage($gameMessage, `ゲスト <strong style="color:#2196F3;">${myGame.players.joiner.name}</strong> が参加しました！ゲーム開始！`, 'success');
                         switchScreen('play'); // ゲーム画面へ
                         return; // ポーリング停止
@@ -975,7 +973,8 @@
                 document.body.classList.add('dark-mode');
             }
             
-            await loadPlayerList();
+            // プレイヤーデータをロード
+            await loadAllPlayerData();
             
             // 常にログイン画面から開始
             switchScreen('login');
