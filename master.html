@@ -38,7 +38,193 @@
         </section>
 
         <section id="admin-tools" class="hidden">
-            <!-- ... [以降の管理ツールセクションは変更なし] ... -->
+            <h2>管理者ツール</h2>
+            
+            <div class="tool-box">
+                <h3>🀄 麻雀結果入力</h3>
+                <p class="instruction">4人の最終得点を入力(30000点越え3000点で1P, 1位3P, 2位1P, 3位-1P, 4位-2P)</p>
+                
+                <form id="mahjong-form">
+                    <div id="mahjong-player-inputs">
+                        <p>プレイヤーリストをロード中...</p>
+                    </div>
+                    
+                    <button type="submit" id="mahjong-submit-button">結果を反映する</button>
+                    <p id="mahjong-message" class="hidden"></p>
+                </form>
+            </div>
+
+            <div class="tool-box">
+                <h2>🎟️ 宝くじ開催</h2>
+                <p class="instruction">新しい宝くじを開催します。確率は % (0-100) で入力してください。</p>
+                <form id="create-lottery-form">
+                    
+                    <h4>基本情報</h4>
+                    <div class="form-group">
+                        <label for="lottery-name">宝くじ名:</label>
+                        <input type="text" id="lottery-name" required placeholder="例: サマーJongボ 2025">
+                    </div>
+                    <div class="form-group">
+                        <label for="lottery-ticket-price">一口の購入額 (P):</label>
+                        <input type="number" id="lottery-ticket-price" step="0.1" min="0.1" required placeholder="例: 10">
+                    </div>
+                    <div class="form-group">
+                        <label for="lottery-purchase-deadline">購入締切:</label>
+                        <input type="datetime-local" id="lottery-purchase-deadline" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lottery-result-announce">当選発表日:</label>
+                        <input type="datetime-local" id="lottery-result-announce" required>
+                    </div>
+
+                    <h4 style="margin-top: 20px;">当選設定 (1等〜5等)</h4>
+                    <p class="instruction" style="font-size: 0.8em;">※ 確率は合計で100%以下にしてください。「ハズレ」は自動で計算されます。</p>
+                    
+                    <!-- 1等 -->
+                    <div class="form-group prize-input-row" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <label style="flex: 0 0 40px;">1等:</label>
+                        <input type="number" id="lottery-prize-amount-1" placeholder="当選額 (P)" style="flex: 1;">
+                        <input type="number" id="lottery-prize-prob-1" step="0.0000001" min="0" max="100" placeholder="確率 (%)" style="flex: 1;">
+                    </div>
+                    <!-- 2等 -->
+                    <div class="form-group prize-input-row" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <label style="flex: 0 0 40px;">2等:</label>
+                        <input type="number" id="lottery-prize-amount-2" placeholder="当選額 (P)" style="flex: 1;">
+                        <input type="number" id="lottery-prize-prob-2" step="0.0000001" min="0" max="100" placeholder="確率 (%)" style="flex: 1;">
+                    </div>
+                    <!-- 3等 -->
+                    <div class="form-group prize-input-row" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <label style="flex: 0 0 40px;">3等:</label>
+                        <input type="number" id="lottery-prize-amount-3" placeholder="当選額 (P)" style="flex: 1;">
+                        <input type="number" id="lottery-prize-prob-3" step="0.0000001" min="0" max="100" placeholder="確率 (%)" style="flex: 1;">
+                    </div>
+                    <!-- 4等 -->
+                    <div class="form-group prize-input-row" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <label style="flex: 0 0 40px;">4等:</label>
+                        <input type="number" id="lottery-prize-amount-4" placeholder="当選額 (P)" style="flex: 1;">
+                        <input type="number" id="lottery-prize-prob-4" step="0.0000001" min="0" max="100" placeholder="確率 (%)" style="flex: 1;">
+                    </div>
+                    <!-- 5等 -->
+                    <div class="form-group prize-input-row" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <label style="flex: 0 0 40px;">5等:</label>
+                        <input type="number" id="lottery-prize-amount-5" placeholder="当選額 (P)" style="flex: 1;">
+                        <input type="number" id="lottery-prize-prob-5" step="0.0000001" min="0" max="100" placeholder="確率 (%)" style="flex: 1;">
+                    </div>
+
+                    <button type="submit" class="action-button" style="background-color: #38c172;">宝くじを開催</button>
+                    <p id="create-lottery-message" class="hidden"></p>
+                </form>
+            </div>
+
+
+            <div class="tool-box">
+                <h2>⚽ スポーツくじ管理</h2>
+                <div class="tool-box" style="border: none; padding: 0;">
+                    <h3>📝 新規くじ作成・公開</h3>
+                    <p class="instruction">くじの基本情報と締切日時を設定してください。</p>
+                    <form id="create-bet-form">
+                        <div class="form-group">
+                            <label for="match-name">くじ名:</label>
+                            <input type="text" id="match-name" required placeholder="例: 競馬G1結果, 陸上100m優勝者">
+                        </div>
+                        
+                        
+                        <div class="form-group">
+                            <label for="deadline-datetime">締切日時:</label>
+                            <input type="datetime-local" id="deadline-datetime" required>
+                        </div>
+                        
+                        <button type="submit">くじを作成 (OPEN)</button>
+                    </form>
+                    <p id="create-message" class="hidden"></p>
+                </div>
+
+                <div class="tool-box" style="border: none; padding: 0; margin-top: 25px;">
+                    <h3>現在のくじ一覧・管理</h3>
+                    <div id="bet-list-container">
+                        <p>くじデータを読み込み中...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tool-box">
+                <h3>± 特殊ポイント調整</h3>
+                <form id="adjustment-form">
+                    <div class="form-group">
+                        <label for="target-player">対象プレイヤー:</label>
+                        <select id="target-player" required>
+                            <option value="" disabled selected>ロード中...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="adjust-amount">増減ポイント:</label>
+                        <input type="number" id="adjust-amount" step="0.1" placeholder="例: 遅刻で-5, 罰ゲームで+10" required>
+                    </div>
+                    <button type="submit">ポイントを調整</button>
+                </form>
+                <p id="adjustment-message" class="hidden"></p>
+            </div>
+            
+            <div class="tool-box">
+                <h3>💸 ポイント送金 (プレイヤー間)</h3>
+                <p class="instruction">あるプレイヤーから別のプレイヤーへポイントを移動させ、履歴に記録します。</p>
+                <form id="transfer-form">
+                    <div class="form-group">
+                        <label for="sender-player">送金元プレイヤー:</label>
+                        <select id="sender-player" required>
+                            <option value="" disabled selected>ロード中...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="receiver-player">送金先プレイヤー:</label>
+                        <select id="receiver-player" required>
+                            <option value="" disabled selected>ロード中...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="transfer-amount">送金ポイント:</label>
+                        <input type="number" id="transfer-amount" step="0.1" min="0.1" placeholder="例: 5.0" required>
+                    </div>
+                    <button type="submit" class="action-button" style="background-color: #28a745;">送金を実行</button>
+                </form>
+                <p id="transfer-message" class="hidden"></p>
+            </div>
+            
+            <div class="tool-box">
+                <h3>💰 日次ポイント徴収 (合計100P)</h3>
+                <p class="instruction">毎日0時に実行することを想定したポイント徴収です。合計100Pを保有ポイントに比例して徴収します。</p>
+                <p class="instruction" style="color: #dc3545;">※ 徴収対象外: '3mahjong' プレイヤー</p>
+                <button type="button" id="daily-tax-button" class="action-button" style="background-color: #DAA520; color: var(--color-text);">
+                    日次ポイント徴収を実行
+                </button>
+                <p id="daily-tax-message" class="hidden"></p>
+            </div>
+            
+            <div class="tool-box">
+                <h3>🏎️ スピードストーム 記録更新</h3>
+                <p class="instruction">既存コースのベストタイム記録を更新します。新規コースの追加はできません。</p>
+                <form id="race-record-form">
+                    <div class="form-group">
+                        <label for="race-course-select">コース名:</label>
+                        <select id="race-course-select" name="race-course-name" required>
+                            <option value="" disabled selected>既存のコースを選択</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="race-best-time">ベストタイム (分:秒.ミリ秒):</label>
+                        <input type="text" id="race-best-time" required placeholder="例: 0:46.965 または 46.965">
+                    </div>
+                    <div class="form-group">
+                        <label for="race-record-holder">記録保持者:</label>
+                        <select id="race-record-holder" required>
+                            <option value="" disabled selected>ロード中...</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="action-button" style="background-color: #007bff;">記録を更新</button>
+                </form>
+                <p id="race-record-message" class="hidden"></p>
+            </div>
+
         </section>
     </main>
 
@@ -56,74 +242,6 @@
         document.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('darkMode') === 'enabled') {
                 document.body.classList.add('dark-mode');
-            }
-            
-            // ★ 修正: hashPassword関数を削除し、common.jsの関数を使用
-            // ★ 修正: 認証ロジックを common.js の hashPassword に合わせる
-
-            const AUTH_FORM = document.getElementById('auth-form');
-            const AUTH_MESSAGE = document.getElementById('auth-message');
-            const ADMIN_TOOLS = document.getElementById('admin-tools');
-            const MASTER_LOGOUT_BUTTON = document.getElementById('master-logout-button');
-            // MASTER_USERNAME は common.js で定義されている
-
-            AUTH_FORM.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const username = document.getElementById('username').value.trim(); // ★ trim()を適用
-                const password = document.getElementById('password').value; // trim()はハッシュ関数内で実行
-
-                if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, '認証中...', 'info');
-
-                if (username !== MASTER_USERNAME) {
-                    if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, '❌ ユーザー名がマスターと一致しません。', 'error');
-                    return;
-                }
-                
-                try {
-                    // 1. 全プレイヤーデータを取得
-                    const allData = await fetchAllData();
-                    const masterUser = allData.scores.find(p => p.name === MASTER_USERNAME);
-
-                    if (!masterUser || !masterUser.pass) {
-                        if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, '❌ マスターのパスワードデータが見つかりません。', 'error');
-                        return;
-                    }
-                    
-                    // 2. common.jsのhashPasswordを使用して入力パスワードをハッシュ化
-                    // ★ 修正: 入力パスワードにもtrim()を適用
-                    const hashedPassword = await hashPassword(password.trim()); 
-                    
-                    // 3. 比較
-                    if (hashedPassword === masterUser.pass) {
-                        // 認証成功
-                        sessionStorage.setItem('masterAuth', 'true'); // セッションでマスター認証状態を保持
-                        if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, '✅ 認証成功!', 'success');
-                        AUTH_FORM.closest('section').classList.add('hidden');
-                        ADMIN_TOOLS.classList.remove('hidden');
-                        MASTER_LOGOUT_BUTTON.classList.remove('hidden');
-                    } else {
-                         if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
-                    }
-
-                } catch (error) {
-                    console.error("マスター認証エラー:", error);
-                    if (AUTH_MESSAGE) showMessage(AUTH_MESSAGE, `❌ データ取得エラー: ${error.message}`, 'error');
-                }
-            });
-            
-            // ログアウト処理
-            if (MASTER_LOGOUT_BUTTON) {
-                MASTER_LOGOUT_BUTTON.addEventListener('click', () => {
-                    sessionStorage.removeItem('masterAuth');
-                    location.reload(); // ページリロードして認証画面に戻る
-                });
-            }
-            
-            // ページロード時の状態チェック
-            if (sessionStorage.getItem('masterAuth') === 'true') {
-                AUTH_FORM.closest('section').classList.add('hidden');
-                ADMIN_TOOLS.classList.remove('hidden');
-                MASTER_LOGOUT_BUTTON.classList.remove('hidden');
             }
         });
     </script>
