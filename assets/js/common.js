@@ -6,9 +6,6 @@
 // クライアント側ではAPIキーなしで、サーバーレス関数を呼び出す
 const FETCH_URL = "/.netlify/functions/fetch-data";
 const UPDATE_URL = "/.netlify/functions/update-data";
-// ★ 新規追加: PvPゲームデータ用のエンドポイント
-const PVP_FETCH_URL = "/.netlify/functions/pvp-data?method=GET";
-const PVP_UPDATE_URL = "/.netlify/functions/pvp-data?method=PUT";
 
 
 // -----------------------------------------------------------------
@@ -21,7 +18,7 @@ function delay(ms) {
 }
 
 /**
- * Netlify Functionを経由して、最新の全データ（スコア、くじなど）を取得する関数
+ * Netlify Functionを経由して、最新の全データを取得する関数
  * @returns {Promise<object>} 全データ (scores, sports_bets, speedstorm_records, lotteries)
  */
 async function fetchAllData() {
@@ -73,44 +70,18 @@ async function fetchAllData() {
 }
 
 /**
- * ランキングデータとパスワードハッシュを含む全プレイヤー情報を取得する関数
- * @returns {Promise<Array>} スコアデータ (例: [{name: "友人A", score: 10.0, pass: "..."}])
+ * ランキング描画用にスコアのみを取得する関数
+ * @returns {Promise<Array>} スコアデータ (例: [{name: "友人A", score: 10.0}])
  */
-async function fetchPlayerData() {
+async function fetchScores() {
     const data = await fetchAllData();
-    // scores配列には既にpassフィールド(ハッシュ)が含まれていることを想定
+    // fetchAllDataでstatusが保証されるため、そのまま返す
     return data.scores;
 }
 
-// -----------------------------------------------------------------
-// ★★★ 共通パスワード処理関数 (PvP/mypage/masterから移動) ★★★
-// -----------------------------------------------------------------
 
 /**
- * パスワードをSHA-256でハッシュ化する関数
- * @param {string} password - 入力パスワード (プレーンテキスト)
- * @returns {Promise<string>} - SHA-256ハッシュ (小文字の16進数)
- */
-async function hashPassword(password) {
-    if (!crypto.subtle) {
-         console.error("Web Crypto API is not available.");
-         throw new Error("Hashing functionality not available.");
-    }
-
-    const encoder = new TextEncoder();
-    // ★ 修正: ここで trim() は行わない (呼び出し元で行う)
-    const data = encoder.encode(password); 
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    
-    // ハッシュバッファを16進数文字列に変換
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    return hashHex;
-}
-
-
-/**
- * Netlify Functionを経由して、新しい全データ（スコア、くじなど）を上書き保存する関数 (PUT)
+ * Netlify Functionを経由して、新しい全データを上書き保存する関数 (PUT)
  * @param {object} newData - scores, sports_bets, speedstorm_records, lotteries を含む新しい全データ
  * @returns {Promise<object>} APIからの応答
  */
@@ -166,102 +137,6 @@ async function updateAllData(newData) {
     }
     console.error("ポイントデータ書き込みに失敗しました。最大リトライ回数を超えました。");
     return { status: "error", message: `データ書き込み失敗: 最大リトライ回数を超えました`, totalChange: 0 };
-}
-
-// -----------------------------------------------------------------
-// ★★★ PvPデータ取得・更新 (GET / PUT) ★★★
-// -----------------------------------------------------------------
-
-/**
- * Netlify Functionを経由して、最新のPvP全データを取得する関数
- * @returns {Promise<object>} PvP全データ (pvp_games)
- */
-async function fetchPvpData() {
-    const MAX_RETRIES = 3;
-    let attempt = 0;
-    let delayMs = 1000;
-
-    while (attempt < MAX_RETRIES) {
-        try {
-            const response = await fetch(PVP_FETCH_URL, {
-                method: 'GET',
-            });
-            
-            if (response.status === 429) {
-                throw new Error('429 Too Many Requests (PVP GET)');
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`PvPデータ取得エラー: ${response.status} ${errorData.error || response.statusText}`);
-            }
-            
-            const record = await response.json();
-            // pvp_games配列を保証
-            record.pvp_games = record.pvp_games || [];
-            return record;
-        
-        } catch (error) {
-            if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
-                attempt++;
-                console.warn(`PvPデータ取得リトライ (${attempt}/${MAX_RETRIES})。待機: ${delayMs}ms`);
-                await delay(delayMs);
-                delayMs *= 2;
-            } else {
-                console.error("PvPデータ取得中にエラー:", error);
-                return { pvp_games: [] };
-            }
-        }
-    }
-     console.error("PvPデータ取得に失敗しました。最大リトライ回数を超えました。");
-     return { pvp_games: [] };
-}
-
-/**
- * Netlify Functionを経由して、新しいPvP全データを上書き保存する関数 (PUT)
- * @param {object} newData - pvp_games を含む新しい全データ
- * @returns {Promise<object>} APIからの応答
- */
-async function updatePvpData(newData) {
-    const MAX_RETRIES = 3;
-    let attempt = 0;
-    let delayMs = 1000;
-
-    while (attempt < MAX_RETRIES) {
-        try {
-            const response = await fetch(PVP_UPDATE_URL, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(newData)
-            });
-            
-            if (response.status === 429) {
-                throw new Error('429 Too Many Requests (PVP PUT)');
-            }
-
-            if (!response.ok) {
-                 const errorData = await response.json();
-                throw new Error(`PvPデータ書き込みエラー: ${response.status} ${errorData.message || response.statusText}`);
-            }
-
-            const data = await response.json();
-            return data;
-        } catch (error) {
-             if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
-                attempt++;
-                console.warn(`PvPデータ書き込みリトライ (${attempt}/${MAX_RETRIES})。待機: ${delayMs}ms`);
-                await delay(delayMs);
-                delayMs *= 2;
-            } else {
-                console.error("PvPデータ書き込み中にエラー:", error);
-                return { status: "error", message: `PvPデータ書き込み失敗: ${error.message}` };
-            }
-        }
-    }
-    console.error("PvPデータ書き込みに失敗しました。最大リトライ回数を超えました。");
-    return { status: "error", message: `PvPデータ書き込み失敗: 最大リトライ回数を超えました` };
 }
 
 
