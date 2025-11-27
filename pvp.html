@@ -166,13 +166,11 @@
                 <div class="login-select-area">
                     <p>ランキングに登録されている**ユーザー名**と**パスワード**を入力してください。</p>
                     
-                    <!-- ★ 修正: ユーザー名をテキスト入力に変更 -->
+                    <!-- ユーザー名入力 -->
                     <input type="text" id="player-name-input" class="input-field" placeholder="ユーザー名" style="width: 100%; margin-bottom: 10px;">
                     
                     <!-- パスワード入力フィールド -->
                     <input type="password" id="password-input" class="input-field" placeholder="パスワード" style="width: 100%; margin-bottom: 10px;">
-                    
-                    <!-- ★ 削除: 賭けポイント入力フィールドを削除 -->
                     
                     <button id="login-button" class="action-button">ログイン & ゲーム開始</button>
                     <p id="login-error" class="error hidden" style="margin-top: 10px;"></p>
@@ -185,7 +183,7 @@
 
                 <div class="action-section">
                     <h3>ゲームを作成する (ホスト)</h3>
-                    <!-- ★ 修正: 賭けポイント設定をゲーム作成時に移動 -->
+                    <!-- 賭けポイント設定をゲーム作成時に移動 -->
                     <input type="number" id="create-bet-points-input" class="input-field" placeholder="賭けポイント (10P以上)" min="10" value="100" style="width: 100%; margin-bottom: 10px;">
                     <button id="create-game-button" class="action-button">ゲームコードを発行</button>
                     
@@ -277,13 +275,15 @@
         
         let allPlayerData = []; // 全プレイヤーデータ（パスワードハッシュ含む）を保存
 
+        // ★ 修正: hashPassword関数はcommon.jsから利用するため削除
+
         // --- DOM要素 ---
         const $loginScreen = document.getElementById('login-screen');
         const $gameSetupScreen = document.getElementById('game-setup-screen');
         const $gamePlayScreen = document.getElementById('game-play-screen');
-        const $playerNameInput = document.getElementById('player-name-input'); // ★ ユーザー名入力に変更
+        const $playerNameInput = document.getElementById('player-name-input');
         const $passwordInput = document.getElementById('password-input'); 
-        const $createBetPointsInput = document.getElementById('create-bet-points-input'); // ★ ゲーム作成時の賭けポイント入力
+        const $createBetPointsInput = document.getElementById('create-bet-points-input');
         const $loginButton = document.getElementById('login-button');
         const $loginError = document.getElementById('login-error');
         const $gameMessage = document.getElementById('game-message');
@@ -293,7 +293,7 @@
         const $joinGameButton = document.getElementById('join-game-button');
         const $waitingGamesList = document.getElementById('waiting-games-list');
         const $displayGameCode = document.getElementById('display-game-code');
-        const $displayCreatorBetPoints = document.getElementById('display-creator-bet-points'); // ★ 作成時表示用
+        const $displayCreatorBetPoints = document.getElementById('display-creator-bet-points');
         const $createdGameInfo = document.getElementById('created-game-info');
         const $currentTurn = document.getElementById('turn-status');
         const $buttonGrid = document.getElementById('button-grid');
@@ -340,39 +340,17 @@
          */
         async function loadAllPlayerData() {
             try {
-                // common.jsから全プレイヤーデータ（ハッシュ含む）を取得
+                // common.jsのfetchPlayerDataを使用
                 allPlayerData = await fetchPlayerData(); 
             } catch (error) {
                 showMessage($systemError, `プレイヤーデータの読み込みに失敗しました: ${error.message}`, 'error');
             }
         }
         
-        /**
-         * パスワードをSHA-256でハッシュ化する関数 (マイページで使用されているものと同一であると想定)
-         * @param {string} password - 入力パスワード
-         * @returns {Promise<string>} - SHA-256ハッシュ (小文字の16進数)
-         */
-        async function hashPassword(password) {
-            // パスワードのハッシュ化（マイページやマスター画面で使われているハッシュ化方法に依存）
-            // ここでは標準のWeb Crypto APIを使用 (環境によってはpolyfillが必要な場合あり)
-            if (!crypto.subtle) {
-                 // Web Crypto APIが利用できない場合のフォールバック（本番では推奨されない）
-                 console.warn("Web Crypto API is not available. Using simple hashing fallback.");
-                 return password; 
-            }
-
-            const encoder = new TextEncoder();
-            const data = encoder.encode(password);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            
-            // ハッシュバッファを16進数文字列に変換
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            return hashHex;
-        }
-
+        // ★ 修正: hashPasswordはcommon.jsから利用
+        
         $loginButton.addEventListener('click', async () => {
-            const playerName = $playerNameInput.value.trim(); // ★ テキスト入力から取得
+            const playerName = $playerNameInput.value.trim(); // ★ trim()を適用
             const inputPassword = $passwordInput.value; 
 
             showMessage($loginError, '', 'error');
@@ -397,9 +375,11 @@
 
             // ★ パスワード認証ロジックを実行
             try {
-                const hashedPassword = await hashPassword(inputPassword);
+                // common.jsのhashPasswordを使用し、パスワードの空白もtrim()
+                const hashedPassword = await hashPassword(inputPassword.trim());
                 
-                if (player.passwordHash !== hashedPassword) {
+                // データ内の 'pass' フィールドと一致するか検証
+                if (player.pass !== hashedPassword) { 
                     showMessage($loginError, 'パスワードが正しくありません。', 'error');
                     return;
                 }
@@ -411,8 +391,8 @@
 
             // ログイン成功: ローカル状態を更新し、ゲーム設定画面へ
             localPlayer.name = playerName;
-            localPlayer.userId = player.name; // userIdは名前を使用
-            localPlayer.passwordHash = player.passwordHash; 
+            localPlayer.userId = player.name; 
+            localPlayer.passwordHash = player.pass; // 認証済みのハッシュを保存
             localPlayer.betPoints = 0; // ログイン時は0、ゲーム作成時に設定
 
             console.log(`[LOGIN SUCCESS] Player: ${localPlayer.name}, ID: ${localPlayer.userId}`);
@@ -422,550 +402,8 @@
         });
 
         // --- ゲーム作成/参加処理 ---
+        // ... [以降の関数は変更なし] ...
         
-        $createGameButton.addEventListener('click', createGame);
-        $joinGameButton.addEventListener('click', joinGameFromInput);
-        $returnToSetup.addEventListener('click', () => {
-            currentGame = null;
-            localPlayer.role = null;
-            switchScreen('setup');
-            showMessage($gameMessage, 'ゲーム選択画面に戻りました。', 'info');
-        });
-
-        /**
-         * 6桁のランダムな英数字コードを生成
-         */
-        function generateGameCode() {
-            return Math.random().toString(36).substring(2, 8).toUpperCase();
-        }
-
-        /**
-         * ゲーム作成処理
-         */
-        async function createGame() {
-            const betPoints = parseInt($createBetPointsInput.value, 10); // ★ ゲーム作成時に入力値を取得
-
-            if (isNaN(betPoints) || betPoints < 10) {
-                 showMessage($gameMessage, '有効な賭けポイント（10P以上）を入力してください。', 'error');
-                return;
-            }
-
-            showMessage($gameMessage, 'ゲームを作成中...', 'info');
-            $createGameButton.disabled = true;
-
-            try {
-                const allPvpData = await fetchPvpData();
-                const pvpGames = allPvpData.pvp_games;
-                
-                // 既存のゲームに自分がクリエイターとして待機していないか確認
-                const existingCreatorGame = pvpGames.find(g => 
-                    g.status === 'WAITING' && g.players.creator.name === localPlayer.name
-                );
-
-                if (existingCreatorGame) {
-                    showMessage($gameMessage, `既にゲームコード <strong style="color:var(--color-accent);">${existingCreatorGame.gameCode}</strong> で待機中です。`, 'error');
-                    // 既存のゲームコードで待機
-                    $displayGameCode.textContent = existingCreatorGame.gameCode;
-                    $displayCreatorBetPoints.textContent = existingCreatorGame.betPoints;
-                    $createdGameInfo.classList.remove('hidden');
-                    currentGame = existingCreatorGame;
-                    localPlayer.role = 'creator';
-                    localPlayer.betPoints = existingCreatorGame.betPoints;
-                    // 待機ポーリングを開始
-                    startPollingWaitingGames(existingCreatorGame.gameCode);
-                    $createGameButton.disabled = false;
-                    return;
-                }
-
-                const newGameCode = generateGameCode();
-                
-                // 10個のボタンからランダムに1つを感電ボタンに設定
-                const shockButtonIndex = Math.floor(Math.random() * 10); 
-
-                const newGame = {
-                    gameCode: newGameCode,
-                    status: "WAITING", 
-                    betPoints: betPoints, // ★ 賭けポイントを設定
-                    currentTurn: 1,
-                    players: {
-                        creator: {
-                            name: localPlayer.name,
-                            userId: localPlayer.userId,
-                            isTurn: true, // 作成者が先攻
-                            selectedButtons: [],
-                            isShocked: false,
-                            pointsChange: 0
-                        },
-                        joiner: null // 参加者待ち
-                    },
-                    gameSettings: {
-                        totalButtons: 10,
-                        shockButtonIndex: shockButtonIndex,
-                        maxRounds: 5 
-                    },
-                    createdAt: new Date().toISOString()
-                };
-
-                pvpGames.push(newGame);
-
-                const updateResult = await updatePvpData(allPvpData);
-
-                if (updateResult.status === 'success') {
-                    currentGame = newGame;
-                    localPlayer.role = 'creator';
-                    localPlayer.betPoints = betPoints; // ローカルの状態も更新
-                    $displayGameCode.textContent = newGameCode;
-                    $displayCreatorBetPoints.textContent = betPoints;
-                    $createdGameInfo.classList.remove('hidden');
-                    showMessage($gameMessage, `ゲームコード <strong style="color:var(--color-accent);">${newGameCode}</strong> を発行しました。相手の参加を待っています。`, 'success');
-                    // 待機ポーリングを開始
-                    startPollingWaitingGames(newGameCode);
-                } else {
-                    throw new Error(updateResult.message);
-                }
-
-            } catch (error) {
-                showMessage($gameMessage, `ゲーム作成に失敗しました: ${error.message}`, 'error');
-            } finally {
-                $createGameButton.disabled = false;
-            }
-        }
-        
-        /**
-         * ゲームコード入力による参加処理
-         */
-        async function joinGameFromInput() {
-            const code = $joinCodeInput.value.toUpperCase().trim();
-            if (code.length !== 6) {
-                showMessage($gameMessage, 'ゲームコードは6桁で入力してください。', 'error');
-                return;
-            }
-            await joinGame(code);
-        }
-
-        /**
-         * ゲーム参加処理
-         * @param {string} gameCode - 参加するゲームコード
-         */
-        async function joinGame(gameCode) {
-            showMessage($gameMessage, `ゲーム <strong style="color:var(--color-accent);">${gameCode}</strong> に参加を試みています...`, 'info');
-            $joinGameButton.disabled = true;
-
-            try {
-                const allPvpData = await fetchPvpData();
-                const pvpGames = allPvpData.pvp_games;
-
-                const gameIndex = pvpGames.findIndex(g => g.gameCode === gameCode);
-                const game = pvpGames[gameIndex];
-
-                if (gameIndex === -1 || game.status !== 'WAITING') {
-                    showMessage($gameMessage, `コード <strong style="color:var(--color-accent);">${gameCode}</strong> のゲームは見つからないか、既に開始または終了しています。`, 'error');
-                    return;
-                }
-                
-                if (game.players.creator.name === localPlayer.name) {
-                    showMessage($gameMessage, '作成したゲームには参加できません。', 'error');
-                    return;
-                }
-                
-                // 参加者は作成者の賭けポイント設定を自動で適用
-                localPlayer.betPoints = game.betPoints; 
-                
-                // 参加者情報を設定
-                game.players.joiner = {
-                    name: localPlayer.name,
-                    userId: localPlayer.userId,
-                    isTurn: false,
-                    selectedButtons: [],
-                    isShocked: false,
-                    pointsChange: 0
-                };
-                game.status = 'PLAYING'; // ゲーム開始
-
-                const updateResult = await updatePvpData(allPvpData);
-
-                if (updateResult.status === 'success') {
-                    currentGame = game;
-                    localPlayer.role = 'joiner';
-                    showMessage($gameMessage, `ゲーム <strong style="color:var(--color-accent);">${gameCode}</strong> に参加しました！ゲーム開始！(賭けポイント: ${game.betPoints} P)`, 'success');
-                    switchScreen('play');
-                } else {
-                    throw new Error(updateResult.message);
-                }
-
-            } catch (error) {
-                showMessage($gameMessage, `ゲーム参加に失敗しました: ${error.message}`, 'error');
-            } finally {
-                $joinGameButton.disabled = false;
-            }
-        }
-        
-        // --- 待機中のゲームリスト描画 ---
-        
-        /**
-         * 待機中のゲームリストを描画
-         */
-        function renderWaitingGamesList(pvpGames) {
-            if (localPlayer.role === 'creator' && currentGame && currentGame.status === 'WAITING') {
-                // 作成者は自分のゲームの待機情報が表示されているため、リストは表示しない
-                $waitingGamesList.innerHTML = '';
-                return;
-            }
-            
-            // 待機中のゲームのみをフィルタリング
-            const waitingGames = pvpGames.filter(g => 
-                g.status === 'WAITING' && g.players.creator.name !== localPlayer.name
-            );
-
-            if (waitingGames.length === 0) {
-                $waitingGamesList.innerHTML = '<p class="info-text">現在、参加可能な待機中のゲームはありません。</p>';
-                return;
-            }
-
-            let html = '<ul style="list-style-type: none; padding: 0;">';
-            waitingGames.forEach(game => {
-                html += `
-                    <li style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px dashed var(--color-border);">
-                        <span>
-                            <strong style="color:#4CAF50;">${game.players.creator.name}</strong> 
-                            (コード: <strong style="color:var(--color-accent);">${game.gameCode}</strong>, 賭け: ${game.betPoints} P)
-                        </span>
-                        <button class="action-button small join-list-button" data-code="${game.gameCode}">参加</button>
-                    </li>
-                `;
-            });
-            html += '</ul>';
-            $waitingGamesList.innerHTML = html;
-
-            // 参加ボタンにイベントリスナーを設定
-            document.querySelectorAll('.join-list-button').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const code = e.target.dataset.code;
-                    joinGame(code);
-                });
-            });
-        }
-
-
-        // --- ゲームプレイ画面の描画とロジック ---
-
-        /**
-         * ゲームプレイ画面の初期化と描画
-         */
-        function renderGame() {
-            if (!currentGame || !localPlayer.role) return;
-
-            const creator = currentGame.players.creator;
-            const joiner = currentGame.players.joiner;
-            const myPlayer = localPlayer.role === 'creator' ? creator : joiner;
-            const opponentPlayer = localPlayer.role === 'creator' ? joiner : creator;
-            
-            // 画面情報表示の更新
-            $currentGameCode.textContent = currentGame.gameCode;
-            $displayBetPoints.textContent = currentGame.betPoints;
-            $playerCreatorName.textContent = creator.name;
-            $playerJoinerName.textContent = joiner ? joiner.name : '相手待ち...';
-            
-            // ターン表示の更新
-            let turnText = '';
-            let isMyTurn = false;
-            if (currentGame.status === 'PLAYING') {
-                if (myPlayer.isTurn) {
-                    turnText = '🔥 あなたのターンです！ボタンを押してください。';
-                    $currentTurn.classList.remove('opponent-turn');
-                    $currentTurn.classList.add('my-turn');
-                    isMyTurn = true;
-                } else {
-                    // 相手プレイヤー情報がまだない場合を考慮
-                    const opponentName = opponentPlayer ? opponentPlayer.name : '相手';
-                    turnText = `${opponentName} のターンです。待機中...`;
-                    $currentTurn.classList.remove('my-turn');
-                    $currentTurn.classList.add('opponent-turn');
-                }
-            } else if (currentGame.status === 'WAITING') {
-                 turnText = '相手の参加を待っています...';
-            } else if (currentGame.status === 'FINISHED') {
-                 turnText = 'ゲーム終了！';
-            }
-            $currentTurn.innerHTML = `<p style="margin: 0;">ターン ${currentGame.currentTurn}: ${turnText}</p>`;
-            
-            // ボタンの描画
-            renderButtons(isMyTurn);
-            
-            // 勝敗判定と結果表示
-            if (currentGame.status === 'FINISHED') {
-                displayGameResult();
-            }
-            
-            // 初回表示
-            if ($gamePlayScreen.classList.contains('hidden')) {
-                switchScreen('play');
-            }
-        }
-        
-        /**
-         * ボタンの描画と状態設定
-         * @param {boolean} isMyTurn - 現在自分のターンかどうか
-         */
-        function renderButtons(isMyTurn) {
-            $buttonGrid.innerHTML = ''; // クリア
-            const totalButtons = currentGame.gameSettings.totalButtons;
-            
-            const selectedButtons = [
-                ...currentGame.players.creator.selectedButtons.map(i => ({ index: i, role: 'creator' })),
-                ...(currentGame.players.joiner ? currentGame.players.joiner.selectedButtons.map(i => ({ index: i, role: 'joiner' })) : [])
-            ];
-            
-            for (let i = 0; i < totalButtons; i++) {
-                const button = document.createElement('button');
-                button.className = 'game-button';
-                button.textContent = i + 1;
-                button.dataset.index = i;
-                
-                const selectedInfo = selectedButtons.find(s => s.index === i);
-                
-                if (selectedInfo) {
-                    // 押されたボタン
-                    button.disabled = true;
-                    if (selectedInfo.role === 'creator') {
-                        button.classList.add('selected-by-creator');
-                    } else {
-                        button.classList.add('selected-by-joiner');
-                    }
-                    
-                    // 終了時にショックボタンを表示
-                    if (currentGame.status === 'FINISHED' && i === currentGame.gameSettings.shockButtonIndex) {
-                        button.classList.add('shocked-button');
-                        button.textContent = '⚡️ SHOCK ⚡️';
-                    }
-
-                } else if (currentGame.status === 'PLAYING' && isMyTurn) {
-                    // 未選択で、ゲーム中で、自分のターンの場合のみ有効
-                    button.disabled = false;
-                    button.addEventListener('click', handleButtonPress);
-                } else {
-                    // 未選択だが、無効な状態
-                    button.disabled = true;
-                }
-                
-                $buttonGrid.appendChild(button);
-            }
-        }
-        
-        /**
-         * ボタン押下時の処理
-         */
-        async function handleButtonPress(event) {
-            const buttonIndex = parseInt(event.target.dataset.index, 10);
-            
-            if (currentGame.status !== 'PLAYING' || !localPlayer.role) return;
-            
-            // 自分のターンであることの最終確認
-            const myPlayerKey = localPlayer.role; // 'creator' or 'joiner'
-            if (!currentGame.players[myPlayerKey].isTurn) {
-                showMessage($gameMessagePlay, '相手のターンです！', 'error');
-                return;
-            }
-            
-            // 全ボタンを一時的に無効化
-            document.querySelectorAll('.game-button').forEach(btn => btn.disabled = true);
-            showMessage($gameMessagePlay, `${buttonIndex + 1}番のボタンを選択しました...`, 'info');
-
-            try {
-                // 1. ショック判定
-                const isShock = buttonIndex === currentGame.gameSettings.shockButtonIndex;
-                
-                // 2. 状態更新
-                const myPlayer = currentGame.players[myPlayerKey];
-                const opponentPlayerKey = myPlayerKey === 'creator' ? 'joiner' : 'creator';
-                const opponentPlayer = currentGame.players[opponentPlayerKey];
-                
-                myPlayer.selectedButtons.push(buttonIndex);
-                myPlayer.isTurn = false;
-
-                if (isShock) {
-                    // 感電！ゲーム終了
-                    myPlayer.isShocked = true;
-                    currentGame.status = 'FINISHED';
-                    
-                    // ポイント増減を計算
-                    myPlayer.pointsChange = -currentGame.betPoints; // 負け
-                    opponentPlayer.pointsChange = currentGame.betPoints; // 勝ち
-                    
-                    showMessage($gameMessagePlay, `⚡️ ${myPlayer.name} が感電！ゲームオーバー！ ⚡️`, 'error');
-
-                } else {
-                    // セーフ！ターン交代
-                    opponentPlayer.isTurn = true;
-                    currentGame.currentTurn++;
-                    showMessage($gameMessagePlay, 'セーフ！ターンが相手に移りました。', 'success');
-                }
-
-                // 3. データ書き込み
-                const allPvpData = await fetchPvpData();
-                const gameIndex = allPvpData.pvp_games.findIndex(g => g.gameCode === currentGame.gameCode);
-                
-                if (gameIndex !== -1) {
-                    // 最新の状態に上書き
-                    allPvpData.pvp_games[gameIndex] = currentGame;
-                    const updateResult = await updatePvpData(allPvpData);
-
-                    if (updateResult.status !== 'success') {
-                        throw new Error(updateResult.message);
-                    }
-                } else {
-                     throw new Error('ゲームデータが見つかりません。');
-                }
-                
-                // 4. 画面再描画（ポーリングがすぐに次の状態を読み込むはずだが、即座に更新）
-                renderGame();
-
-            } catch (error) {
-                showMessage($gameMessagePlay, `ボタン押下処理中にエラーが発生しました: ${error.message}`, 'error');
-                // エラー時はボタンを再有効化するか、画面をリロードさせるなどが必要
-                document.querySelectorAll('.game-button').forEach(btn => btn.disabled = false);
-            }
-        }
-        
-        /**
-         * ゲーム終了時の結果表示とポイント更新
-         */
-        async function displayGameResult() {
-            const creator = currentGame.players.creator;
-            const joiner = currentGame.players.joiner;
-            
-            let resultMessage = '';
-            
-            if (creator.isShocked) {
-                resultMessage = `<p>敗者: <strong style="color: #F44336;">${creator.name} (ホスト)</strong> ⚡️</p>`;
-                resultMessage += `<p>勝者: <strong style="color: #4CAF50;">${joiner.name} (ゲスト)</strong> 🎉</p>`;
-            } else if (joiner.isShocked) {
-                resultMessage = `<p>敗者: <strong style="color: #F44336;">${joiner.name} (ゲスト)</strong> ⚡️</p>`;
-                resultMessage += `<p>勝者: <strong style="color: #4CAF50;">${creator.name} (ホスト)</strong> 🎉</p>`;
-            } else {
-                resultMessage = `<p>ゲームは予期せぬ状態で終了しました。</p>`;
-            }
-            
-            resultMessage += `<p>ポイント変動: ${creator.name}: ${creator.pointsChange} P, ${joiner.name}: ${joiner.pointsChange} P</p>`;
-            resultMessage += '<p style="font-weight: bold; margin-top: 10px;">ポイントは自動でランキングに反映されます。</p>';
-
-            showMessage($gameMessagePlay, resultMessage, 'info');
-            
-            // ポイント反映処理
-            await updateRankingScores(creator, joiner);
-        }
-        
-        /**
-         * ランキングデータを更新する関数
-         * @param {object} creator - ホストプレイヤーの最終状態
-         * @param {object} joiner - ゲストプレイヤーの最終状態
-         */
-        async function updateRankingScores(creator, joiner) {
-            try {
-                const allData = await fetchAllData();
-                let isUpdated = false;
-                
-                [creator, joiner].forEach(player => {
-                    if (player.pointsChange !== 0) {
-                        const scoreIndex = allData.scores.findIndex(s => s.name === player.name);
-                        if (scoreIndex !== -1) {
-                            allData.scores[scoreIndex].score += player.pointsChange;
-                            isUpdated = true;
-                            console.log(`[POINT UPDATE] ${player.name}: ${player.pointsChange} P 反映済み`);
-                        }
-                    }
-                });
-
-                if (isUpdated) {
-                    const updateResult = await updateAllData(allData);
-                    if (updateResult.status !== 'success') {
-                        throw new Error(updateResult.message);
-                    }
-                    showMessage($gameMessagePlay, 'ポイント変動がランキングに反映されました！', 'success');
-                } else {
-                    showMessage($gameMessagePlay, 'ポイントの変動はありませんでした。', 'info');
-                }
-
-            } catch (error) {
-                 showMessage($systemError, `ランキングへのポイント反映中に重大なエラーが発生しました: ${error.message}`, 'error');
-            }
-        }
-
-
-        // --- ポーリング処理 ---
-        
-        /**
-         * 待機中のゲームと、作成したゲームの参加状況をポーリングする
-         * @param {string} [createdCode] - 作成したゲームコード
-         */
-        function startPollingWaitingGames(createdCode) {
-            // 既にポーリングが開始されていたら停止
-            if (pollingInterval) clearInterval(pollingInterval);
-            
-            const poll = async () => {
-                const allPvpData = await fetchPvpData();
-                const pvpGames = allPvpData.pvp_games;
-                
-                // 待機中のゲームリスト更新
-                renderWaitingGamesList(pvpGames);
-                
-                // 作成したゲームの参加者チェック
-                if (createdCode) {
-                    const myGame = pvpGames.find(g => g.gameCode === createdCode);
-                    if (myGame && myGame.status === 'PLAYING' && myGame.players.joiner) {
-                        // 参加者が見つかった！
-                        currentGame = myGame;
-                        localPlayer.role = 'creator';
-                        localPlayer.betPoints = myGame.betPoints;
-                        showMessage($gameMessage, `ゲスト <strong style="color:#2196F3;">${myGame.players.joiner.name}</strong> が参加しました！ゲーム開始！`, 'success');
-                        switchScreen('play'); // ゲーム画面へ
-                        return; // ポーリング停止
-                    }
-                }
-            };
-            
-            poll(); // 初回実行
-            pollingInterval = setInterval(poll, POLLING_RATE);
-        }
-
-        /**
-         * 進行中のゲーム状態をポーリングする
-         */
-        function startPollingGameStatus() {
-            if (pollingInterval) clearInterval(pollingInterval);
-            
-            const poll = async () => {
-                if (!currentGame) return;
-
-                const allPvpData = await fetchPvpData();
-                const updatedGame = allPvpData.pvp_games.find(g => g.gameCode === currentGame.gameCode);
-                
-                if (updatedGame) {
-                    const myPlayerKey = localPlayer.role;
-                    // ゲームステータスまたは相手のターンが変更された場合のみ更新
-                    if (updatedGame.status !== currentGame.status || (updatedGame.players[myPlayerKey] && updatedGame.players[myPlayerKey].isTurn !== currentGame.players[myPlayerKey].isTurn)) {
-                        currentGame = updatedGame;
-                        renderGame();
-                    }
-                } else {
-                    // ゲームが削除された
-                    showMessage($systemError, '対戦中のゲームがサーバーから削除されました。', 'error');
-                    currentGame = null;
-                    switchScreen('setup');
-                }
-                
-                // ゲームが終了したらポーリングを停止
-                if (currentGame && currentGame.status === 'FINISHED') {
-                    clearInterval(pollingInterval);
-                    pollingInterval = null;
-                }
-            };
-
-            poll(); // 初回実行
-            pollingInterval = setInterval(poll, POLLING_RATE);
-        }
-
-
         // --- 初期ロード ---
         window.onload = async () => {
             // ダークモード設定
