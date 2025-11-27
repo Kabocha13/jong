@@ -73,14 +73,28 @@ async function fetchAllData() {
 }
 
 /**
- * ランキング描画用にスコアのみを取得する関数 (PvPログイン画面で利用)
+ * ★ 修正: ランキングデータとパスワードハッシュを含む全プレイヤー情報を取得する関数
+ * @returns {Promise<Array>} スコアデータ (例: [{name: "友人A", score: 10.0, passwordHash: "..."}])
+ */
+async function fetchPlayerData() {
+    const data = await fetchAllData();
+    // scores配列には既にpasswordHashが含まれていることを想定
+    return data.scores;
+}
+
+/**
+ * PvPログイン画面用にスコアのみ（表示名）を取得する関数
  * @returns {Promise<Array>} スコアデータ (例: [{name: "友人A", score: 10.0}])
  */
 async function fetchScoresForLogin() {
-    const data = await fetchAllData();
-    // ログイン処理では、EXCLUDED_PLAYERSのフィルタリングは不要とし、全ユーザーを返す
-    return data.scores;
+    // パスワード認証のために全プレイヤーデータを取得し、名前とスコアのみを返す
+    const allPlayers = await fetchPlayerData();
+    return allPlayers.map(p => ({
+        name: p.name,
+        score: p.score
+    }));
 }
+
 
 /**
  * Netlify Functionを経由して、新しい全データ（スコア、くじなど）を上書き保存する関数 (PUT)
