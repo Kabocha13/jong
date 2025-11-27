@@ -74,15 +74,40 @@ async function fetchAllData() {
 
 /**
  * ランキングデータとパスワードハッシュを含む全プレイヤー情報を取得する関数
- * @returns {Promise<Array>} スコアデータ (例: [{name: "友人A", score: 10.0, passwordHash: "..."}])
+ * @returns {Promise<Array>} スコアデータ (例: [{name: "友人A", score: 10.0, pass: "..."}])
  */
 async function fetchPlayerData() {
     const data = await fetchAllData();
-    // scores配列には既にpasswordHashが含まれていることを想定
+    // scores配列には既にpassフィールド(ハッシュ)が含まれていることを想定
     return data.scores;
 }
 
-// ★ 削除: fetchScoresForLogin() は pvp.html の修正により不要となりました。
+// -----------------------------------------------------------------
+// ★★★ 共通パスワード処理関数 (PvP/mypage/masterから移動) ★★★
+// -----------------------------------------------------------------
+
+/**
+ * パスワードをSHA-256でハッシュ化する関数
+ * @param {string} password - 入力パスワード (プレーンテキスト)
+ * @returns {Promise<string>} - SHA-256ハッシュ (小文字の16進数)
+ */
+async function hashPassword(password) {
+    if (!crypto.subtle) {
+         console.error("Web Crypto API is not available.");
+         throw new Error("Hashing functionality not available.");
+    }
+
+    const encoder = new TextEncoder();
+    // ★ 修正: ここで trim() は行わない (呼び出し元で行う)
+    const data = encoder.encode(password); 
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    
+    // ハッシュバッファを16進数文字列に変換
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+}
+
 
 /**
  * Netlify Functionを経由して、新しい全データ（スコア、くじなど）を上書き保存する関数 (PUT)
