@@ -124,6 +124,8 @@ exports.handler = async (event) => {
             // プレイヤーAとBをランダムで決定し、攻守を設定
             const players = [currentGame.playerA, player];
             const startingPlayer = players[Math.floor(Math.random() * 2)];
+            // WAITING_A: Aが仕掛ける番 (Bが座る番)
+            // WAITING_B: Bが仕掛ける番 (Aが座る番)
             const startingStatus = startingPlayer === currentGame.playerA ? 'WAITING_A' : 'WAITING_B';
 
             currentGame.playerB = player;
@@ -161,8 +163,10 @@ exports.handler = async (event) => {
             // 秘密情報に電流をセット
             currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
             
-            // ステータスを座る側へ更新
-            currentGame.status = isPlayerA ? 'WAITING_B' : 'WAITING_A'; // 相手が座る番
+            // ★修正: 仕掛けた側がAなら次のターンはBの座るターン、仕掛けた側がBなら次のターンはAの座るターン
+            // WAITING_A (Aが仕掛ける) の次のターンは WAITING_B (Bが座る) -> playerBがアクション
+            // WAITING_B (Bが仕掛ける) の次のターンは WAITING_A (Aが座る) -> playerAがアクション
+            currentGame.status = isPlayerA ? 'WAITING_B_SIT' : 'WAITING_A_SIT'; // 新しい座るフェーズのステータス
             currentGame.nextActionPlayer = isPlayerA ? currentGame.playerB : currentGame.playerA;
 
             currentGame.actionToken = newActionToken;
@@ -177,10 +181,13 @@ exports.handler = async (event) => {
             const chairId = parseInt(input);
             const isDefender = (currentGame.nextActionPlayer === player);
             const isPlayerA = currentGame.playerA === player;
-            const isWaitingB = currentGame.status === 'WAITING_B'; // Aが仕掛けた = Bが座る番
-            const isWaitingA = currentGame.status === 'WAITING_A'; // Bが仕掛けた = Aが座る番
             
-            if (!isDefender || (isPlayerA && isWaitingB) || (!isPlayerA && isWaitingA)) {
+            // 座るフェーズのステータス検証
+            const isWaitingBSit = currentGame.status === 'WAITING_B_SIT'; // Bが座る番
+            const isWaitingASit = currentGame.status === 'WAITING_A_SIT'; // Aが座る番
+
+            // 正しいディフェンダーかどうか、かつ正しいフェーズかどうか
+            if (!isDefender || (isPlayerA && !isWaitingASit) || (!isPlayerA && !isWaitingBSit)) {
                  return { statusCode: 403, body: JSON.stringify({ message: 'It is not your turn to choose a chair, or you are the attacker.' }) };
             }
             if (chairId < 1 || chairId > 12) {
@@ -229,13 +236,15 @@ exports.handler = async (event) => {
             // 秘密情報をクリア (次のラウンドの仕掛けに備える)
             currentGame.secretChairs.forEach(c => c.isShock = false); 
             
-            // 攻守交替: 座る側が次の仕掛ける側になる (このプレイヤーが次のラウンドのアタッカーになる)
-            const newAttacker = player; 
+            // ★修正されたロジック: 次のターンは、今回の仕掛け側が座る側になる
+            // Aが座った場合 (isWaitingASit): Bが仕掛けていた -> 次はAが仕掛ける
+            // Bが座った場合 (isWaitingBSit): Aが仕掛けていた -> 次はBが仕掛ける
+            const newAttacker = isWaitingASit ? currentGame.playerA : currentGame.playerB; 
             
-            // ★修正されたロジック: 次のステータスとアクションプレイヤーを設定
+            // 次のターンは、座ったプレイヤーが仕掛ける側になる
             const isNewAttackerA = newAttacker === currentGame.playerA;
             currentGame.status = isNewAttackerA ? 'WAITING_A' : 'WAITING_B';
-            currentGame.nextActionPlayer = newAttacker; // 座ったプレイヤーが次のアタッカー
+            currentGame.nextActionPlayer = newAttacker;
 
             // 直前の結果を記録
             currentGame.lastResult = {
