@@ -35,7 +35,7 @@ exports.handler = async (event) => {
     }
 
     try {
-        const { action, gameId, roomCode, actionToken, player, input } = JSON.parse(event.body);
+        const { action, gameId, roomCode, actionToken, player, input, pointsConfig } = JSON.parse(event.body);
 
         if (!player || !action) {
             return { statusCode: 400, body: JSON.stringify({ message: 'Missing required parameters: player or action' }) };
@@ -86,6 +86,15 @@ exports.handler = async (event) => {
 
         // === A. ルーム作成 (create) ===
         if (action === 'create') {
+            
+            // ★追加: ポイント設定の検証と取得
+            const defaultPoints = { winPoints: 20.0, losePoints: -10.0, forfeitPoints: -10.0 };
+            const finalPoints = {
+                winPoints: pointsConfig && !isNaN(pointsConfig.winPoints) ? parseFloat(pointsConfig.winPoints.toFixed(1)) : defaultPoints.winPoints,
+                losePoints: pointsConfig && !isNaN(pointsConfig.losePoints) ? parseFloat(pointsConfig.losePoints.toFixed(1)) : defaultPoints.losePoints,
+                forfeitPoints: pointsConfig && !isNaN(pointsConfig.forfeitPoints) ? parseFloat(pointsConfig.forfeitPoints.toFixed(1)) : defaultPoints.forfeitPoints,
+            };
+
             const newGameId = allGames.length > 0 ? Math.max(...allGames.map(g => g.gameId)) + 1 : 1;
             const newRoomCode = generateRoomCode();
 
@@ -102,12 +111,15 @@ exports.handler = async (event) => {
                 shockCountA: 0,
                 shockCountB: 0,
                 publicChairs: initializePublicChairs(),
-                // 秘密情報 (サーバーサイドでのみ使用)
                 secretChairs: initializeSecretChairs(), 
                 winner: null,
                 timestamp: now,
                 actionToken: newActionToken,
-                lastResult: null // 直前の結果
+                lastResult: null,
+                // ★追加: プレイヤーが設定したポイント
+                winPoints: finalPoints.winPoints, 
+                losePoints: finalPoints.losePoints, 
+                forfeitPoints: finalPoints.forfeitPoints, 
             };
 
             allGames.push(newGame);
@@ -124,8 +136,6 @@ exports.handler = async (event) => {
             // プレイヤーAとBをランダムで決定し、攻守を設定
             const players = [currentGame.playerA, player];
             const startingPlayer = players[Math.floor(Math.random() * 2)];
-            // WAITING_A: Aが仕掛ける番 (Bが座る番)
-            // WAITING_B: Bが仕掛ける番 (Aが座る番)
             const startingStatus = startingPlayer === currentGame.playerA ? 'WAITING_A' : 'WAITING_B';
 
             currentGame.playerB = player;
@@ -163,10 +173,8 @@ exports.handler = async (event) => {
             // 秘密情報に電流をセット
             currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
             
-            // ★修正: 仕掛けた側がAなら次のターンはBの座るターン、仕掛けた側がBなら次のターンはAの座るターン
-            // WAITING_A (Aが仕掛ける) -> WAITING_B_SIT (Bが座る) -> playerBがアクション
-            // WAITING_B (Bが仕掛ける) -> WAITING_A_SIT (Aが座る) -> playerAがアクション
-            currentGame.status = isPlayerA ? 'WAITING_B_SIT' : 'WAITING_A_SIT'; // 新しい座るフェーズのステータス
+            // 次のターンは座るフェーズ
+            currentGame.status = isPlayerA ? 'WAITING_B_SIT' : 'WAITING_A_SIT'; 
             currentGame.nextActionPlayer = isPlayerA ? currentGame.playerB : currentGame.playerA;
 
             currentGame.actionToken = newActionToken;
@@ -182,11 +190,9 @@ exports.handler = async (event) => {
             const isDefender = (currentGame.nextActionPlayer === player);
             const isPlayerA = currentGame.playerA === player;
             
-            // 座るフェーズのステータス検証
-            const isWaitingBSit = currentGame.status === 'WAITING_B_SIT'; // Bが座る番
-            const isWaitingASit = currentGame.status === 'WAITING_A_SIT'; // Aが座る番
+            const isWaitingBSit = currentGame.status === 'WAITING_B_SIT'; 
+            const isWaitingASit = currentGame.status === 'WAITING_A_SIT'; 
 
-            // 正しいディフェンダーかどうか、かつ正しいフェーズかどうか
             if (!isDefender || (isPlayerA && !isWaitingASit) || (!isPlayerA && !isWaitingBSit)) {
                  return { statusCode: 403, body: JSON.stringify({ message: 'It is not your turn to choose a chair, or you are the attacker.' }) };
             }
@@ -231,18 +237,14 @@ exports.handler = async (event) => {
             publicChair.available = false;
 
             // 3. ラウンド情報の更新と攻守交替
-            // ★修正: 1ラウンド（仕掛け+座る）が完了したため、ラウンド数をインクリメント
             currentGame.round += 1; 
             
             // 秘密情報をクリア (次のラウンドの仕掛けに備える)
             currentGame.secretChairs.forEach(c => c.isShock = false); 
             
-            // ★修正されたロジック: 次のターンは、今回の仕掛け側ではない方がアタッカーになる
-            // 今回座ったプレイヤーが次のラウンドのディフェンダーになる
-            // Aが座った場合 (isWaitingASit): Bが仕掛けていた -> Bが次のディフェンダー
-            // Bが座った場合 (isWaitingBSit): Aが仕掛けていた -> Aが次のディフェンダー
-            const currentAttacker = isWaitingASit ? currentGame.playerB : currentGame.playerA; // 今回の仕掛け側
-            const newAttacker = currentAttacker === currentGame.playerA ? currentGame.playerB : currentGame.playerA; // 次の仕掛け側
+            // 次のターンは、今回の仕掛け側ではない方がアタッカーになる
+            const currentAttacker = isWaitingASit ? currentGame.playerB : currentGame.playerA; 
+            const newAttacker = currentAttacker === currentGame.playerA ? currentGame.playerB : currentGame.playerA; 
             
             // 次のターンは、新しいアタッカーが仕掛ける番
             const isNewAttackerA = newAttacker === currentGame.playerA;
@@ -253,7 +255,7 @@ exports.handler = async (event) => {
             currentGame.lastResult = {
                 player: player,
                 result: result,
-                points: isShock ? (isPlayerA ? currentGame.shockCountA * -1 : currentGame.shockCountB * -1) : points // ショック時はショック回数(-1)をポイントとして記録
+                points: isShock ? (isPlayerA ? currentGame.shockCountA * -1 : currentGame.shockCountB * -1) : points
             };
 
             responseMessage = `Chair ${chairId} chosen. Result: ${result}.`;
@@ -269,7 +271,6 @@ exports.handler = async (event) => {
                 winner = currentGame.playerA;
                 loser = currentGame.playerB;
             } else if (currentGame.round > 12) { // 12回アクション(6ラウンド)完了
-                // 12ラウンド終了後の点数勝負
                 if (currentGame.scoreA > currentGame.scoreB) {
                     winner = currentGame.playerA;
                     loser = currentGame.playerB;
@@ -286,34 +287,35 @@ exports.handler = async (event) => {
                 currentGame.nextActionPlayer = null;
                 currentGame.winner = winner;
                 
-                // ポイント反映 (JSONBinのscoresを直接更新)
-                const WIN_BONUS = 20.0;
-                const LOSE_PENALTY = 10.0;
+                // ★修正: ポイント反映 (ルーム作成時の設定値を使用)
+                const WIN_POINTS = currentGame.winPoints;
+                const LOSE_POINTS = currentGame.losePoints;
 
                 if (winner !== 'DRAW') {
                     const winnerData = allScoresMap.get(winner);
                     const loserData = allScoresMap.get(loser);
 
                     if (winnerData) {
-                         winnerData.score = parseFloat((winnerData.score + WIN_BONUS).toFixed(1));
+                         winnerData.score = parseFloat((winnerData.score + WIN_POINTS).toFixed(1));
                          allScoresMap.set(winner, winnerData);
                     }
                     if (loserData) {
-                         loserData.score = parseFloat((loserData.score - LOSE_PENALTY).toFixed(1));
+                         // 敗北ポイントはマイナス値の想定
+                         loserData.score = parseFloat((loserData.score + LOSE_POINTS).toFixed(1));
                          allScoresMap.set(loser, loserData);
                     }
-                    responseMessage = `Game Finished! ${winner} wins. (+${WIN_BONUS} P / ${loser} -${LOSE_PENALTY} P)`;
+                    responseMessage = `Game Finished! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
                 } else {
                     responseMessage = `Game Finished! Draw.`;
                 }
                 scoreUpdated = true;
             }
-            // 終了した場合、更新されたscoresをallDataに反映
+            
             if (scoreUpdated) {
                  allData.scores = Array.from(allScoresMap.values());
             }
             
-            currentGame.actionToken = newActionToken; // 最後にトークンを更新
+            currentGame.actionToken = newActionToken; 
         }
         
         // === E. ゲーム放棄/削除 (forfeit/delete) ===
@@ -324,24 +326,33 @@ exports.handler = async (event) => {
             
             if (action === 'forfeit') {
                 if (currentGame.status === 'FINISHED') {
-                    // 終了後のdeleteは次のブロックで処理するためスキップ
                     responseMessage = 'Game already finished. Preparing to delete log.';
                 } else {
                     // 放棄処理
                     const winner = currentGame.playerA === player ? currentGame.playerB : currentGame.playerA;
                     const loser = player;
-                    const WIN_BONUS = 10.0; // 途中放棄のボーナスは低め
+                    // ★修正: 放棄ペナルティもルーム設定値を使用
+                    const WIN_POINTS = currentGame.winPoints; 
+                    const FORFEIT_PENALTY = currentGame.forfeitPoints; 
                     
                     const winnerData = allScoresMap.get(winner);
+                    const loserData = allScoresMap.get(loser);
+
                     if (winnerData) {
-                         winnerData.score = parseFloat((winnerData.score + WIN_BONUS).toFixed(1));
+                         // 勝利ポイントは相手がもらう
+                         winnerData.score = parseFloat((winnerData.score + WIN_POINTS).toFixed(1));
                          allScoresMap.set(winner, winnerData);
+                    }
+                    if (loserData) {
+                         // 放棄した人がペナルティを受ける
+                         loserData.score = parseFloat((loserData.score + FORFEIT_PENALTY).toFixed(1));
+                         allScoresMap.set(loser, loserData);
                     }
                     
                     currentGame.status = 'FINISHED';
                     currentGame.nextActionPlayer = null;
                     currentGame.winner = winner;
-                    responseMessage = `Game forfeited. ${winner} wins. (+${WIN_BONUS} P)`;
+                    responseMessage = `Game forfeited. ${winner} wins. (+${WIN_POINTS} P / ${loser} ${FORFEIT_PENALTY} P)`;
                     scoreUpdated = true;
                     
                     // スコアの更新を反映
@@ -350,10 +361,9 @@ exports.handler = async (event) => {
             }
 
             // 終了済みゲームはリストから削除
-            // filterでリストから除外する
             allGames = allGames.filter(g => g.gameId !== currentGame.gameId);
             responseMessage = `Game log deleted.`;
-            currentGame = null; // 削除されたのでnullに
+            currentGame = null; 
         }
         
         else {
@@ -362,7 +372,7 @@ exports.handler = async (event) => {
 
 
         // 3. JSONBinに全データを上書き保存
-        allData.electric_chair_games = allGames; // 更新されたゲームリストを反映
+        allData.electric_chair_games = allGames; 
 
         const putResponse = await fetch(JSONBIN_URL, {
             method: 'PUT',
@@ -389,7 +399,11 @@ exports.handler = async (event) => {
             publicChairs: currentGame.publicChairs,
             winner: currentGame.winner,
             actionToken: currentGame.actionToken,
-            lastResult: currentGame.lastResult
+            lastResult: currentGame.lastResult,
+            // ★追加: ポイント設定をレスポンスに含める
+            winPoints: currentGame.winPoints,
+            losePoints: currentGame.losePoints,
+            forfeitPoints: currentGame.forfeitPoints,
         } : null;
 
         return {
