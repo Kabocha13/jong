@@ -225,6 +225,7 @@ function renderGameArena(game) {
         turnText = `ルームコード: ${game.roomCode}。相手プレイヤー (${game.playerB || '??? '}) の参加を待っています。`;
         CHAIR_CONTAINER.innerHTML = '';
         leaveButton.textContent = 'ルームを削除';
+        leaveButton.dataset.action = 'delete'; // ★修正: data-actionを設定
     } else if (game.status === 'FINISHED') {
         // ★修正: ゲーム終了時のメッセージを明確に表示
         const resultText = game.winner === myName ? '🏆 勝利' : (game.winner === 'DRAW' ? '🤝 引き分け' : '😭 敗北');
@@ -503,11 +504,25 @@ async function handleChooseAction(gameId, actionToken, chairId) {
  * ゲームを途中で辞める（または終了後にロビーに戻る）アクション
  */
 document.getElementById('leave-game-button').addEventListener('click', async (e) => {
-    if (!currentGameState) return;
+    // ★修正: 認証情報とゲーム状態の存在チェックを強化
+    if (!currentGameState || !authenticatedUser) {
+        showMessage(document.getElementById('game-message'), '❌ エラー: ゲーム状態または認証情報が見つかりません。ロビーに戻ります。', 'error');
+        // 強制的にロビー状態に戻す
+        currentGameState = null;
+        fetchAndUpdatePvpData(); 
+        return;
+    }
     
     const leaveButton = e.target;
     const action = leaveButton.dataset.action; // 'delete' or 'forfeit'
     
+    // actionが有効な値かチェック
+    if (!['delete', 'forfeit'].includes(action)) {
+        // ★修正: actionが設定されていない場合の明確なエラーメッセージ
+        showMessage(document.getElementById('game-message'), '❌ エラー: アクションタイプが不明です (ルームを削除または対戦を辞める)。', 'error');
+        return;
+    }
+
     if (action === 'forfeit' && !window.confirm('対戦を途中放棄しますか？ 相手の勝利としてポイントが反映されます。')) {
         return;
     }
