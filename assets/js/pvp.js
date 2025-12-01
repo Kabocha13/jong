@@ -9,7 +9,7 @@ const LOGOUT_BUTTON = document.getElementById('logout-button');
 
 const AUTHENTICATED_USER_NAME = document.getElementById('authenticated-user-name');
 const CURRENT_SCORE_ELEMENT = document.getElementById('current-score');
-const MY_GAME_LIST = document.getElementById('my-game-list');
+// 削除：const MY_GAME_LIST = document.getElementById('my-game-list');
 const AVAILABLE_GAME_LIST = document.getElementById('available-game-list');
 
 const CREATE_ROOM_FORM = document.getElementById('create-room-form');
@@ -145,7 +145,8 @@ async function fetchAndUpdatePvpData() {
         }
         
         // ロビーリストの更新
-        renderLobbyLists(data.currentGames.filter(g => g.status === 'FINISHED'), data.availableGames);
+        // ★修正: 完了したゲームのリストを渡す代わりに、空の配列を渡してリスト表示をスキップ
+        renderLobbyLists([], data.availableGames);
     }
 }
 
@@ -158,26 +159,10 @@ function startPolling() {
 
 // --- UIレンダリング ---
 
+// ★修正: 完了したゲームに関する処理を削除
 function renderLobbyLists(finishedGames, availableGames) {
-    // 完了したゲーム（最新5件）
-    finishedGames.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    MY_GAME_LIST.innerHTML = finishedGames.slice(0, 5).map(g => {
-        const myScore = g.playerA === authenticatedUser.name ? g.scoreA : g.scoreB;
-        const opScore = g.playerA === authenticatedUser.name ? g.scoreB : g.scoreA;
-        
-        let result = '';
-        if (g.winner === authenticatedUser.name) {
-            result = `勝利 (${myScore.toFixed(1)} P)`;
-        } else if (g.winner === 'DRAW') {
-             result = '引き分け';
-        } else {
-             result = `敗北 (${opScore.toFixed(1)} P)`;
-        }
-        
-        const opponent = g.playerA === authenticatedUser.name ? g.playerB : g.playerA;
-        return `<p style="font-size: 0.9em; margin: 5px 0;">[${g.winner === authenticatedUser.name ? '✅' : '❌'}] ${opponent} との対戦: ${result}</p>`;
-    }).join('');
-    if (finishedGames.length === 0) MY_GAME_LIST.innerHTML = '<p>過去の対戦はありません。</p>';
+    
+    // 完了したゲームのリスト表示は削除されたため、ここでは availableGames の処理のみ行う。
     
     // 参加可能なルーム
     AVAILABLE_GAME_LIST.innerHTML = availableGames.map(g => {
