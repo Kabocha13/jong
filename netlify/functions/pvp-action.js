@@ -229,12 +229,13 @@ exports.handler = async (event) => {
             // 秘密情報をクリア (次のラウンドの仕掛けに備える)
             currentGame.secretChairs.forEach(c => c.isShock = false); 
             
-            // 攻守交替: 座る側が次の仕掛ける側になる
+            // 攻守交替: 座る側が次の仕掛ける側になる (このプレイヤーが次のラウンドのアタッカーになる)
             const newAttacker = player; 
-            const newDefender = isPlayerA ? currentGame.playerB : currentGame.playerA;
-
-            currentGame.status = newAttacker === currentGame.playerA ? 'WAITING_A' : 'WAITING_B';
-            currentGame.nextActionPlayer = newAttacker;
+            
+            // ★修正されたロジック: 次のステータスとアクションプレイヤーを設定
+            const isNewAttackerA = newAttacker === currentGame.playerA;
+            currentGame.status = isNewAttackerA ? 'WAITING_A' : 'WAITING_B';
+            currentGame.nextActionPlayer = newAttacker; // 座ったプレイヤーが次のアタッカー
 
             // 直前の結果を記録
             currentGame.lastResult = {
@@ -255,7 +256,7 @@ exports.handler = async (event) => {
             } else if (currentGame.shockCountB >= 3) {
                 winner = currentGame.playerA;
                 loser = currentGame.playerB;
-            } else if (currentGame.round > 12) {
+            } else if (currentGame.round > 6 * 2) { // 12回アクション(6ラウンド)完了
                 // 12ラウンド終了後の点数勝負
                 if (currentGame.scoreA > currentGame.scoreB) {
                     winner = currentGame.playerA;
