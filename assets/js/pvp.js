@@ -163,6 +163,9 @@ function renderLobbyLists(finishedGames, availableGames) {
     AVAILABLE_GAME_LIST.innerHTML = availableGames.map(g => {
         return `<div class="tool-box" style="margin-bottom: 10px; padding: 10px;">
                     <p style="margin: 0; font-weight: bold;">ルーム作成者: ${g.playerA}</p>
+                    <p style="margin: 0; font-size: 0.8em; color: #6c757d;">
+                        勝者: +${g.winPoints || 0} P / 敗者: ${g.losePoints || 0} P / 放棄者: ${g.forfeitPoints || 0} P
+                    </p>
                     <button class="action-button join-available-button" data-room-code="${g.roomCode}" style="width: auto; margin-top: 5px; background-color: #007bff;">
                         参加 (${g.roomCode})
                     </button>
@@ -225,9 +228,19 @@ function renderGameArena(game) {
     } else if (game.status === 'FINISHED') {
         // ★修正: ゲーム終了時のメッセージを明確に表示
         const resultText = game.winner === myName ? '🏆 勝利' : (game.winner === 'DRAW' ? '🤝 引き分け' : '😭 敗北');
+        
+        let pointChange;
+        if (game.winner === myName) {
+            pointChange = game.winPoints;
+        } else if (game.winner === 'DRAW') {
+            pointChange = 0;
+        } else {
+            pointChange = game.losePoints;
+        }
+
         const finalMessage = game.winner === 'DRAW' 
             ? `ゲーム終了! ${resultText}です。スコアは${game.scoreA.toFixed(1)}P vs ${game.scoreB.toFixed(1)}P。`
-            : `ゲーム終了! ${game.winner}の${resultText}です。`;
+            : `ゲーム終了! ${game.winner}の${resultText}です。総合ポイントに ${pointChange.toFixed(1)} P が反映されました。`;
             
         turnText = finalMessage;
         CHAIR_CONTAINER.innerHTML = '<p style="text-align: center; font-size: 1.2em; font-weight: bold; color: var(--color-primary);">ゲームは終了しました。</p>';
@@ -321,11 +334,28 @@ function renderChairButtons(chairs, isAttackerPhase, gameId, actionToken) {
 CREATE_ROOM_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('create-room-message');
+    
+    // ★追加: フォームからのポイント値を取得
+    const winPoints = parseFloat(document.getElementById('win-points').value);
+    const losePoints = parseFloat(document.getElementById('lose-points').value);
+    const forfeitPoints = parseFloat(document.getElementById('forfeit-points').value);
+
+    if (isNaN(winPoints) || isNaN(losePoints) || isNaN(forfeitPoints)) {
+        showMessage(messageEl, '❌ ポイント設定は全て有効な数値で入力してください。', 'error');
+        return;
+    }
+
     showMessage(messageEl, 'ルーム作成中...', 'info');
 
     const response = await sendPvpAction({
         action: 'create',
         player: authenticatedUser.name,
+        // ★追加: ポイント設定を送信
+        pointsConfig: {
+            winPoints: winPoints,
+            losePoints: losePoints,
+            forfeitPoints: forfeitPoints
+        }
     });
     
     if (response.status === 'success') {
