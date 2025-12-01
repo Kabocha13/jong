@@ -385,7 +385,13 @@ async function handleShockAction(gameId, actionToken, chairId) {
         showMessage(messageEl, `✅ 電流を仕掛けました。相手の操作を待ってください。`, 'success');
         currentGameState.actionToken = response.actionToken; // トークンを更新
     } else {
-        showMessage(messageEl, `❌ アクションエラー: ${response.message}`, 'error');
+        // ★修正: 排他制御エラー（データが古い）の場合はメッセージ表示をスキップ
+        if (response.message.includes('データが古いです')) {
+             console.warn('Action rejected due to stale token (normal polling conflict). Suppressing error display.');
+        } else {
+            showMessage(messageEl, `❌ アクションエラー: ${response.message}`, 'error');
+        }
+        
         // エラー時はボタンを再度有効化
         CHAIR_CONTAINER.querySelectorAll('button').forEach(btn => btn.disabled = false);
     }
@@ -436,7 +442,13 @@ async function handleChooseAction(gameId, actionToken, chairId) {
         }, 1500);
 
     } else {
-        showMessage(messageEl, `❌ アクションエラー: ${response.message}`, 'error');
+        // ★修正: 排他制御エラー（データが古い）の場合はメッセージ表示をスキップ
+        if (response.message.includes('データが古いです')) {
+             console.warn('Action rejected due to stale token (normal polling conflict). Suppressing error display.');
+        } else {
+            showMessage(messageEl, `❌ アクションエラー: ${response.message}`, 'error');
+        }
+
         // エラー時はボタンを再度有効化
         CHAIR_CONTAINER.querySelectorAll('button').forEach(btn => btn.disabled = false);
         if (selectedButton) {
