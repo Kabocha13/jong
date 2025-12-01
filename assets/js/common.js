@@ -6,6 +6,10 @@
 // クライアント側ではAPIキーなしで、サーバーレス関数を呼び出す
 const FETCH_URL = "/.netlify/functions/fetch-data";
 const UPDATE_URL = "/.netlify/functions/update-data";
+// ★★★ 新規追加: PVPゲーム専用エンドポイント ★★★
+const PVP_FETCH_URL = "/.netlify/functions/pvp-fetch";
+const PVP_ACTION_URL = "/.netlify/functions/pvp-action";
+// ★★★ 新規追加ここまで ★★★
 
 
 // -----------------------------------------------------------------
@@ -60,13 +64,13 @@ async function fetchAllData() {
             } else {
                 console.error("ポイントデータ取得中にエラー:", error);
                 // 最終的に失敗した場合、空の初期データを返す
-                return { scores: [], history: [], sports_bets: [], speedstorm_records: [], lotteries: [] };
+                return { scores: [], history: [], sports_bets: [], speedstorm_records: [], lotteries: [], electric_chair_games: [] };
             }
         }
     }
      // 最終リトライ後も失敗した場合
      console.error("ポイントデータ取得に失敗しました。最大リトライ回数を超えました。");
-     return { scores: [], history: [], sports_bets: [], speedstorm_records: [], lotteries: [] };
+     return { scores: [], history: [], sports_bets: [], speedstorm_records: [], lotteries: [], electric_chair_games: [] };
 }
 
 /**
@@ -139,6 +143,103 @@ async function updateAllData(newData) {
     return { status: "error", message: `データ書き込み失敗: 最大リトライ回数を超えました`, totalChange: 0 };
 }
 
+
+// ★★★ 新規追加: PVPアクション関数 ★★★
+
+/**
+ * Netlify Functionを経由して、PVPゲームのアクションを実行する関数 (POST)
+ * @param {object} actionData - action, gameId, roomCode, actionToken, player, input などの情報
+ * @returns {Promise<object>} APIからの応答 (status, message, actionToken, gameData, shockResult)
+ */
+async function sendPvpAction(actionData) {
+    const MAX_RETRIES = 3;
+    let attempt = 0;
+    let delayMs = 1000;
+
+    while (attempt < MAX_RETRIES) {
+        try {
+            const response = await fetch(PVP_ACTION_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(actionData)
+            });
+            
+            if (response.status === 429) {
+                throw new Error('429 Too Many Requests on POST');
+            }
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                 // 関数からのエラーメッセージを受け取る
+                throw new Error(data.message || response.statusText);
+            }
+
+            // 成功応答を返す
+            return data;
+        } catch (error) {
+             if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
+                attempt++;
+                console.warn(`PVPアクションリトライ (${attempt}/${MAX_RETRIES})。待機: ${delayMs}ms`);
+                await delay(delayMs);
+                delayMs *= 2; // 指数バックオフ
+            } else {
+                console.error("PVPアクション中にエラー:", error);
+                return { status: "error", message: `PVPアクション失敗: ${error.message}` };
+            }
+        }
+    }
+    console.error("PVPアクションに失敗しました。最大リトライ回数を超えました。");
+    return { status: "error", message: `PVPアクション失敗: 最大リトライ回数を超えました` };
+}
+
+/**
+ * Netlify Functionを経由して、PVPゲームの状態を取得する関数 (GET)
+ * @param {string} playerName - 自分のプレイヤー名
+ * @returns {Promise<object>} PVPゲームの状態 (currentGames, availableGames)
+ */
+async function fetchPvpData(playerName) {
+    const MAX_RETRIES = 3;
+    let attempt = 0;
+    let delayMs = 1000;
+
+    while (attempt < MAX_RETRIES) {
+        try {
+            // プレイヤー名をクエリパラメータとして付与
+            const response = await fetch(`${PVP_FETCH_URL}?player=${encodeURIComponent(playerName)}`, {
+                method: 'GET',
+            });
+            
+            if (response.status === 429) {
+                throw new Error('429 Too Many Requests on GET');
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`PVPデータ取得エラー: ${response.status} ${errorData.error || response.statusText}`);
+            }
+            
+            const data = await response.json();
+            return data;
+        
+        } catch (error) {
+            if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
+                attempt++;
+                console.warn(`PVPデータ取得リトライ (${attempt}/${MAX_RETRIES})。待機: ${delayMs}ms`);
+                await delay(delayMs);
+                delayMs *= 2; // 指数バックオフ
+            } else {
+                console.error("PVPデータ取得中にエラー:", error);
+                // 認証情報取得失敗時に備え、allScoresも空で返す
+                return { currentGames: [], availableGames: [], allScores: [] };
+            }
+        }
+    }
+     console.error("PVPデータ取得に失敗しました。最大リトライ回数を超えました。");
+     return { currentGames: [], availableGames: [], allScores: [] };
+}
 
 // -----------------------------------------------------------------
 // 共通ヘルパー関数
