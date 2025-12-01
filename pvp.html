@@ -7,65 +7,88 @@
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
     <style>
+        /* 共通レイアウトの調整（モバイル最適化） */
+        main {
+            padding: 10px; /* パディングを減らす */
+        }
+        
         /* PVP専用スタイル */
         .chair-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-top: 20px;
+            grid-template-columns: repeat(4, 1fr); /* 4列に増やす */
+            gap: 5px; /* 隙間を減らす */
+            margin-top: 10px;
         }
         .chair-button {
-            padding: 15px 10px;
-            font-size: 1.2em;
+            padding: 8px 5px; /* パディングを減らし、ボタンを小さく */
+            font-size: 0.85em; /* フォントを小さく */
             font-weight: bold;
-            border-radius: 8px;
+            border-radius: 6px; 
             background-color: var(--color-background-secondary);
             color: var(--color-text);
             border: 2px solid var(--color-primary);
             transition: transform 0.1s, background-color 0.1s;
         }
-        .chair-button:hover:not(:disabled) {
-            background-color: var(--color-primary-light);
+        
+        /* プレイヤー情報カードをコンパクトに */
+        .player-info-card {
+            padding: 8px; /* パディングを減らす */
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border: 1px solid var(--color-border);
+            background-color: var(--color-background-secondary);
         }
-        .chair-button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            border-color: #ccc;
+        .player-info-card h4 {
+            font-size: 0.9em; /* タイトルを小さく */
+            margin: 0;
+        }
+        .player-info-card p {
+            font-size: 0.8em; /* スコア表示を小さく */
+            margin: 2px 0 0 0;
+        }
+        
+        /* ターンインジケーターをコンパクトに */
+        .turn-indicator {
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .shock-counter {
+            font-size: 0.9em;
+        }
+        
+        /* ラベルの調整 */
+        .form-group label {
+            font-size: 0.8em;
+        }
+
+        /* 結果メッセージを小さく */
+        #last-result-display {
+            margin-bottom: 10px !important;
+            padding: 5px;
+        }
+        #result-message {
+            font-size: 0.85em !important;
+        }
+
+        /* ------------------------------------- */
+        /* アニメーションと共通クラスは維持 */
+        .current-player {
+            border: 2px solid var(--color-accent);
         }
         .chosen-chair {
             background-color: var(--color-accent) !important;
             color: white !important;
             border-color: var(--color-accent) !important;
         }
-
-        .player-info-card {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            border: 1px solid var(--color-border);
-            background-color: var(--color-background-secondary);
-        }
-        .current-player {
-            border: 2px solid var(--color-accent);
-        }
-        .turn-indicator {
-            font-size: 1.1em;
-            font-weight: bold;
-            margin-bottom: 15px;
-            padding: 10px;
-            border-radius: 6px;
-            background-color: #f7e6a0;
-            color: #333;
-            text-align: center;
-        }
+        /* ... (その他のアニメーションスタイル) ... */
         .dark-mode .turn-indicator {
             background-color: #5d4a0a;
             color: #ffeb3b;
-        }
-        .shock-counter {
-            font-size: 1.1em;
-            color: #dc3545;
-            font-weight: bold;
         }
         .shocked {
             animation: shake 0.5s;
@@ -85,7 +108,6 @@
             90% { transform: translate(1px, 2px) rotate(0deg); }
             100% { transform: translate(1px, -2px) rotate(-1deg); }
         }
-        
     </style>
 </head>
 <body>
@@ -94,6 +116,7 @@
     </header>
 
     <main id="main-content">
+        <!-- 認証セクションはそのまま -->
         <section id="auth-section">
             <h2>認証</h2>
             <p class="instruction">このゲームをプレイするには、ユーザー名とパスワードでログインしてください。</p>
@@ -115,14 +138,6 @@
             <h3 style="margin-bottom: 5px;">ようこそ、<span id="authenticated-user-name"></span>様！</h3>
             <p style="font-size: 0.9em; margin-bottom: 20px;">現在のポイント: <strong id="current-score" style="color: var(--color-accent);"></strong> P</p>
             <button type="button" id="logout-button" class="action-button secondary-button" style="width: auto; margin-bottom: 20px;">ログアウト</button>
-
-            <!-- 進行中のゲーム表示 (削除) -->
-            <!-- <div id="current-games-container" class="tool-box">
-                <h4>🔥 進行中の対戦</h4>
-                <div id="my-game-list">
-                    <p>ゲームデータをロード中...</p>
-                </div>
-            </div> -->
 
             <!-- ルーム作成・参加フォーム -->
             <div id="room-management" class="tool-box">
@@ -167,18 +182,18 @@
             </div>
             
             <p id="turn-display" class="turn-indicator"></p>
-            <p id="round-display" style="text-align: center; font-size: 1.2em; margin-bottom: 20px;">ラウンド: <strong id="current-round">1</strong> / 6</p>
+            <p id="round-display" style="text-align: center; font-size: 1em; margin-bottom: 10px;">ラウンド: <strong id="current-round">1</strong> / 6</p>
 
             <!-- 椅子グリッド -->
-            <div class="tool-box">
-                <h3>椅子リスト (1〜12 P)</h3>
+            <div class="tool-box" style="padding: 10px;">
+                <h3 style="font-size: 1em; margin-top: 0; margin-bottom: 10px;">椅子リスト (1〜12 P)</h3>
                 <form id="action-form">
                     <div id="chair-container" class="chair-grid">
                         <!-- 椅子ボタンがJSで生成される -->
                     </div>
                     <p id="chair-action-message" class="hidden"></p>
                 </form>
-                <div style="margin-top: 20px;">
+                <div style="margin-top: 10px;">
                     <button id="leave-game-button" class="action-button secondary-button" style="background-color: #ccc;">対戦を辞める</button>
                 </div>
             </div>
