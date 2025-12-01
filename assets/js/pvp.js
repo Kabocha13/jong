@@ -96,7 +96,8 @@ function initializeLobby() {
     CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score ? authenticatedUser.score.toFixed(1) : '0.0';
     
     // 既存のゲームがあればアリーナに直接移動させる
-    if (currentGameState && currentGameState.status !== 'FINISHED') {
+    // ★修正: FINISHEDでもアリーナに残すため、FINISHEDチェックを削除
+    if (currentGameState && currentGameState.status !== 'WAITING_JOIN' && currentGameState.playerB) {
         PVP_LOBBY.classList.add('hidden');
         GAME_ARENA.classList.remove('hidden');
         renderGameArena(currentGameState);
@@ -119,33 +120,27 @@ async function fetchAndUpdatePvpData() {
     }
 
     // 2. 進行中のゲームをチェック
-    const myGame = data.currentGames.find(g => g.status !== 'FINISHED'); 
+    // 自分が参加しているゲームのうち、まだログアウト/削除されていないものを取得
+    const myGame = data.currentGames.find(g => g.status !== 'DELETED'); 
 
     if (myGame) {
-        // 進行中のゲームが見つかった場合
-        if (!currentGameState || myGame.actionToken !== currentGameState.actionToken || myGame.status === 'WAITING_JOIN') {
+        // 進行中または終了済みのゲームが見つかった場合
+        // 以下の条件でレンダリング（トークン更新、参加完了、ステータス変更、FINISHEDへの移行）
+        if (!currentGameState || myGame.actionToken !== currentGameState.actionToken || myGame.status !== currentGameState.status) {
             currentGameState = myGame;
             PVP_LOBBY.classList.add('hidden');
             GAME_ARENA.classList.remove('hidden');
             renderGameArena(currentGameState);
-        } else {
-            // ゲームの状態が変わっていない場合でも、FINISHEDになった場合は再レンダリング
-            if (myGame.status === 'FINISHED' && currentGameState.status !== 'FINISHED') {
-                 currentGameState = myGame;
-                 renderGameArena(currentGameState); // 終了画面をレンダリング
-            }
         }
     } else {
-        // 進行中のゲームがない場合
-        if (currentGameState && currentGameState.status !== 'FINISHED') {
-            // 直前までゲーム中だったが、サーバー側でFINISHED/DELETEされた場合はロビーに戻す
+        // 進行中のゲームがない場合（ログが削除された場合）
+        if (currentGameState) {
             currentGameState = null;
             GAME_ARENA.classList.add('hidden');
             PVP_LOBBY.classList.remove('hidden');
         }
         
         // ロビーリストの更新
-        // ★修正: 完了したゲームのリストを渡す代わりに、空の配列を渡してリスト表示をスキップ
         renderLobbyLists([], data.availableGames);
     }
 }
@@ -191,6 +186,7 @@ function renderGameArena(game) {
 
     const myName = authenticatedUser.name;
     const isPlayerA = game.playerA === myName;
+    const leaveButton = document.getElementById('leave-game-button');
 
     // --- 1. プレイヤー情報カードの更新 ---
     const renderPlayerCard = (player, score, shockCount, isCurrentPlayer) => {
@@ -209,8 +205,10 @@ function renderGameArena(game) {
         ? renderPlayerCard(game.playerB, game.scoreB, game.shockCountB, game.playerB === myName)
         : '<h4>相手プレイヤー参加待ち...</h4>';
     
-    PLAYER_A_CARD.classList.toggle('current-player', game.playerA === game.nextActionPlayer);
-    PLAYER_B_CARD.classList.toggle('current-player', game.playerB === game.nextActionPlayer);
+    // ターンの強調表示はFINISHEDでは行わない
+    const isFinished = game.status === 'FINISHED';
+    PLAYER_A_CARD.classList.toggle('current-player', !isFinished && game.playerA === game.nextActionPlayer);
+    PLAYER_B_CARD.classList.toggle('current-player', !isFinished && game.playerB === game.nextActionPlayer);
 
 
     // --- 2. ターンとラウンドの表示 ---
@@ -223,24 +221,37 @@ function renderGameArena(game) {
     if (game.status === 'WAITING_JOIN') {
         turnText = `ルームコード: ${game.roomCode}。相手プレイヤー (${game.playerB || '??? '}) の参加を待っています。`;
         CHAIR_CONTAINER.innerHTML = '';
-        document.getElementById('leave-game-button').textContent = 'ルームを削除';
+        leaveButton.textContent = 'ルームを削除';
     } else if (game.status === 'FINISHED') {
-        const resultText = game.winner === myName ? '勝利' : (game.winner === 'DRAW' ? '引き分け' : '敗北');
-        turnText = `ゲーム終了! ${game.winner} が${resultText}。`;
-        CHAIR_CONTAINER.innerHTML = '';
-        document.getElementById('leave-game-button').textContent = 'ロビーに戻る';
+        // ★修正: ゲーム終了時のメッセージを明確に表示
+        const resultText = game.winner === myName ? '🏆 勝利' : (game.winner === 'DRAW' ? '🤝 引き分け' : '😭 敗北');
+        const finalMessage = game.winner === 'DRAW' 
+            ? `ゲーム終了! ${resultText}です。スコアは${game.scoreA.toFixed(1)}P vs ${game.scoreB.toFixed(1)}P。`
+            : `ゲーム終了! ${game.winner}の${resultText}です。`;
+            
+        turnText = finalMessage;
+        CHAIR_CONTAINER.innerHTML = '<p style="text-align: center; font-size: 1.2em; font-weight: bold; color: var(--color-primary);">ゲームは終了しました。</p>';
+        
+        // 終了時のボタンアクション
+        leaveButton.textContent = 'ロビーに戻る (ログ削除)';
+        // FINISHEDの場合、このボタンはログ削除アクションを実行する
+        leaveButton.dataset.action = 'delete'; 
+
     } else if (game.nextActionPlayer === myName) {
-        // ステータスに基づいて、仕掛け (WAITING_A/B) か座る (WAITING_A/B_SIT) かを判定
+        // 仕掛け (WAITING_A/B) か座る (WAITING_A/B_SIT) かを判定
         const isAttackerPhase = game.status === 'WAITING_A' || game.status === 'WAITING_B';
         turnText = isAttackerPhase ? '⚡ あなたのターン: 電流を仕掛ける椅子を選んでください。' : '🪑 あなたのターン: 座る椅子を選んでください。';
         
         renderChairButtons(game.publicChairs, isAttackerPhase, game.gameId, game.actionToken);
         CHAIR_CONTAINER.classList.remove('hidden');
-        document.getElementById('leave-game-button').textContent = '対戦を辞める (敗北)';
+        leaveButton.textContent = '対戦を辞める (敗北)';
+        leaveButton.dataset.action = 'forfeit';
+
     } else {
         turnText = `相手のターン (${game.nextActionPlayer} のアクション待ち)...`;
         CHAIR_CONTAINER.innerHTML = '<p style="text-align: center; color: #6c757d;">相手の操作を待っています...</p>';
-        document.getElementById('leave-game-button').textContent = '対戦を辞める (敗北)';
+        leaveButton.textContent = '対戦を辞める (敗北)';
+        leaveButton.dataset.action = 'forfeit';
     }
     TURN_DISPLAY.textContent = turnText;
 
@@ -461,26 +472,25 @@ async function handleChooseAction(gameId, actionToken, chairId) {
 /**
  * ゲームを途中で辞める（または終了後にロビーに戻る）アクション
  */
-document.getElementById('leave-game-button').addEventListener('click', async () => {
+document.getElementById('leave-game-button').addEventListener('click', async (e) => {
     if (!currentGameState) return;
     
-    const isFinished = currentGameState.status === 'FINISHED';
+    const leaveButton = e.target;
+    const action = leaveButton.dataset.action; // 'delete' or 'forfeit'
     
-    if (!isFinished && !window.confirm('対戦を途中放棄しますか？ 相手の勝利としてポイントが反映されます。')) {
+    if (action === 'forfeit' && !window.confirm('対戦を途中放棄しますか？ 相手の勝利としてポイントが反映されます。')) {
         return;
     }
     
     const messageEl = document.getElementById('game-message');
     showMessage(messageEl, 'ゲームを終了しています...', 'info');
-
-    // 終了済みなら削除、進行中なら放棄
-    const action = currentGameState.status === 'WAITING_JOIN' ? 'delete' : (isFinished ? 'delete' : 'forfeit');
+    leaveButton.disabled = true;
 
     const response = await sendPvpAction({
         action: action,
         gameId: currentGameState.gameId,
         player: authenticatedUser.name,
-        actionToken: currentGameState.actionToken // FINISHEDの場合でもトークンを送信
+        actionToken: currentGameState.actionToken 
     });
 
     if (response.status === 'success') {
@@ -490,6 +500,7 @@ document.getElementById('leave-game-button').addEventListener('click', async () 
     } else {
         showMessage(messageEl, `❌ 終了エラー: ${response.message}`, 'error');
     }
+    leaveButton.disabled = false;
 });
 
 
