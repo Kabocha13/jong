@@ -164,8 +164,8 @@ exports.handler = async (event) => {
             currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
             
             // ★修正: 仕掛けた側がAなら次のターンはBの座るターン、仕掛けた側がBなら次のターンはAの座るターン
-            // WAITING_A (Aが仕掛ける) の次のターンは WAITING_B (Bが座る) -> playerBがアクション
-            // WAITING_B (Bが仕掛ける) の次のターンは WAITING_A (Aが座る) -> playerAがアクション
+            // WAITING_A (Aが仕掛ける) -> WAITING_B_SIT (Bが座る) -> playerBがアクション
+            // WAITING_B (Bが仕掛ける) -> WAITING_A_SIT (Aが座る) -> playerAがアクション
             currentGame.status = isPlayerA ? 'WAITING_B_SIT' : 'WAITING_A_SIT'; // 新しい座るフェーズのステータス
             currentGame.nextActionPlayer = isPlayerA ? currentGame.playerB : currentGame.playerA;
 
@@ -231,17 +231,20 @@ exports.handler = async (event) => {
             publicChair.available = false;
 
             // 3. ラウンド情報の更新と攻守交替
-            currentGame.round += 1;
+            // ★修正: 1ラウンド（仕掛け+座る）が完了したため、ラウンド数をインクリメント
+            currentGame.round += 1; 
             
             // 秘密情報をクリア (次のラウンドの仕掛けに備える)
             currentGame.secretChairs.forEach(c => c.isShock = false); 
             
-            // ★修正されたロジック: 次のターンは、今回の仕掛け側が座る側になる
-            // Aが座った場合 (isWaitingASit): Bが仕掛けていた -> 次はAが仕掛ける
-            // Bが座った場合 (isWaitingBSit): Aが仕掛けていた -> 次はBが仕掛ける
-            const newAttacker = isWaitingASit ? currentGame.playerA : currentGame.playerB; 
+            // ★修正されたロジック: 次のターンは、今回の仕掛け側ではない方がアタッカーになる
+            // 今回座ったプレイヤーが次のラウンドのディフェンダーになる
+            // Aが座った場合 (isWaitingASit): Bが仕掛けていた -> Bが次のディフェンダー
+            // Bが座った場合 (isWaitingBSit): Aが仕掛けていた -> Aが次のディフェンダー
+            const currentAttacker = isWaitingASit ? currentGame.playerB : currentGame.playerA; // 今回の仕掛け側
+            const newAttacker = currentAttacker === currentGame.playerA ? currentGame.playerB : currentGame.playerA; // 次の仕掛け側
             
-            // 次のターンは、座ったプレイヤーが仕掛ける側になる
+            // 次のターンは、新しいアタッカーが仕掛ける番
             const isNewAttackerA = newAttacker === currentGame.playerA;
             currentGame.status = isNewAttackerA ? 'WAITING_A' : 'WAITING_B';
             currentGame.nextActionPlayer = newAttacker;
@@ -265,7 +268,7 @@ exports.handler = async (event) => {
             } else if (currentGame.shockCountB >= 3) {
                 winner = currentGame.playerA;
                 loser = currentGame.playerB;
-            } else if (currentGame.round > 6 * 2) { // 12回アクション(6ラウンド)完了
+            } else if (currentGame.round > 12) { // 12回アクション(6ラウンド)完了
                 // 12ラウンド終了後の点数勝負
                 if (currentGame.scoreA > currentGame.scoreB) {
                     winner = currentGame.playerA;
