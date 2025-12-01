@@ -229,7 +229,9 @@ function renderGameArena(game) {
 
 
     // --- 2. ターンとラウンドの表示 ---
-    document.getElementById('current-round').textContent = `${game.round}/6`;
+    // ★修正：アクション回数(game.round)をラウンド数(1-6)に変換して表示
+    const currentRound = Math.ceil(game.round / 2);
+    document.getElementById('current-round').textContent = `${currentRound}/6`;
     
     let turnText = '';
     
@@ -243,11 +245,11 @@ function renderGameArena(game) {
         CHAIR_CONTAINER.innerHTML = '';
         document.getElementById('leave-game-button').textContent = 'ロビーに戻る';
     } else if (game.nextActionPlayer === myName) {
-        // 仕掛ける側は、ゲームの状態から判定 ('WAITING_A'ならAが仕掛ける番)
-        const isAttacker = (game.status === 'WAITING_A' && game.playerA === myName) || 
-                           (game.status === 'WAITING_B' && game.playerB === myName);
-        turnText = isAttacker ? '⚡ あなたのターン: 電流を仕掛ける椅子を選んでください。' : '🪑 あなたのターン: 座る椅子を選んでください。';
-        renderChairButtons(game.publicChairs, isAttacker, game.gameId, game.actionToken);
+        // ステータスに基づいて、仕掛け (WAITING_A/B) か座る (WAITING_A/B_SIT) かを判定
+        const isAttackerPhase = game.status === 'WAITING_A' || game.status === 'WAITING_B';
+        turnText = isAttackerPhase ? '⚡ あなたのターン: 電流を仕掛ける椅子を選んでください。' : '🪑 あなたのターン: 座る椅子を選んでください。';
+        
+        renderChairButtons(game.publicChairs, isAttackerPhase, game.gameId, game.actionToken);
         CHAIR_CONTAINER.classList.remove('hidden');
         document.getElementById('leave-game-button').textContent = '対戦を辞める (敗北)';
     } else {
@@ -262,7 +264,10 @@ function renderGameArena(game) {
         LAST_RESULT_DISPLAY.classList.remove('hidden');
         const isMyResult = game.lastResult.player === myName;
         
-        let message = `${game.lastResult.player} がラウンド ${game.round - 1} で椅子 ${game.lastResult.points > 0 ? game.lastResult.points : '??'} に座り...`;
+        // game.roundが次のラウンドのアクション回数になっているため、ここでは -1 して表示する
+        const lastActionRound = Math.ceil((game.round - 1) / 2);
+
+        let message = `${game.lastResult.player} がラウンド ${lastActionRound} で椅子 ${game.lastResult.points > 0 ? game.lastResult.points : '??'} に座り...`;
         
         if (game.lastResult.result === 'SHOCK') {
             message += ` ⚡ 感電! スコア没収。ショック回数 ${isMyResult ? game.shockCountA : game.shockCountB}回。`;
@@ -281,7 +286,7 @@ function renderGameArena(game) {
 /**
  * 椅子ボタンをレンダリングし、イベントリスナーを設定する
  */
-function renderChairButtons(chairs, isAttacker, gameId, actionToken) {
+function renderChairButtons(chairs, isAttackerPhase, gameId, actionToken) {
     CHAIR_CONTAINER.innerHTML = '';
     
     chairs.forEach(chair => {
@@ -294,7 +299,7 @@ function renderChairButtons(chairs, isAttacker, gameId, actionToken) {
         if (!chair.available) {
             button.disabled = true;
             button.classList.add('chosen-chair');
-        } else if (isAttacker) {
+        } else if (isAttackerPhase) {
             // 仕掛ける側は、仕掛ける椅子を選択できる
             button.addEventListener('click', () => handleShockAction(gameId, actionToken, chair.id));
         } else {
