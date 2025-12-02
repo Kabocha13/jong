@@ -87,7 +87,7 @@ exports.handler = async (event) => {
         // === A. ルーム作成 (create) ===
         if (action === 'create') {
             
-            // ★追加: ポイント設定の検証と取得
+            // ポイント設定の検証と取得
             const defaultPoints = { winPoints: 20.0, losePoints: -10.0, forfeitPoints: -10.0 };
             const finalPoints = {
                 winPoints: pointsConfig && !isNaN(pointsConfig.winPoints) ? parseFloat(pointsConfig.winPoints.toFixed(1)) : defaultPoints.winPoints,
@@ -116,7 +116,7 @@ exports.handler = async (event) => {
                 timestamp: now,
                 actionToken: newActionToken,
                 lastResult: null,
-                // ★追加: プレイヤーが設定したポイント
+                // プレイヤーが設定したポイント
                 winPoints: finalPoints.winPoints, 
                 losePoints: finalPoints.losePoints, 
                 forfeitPoints: finalPoints.forfeitPoints, 
@@ -165,9 +165,6 @@ exports.handler = async (event) => {
                  return { statusCode: 400, body: JSON.stringify({ message: 'Invalid chair ID.' }) };
             }
             
-            // ★修正: Cの条件（椅子不足による強制終了）を削除。
-
-            
             const selectedChair = currentGame.secretChairs.find(c => c.id === chairId);
             const publicChair = currentGame.publicChairs.find(c => c.id === chairId);
             
@@ -175,9 +172,8 @@ exports.handler = async (event) => {
                  return { statusCode: 400, body: JSON.stringify({ message: 'Chair is already taken.' }) };
             }
             
-            // ★修正: Bの条件（ラウンド終了による勝敗）の変更
-            // 11回アクション完了後（6ラウンド目の仕掛け時）、仕掛けるアクションが成功した直後にゲーム終了判定を行う
-            if (currentGame.round === 11) { // 11回目（最後の仕掛け）
+            // 1. ラウンド終了による勝敗判定 (11回目 = 最終仕掛け時)
+            if (currentGame.round === 11) {
                 
                 // 秘密情報に電流をセット (最後の仕掛けは確定させる)
                 currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
@@ -197,93 +193,50 @@ exports.handler = async (event) => {
                     winner = 'DRAW';
                 }
                 
-                if (winner) {
-                    currentGame.round = 12; // アクション回数を12に更新 (最終アクション完了として扱う)
-                    currentGame.status = 'FINISHED';
-                    currentGame.nextActionPlayer = null;
-                    currentGame.winner = winner;
-                    
-                    // ポイント反映
-                    const WIN_POINTS = currentGame.winPoints;
-                    const LOSE_POINTS = currentGame.losePoints;
+                // 勝敗が決定したら、ポイントを反映しゲームを終了
+                currentGame.round = 12; // 最終アクション完了として扱う
+                currentGame.status = 'FINISHED';
+                currentGame.nextActionPlayer = null;
+                currentGame.winner = winner;
+                
+                const WIN_POINTS = currentGame.winPoints;
+                const LOSE_POINTS = currentGame.losePoints;
 
-                    if (winner !== 'DRAW') {
-                        const winnerData = allScoresMap.get(winner);
-                        const loserData = allScoresMap.get(loser);
+                if (winner !== 'DRAW') {
+                    const winnerData = allScoresMap.get(winner);
+                    const loserData = allScoresMap.get(loser);
 
-                        if (winnerData) {
-                             winnerData.score = parseFloat((winnerData.score + WIN_POINTS).toFixed(1));
-                             allScoresMap.set(winner, winnerData);
-                        }
-                        if (loserData) {
-                             loserData.score = parseFloat((loserData.score + LOSE_POINTS).toFixed(1));
-                             allScoresMap.set(loser, loserData);
-                        }
-                        responseMessage = `Game Finished (Round Over)! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
-                    } else {
-                        responseMessage = `Game Finished (Round Over)! Draw.`;
+                    if (winnerData) {
+                         winnerData.score = parseFloat((winnerData.score + WIN_POINTS).toFixed(1));
+                         allScoresMap.set(winner, winnerData);
                     }
-                    scoreUpdated = true;
-                    allData.scores = Array.from(allScoresMap.values());
+                    if (loserData) {
+                         loserData.score = parseFloat((loserData.score + LOSE_POINTS).toFixed(1));
+                         allScoresMap.set(loser, loserData);
+                    }
+                    responseMessage = `Game Finished (Round Over)! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
+                } else {
+                    responseMessage = `Game Finished (Round Over)! Draw.`;
                 }
+                scoreUpdated = true;
+                allData.scores = Array.from(allScoresMap.values());
                 
-                currentGame.actionToken = newActionToken; // 最後にトークンを更新
+                // ログ削除はdeleteアクションに任せるため、ここでPUTして処理を終える
                 
-                // 3. JSONBinに全データを上書き保存
-                allData.electric_chair_games = allGames; 
+            } else {
+                // 2. 通常の仕掛けフェーズ
+                
+                // 秘密情報に電流をセット
+                currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
+                
+                // 次のターンは座るフェーズ
+                currentGame.status = isPlayerA ? 'WAITING_B_SIT' : 'WAITING_A_SIT'; 
+                currentGame.nextActionPlayer = isPlayerA ? currentGame.playerB : currentGame.playerA;
 
-                const putResponse = await fetch(JSONBIN_URL, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
-                    body: JSON.stringify(allData)
-                });
-
-                if (!putResponse.ok) throw new Error(`JSONBin PUT Error: ${putResponse.statusText}`);
-
-                // 4. クライアントに成功応答を返す
-                const publicGameForResponse = {
-                    gameId: currentGame.gameId,
-                    roomCode: currentGame.roomCode,
-                    playerA: currentGame.playerA,
-                    playerB: currentGame.playerB,
-                    status: currentGame.status,
-                    nextActionPlayer: currentGame.nextActionPlayer,
-                    round: currentGame.round,
-                    scoreA: currentGame.scoreA,
-                    scoreB: currentGame.scoreB,
-                    shockCountA: currentGame.shockCountA,
-                    shockCountB: currentGame.shockCountB,
-                    publicChairs: currentGame.publicChairs,
-                    winner: currentGame.winner,
-                    actionToken: currentGame.actionToken,
-                    lastResult: currentGame.lastResult,
-                    winPoints: currentGame.winPoints,
-                    losePoints: currentGame.losePoints,
-                    forfeitPoints: currentGame.forfeitPoints,
-                };
-
-                return {
-                    statusCode: 200,
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        status: 'success',
-                        message: responseMessage,
-                        gameData: publicGameForResponse, // ★ FINISHED状態のデータを返す
-                        actionToken: newActionToken,
-                    })
-                };
+                responseMessage = `Shock set on chair ${chairId}. Waiting for ${currentGame.nextActionPlayer} to sit.`;
             }
-            // ★修正終わり
 
-            // 秘密情報に電流をセット
-            currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
-            
-            // 次のターンは座るフェーズ
-            currentGame.status = isPlayerA ? 'WAITING_B_SIT' : 'WAITING_A_SIT'; 
-            currentGame.nextActionPlayer = isPlayerA ? currentGame.playerB : currentGame.playerA;
-
-            currentGame.actionToken = newActionToken;
-            responseMessage = `Shock set on chair ${chairId}. Waiting for ${currentGame.nextActionPlayer} to sit.`;
+            currentGame.actionToken = newActionToken; // トークンを更新
         }
 
         // === D. 椅子に座る (chooseChair) ===
@@ -367,7 +320,7 @@ exports.handler = async (event) => {
             responseMessage = `Chair ${chairId} chosen. Result: ${result}.`;
 
 
-            // 4. 終了条件判定
+            // 4. 終了条件判定 (感電による敗北)
             let winner = null;
             let loser = null;
             if (currentGame.shockCountA >= 3) {
@@ -377,9 +330,6 @@ exports.handler = async (event) => {
                 winner = currentGame.playerA;
                 loser = currentGame.playerB;
             } 
-            // ★修正: 12回ではなく、12回以上のアクションでは勝敗判定を行わない。
-            // 11回で勝敗が確定しているため、ここでは感電敗北のみをチェック。
-            // 既にround <= 12の範囲で感電による敗北がなければ、次のsetShockChairで最終判定に進む。
 
             if (winner) {
                 currentGame.status = 'FINISHED';
@@ -418,48 +368,55 @@ exports.handler = async (event) => {
         }
         
         // === E. ゲーム放棄/削除 (forfeit/delete) ===
-        else if (action === 'forfeit' || action === 'delete') {
+        else if (action === 'forfeit') {
+            // ★修正: forfeit処理を分離し、ログは削除しない
+            if (!currentGame || currentGame.status === 'FINISHED') {
+                 // 既に終了している場合は、削除を促すメッセージを返す
+                 return { statusCode: 200, body: JSON.stringify({ status: "success", message: 'Game already finished. Use DELETE action to clear log.', gameData: currentGame }) };
+            }
+            
+            // 放棄処理
+            const winner = currentGame.playerA === player ? currentGame.playerB : currentGame.playerA;
+            const loser = player;
+            const WIN_POINTS = currentGame.winPoints; 
+            const FORFEIT_PENALTY = currentGame.forfeitPoints; 
+            
+            const winnerData = allScoresMap.get(winner);
+            const loserData = allScoresMap.get(loser);
+
+            if (winnerData) {
+                 winnerData.score = parseFloat((winnerData.score + WIN_POINTS).toFixed(1));
+                 allScoresMap.set(winner, winnerData);
+            }
+            if (loserData) {
+                 loserData.score = parseFloat((loserData.score + FORFEIT_PENALTY).toFixed(1));
+                 allScoresMap.set(loser, loserData);
+            }
+            
+            currentGame.status = 'FINISHED';
+            currentGame.nextActionPlayer = null;
+            currentGame.winner = winner;
+            responseMessage = `Game forfeited. ${winner} wins. (+${WIN_POINTS} P / ${loser} ${FORFEIT_PENALTY} P)`;
+            scoreUpdated = true;
+            
+            // スコアの更新を反映
+            allData.scores = Array.from(allScoresMap.values());
+            currentGame.actionToken = newActionToken; 
+
+        } 
+        
+        else if (action === 'delete') {
+            // ★追加: deleteアクションはログの削除のみを行う
             if (!currentGame) {
                  return { statusCode: 400, body: JSON.stringify({ message: 'Game not found.' }) };
             }
             
-            if (action === 'forfeit') {
-                if (currentGame.status === 'FINISHED') {
-                    responseMessage = 'Game already finished. Preparing to delete log.';
-                } else {
-                    // 放棄処理
-                    const winner = currentGame.playerA === player ? currentGame.playerB : currentGame.playerA;
-                    const loser = player;
-                    // ★修正: 放棄ペナルティもルーム設定値を使用
-                    const WIN_POINTS = currentGame.winPoints; 
-                    const FORFEIT_PENALTY = currentGame.forfeitPoints; 
-                    
-                    const winnerData = allScoresMap.get(winner);
-                    const loserData = allScoresMap.get(loser);
-
-                    if (winnerData) {
-                         // 勝利ポイントは相手がもらう
-                         winnerData.score = parseFloat((winnerData.score + WIN_POINTS).toFixed(1));
-                         allScoresMap.set(winner, winnerData);
-                    }
-                    if (loserData) {
-                         // 放棄した人がペナルティを受ける
-                         loserData.score = parseFloat((loserData.score + FORFEIT_PENALTY).toFixed(1));
-                         allScoresMap.set(loser, loserData);
-                    }
-                    
-                    currentGame.status = 'FINISHED';
-                    currentGame.nextActionPlayer = null;
-                    currentGame.winner = winner;
-                    responseMessage = `Game forfeited. ${winner} wins. (+${WIN_POINTS} P / ${loser} ${FORFEIT_PENALTY} P)`;
-                    scoreUpdated = true;
-                    
-                    // スコアの更新を反映
-                    allData.scores = Array.from(allScoresMap.values());
-                }
+            // 進行中のゲームは削除できないようにする（念のため）
+            if (currentGame.status !== 'FINISHED' && currentGame.playerB) {
+                 return { statusCode: 403, body: JSON.stringify({ message: 'Only finished games or empty rooms can be deleted.' }) };
             }
-
-            // 終了済みゲームはリストから削除
+            
+            // ゲームリストから削除
             allGames = allGames.filter(g => g.gameId !== currentGame.gameId);
             responseMessage = `Game log deleted.`;
             currentGame = null; 
@@ -499,7 +456,7 @@ exports.handler = async (event) => {
             winner: currentGame.winner,
             actionToken: currentGame.actionToken,
             lastResult: currentGame.lastResult,
-            // ★追加: ポイント設定をレスポンスに含める
+            // ポイント設定をレスポンスに含める
             winPoints: currentGame.winPoints,
             losePoints: currentGame.losePoints,
             forfeitPoints: currentGame.forfeitPoints,
