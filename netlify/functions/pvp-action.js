@@ -105,7 +105,7 @@ exports.handler = async (event) => {
                 playerB: null,
                 status: 'WAITING_JOIN',
                 nextActionPlayer: null,
-                round: 1,
+                round: 1, // アクション回数 1 (初期状態)
                 scoreA: 0,
                 scoreB: 0,
                 shockCountA: 0,
@@ -136,6 +136,8 @@ exports.handler = async (event) => {
             // プレイヤーAとBをランダムで決定し、攻守を設定
             const players = [currentGame.playerA, player];
             const startingPlayer = players[Math.floor(Math.random() * 2)];
+            // WAITING_A: Aが仕掛ける番 
+            // WAITING_B: Bが仕掛ける番 
             const startingStatus = startingPlayer === currentGame.playerA ? 'WAITING_A' : 'WAITING_B';
 
             currentGame.playerB = player;
@@ -190,6 +192,7 @@ exports.handler = async (event) => {
             const isDefender = (currentGame.nextActionPlayer === player);
             const isPlayerA = currentGame.playerA === player;
             
+            // 座るフェーズのステータス検証
             const isWaitingBSit = currentGame.status === 'WAITING_B_SIT'; 
             const isWaitingASit = currentGame.status === 'WAITING_A_SIT'; 
 
@@ -237,7 +240,7 @@ exports.handler = async (event) => {
             publicChair.available = false;
 
             // 3. ラウンド情報の更新と攻守交替
-            currentGame.round += 1; 
+            currentGame.round += 1; // アクション回数をインクリメント
             
             // 秘密情報をクリア (次のラウンドの仕掛けに備える)
             currentGame.secretChairs.forEach(c => c.isShock = false); 
@@ -270,7 +273,9 @@ exports.handler = async (event) => {
             } else if (currentGame.shockCountB >= 3) {
                 winner = currentGame.playerA;
                 loser = currentGame.playerB;
-            } else if (currentGame.round > 12) { // 12回アクション(6ラウンド)完了
+            } 
+            // ★修正: アクション回数が12回(6ラウンド)に達したら終了
+            else if (currentGame.round > 12) { // 12回アクション(6ラウンド)完了
                 if (currentGame.scoreA > currentGame.scoreB) {
                     winner = currentGame.playerA;
                     loser = currentGame.playerB;
@@ -281,6 +286,7 @@ exports.handler = async (event) => {
                     winner = 'DRAW';
                 }
             }
+            // ★修正終わり
 
             if (winner) {
                 currentGame.status = 'FINISHED';
