@@ -68,10 +68,15 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         showMessage(AUTH_MESSAGE, '認証中...', 'info');
     }
     
+    // ★ デバッグログ: 入力ユーザー名を確認
+    console.log(`[DEBUG:master.js] 試行ユーザー名: ${username}`);
+    console.log(`[DEBUG:master.js] 期待マスター名: ${MASTER_USERNAME}`);
+    
     // 1. マスターユーザー名と比較
     if (username !== MASTER_USERNAME) {
         showMessage(AUTH_MESSAGE, '❌ ユーザー名がマスターユーザー名と異なります。', 'error');
-        // ★ 修正: localStorageへのアクセスを削除
+        // ★ デバッグログ: ユーザー名不一致
+        console.error("[ERROR:master.js] 認証失敗: ユーザー名不一致");
         return false;
     }
 
@@ -82,10 +87,18 @@ async function attemptMasterLogin(username, password, isAuto = false) {
     // 認証対象のマスターユーザーを探す
     const masterUser = scores.find(p => p.name === MASTER_USERNAME);
 
-    // ユーザーが見つかり、パスワードが一致するかどうかをチェック
-    if (masterUser && masterUser.pass === password) {
-        // ★ 修正: localStorageへの認証情報保存を削除
+    if (!masterUser) {
+        // ★ デバッグログ: ユーザーデータにマスターが存在しない
+        console.error("[ERROR:master.js] 認証失敗: 取得データ内にマスターユーザーが見つかりません。");
+        showMessage(AUTH_MESSAGE, '❌ ユーザーデータにマスターアカウントが見つかりませんでした。', 'error');
+        return false;
+    }
 
+    // ユーザーが見つかり、パスワードが一致するかどうかをチェック
+    if (masterUser.pass === password) {
+        // ★ デバッグログ: 認証成功
+        console.log("[DEBUG:master.js] 認証成功!");
+        
         // 状態を更新
         isAuthenticatedAsMaster = true;
 
@@ -111,7 +124,8 @@ async function attemptMasterLogin(username, password, isAuto = false) {
 
         return true;
     } else {
-        // ★ 修正: localStorageへのアクセスを削除
+        // ★ デバッグログ: パスワード不一致
+        console.error(`[ERROR:master.js] 認証失敗: パスワード不一致。入力: '${password}', 期待: '${masterUser.pass}'`);
         
         if (!isAuto) {
             showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
