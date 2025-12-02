@@ -752,7 +752,21 @@ async function handleApplyGiftCode(e) {
             timestamp: new Date().toISOString(),
             pointsApplied: pointsToApply 
         });
-        allGiftCodes[codeIndex] = giftCode; // 更新されたコードオブジェクトを配列に戻す
+
+        // --------------------------------------------------------
+        // ★★★ 修正点: 利用回数が尽きたコードを削除 ★★★
+        // --------------------------------------------------------
+        const isFullyUsed = giftCode.maxUses > 0 && giftCode.currentUses >= giftCode.maxUses;
+
+        if (isFullyUsed) {
+            // 利用回数が尽きた場合、リストからコードを削除
+            allGiftCodes.splice(codeIndex, 1);
+            console.log(`[ギフトコード] コード '${code}' は最大利用回数に達したためデータから削除されました。`);
+        } else {
+            // まだ利用回数が残っている場合、更新されたコードオブジェクトを配列に戻す
+            allGiftCodes[codeIndex] = giftCode;
+        }
+        // --------------------------------------------------------
 
         // 5. 全データを更新
         currentData.scores = Array.from(currentScoresMap.values());
@@ -763,14 +777,19 @@ async function handleApplyGiftCode(e) {
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records,
             lotteries: currentData.lotteries,
-            gift_codes: currentData.gift_codes // ★ 更新されたギフトコード
+            gift_codes: currentData.gift_codes // ★ 更新または削除されたリスト
         };
         
         const response = await updateAllData(newData);
         
         if (response.status === 'success') {
             const actionText = pointsToApply >= 0 ? '獲得' : '消費';
-            showMessage(messageEl, `✅ コード適用成功! ${pointsToApply.toFixed(1)} P を${actionText}しました。`, 'success');
+            
+            let successMessage = `✅ コード適用成功! ${pointsToApply.toFixed(1)} P を${actionText}しました。`;
+            if (isFullyUsed) {
+                successMessage += ' (このコードは期限切れとなり削除されました)';
+            }
+            showMessage(messageEl, successMessage, 'success');
             
             // 認証ユーザー情報を更新
             authenticatedUser.score = newScore;
@@ -1520,7 +1539,7 @@ if (LOTTERY_PURCHASE_FORM) {
             for (let i = 0; i < count; i++) {
                 const drawResult = performLotteryDraw(targetLottery.prizes);
                 // null (ハズレ) は 'ハズレ' キーとして集計
-                const rankKey = drawResult.prizeRank === null ? 'ハズレ' : drawResult.prizeRank.toString();
+                const rankKey = drawResult.prizeRank === null ? 'ハズRE' : drawResult.prizeRank.toString();
                 
                 if (!drawResultsMap[rankKey]) {
                      drawResultsMap[rankKey] = { count: 0, amount: drawResult.prizeAmount };
@@ -1539,7 +1558,7 @@ if (LOTTERY_PURCHASE_FORM) {
             
             // 集計された結果をチケットとして配列に追加
             Object.keys(drawResultsMap).forEach(rankKey => {
-                const isWinner = rankKey !== 'ハズレ';
+                const isWinner = rankKey !== 'ハズRE';
                 const prizeRank = isWinner ? parseInt(rankKey) : null;
                 const prizeAmount = drawResultsMap[rankKey].amount; // 1枚あたりの金額
                 const ticketCount = drawResultsMap[rankKey].count;
