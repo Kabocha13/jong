@@ -211,6 +211,7 @@ exports.handler = async (event) => {
                              loserData.score = parseFloat((loserData.score + LOSE_POINTS).toFixed(1));
                              allScoresMap.set(loser, loserData);
                         }
+                        // ★修正: 応答メッセージにポイント変動を含める
                         responseMessage = `Game Finished (Chairs limit)! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
                     } else {
                         responseMessage = `Game Finished (Chairs limit)! Draw.`;
