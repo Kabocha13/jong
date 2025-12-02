@@ -75,10 +75,10 @@
             font-size: 0.85em !important;
         }
         
-        /* ポイント設定フォームの調整 */
+        /* ポイント設定フォームの調整 - 単一入力に合わせる */
         .point-config-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr; /* 1列に変更 */
             gap: 5px;
             margin-bottom: 10px;
         }
@@ -158,19 +158,15 @@
                 <h4>🚪 新しい対戦を開始・参加</h4>
                 
                 <form id="create-room-form" style="margin-bottom: 20px;">
-                    <h5 style="margin-bottom: 5px;">ポイント設定 (P)</h5>
+                    <h5 style="margin-bottom: 5px;">🏆 勝利ポイント設定 (P)</h5>
                     <div class="point-config-grid">
                         <div class="form-group">
-                            <label for="win-points">🏆 勝利</label>
+                            <label for="win-points">勝利ポイント (例: 10.0)</label>
                             <input type="number" id="win-points" step="0.1" value="10.0" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="lose-points">😭 敗北</label>
-                            <input type="number" id="lose-points" step="0.1" value="-10.0" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="forfeit-points">🏃 放棄</label>
-                            <input type="number" id="forfeit-points" step="0.1" value="-10.0" required>
+                            <p style="font-size: 0.75em; color: #6c757d; margin-top: 5px;">
+                                敗北ポイントは <span style="font-weight: bold;">-勝利ポイント</span><br>
+                                放棄ポイントは <span style="font-weight: bold;">-勝利ポイントの2倍</span> に自動設定されます。
+                            </p>
                         </div>
                     </div>
 
@@ -224,7 +220,6 @@
                     <p id="chair-action-message" class="hidden"></p>
                 </form>
                 <div style="margin-top: 10px;">
-                    <!-- dataset.actionはJSで設定されます -->
                     <button id="leave-game-button" class="action-button secondary-button" style="background-color: #ccc;">対戦を辞める</button>
                 </div>
             </div>
