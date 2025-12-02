@@ -24,6 +24,10 @@ const RESULT_MESSAGE = document.getElementById('result-message');
 const PLAYER_A_CARD = document.getElementById('player-a-card');
 const PLAYER_B_CARD = document.getElementById('player-b-card');
 
+// ★追加: 権限関連
+const CREATE_ROOM_RESTRICTION_MESSAGE = document.getElementById('create-room-restriction-message');
+const ALLOWED_STATUSES = ['premium', 'luxury']; // ルーム作成が許可されるステータス
+
 // --- 状態管理 ---
 let authenticatedUser = null; 
 let currentGameState = null; // 現在のゲームデータ (pvp-fetchから取得)
@@ -39,10 +43,14 @@ async function attemptLogin(username, password, isAuto = false) {
     const pvpData = await fetchPvpData(username);
     const allScores = pvpData.allScores;
 
+    // ★修正: ユーザーオブジェクトには status が含まれていることを期待
     const user = allScores.find(p => p.name === username && p.pass === password);
 
     if (user) {
         authenticatedUser = user; 
+        // ユーザーオブジェクトの status を authenticatedUser に確実に保存
+        authenticatedUser.status = user.status || 'none';
+        
         localStorage.setItem('pvpAuthUsername', username); // PVP専用の認証情報を保存
         localStorage.setItem('pvpAuthPassword', password);
 
@@ -95,6 +103,17 @@ function initializeLobby() {
     AUTHENTICATED_USER_NAME.textContent = authenticatedUser.name;
     CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score ? authenticatedUser.score.toFixed(1) : '0.0';
     
+    // ★追加: ルーム作成権限のチェックとUIの制御
+    const canCreateRoom = ALLOWED_STATUSES.includes(authenticatedUser.status);
+    
+    if (canCreateRoom) {
+        CREATE_ROOM_FORM.style.display = 'block';
+        CREATE_ROOM_RESTRICTION_MESSAGE.classList.add('hidden');
+    } else {
+        CREATE_ROOM_FORM.style.display = 'none';
+        CREATE_ROOM_RESTRICTION_MESSAGE.classList.remove('hidden');
+    }
+    
     // 既存のゲームがあればアリーナに直接移動させる
     // 修正: FINISHEDでもアリーナに残すため、FINISHEDチェックを削除
     if (currentGameState && currentGameState.status !== 'WAITING_JOIN' && currentGameState.playerB) {
@@ -112,10 +131,11 @@ async function fetchAndUpdatePvpData() {
 
     const data = await fetchPvpData(authenticatedUser.name);
     
-    // 1. 自分のスコアを更新 (認証情報が古くなっている可能性があるため)
+    // 1. 自分のスコアとステータスを更新 (認証情報が古くなっている可能性があるため)
     const myCurrentScoreData = data.allScores.find(p => p.name === authenticatedUser.name);
     if (myCurrentScoreData) {
         authenticatedUser.score = myCurrentScoreData.score;
+        authenticatedUser.status = myCurrentScoreData.status || 'none'; // ステータスも更新
         CURRENT_SCORE_ELEMENT.textContent = myCurrentScoreData.score.toFixed(1);
     }
 
@@ -149,6 +169,9 @@ async function fetchAndUpdatePvpData() {
         
         // ロビーリストの更新
         renderLobbyLists([], data.availableGames);
+        
+        // ロビーに戻った際にも権限チェックを行う
+        initializeLobby();
     }
 }
 
@@ -250,48 +273,8 @@ function renderGameArena(game) {
             // 敗北または放棄のケース
             myResultText = '😭 敗北...';
             
-            // サーバー側では、
-            // 1. 感電敗北/スコア敗北: losePointsが適用
-            // 2. 途中放棄: forfeitPointsが適用
-            // されます。それをクライアント側で推測します。
-            
-            // 相手が勝者であり、自分が敗者。
-            // サーバー側で放棄アクションが実行された場合、game.winnerが相手になり、
-            // そのゲームのplayerBがnullではない場合、終了理由は「感電/スコア敗北」か「放棄」のいずれか。
-            
-            // 暫定的に、最終ラウンド前(round < 12)で勝敗が決まり、かつ敗者（自分）がアクションを実行していない（相手がforfeitを呼ばなかった）場合はlosePoints、
-            // それ以外（forfeitが実行された場合）はforfeitPointsと判断する。
-            
-            // シンプル化のため、最終的な勝者が確定している場合は、
-            // 相手が勝者であれば、losePointsまたはforfeitPointsが適用されていると見なし、
-            // 現状のサーバーロジック（forfeitの場合はforfeitPoints、それ以外はlosePoints）に従って表示する。
-            
-            // ※ サーバー側で forfiet かどうかを判別する情報（例: lastForfeitAction）を渡していないため、
-            // ここではシンプルに、ゲームがFINISHEDで自分が負けた場合、スコア/感電敗北のポイントを表示し、
-            // ユーザーがボタンを押して放棄した場合はそのポイントを適用したとして表示します。
-            // ただし、今回はサーバー側でforfeitのポイント計算がされているため、その値を信じて表示します。
-            
-            // 【重要】サーバー側のポイント反映ロジックを信じる
-            // サーバーから渡された game.losePoints / game.forfeitPoints を使用して計算。
-            
-            // 自分が敗者 (loser) の場合、ポイント変動は losePoints または forfeitPoints のどちらか。
-            // 自分が放棄したかどうかをクライアントは直接判定できないため、ここは表示上の近似値とする。
-            // サーバー側で forfiet のロジックが実行されているかどうかに依存するが、
-            // サーバーが `forfeit` アクションを受けた場合のみ `forfeitPoints` が適用されるため、
-            // 勝敗が確定した場合（感電/スコア）は `losePoints` が適用されたと見なすのが安全。
-            
-            // 放棄は `round < 12` で発生する。
-            // 最終ラウンドでのスコア負けも `round = 12` で発生するが、 `setShockChair` で処理される。
-            
-            // この問題は、ポイントが複雑な計算に基づいているため発生しやすい。
-            // クライアント側では、**ゲームログの `lastResult` などの追加フィールドがない限り**、正確なポイント変動を推測できないため、
-            // サーバー側の計算値を信じて表示を調整します。
-            
-            // 現状のサーバーロジック:
-            // - 感電/スコア敗北: losePoints
-            // - 途中放棄: forfeitPoints
-            
-            // クライアントで正確なポイント変動を再現するのは困難なため、シンプルに losePoints または forfeitPoints を使用。
+            // サーバー側のロジック（forfeitの場合はforfeitPoints、それ以外はlosePoints）に従って表示する。
+            // 自分が敗者であるため、losePointsまたはforfeitPointsが適用されていると見なす。
             
             if (game.losePoints === game.forfeitPoints) {
                 // 敗北/放棄ポイントが同値の場合
@@ -303,10 +286,7 @@ function renderGameArena(game) {
             }
         }
         
-        // サーバー側の `forfeit` アクションによる終了時に `forfeitPoints` が適用されると仮定し、
-        // それ以外の敗北（感電/スコア）では `losePoints` が適用されると仮定する。
-
-        
+        // 勝利者名を表示し、自分のポイント変動を強調
         const finalMessage = game.winner === 'DRAW' 
             ? `<span style="color: #6c757d;">ゲーム終了! ${myResultText}です。最終スコア ${game.scoreA.toFixed(1)}P vs ${game.scoreB.toFixed(1)}P。</span>`
             : `<span style="color: ${game.winner === myName ? 'var(--color-primary)' : 'var(--color-error)'};">
@@ -415,7 +395,13 @@ CREATE_ROOM_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('create-room-message');
     
-    // ★修正: winPointsのみを取得し、他のポイントを計算
+    // ★追加: ルーム作成権限の再チェック
+    if (!ALLOWED_STATUSES.includes(authenticatedUser.status)) {
+         showMessage(messageEl, '❌ ルームを作成できるのはプレミアム、ラグジュアリー会員限定です。', 'error');
+         return;
+    }
+    
+    // 勝利ポイントのみを取得し、他のポイントを計算
     const rawWinPoints = parseFloat(document.getElementById('win-points').value);
     
     if (isNaN(rawWinPoints) || rawWinPoints <= 0) {
