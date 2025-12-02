@@ -232,21 +232,66 @@ function renderGameArena(game) {
         leaveButton.dataset.action = 'delete'; // 参加待ちの部屋は削除
     } else if (isFinished) {
         
-        // 勝敗メッセージを再構築し、常に表示する
-        const myPointChange = game.winner === myName 
-            ? game.winPoints
-            : (game.winner === 'DRAW' ? 0 : game.losePoints);
+        // ★修正開始: 負けた人の結果が逆になる問題を修正
+        let myPointChange = 0;
+        let myResultText = '';
         
-        const myResultText = game.winner === myName 
-            ? '🏆 勝利!' 
-            : (game.winner === 'DRAW' ? '🤝 引き分け' : '😭 敗北...');
+        if (game.winner === 'DRAW') {
+            myResultText = '🤝 引き分け';
+            myPointChange = 0;
+        } else if (game.winner === myName) {
+            myResultText = '🏆 勝利!';
+            myPointChange = game.winPoints;
+        } else {
+            // 敗北または放棄のケース
+            myResultText = '😭 敗北...';
+            
+            // サーバー側で放棄 (forfeit) された場合、lastResultフィールドは更新されないため、
+            // 敗北プレイヤーが自分であることと、勝者が相手であることを確認し、
+            // game.forfeitPointsを適用されたと仮定する。
+            // (pvp-action.jsのforfeitロジックに合わせる)
+            const isForfeit = game.lastResult && game.lastResult.player === myName && game.lastResult.points < 0; 
 
+            if (game.round < 12) {
+                 // 感電敗北または途中放棄
+                 // サーバー側では感電敗北時もlosePointsが適用される
+                 myPointChange = game.losePoints;
+            } else {
+                 // スコア敗北の場合、losePointsが適用されている
+                 myPointChange = game.losePoints;
+            }
+            
+            // 念のため、放棄された場合の処理を明記（サーバーロジックではlosePointsとforfeitPointsは同一値で設定されていることが多い想定）
+            // if (myPointChange === game.losePoints && game.round < 12) {
+            //      myResultText = '😭 敗北 (感電/ラウンドアウト)';
+            // } else if (myPointChange === game.forfeitPoints && game.round < 12) {
+            //      myResultText = '🏃 敗北 (放棄)';
+            // }
+            
+             // サーバー側で確定したポイント変動を使用
+             // ただし、クライアントには変動値が渡されないため、ゲーム設定値を使用する
+             if (game.lastResult && game.lastResult.result === 'SHOCK') {
+                 // 感電敗北の場合はlosePoints
+                 myPointChange = game.losePoints;
+            } else if (game.winner === myName) {
+                 // 上で処理済み
+            } else if (game.round < 12) {
+                 // 途中放棄の場合はforfeitPoints
+                 myPointChange = game.forfeitPoints;
+            } else {
+                 // スコア敗北の場合はlosePoints
+                 myPointChange = game.losePoints;
+            }
+        }
+        
         const finalMessage = game.winner === 'DRAW' 
             ? `<span style="color: #6c757d;">ゲーム終了! ${myResultText}です。最終スコア ${game.scoreA.toFixed(1)}P vs ${game.scoreB.toFixed(1)}P。</span>`
             : `<span style="color: ${game.winner === myName ? 'var(--color-primary)' : 'var(--color-error)'};">
-                ${game.winner}の${myResultText}です! 
+                ${game.winner}の勝利です! 
                 あなたの総合ポイントは **${myPointChange > 0 ? '+' : ''}${myPointChange.toFixed(1)} P** 反映されました。
             </span>`;
+        // ★修正終了
+
             
         turnText = finalMessage;
         
@@ -418,7 +463,6 @@ JOIN_ROOM_FORM.addEventListener('submit', async (e) => {
  * 電流を仕掛けるアクション
  */
 async function handleShockAction(gameId, actionToken, chairId) {
-    // 修正: window.confirmをカスタムモーダルに置き換えるべきだが、ここでは仕様に従い一時的にそのまま残す
     if (!window.confirm(`${chairId} P の椅子に電流を仕掛けますか？`)) return;
 
     const messageEl = document.getElementById('chair-action-message');
@@ -462,7 +506,6 @@ async function handleShockAction(gameId, actionToken, chairId) {
  * 椅子に座るアクション
  */
 async function handleChooseAction(gameId, actionToken, chairId) {
-    // 修正: window.confirmをカスタムモーダルに置き換えるべきだが、ここでは仕様に従い一時的にそのまま残す
     if (!window.confirm(`${chairId} P の椅子に座りますか？`)) return;
 
     const messageEl = document.getElementById('chair-action-message');
@@ -504,7 +547,6 @@ async function handleChooseAction(gameId, actionToken, chairId) {
         }
         
         // 1.5秒後にポーリングを待たずにUIを更新 (視覚的なレスポンス向上のため)
-        // 既に上の処理でrenderGameArenaを呼んでいる可能性があるため、ここでは削除または短縮する
         // setTimeout(() => { fetchAndUpdatePvpData(); }, 1500); 
 
     } else {
