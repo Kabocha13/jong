@@ -1,124 +1,120 @@
-// assets/js/mypage.js
+// assets/js/master.js
 
 const AUTH_FORM = document.getElementById('auth-form');
-const MYPAGE_CONTENT = document.getElementById('mypage-content');
+const ADMIN_TOOLS = document.getElementById('admin-tools');
 const AUTH_MESSAGE = document.getElementById('auth-message');
-const WAGER_FORM = document.getElementById('wager-form');
-const TARGET_BET_SELECT = document.getElementById('target-bet');
-const WAGER_PLAYER_INPUT = document.getElementById('wager-player');
-// 廃止された要素: WAGER_SELECTION_SELECT
-const AUTHENTICATED_USER_NAME = document.getElementById('authenticated-user-name');
-const CURRENT_SCORE_ELEMENT = document.getElementById('current-score');
-const FIXED_PLAYER_NAME = document.getElementById('fixed-player-name');
-const WAGER_HISTORY_LIST = document.getElementById('wager-history-list');
+const TARGET_PLAYER_SELECT = document.getElementById('target-player');
+// ★ 新規追加: ログアウトボタン
+const MASTER_LOGOUT_BUTTON = document.getElementById('master-logout-button');
 
-// ★ 新規追加要素
-const WAGER_INPUTS_CONTAINER = document.getElementById('wager-inputs-container');
-const ADD_WAGER_ROW_BUTTON = document.getElementById('add-wager-row-button');
+// ★ 送金機能 (既存)
+const TRANSFER_FORM = document.getElementById('transfer-form');
+const SENDER_PLAYER_SELECT = document.getElementById('sender-player');
+const RECEIVER_PLAYER_SELECT = document.getElementById('receiver-player');
 
-// ★ ダークモード関連の要素
-const DARK_MODE_TOGGLE_BUTTON = document.getElementById('dark-mode-toggle-button');
-const DARK_MODE_MESSAGE = document.getElementById('dark-mode-message');
-const DARK_MODE_STATUS = document.getElementById('dark-mode-status');
+// ★ レース記録機能 (修正)
+const RACE_RECORD_FORM = document.getElementById('race-record-form');
+const RACE_RECORD_HOLDER_SELECT = document.getElementById('race-record-holder');
+const RACE_COURSE_SELECT = document.getElementById('race-course-select'); 
 
-// ★ ログアウトボタン
-const LOGOUT_BUTTON = document.getElementById('logout-button');
 
-// ★★★ 会員ボーナス関連の要素
-const PRO_BONUS_TOOL = document.getElementById('pro-bonus-tool');
-const PRO_BONUS_BUTTON = document.getElementById('pro-bonus-button');
-const PRO_BONUS_MESSAGE = document.getElementById('pro-bonus-message');
-const PRO_BONUS_INSTRUCTION = document.getElementById('pro-bonus-instruction'); 
+// ★ スポーツくじ管理機能 (大幅修正)
+const BET_LIST_CONTAINER = document.getElementById('bet-list-container');
+const CREATE_BET_FORM = document.getElementById('create-bet-form');
 
-// ★★★ 新規追加: 送金関連の要素 ★★★
-const TRANSFER_FORM_MYPAGE = document.getElementById('transfer-form-mypage');
-const RECEIVER_PLAYER_SELECT_MYPAGE = document.getElementById('receiver-player-mypage');
-const AUTHENTICATED_USER_TRANSFER = document.getElementById('authenticated-user-transfer');
+// ★★★ 麻雀結果入力機能 (新規追加) ★★★
+const MAHJONG_FORM = document.getElementById('mahjong-form');
+const MAHJONG_PLAYER_INPUTS_CONTAINER = document.getElementById('mahjong-player-inputs');
+const MAHJONG_MESSAGE_ELEMENT = document.getElementById('mahjong-message');
+const MAHJONG_SUBMIT_BUTTON = document.getElementById('mahjong-submit-button');
 
-// ★★★ 新規追加: 宝くじ関連の要素 ★★★
-const LOTTERY_PURCHASE_FORM = document.getElementById('lottery-purchase-form');
-const LOTTERY_SELECT = document.getElementById('lottery-select');
-const LOTTERY_TICKET_COUNT = document.getElementById('lottery-ticket-count');
-const LOTTERY_PURCHASE_MESSAGE = document.getElementById('lottery-purchase-message');
-const LOTTERY_TOTAL_PRICE_DISPLAY = document.getElementById('lottery-total-price');
-const LOTTERY_RESULTS_CONTAINER = document.getElementById('lottery-results-container');
+// ★ 新規追加: 日次ポイント徴収
+const DAILY_TAX_BUTTON = document.getElementById('daily-tax-button');
+const DAILY_TAX_MESSAGE = document.getElementById('daily-tax-message');
 
-// ★★★ Premium会員専用くじ作成フォームの要素 ★★★
-const PREMIUM_TOOLS_SECTION = document.getElementById('premium-tools-section');
-const PREMIUM_CREATE_BET_FORM = document.getElementById('premium-create-bet-form');
-const PREMIUM_CREATE_MESSAGE = document.getElementById('premium-create-message');
-const PREMIUM_MATCH_NAME_INPUT = document.getElementById('premium-match-name');
-const PREMIUM_DEADLINE_DATETIME_INPUT = document.getElementById('premium-deadline-datetime');
+// ★★★ 新規追加: 宝くじ機能 ★★★
+const CREATE_LOTTERY_FORM = document.getElementById('create-lottery-form');
+const CREATE_LOTTERY_MESSAGE = document.getElementById('create-lottery-message');
 
-// ★★★ 新規追加要素: プレゼントコード ★★★
-const APPLY_GIFT_CODE_FORM = document.getElementById('apply-gift-code-form');
-const GIFT_CODE_INPUT = document.getElementById('gift-code-input');
-const APPLY_GIFT_CODE_MESSAGE = document.getElementById('apply-gift-code-message');
+// ★★★ 新規追加要素: プレゼントコード発行 ★★★
+const CREATE_GIFT_CODE_FORM = document.getElementById('create-gift-code-form');
+const CREATE_GIFT_CODE_MESSAGE = document.getElementById('create-gift-code-message');
 // ★★★ 新規追加ここまで ★★★
 
 
-// 認証されたユーザー情報 ({name: '...', score: ..., pass: '...', status: ..., lastBonusTime: ...})
-let authenticatedUser = null; 
-// 宝くじのデータを一時的に保持 (価格計算用)
-let availableLotteries = [];
+// --- 定数：麻雀ルール (mahjong.jsから移動) ---
+const POINT_RATE = 1000; // 1000点 = 1ポイント
+const UMA_OKA = [30, 10, -10, -20]; // 4位, 3位, 2位, 1位 のボーナス/ペナルティ点 (例: 10-20ウマ)
+const STARTING_SCORE = 30000; // 基準点
+let ALL_PLAYER_NAMES = []; // 全プレイヤー名を保持
+
+// ★ 修正: 認証状態をキャッシュではなく、メモリ上の変数で管理
+let isAuthenticatedAsMaster = false;
+
 
 // -----------------------------------------------------------------
 // ★★★ 認証とログイン状態の管理 ★★★
 // -----------------------------------------------------------------
 
 /**
- * ログイン処理本体
- * @param {string} username - ユーザー名
- * @param {string} password - パスワード
+ * マスター認証を試みる処理
+ * @param {string} username - 入力されたユーザー名
+ * @param {string} password - 入力されたパスワード
  * @param {boolean} isAuto - 自動ログインかどうか
- * @returns {Promise<boolean>} ログイン成功ならtrue
+ * @returns {Promise<boolean>} 認証成功ならtrue
  */
-async function attemptLogin(username, password, isAuto = false) {
+async function attemptMasterLogin(username, password, isAuto = false) { 
     if (!isAuto) {
         showMessage(AUTH_MESSAGE, '認証中...', 'info');
     }
     
+    // 1. マスターユーザー名と比較
+    if (username !== MASTER_USERNAME) {
+        showMessage(AUTH_MESSAGE, '❌ ユーザー名がマスターユーザー名と異なります。', 'error');
+        // ★ 修正: localStorageへのアクセスを削除
+        return false;
+    }
+
+    // 2. JSONBinからユーザーデータを取得し、パスワードを照合
     const allData = await fetchAllData();
     const scores = allData.scores;
+    
+    // 認証対象のマスターユーザーを探す
+    const masterUser = scores.find(p => p.name === MASTER_USERNAME);
 
-    // ユーザー名とパスワードで照合
-    // ★ 修正: .pro フィールドではなく .status フィールドをチェックする
-    const user = scores.find(p => p.name === username && p.pass === password);
+    // ユーザーが見つかり、パスワードが一致するかどうかをチェック
+    if (masterUser && masterUser.pass === password) {
+        // ★ 修正: localStorageへの認証情報保存を削除
 
-    if (user) {
-        // ★ 修正: 認証ユーザー情報を最新のデータで上書き
-        authenticatedUser = user; 
-        
-        // ★ 修正: statusフィールドが存在しない場合、'none' をデフォルトとして設定
-        if (!authenticatedUser.status) {
-            authenticatedUser.status = 'none';
-        }
-        
-        // 1. 認証情報をlocalStorageに保存 (自動ログイン用)
-        localStorage.setItem('authUsername', username);
-        localStorage.setItem('authPassword', password);
+        // 状態を更新
+        isAuthenticatedAsMaster = true;
 
         // 2. UIの切り替え
         document.getElementById('auth-section').classList.add('hidden');
-        MYPAGE_CONTENT.classList.remove('hidden');
+        ADMIN_TOOLS.classList.remove('hidden');
+        MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
+
+        // 3. ツール類の初期化
+        loadPlayerList(); 
+        loadTransferPlayerLists(); 
+        loadRaceRecordHolders(); 
+        loadRaceCourses(); 
+        initializeSportsMasterTools(); 
+        loadMahjongForm(); 
+        initializeLotteryForm();
         
         if (!isAuto) {
-             showMessage(AUTH_MESSAGE, `✅ ログイン成功! ようこそ、${username}様。`, 'success');
+             showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
         } else {
-             // 自動ログイン時はメッセージを非表示にする
-             AUTH_MESSAGE.classList.add('hidden');
+             AUTH_MESSAGE.classList.add('hidden'); // 自動ログイン時はメッセージを非表示
         }
-        
-        // 3. マイページコンテンツの初期化
-        initializeMyPageContent(); 
+
         return true;
     } else {
-        // 自動ログインが失敗した場合は、保存された認証情報が古い可能性があるためクリア
-        if (isAuto) {
-            localStorage.removeItem('authUsername');
-            localStorage.removeItem('authPassword');
-        } else {
-            showMessage(AUTH_MESSAGE, '❌ ユーザー名またはパスワードが間違っています。', 'error');
+        // ★ 修正: localStorageへのアクセスを削除
+        
+        if (!isAuto) {
+            showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
         }
         return false;
     }
@@ -126,406 +122,320 @@ async function attemptLogin(username, password, isAuto = false) {
 
 
 /**
- * ページロード時の自動ログイン処理
- */
-async function autoLogin() {
-    const username = localStorage.getItem('authUsername');
-    const password = localStorage.getItem('authPassword');
-
-    if (username && password) {
-        // ユーザーに一瞬表示される「認証」のタイトルを維持しつつ、自動ログインを試みる
-        // 認証メッセージは表示しない
-        await attemptLogin(username, password, true);
-    }
-}
-
-/**
  * ログアウト処理
  */
-function handleLogout() {
-    // 既存の window.confirm をカスタムモーダルに置き換える指示がないため、一旦そのままにするが、本来はカスタムモーダルが必要
-    if (!window.confirm('ログアウトしますか？次回アクセス時に再度ログインが必要です。')) {
+function handleMasterLogout() {
+    if (!window.confirm('マスターモードからログアウトしますか？')) {
         return;
     }
     
-    // 1. localStorageから認証情報を削除
-    localStorage.removeItem('authUsername');
-    localStorage.removeItem('authPassword');
+    // 1. ★ 修正: 状態をリセット
+    isAuthenticatedAsMaster = false;
+    // (localStorageへの保存は行っていないため、削除の必要なし)
 
     // 2. 状態をリセットし、UIを切り替える
-    authenticatedUser = null;
     document.getElementById('auth-section').classList.remove('hidden');
-    MYPAGE_CONTENT.classList.add('hidden');
+    ADMIN_TOOLS.classList.add('hidden');
+    MASTER_LOGOUT_BUTTON.classList.add('hidden'); // ログアウトボタンを非表示
     
     // フォームをリセット
     AUTH_FORM.reset();
     
-    showMessage(AUTH_MESSAGE, '👋 ログアウトしました。', 'info');
+    showMessage(AUTH_MESSAGE, '👋 マスターモードを解除しました。', 'info');
 }
 
-// --- イベントリスナー ---
+/**
+ * ページロード時の自動ログイン処理 (★ 修正: キャッシュを使わないため、この関数は空にする)
+ */
+async function autoLogin() { 
+    // ★ 修正: master画面ではキャッシュによる自動ログインを廃止するため、何もしない
+    // ログインフォームが常に表示されます
+}
 
-AUTH_FORM.addEventListener('submit', async (e) => {
+
+// --- イベントリスナーの修正と追加 ---
+
+// 既存のフォーム送信イベントを修正
+AUTH_FORM.addEventListener('submit', async (e) => { 
     e.preventDefault();
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value.trim();
+    const username = document.getElementById('username').value.trim(); 
+    const password = document.getElementById('password').value;
     
-    await attemptLogin(username, password, false);
+    // isAuto=false (手動ログイン) で実行
+    await attemptMasterLogin(username, password, false); 
 });
 
-LOGOUT_BUTTON.addEventListener('click', handleLogout);
+// ★ 新規追加: ログアウトボタンのイベントリスナー
+MASTER_LOGOUT_BUTTON.addEventListener('click', handleMasterLogout);
 
 // -----------------------------------------------------------------
-// ★★★ 初期化とダークモード/ボーナス/送金処理 ★★★
+// ★★★ ページロード時に autoLogin を実行 ★★★
+// -----------------------------------------------------------------
+window.onload = autoLogin;
 // -----------------------------------------------------------------
 
+// --- プレイヤーリストのロード関数群 (変更なし) ---
 
-async function initializeMyPageContent() {
-    if (!authenticatedUser) return; // 念のため
-
-    // 1. ユーザー情報の表示と固定
-    AUTHENTICATED_USER_NAME.textContent = authenticatedUser.name;
-    CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1);
-    FIXED_PLAYER_NAME.textContent = authenticatedUser.name;
-    WAGER_PLAYER_INPUT.value = authenticatedUser.name; // 投票フォームにユーザー名を固定
-    AUTHENTICATED_USER_TRANSFER.textContent = authenticatedUser.name; // ★ 送金元をUIに表示
-    
-    // 2. くじデータと履歴のロード
-    await loadBettingDataAndHistory();
-    
-    // 3. 賭け入力フィールドの初期化
-    initializeWagerInputs();
-
-    // 4. ダークモード機能の初期化
-    initializeDarkModeFeature();
-
-    // 5. 会員ボーナス機能の初期化
-    initializeMemberBonusFeature(); 
-    
-    // 6. ★★★ 送金機能の初期化 ★★★
-    loadTransferReceiverList(); 
-    
-    // 7. ★★★ 宝くじ機能の初期化 ★★★
-    await loadLotteryData();
-    initializeLotteryPurchaseForm();
-    
-    // 8. ★★★ Premiumツール (くじ作成) の初期化と表示制御 ★★★
-    initializePremiumBetCreation();
-    
-    // 9. ★★★ 新規追加: プレゼントコード機能の初期化 ★★★
-    initializeGiftCodeFeature();
-}
-
-
-// --- ダークモード機能の初期化 (Pro/Premium/Luxury対応) ---
-/**
- * ダークモード機能の初期化
- * proまたはpremiumまたはluxuryステータスを確認し、ボタンの表示を制御する
- */
-function initializeDarkModeFeature() {
-    // ★ 修正: statusが'pro'または'premium'または'luxury'であれば有効
-    const isMember = authenticatedUser && 
-                     (authenticatedUser.status === 'pro' || 
-                      authenticatedUser.status === 'premium' ||
-                      authenticatedUser.status === 'luxury'); // ★ luxuryを追加
-    const isDarkModeEnabled = localStorage.getItem('darkMode') === 'enabled';
-    
-    // ★ 修正: nullチェックの追加
-    if (!DARK_MODE_TOGGLE_BUTTON || !DARK_MODE_STATUS) return;
-
-    // pro/premium/luxury会員でない場合、ボタンを無効化・スタイル変更し、理由を表示する
-    if (!isMember) {
-        DARK_MODE_TOGGLE_BUTTON.disabled = true;
-        DARK_MODE_TOGGLE_BUTTON.textContent = 'Pro/Premium/Luxury会員限定機能';
-        DARK_MODE_STATUS.innerHTML = '<span style="color: #dc3545; font-weight: bold;">⚠️ ダークモードはPro/Premium/Luxury会員限定機能です。</span>';
-    } else {
-        // 会員の場合
-        DARK_MODE_TOGGLE_BUTTON.disabled = false;
-        updateDarkModeDisplay(isDarkModeEnabled);
+async function fetchAndSetPlayerNames() {
+    // fetchScores()はcommon.jsから全データを取得しscoresのみを返す
+    const scores = await fetchScores(); 
+    if (scores.length === 0) {
+        return false;
     }
-    
-    // ページ全体にクラスを適用（ロード時の処理を統一するため、ここで再実行）
-    if (isDarkModeEnabled) {
-        document.body.classList.add('dark-mode');
-    } else {
-        document.body.classList.remove('dark-mode');
-    }
+    ALL_PLAYER_NAMES = scores.map(p => p.name);
+    return true;
 }
 
-/**
- * ダークモードの表示を更新するヘルパー関数
- * @param {boolean} isEnabled - ダークモードが有効かどうか
- */
-function updateDarkModeDisplay(isEnabled) {
-    if (!DARK_MODE_STATUS || !DARK_MODE_TOGGLE_BUTTON) return; // ★ 修正: nullチェック
-    
-    if (isEnabled) {
-        DARK_MODE_STATUS.innerHTML = 'ステータス: <strong style="color: #28a745;">有効です 🟢</strong> (会員特典)';
-        DARK_MODE_TOGGLE_BUTTON.textContent = 'ライトモードに戻す';
-    } else {
-        DARK_MODE_STATUS.innerHTML = 'ステータス: <strong style="color: #dc3545;">無効です ⚪</strong> (会員特典)';
-        DARK_MODE_TOGGLE_BUTTON.textContent = 'ダークモードに切り替える';
-    }
-}
+// ポイント調整用リストのロード（proステータス表示を削除）
+async function loadPlayerList() {
+    TARGET_PLAYER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
+    const scores = await fetchScores();
 
-
-/**
- * ダークモード切り替えボタンのイベントリスナー (Luxury対応)
- */
-// ★ 修正: nullチェック
-if (DARK_MODE_TOGGLE_BUTTON) {
-    DARK_MODE_TOGGLE_BUTTON.addEventListener('click', () => {
-        // ★ 修正: statusが'pro'または'premium'または'luxury'であれば有効
-        const isMember = authenticatedUser && 
-                         (authenticatedUser.status === 'pro' || 
-                          authenticatedUser.status === 'premium' ||
-                          authenticatedUser.status === 'luxury'); // ★ luxuryを追加
-        
-        if (!isMember) {
-            showMessage(DARK_MODE_MESSAGE, '❌ この機能はPro/Premium/Luxury会員専用です。', 'error');
-            return;
-        }
-        
-        const isCurrentlyDarkMode = document.body.classList.contains('dark-mode');
-        
-        if (isCurrentlyDarkMode) {
-            // ダークモードを解除 -> ライトモードに
-            localStorage.setItem('darkMode', 'disabled');
-            document.body.classList.remove('dark-mode');
-            showMessage(DARK_MODE_MESSAGE, '✅ ライトモードに切り替えました。', 'success');
-            updateDarkModeDisplay(false);
-        } else {
-            // ダークモードを有効に
-            localStorage.setItem('darkMode', 'enabled');
-            document.body.classList.add('dark-mode');
-            showMessage(DARK_MODE_MESSAGE, '✅ ダークモードに切り替えました。', 'success');
-            updateDarkModeDisplay(true);
-        }
-    });
-}
-
-
-// -----------------------------------------------------------------
-// ★★★ 会員ボーナス機能 (Luxury 5.0P / 1時間ごと) ★★★
-// -----------------------------------------------------------------
-
-/**
- * 会員ボーナス機能の初期化
- * Pro/Premium/Luxury会員であるかチェックし、ボタンの表示/有効性を制御
- */
-function initializeMemberBonusFeature() {
-    // ★ 修正: statusが'pro','premium','luxury'の場合に表示
-    const isMember = authenticatedUser && 
-                     (authenticatedUser.status === 'pro' || 
-                      authenticatedUser.status === 'premium' ||
-                      authenticatedUser.status === 'luxury'); // ★ luxuryを追加
-    
-    if (isMember) {
-        if (PRO_BONUS_TOOL) {
-            PRO_BONUS_TOOL.classList.remove('hidden');
-        }
-        updateMemberBonusDisplay(); 
-    } else {
-         if (PRO_BONUS_TOOL) {
-            PRO_BONUS_TOOL.classList.add('hidden');
-        }
-    }
-}
-
-/**
- * 会員ボーナスボタンの状態をチェックし、表示を更新する
- */
-function updateMemberBonusDisplay() {
-    if (!authenticatedUser) return;
-
-    const MEMBER_STATUS = authenticatedUser.status || 'none';
-    
-    let BONUS_AMOUNT;
-    let MEMBER_TYPE;
-    let REFRESH_INTERVAL; // 獲得間隔（ミリ秒）
-    let REFRESH_TEXT;     // 獲得間隔（表示用テキスト）
-
-    // ★ 修正: Luxury会員のボーナスを変更 (5.0P / 1時間ごと)
-    if (MEMBER_STATUS === 'luxury') {
-        BONUS_AMOUNT = 5.0; // Luxuryは5ポイント
-        MEMBER_TYPE = 'Luxury';
-        REFRESH_INTERVAL = 3600000; // 1時間 (60 * 60 * 1000)
-        REFRESH_TEXT = '1時間ごと';
-    } else if (MEMBER_STATUS === 'premium') {
-        BONUS_AMOUNT = 15.0; // Premiumは15ポイント
-        MEMBER_TYPE = 'Premium';
-        REFRESH_INTERVAL = 86400000; // 24時間
-        REFRESH_TEXT = '24時間ごと';
-    } else if (MEMBER_STATUS === 'pro') {
-        BONUS_AMOUNT = 10.0; // Proは10ポイント
-        MEMBER_TYPE = 'Pro';
-        REFRESH_INTERVAL = 86400000; // 24時間
-        REFRESH_TEXT = '24時間ごと';
-    } else {
-        // none またはその他の場合
-        if (PRO_BONUS_TOOL) PRO_BONUS_TOOL.classList.add('hidden');
+    if (scores.length === 0) {
+        TARGET_PLAYER_SELECT.innerHTML = '<option value="" disabled selected>リストの取得に失敗</option>';
         return;
     }
 
-    const now = Date.now();
-    const lastBonusTime = authenticatedUser.lastBonusTime ? new Date(authenticatedUser.lastBonusTime).getTime() : 0;
+    let options = '<option value="" disabled selected>プレイヤーを選択</option>';
+    scores.forEach(player => { 
+        // ★ 修正: proステータス表示ロジックを削除
+        options += `<option value="${player.name}">${player.name} (${player.score.toFixed(1)} P)</option>`;
+    });
+
+    TARGET_PLAYER_SELECT.innerHTML = options;
+}
+
+// 送金プレイヤーリストのロード（proステータス表示を削除）
+async function loadTransferPlayerLists() {
+    SENDER_PLAYER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
+    RECEIVER_PLAYER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     
-    const isReady = (now - lastBonusTime) >= REFRESH_INTERVAL;
+    const scores = await fetchScores();
+
+    if (scores.length === 0) {
+        const fallback = '<option value="" disabled selected>リストの取得に失敗</option>';
+        SENDER_PLAYER_SELECT.innerHTML = fallback;
+        RECEIVER_PLAYER_SELECT.innerHTML = fallback;
+        return;
+    }
+
+    let options = '<option value="" disabled selected>プレイヤーを選択</option>';
+    scores.forEach(player => {
+        // ★ 修正: proステータス表示ロジックを削除
+        options += `<option value="${player.name}">${player.name}</option>`;
+    });
+
+    SENDER_PLAYER_SELECT.innerHTML = options;
+    RECEIVER_PLAYER_SELECT.innerHTML = options;
+}
+
+// レース記録保持者リストのロード（proステータス表示を削除）
+async function loadRaceRecordHolders() {
+    RACE_RECORD_HOLDER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
+    const scores = await fetchScores();
+
+    if (scores.length === 0) {
+        RACE_RECORD_HOLDER_SELECT.innerHTML = '<option value="" disabled selected>リストの取得に失敗</option>';
+        return;
+    }
+
+    let options = '<option value="" disabled selected>記録保持者を選択</option>';
+    scores.forEach(player => {
+        // ★ 修正: proステータス表示ロジックを削除
+        options += `<option value="${player.name}">${player.name}</option>`;
+    });
+
+    RACE_RECORD_HOLDER_SELECT.innerHTML = options;
+}
+
+// 既存コースリストをロードする関数 (変更なし)
+async function loadRaceCourses() {
+    RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     
-    if (PRO_BONUS_BUTTON) {
-        if (isReady) {
-            PRO_BONUS_BUTTON.disabled = false;
-            PRO_BONUS_BUTTON.textContent = `ボーナス (+${BONUS_AMOUNT.toFixed(1)} P) を受け取る`; 
+    try {
+        const allData = await fetchAllData();
+        const records = allData.speedstorm_records || [];
+        
+        // 既存のコース名リストを重複なく取得
+        const courseNames = [...new Set(records.map(r => r.courseName))].sort();
+
+        if (courseNames.length === 0) {
+            RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>コースが未登録です</option>';
         } else {
-            PRO_BONUS_BUTTON.disabled = true;
-            const timeRemaining = lastBonusTime + REFRESH_INTERVAL - now;
-            
-            // 獲得間隔に応じて表示を調整
-            let displayTime;
-            if (REFRESH_INTERVAL === 3600000) {
-                 // 1時間ごとの場合、分単位で表示
-                const minutes = Math.ceil(timeRemaining / 60000);
-                displayTime = `${minutes}分`;
-            } else {
-                // 24時間ごとの場合、時間/分単位で表示
-                const hours = Math.floor(timeRemaining / 3600000);
-                const minutes = Math.ceil((timeRemaining % 3600000) / 60000);
-                displayTime = `${hours}時間 ${minutes}分`;
-            }
-            
-            PRO_BONUS_BUTTON.textContent = `獲得済み (次の獲得まで: ${displayTime})`;
+            let options = '<option value="" disabled selected>更新するコースを選択</option>';
+            courseNames.forEach(name => {
+                options += `<option value="${name}">${name}</option>`;
+            });
+            RACE_COURSE_SELECT.innerHTML = options;
         }
-    }
-    
-    if (PRO_BONUS_INSTRUCTION) {
-        // ★ 修正: REFRESH_TEXTを使用して表示を更新
-        PRO_BONUS_INSTRUCTION.innerHTML = `${MEMBER_TYPE}会員特典: ${REFRESH_TEXT}に <strong>${BONUS_AMOUNT.toFixed(1)} P</strong> を獲得できます。`; 
-    }
-    
-    if (PRO_BONUS_MESSAGE) {
-        PRO_BONUS_MESSAGE.classList.add('hidden');
+    } catch (error) {
+        console.error("レースコースリストのロード中にエラー:", error);
+        RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>リストの取得に失敗</option>';
     }
 }
 
-/**
- * 会員ボーナスポイントを付与する処理
- */
-// ★ 修正: nullチェック
-if (PRO_BONUS_BUTTON) {
-    PRO_BONUS_BUTTON.addEventListener('click', async () => {
-        if (!authenticatedUser) {
-            showMessage(PRO_BONUS_MESSAGE, '❌ 認証エラーが発生しました。', 'error');
-            return;
-        }
 
-        const MEMBER_STATUS = authenticatedUser.status || 'none';
-        let BONUS_AMOUNT;
-        let REFRESH_INTERVAL; // 獲得間隔（ミリ秒）
+// --- 麻雀結果フォーム生成/処理 (履歴削除) ---
+async function loadMahjongForm() {
+    // ★ 修正: MAHJONG_PLAYER_INPUTS_CONTAINER が存在しないページ (master_sports等) もあるため、nullチェック
+    if (!MAHJONG_PLAYER_INPUTS_CONTAINER) return;
+    
+    const success = await fetchAndSetPlayerNames();
 
-        // ★ 修正: Luxury会員 (5.0P / 1時間ごと) を適用
-        if (MEMBER_STATUS === 'luxury') {
-            BONUS_AMOUNT = 5.0;
-            REFRESH_INTERVAL = 3600000; // 1時間
-        } else if (MEMBER_STATUS === 'premium') {
-            BONUS_AMOUNT = 15.0; 
-            REFRESH_INTERVAL = 86400000; // 24時間
-        } else if (MEMBER_STATUS === 'pro') {
-            BONUS_AMOUNT = 10.0;
-            REFRESH_INTERVAL = 86400000; // 24時間
-        } else {
-            showMessage(PRO_BONUS_MESSAGE, '❌ 会員特典の対象外です。', 'error');
-            return;
-        }
+    if (!success) {
+        MAHJONG_PLAYER_INPUTS_CONTAINER.innerHTML = '<p class="error">参加者リストを取得できませんでした。</p>';
+        return;
+    }
 
-        const player = authenticatedUser.name;
-        const messageEl = PRO_BONUS_MESSAGE;
-        const now = new Date().toISOString();
+    let html = '';
+    for (let i = 1; i <= 4; i++) {
+        html += `
+            <div class="form-group player-input-row">
+                <label for="mahjong-player-${i}-name">プレイヤー${i}:</label>
+                <select id="mahjong-player-${i}-name" required>
+                    <option value="" disabled selected>名前を選択</option>
+                    ${ALL_PLAYER_NAMES.map(name => `<option value="${name}">${name}</option>`).join('')}
+                </select>
+                <input type="number" id="mahjong-player-${i}-score" placeholder="最終得点 (例: 32500)" required>
+            </div>
+        `;
+    }
+    MAHJONG_PLAYER_INPUTS_CONTAINER.innerHTML = html;
+}
+
+// ★ 修正: MAHJONG_FORM が存在しないページもあるため、nullチェック
+if (MAHJONG_FORM) {
+    MAHJONG_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        // UIのdisabledチェック (時間ルール) は updateMemberBonusDisplay() で実行済み
-        if (PRO_BONUS_BUTTON && PRO_BONUS_BUTTON.disabled) {
-            showMessage(messageEl, '⚠️ まだ時間が経過していません。', 'error');
-            return;
+        const results = [];
+        const selectedNames = new Set();
+        let totalScore = 0;
+    
+        for (let i = 1; i <= 4; i++) {
+            const nameElement = document.getElementById(`mahjong-player-${i}-name`);
+            const scoreElement = document.getElementById(`mahjong-player-${i}-score`);
+    
+            const name = nameElement.value;
+            const score = parseInt(scoreElement.value, 10);
+            
+            if (!name || isNaN(score) || score < 0) {
+                showMessage(MAHJONG_MESSAGE_ELEMENT, 'エラー: 名前を選択し、有効な得点を入力してください。', 'error');
+                return;
+            }
+    
+            if (selectedNames.has(name)) {
+                showMessage(MAHJONG_MESSAGE_ELEMENT, 'エラー: 参加者が重複しています。', 'error');
+                return;
+            }
+            selectedNames.add(name);
+            results.push({ name, score });
+            totalScore += score;
         }
         
-        if (PRO_BONUS_BUTTON) {
-            PRO_BONUS_BUTTON.disabled = true;
+        if (totalScore < 119900 || totalScore > 120100) { 
+            showMessage(MAHJONG_MESSAGE_ELEMENT, `警告: 合計点が ${totalScore} です。120000点周辺ではありません。計算を再確認してください。`, 'error');
         }
-        showMessage(messageEl, 'ポイントを付与中...', 'info');
+    
+        // 削除: メモの取得
+        // const memo = document.getElementById('mahjong-memo').value;
+        
+        MAHJONG_SUBMIT_BUTTON.disabled = true;
+        MAHJONG_SUBMIT_BUTTON.textContent = '送信中...';
+        showMessage(MAHJONG_MESSAGE_ELEMENT, '結果を計算し、JSONBinに送信中...', 'info');
     
         try {
             const currentData = await fetchAllData();
-            let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+            // pass/pro/status/lastBonusTimeフィールドを保持するために、scores全体をマップとして処理
+            let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p])); 
             
-            const targetPlayer = currentScoresMap.get(player);
+            results.sort((a, b) => b.score - a.score);
             
-            if (!targetPlayer) {
-                showMessage(messageEl, `❌ プレイヤー ${player} が見つかりません。`, 'error');
-                if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
-                return;
+            // ★ 修正: 履歴エントリーの生成と追加を削除
+            // const historyEntry = { ... };
+            
+            for (let i = 0; i < results.length; i++) {
+                const result = results[i];
+                const rankIndex = i;
+    
+                const pointDifference = (result.score - STARTING_SCORE) / POINT_RATE;
+                const bonusPoint = UMA_OKA[rankIndex];
+                const finalPointChange = pointDifference + bonusPoint;
+                
+                // historyEntry.changes.push({name: result.name, change: parseFloat(finalPointChange.toFixed(1))});
+                
+                const currentPlayer = currentScoresMap.get(result.name);
+                if (currentPlayer) {
+                    const currentScore = currentPlayer.score || 0;
+                    const newScore = currentScore + finalPointChange;
+                    // pass/status/lastBonusTimeフィールドを保持したままscoreを更新
+                    currentScoresMap.set(result.name, { 
+                        ...currentPlayer, 
+                        score: parseFloat(newScore.toFixed(1)) 
+                    });
+                }
             }
     
-            // 獲得可能か再チェック（二重獲得防止）
-            const lastTime = targetPlayer.lastBonusTime ? new Date(targetPlayer.lastBonusTime).getTime() : 0;
-            // ★ 修正: REFRESH_INTERVALを使用
-            if ((Date.now() - lastTime) < REFRESH_INTERVAL) {
-                showMessage(messageEl, '❌ まだ時間が経過していません。', 'error');
-                 if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = true;
-                 updateMemberBonusDisplay();
-                return;
-            }
-    
-            const newScore = targetPlayer.score + BONUS_AMOUNT;
-            
-            // status/lastBonusTimeフィールドも更新
-            currentScoresMap.set(player, { 
-                ...targetPlayer, 
-                score: parseFloat(newScore.toFixed(1)),
-                lastBonusTime: now // 獲得時刻を記録
-            });
-            
+            // scores配列を再構築
             const newScores = Array.from(currentScoresMap.values());
+            // const newHistory = [...currentData.history, historyEntry]; // 履歴の追加を削除
     
+            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
             const newData = {
-                scores: newScores,
-                sports_bets: currentData.sports_bets,
+                scores: newScores, // pass/pro/status/lastBonusTimeフィールドを保持したscores
+                // 修正: historyは保存しない
+                sports_bets: currentData.sports_bets || [],
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [],
-                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
             };
     
             const response = await updateAllData(newData);
     
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ ${MEMBER_STATUS.toUpperCase()}ボーナスとして ${BONUS_AMOUNT.toFixed(1)} P を獲得しました！`, 'success');
-                
-                // 認証ユーザー情報を更新
-                authenticatedUser.score = newScore;
-                authenticatedUser.lastBonusTime = now; // メモリ上の情報も更新
-                CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
-                
-                // ボタンの状態を更新 (時間が経過後に再度有効になるように)
-                updateMemberBonusDisplay(); 
-                
+                showMessage(MAHJONG_MESSAGE_ELEMENT, `✅ 成功! ポイントが更新されました。`, 'success');
+                // フォームをリセットして再ロード
+                MAHJONG_FORM.reset();
+                loadPlayerList(); // ポイント調整リストを更新
+                loadTransferPlayerLists(); // 送金リストを更新
+                loadMahjongForm(); // 麻雀フォームをリセット
             } else {
-                showMessage(messageEl, `❌ ボーナス付与エラー: ${response.message}`, 'error');
-                if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
+                showMessage(MAHJONG_MESSAGE_ELEMENT, `❌ 処理エラー: ${response.message}`, 'error');
             }
-    
+            
         } catch (error) {
-            console.error(error);
-            showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-            if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
+            console.error("麻雀結果処理中にエラー:", error);
+            showMessage(MAHJONG_MESSAGE_ELEMENT, `❌ サーバーエラー: ${error.message}`, 'error');
+        } finally {
+            MAHJONG_SUBMIT_BUTTON.disabled = false;
+            MAHJONG_SUBMIT_BUTTON.textContent = '結果を反映する';
         }
     });
 }
+// --- 麻雀結果フォーム処理 終了 ---
 
 
-// -----------------------------------------------------------------
-// Premium会員向けスポーツくじ作成機能 (Luxury会員にも開放)
-// -----------------------------------------------------------------
+// --- スポーツくじ管理機能 ---
+
+async function initializeSportsMasterTools() {
+    // ★ 修正: CREATE_BET_FORM が存在しないページ (master_sports等) もあるため、nullチェック
+    if (!CREATE_BET_FORM) return;
+    
+    // オッズ追加ボタンの初期化は不要になった
+    // デフォルトで現在時刻から1時間後に締切を設定
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    const deadlineInput = document.getElementById('deadline-datetime');
+    if (deadlineInput) {
+        // master.jsでのくじ作成では開設者の入力を省略するため、作成者情報を埋める必要がない
+        deadlineInput.value = formatDateTimeLocal(now);
+    }
+
+    await loadBettingData();
+}
 
 /**
- * 日付をフォーマットするヘルパー関数 (master.jsからコピー)
  * Dateオブジェクトを <input type="datetime-local"> 形式の文字列にフォーマット
  */
 function formatDateTimeLocal(date) {
@@ -538,349 +448,35 @@ function formatDateTimeLocal(date) {
 }
 
 
-/**
- * Premium/Luxury会員向けくじ作成フォームの初期化と表示制御
- */
-function initializePremiumBetCreation() {
-    if (!PREMIUM_TOOLS_SECTION || !PREMIUM_CREATE_BET_FORM) return;
+async function loadBettingData() {
+    // ★ 修正: BET_LIST_CONTAINER が存在しないページもあるため、nullチェック
+    if (!BET_LIST_CONTAINER) return;
     
-    // ★ 修正: Luxury会員にも開放
-    const isPremiumOrLuxury = authenticatedUser && 
-                              (authenticatedUser.status === 'premium' || authenticatedUser.status === 'luxury');
-
-    if (isPremiumOrLuxury) {
-        PREMIUM_TOOLS_SECTION.classList.remove('hidden');
-        
-        // デフォルトで現在時刻から1時間後に締切を設定
-        const now = new Date();
-        now.setHours(now.getHours() + 1);
-        if (PREMIUM_DEADLINE_DATETIME_INPUT) {
-            PREMIUM_DEADLINE_DATETIME_INPUT.value = formatDateTimeLocal(now);
-        }
-        
-        // イベントリスナー設定
-        PREMIUM_CREATE_BET_FORM.addEventListener('submit', handlePremiumBetCreation);
-        
-    } else {
-        PREMIUM_TOOLS_SECTION.classList.add('hidden');
-    }
+    const data = await fetchAllData();
+    const allBets = data.sports_bets || []; 
+    renderBetList(allBets);
 }
 
 
-/**
- * Premium/Luxury会員向けくじ作成フォームの送信ハンドラ
- */
-async function handlePremiumBetCreation(e) {
-    e.preventDefault();
-    const messageEl = PREMIUM_CREATE_MESSAGE;
-    const matchName = PREMIUM_MATCH_NAME_INPUT.value.trim();
-    const deadline = PREMIUM_DEADLINE_DATETIME_INPUT.value; // ISO 8601形式の文字列を取得
-    
-    // ログイン中のユーザーを作成者として使用
-    const creatorName = authenticatedUser.name; 
-    
-    if (!matchName || !deadline) {
-        showMessage(messageEl, '❌ くじ名、締切日時をすべて入力してください。', 'error');
-        return;
-    }
-    
-    const deadlineDate = new Date(deadline);
-    if (isNaN(deadlineDate.getTime()) || deadlineDate <= new Date()) {
-        showMessage(messageEl, '❌ 締切日時は現在時刻よりも後の有効な日時を選択してください。', 'error');
-        return;
-    }
-
-    const submitButton = PREMIUM_CREATE_BET_FORM.querySelector('button[type="submit"]');
-    submitButton.disabled = true;
-    showMessage(messageEl, 'くじを作成中...', 'info');
-
-    try {
-        const currentData = await fetchAllData();
-        let allBets = currentData.sports_bets || [];
-        
-        // ★★★ 修正: 3件以上の記録がある場合、最も古い記録を削除 (マスターと同じロジック) ★★★
-        if (allBets.length >= 3) {
-            allBets.sort((a, b) => a.betId - b.betId);
-            allBets.shift();
-        }
-
-        const newBetId = allBets.length > 0 ? Math.max(...allBets.map(b => b.betId)) + 1 : 1;
-        
-        const newBet = {
-            betId: newBetId,
-            matchName: matchName,
-            creator: creatorName, // Premium/Luxury会員が作成者
-            deadline: deadlineDate.toISOString(), 
-            status: 'OPEN',
-            outcome: null,
-            wagers: []
-        };
-
-        allBets.push(newBet);
-        currentData.sports_bets = allBets;
-        
-        const newData = {
-            scores: currentData.scores,
-            sports_bets: currentData.sports_bets,
-            speedstorm_records: currentData.speedstorm_records || [],
-            lotteries: currentData.lotteries || [],
-            gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
-        };
-
-        const response = await updateAllData(newData);
-
-        if (response.status === 'success') {
-            showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})`, 'success');
-            PREMIUM_CREATE_BET_FORM.reset();
-            
-            // フォームリセット後、締切日時を再度設定
-            const now = new Date();
-            now.setHours(now.getHours() + 1);
-            PREMIUM_DEADLINE_DATETIME_INPUT.value = formatDateTimeLocal(now);
-            
-            // ユーザーが作成したくじをすぐに確認できるように、くじ購入フォームも更新
-            loadBettingDataAndHistory(); 
-        } else {
-            showMessage(messageEl, `❌ 作成エラー: ${response.message}`, 'error');
-        }
-
-    } catch (error) {
-        console.error(error);
-        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-    } finally {
-        submitButton.disabled = false;
-    }
-}
-
-
-// -----------------------------------------------------------------
-// ★★★ 新規追加: プレゼントコード適用機能 ★★★
-// -----------------------------------------------------------------
-
-/**
- * プレゼントコード機能の初期化
- */
-function initializeGiftCodeFeature() {
-    if (!APPLY_GIFT_CODE_FORM) return;
-    
-    APPLY_GIFT_CODE_FORM.addEventListener('submit', handleApplyGiftCode);
-    
-    // UIを初期化
-    if (GIFT_CODE_INPUT) {
-        GIFT_CODE_INPUT.value = '';
-    }
-    if (APPLY_GIFT_CODE_MESSAGE) {
-        APPLY_GIFT_CODE_MESSAGE.classList.add('hidden');
-    }
-}
-
-/**
- * プレゼントコードの適用ハンドラ
- */
-async function handleApplyGiftCode(e) {
-    e.preventDefault();
-    
-    if (!authenticatedUser) {
-        showMessage(APPLY_GIFT_CODE_MESSAGE, '❌ 認証エラーが発生しました。', 'error');
-        return;
-    }
-
-    const messageEl = APPLY_GIFT_CODE_MESSAGE;
-    const player = authenticatedUser.name;
-    const submitButton = APPLY_GIFT_CODE_FORM.querySelector('button[type="submit"]');
-    
-    // 大文字に変換し、前後の空白を削除してコードを取得
-    const code = (GIFT_CODE_INPUT.value || '').trim().toUpperCase();
-
-    if (!code) {
-        showMessage(messageEl, '❌ コードを入力してください。', 'error');
-        return;
-    }
-
-    submitButton.disabled = true;
-    showMessage(messageEl, 'コードを検証中...', 'info');
-
-    try {
-        const currentData = await fetchAllData();
-        
-        let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
-        let allGiftCodes = currentData.gift_codes || [];
-        
-        const codeIndex = allGiftCodes.findIndex(c => c.code === code);
-        
-        if (codeIndex === -1) {
-            showMessage(messageEl, '❌ エラー: 無効なプレゼントコードです。', 'error');
-            return;
-        }
-
-        const giftCode = allGiftCodes[codeIndex];
-        
-        // 1. 最大利用回数チェック
-        if (giftCode.maxUses > 0 && giftCode.currentUses >= giftCode.maxUses) {
-            showMessage(messageEl, '❌ エラー: このコードは最大利用回数に達しています。', 'error');
-            return;
-        }
-        
-        // 2. プレイヤーごとの利用履歴チェック (1人1回の利用)
-        const alreadyUsedByPlayer = giftCode.usedBy.some(u => u.player === player);
-        if (alreadyUsedByPlayer) {
-             showMessage(messageEl, '❌ エラー: このコードは既に利用済みです。', 'error');
-            return;
-        }
-        
-        const pointsToApply = giftCode.points; // 正負制限なしのポイント
-        
-        // 3. ポイント付与
-        let targetPlayer = currentScoresMap.get(player);
-        if (!targetPlayer) {
-             showMessage(messageEl, '❌ ユーザーデータが見つかりません。', 'error');
-             return;
-        }
-
-        const newScore = parseFloat((targetPlayer.score + pointsToApply).toFixed(1));
-        
-        // スコアの更新
-        currentScoresMap.set(player, { 
-            ...targetPlayer, 
-            score: newScore
-        });
-        
-        // 4. コードの利用記録を更新
-        giftCode.currentUses += 1;
-        giftCode.usedBy.push({
-            player: player,
-            timestamp: new Date().toISOString(),
-            pointsApplied: pointsToApply 
-        });
-
-        // --------------------------------------------------------
-        // ★★★ 修正点: 利用回数が尽きたコードを削除 ★★★
-        // --------------------------------------------------------
-        const isFullyUsed = giftCode.maxUses > 0 && giftCode.currentUses >= giftCode.maxUses;
-
-        if (isFullyUsed) {
-            // 利用回数が尽きた場合、リストからコードを削除
-            allGiftCodes.splice(codeIndex, 1);
-            console.log(`[ギフトコード] コード '${code}' は最大利用回数に達したためデータから削除されました。`);
-        } else {
-            // まだ利用回数が残っている場合、更新されたコードオブジェクトを配列に戻す
-            allGiftCodes[codeIndex] = giftCode;
-        }
-        // --------------------------------------------------------
-
-        // 5. 全データを更新
-        currentData.scores = Array.from(currentScoresMap.values());
-        currentData.gift_codes = allGiftCodes;
-        
-        const newData = {
-            scores: currentData.scores,
-            sports_bets: currentData.sports_bets,
-            speedstorm_records: currentData.speedstorm_records,
-            lotteries: currentData.lotteries,
-            gift_codes: currentData.gift_codes // ★ 更新または削除されたリスト
-        };
-        
-        const response = await updateAllData(newData);
-        
-        if (response.status === 'success') {
-            const actionText = pointsToApply >= 0 ? '獲得' : '消費';
-            
-            let successMessage = `✅ コード適用成功! ${pointsToApply.toFixed(1)} P を${actionText}しました。`;
-            if (isFullyUsed) {
-                successMessage += ' (このコードは期限切れとなり削除されました)';
-            }
-            showMessage(messageEl, successMessage, 'success');
-            
-            // 認証ユーザー情報を更新
-            authenticatedUser.score = newScore;
-            CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
-            
-            // フォームをリセット
-            GIFT_CODE_INPUT.value = '';
-        } else {
-             showMessage(messageEl, `❌ 適用エラー: ${response.message}`, 'error');
-        }
-
-    } catch (error) {
-        console.error("プレゼントコード適用中にエラー:", error);
-        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-    } finally {
-        submitButton.disabled = false;
-    }
-}
-// -----------------------------------------------------------------
-// プレゼントコード適用機能 終了
-// -----------------------------------------------------------------
-
-
-// -----------------------------------------------------------------
-// 以降、既存の機能 (一部修正済み)
-// -----------------------------------------------------------------
-
-
-// --- 送金機能のロード (変更なし) ---
-
-async function loadTransferReceiverList() {
-    // RECEIVER_PLAYER_SELECT_MYPAGEがnullでないことを確認 (安全のため)
-    if (!RECEIVER_PLAYER_SELECT_MYPAGE) return;
-    // ★ 修正: authenticatedUser の null チェック
-    if (!authenticatedUser) return;
-    
-    RECEIVER_PLAYER_SELECT_MYPAGE.innerHTML = '<option value="" disabled selected>ロード中...</option>';
-    
-    // fetchScores()はcommon.jsから全データを取得しscoresのみを返す
-    const allData = await fetchAllData(); 
-    const scores = allData.scores;
-
-    if (scores.length === 0) {
-        RECEIVER_PLAYER_SELECT_MYPAGE.innerHTML = '<option value="" disabled selected>リストの取得に失敗</option>';
-        return;
-    }
-
-    let options = '<option value="" disabled selected>送金先プレイヤーを選択</option>';
-    const senderName = authenticatedUser.name;
-
-    // ログイン中のプレイヤー名を除外してリストを生成
-    scores.forEach(player => {
-        if (player.name !== senderName) {
-            options += `<option value="${player.name}">${player.name}</option>`;
-        }
-    });
-
-    RECEIVER_PLAYER_SELECT_MYPAGE.innerHTML = options;
-}
-
-/**
- * 送金処理のイベントハンドラ (変更なし)
- */
-// ★ 修正: nullチェック
-if (TRANSFER_FORM_MYPAGE) {
-    TRANSFER_FORM_MYPAGE.addEventListener('submit', async (e) => {
+// --- 3. ポイント送金機能 (履歴削除) ---
+// ★ 修正: TRANSFER_FORM が存在しないページもあるため、nullチェック
+if (TRANSFER_FORM) {
+    TRANSFER_FORM.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
-        // ★ 修正: authenticatedUser の null チェック
-        if (!authenticatedUser) {
-            showMessage(document.getElementById('transfer-message-mypage'), '❌ 認証エラーが発生しました。', 'error');
+        const messageEl = document.getElementById('transfer-message');
+        const sender = SENDER_PLAYER_SELECT.value;
+        const receiver = RECEIVER_PLAYER_SELECT.value;
+        const amount = parseFloat(document.getElementById('transfer-amount').value);
+    
+        if (!sender || !receiver || isNaN(amount) || amount <= 0) {
+            showMessage(messageEl, 'エラー: 送金元、送金先、および有効なポイントを入力してください。', 'error');
             return;
         }
-
-        const messageEl = document.getElementById('transfer-message-mypage');
-        const sender = authenticatedUser.name; // 送金元はログイン中のユーザーに固定
-        const receiver = RECEIVER_PLAYER_SELECT_MYPAGE.value;
-        const amount = parseFloat(document.getElementById('transfer-amount-mypage').value);
-        const submitButton = TRANSFER_FORM_MYPAGE.querySelector('button[type="submit"]');
-    
-        if (!receiver || isNaN(amount) || amount <= 0) {
-            showMessage(messageEl, 'エラー: 送金先と有効なポイント (0.1P以上) を入力してください。', 'error');
-            return;
-        }
-    
         if (sender === receiver) {
             showMessage(messageEl, 'エラー: 送金元と送金先は異なるプレイヤーである必要があります。', 'error');
             return;
         }
     
-        submitButton.disabled = true;
         showMessage(messageEl, 'ポイント送金を処理中...', 'info');
     
         try {
@@ -895,369 +491,1041 @@ if (TRANSFER_FORM_MYPAGE) {
                 showMessage(messageEl, `エラー: 送金元 ${sender} のデータが見つかりません。`, 'error');
                 return;
             }
-            if (!receiverPlayer) {
-                 showMessage(messageEl, `エラー: 送金先 ${receiver} のデータが見つかりません。`, 'error');
-                 return;
-            }
     
             const senderScore = senderPlayer.score || 0;
             
             if (senderScore < amount) {
-                showMessage(messageEl, `エラー: ポイント残高 (${senderScore.toFixed(1)} P) が不足しています。`, 'error');
+                showMessage(messageEl, `エラー: ${sender} の残高 (${senderScore.toFixed(1)} P) が不足しています。`, 'error');
                 return;
             }
     
             // 送信元スコアを更新
-            const newSenderScore = parseFloat((senderScore - amount).toFixed(1));
             // ★ status/lastBonusTimeを保持
             currentScoresMap.set(sender, { 
                 ...senderPlayer, 
-                score: newSenderScore
+                score: parseFloat((senderScore - amount).toFixed(1)) 
             });
             
-            // 受信先スコアを更新
-            const receiverScore = receiverPlayer.score || 0;
-            const newReceiverScore = parseFloat((receiverScore + amount).toFixed(1));
-            // ★ status/lastBonusTimeを保持
-            currentScoresMap.set(receiver, { 
-                ...receiverPlayer, 
-                score: newReceiverScore
-            });
+            // 受信先スコアを更新（存在しない場合は初期化）
+            if (receiverPlayer) {
+                const receiverScore = receiverPlayer.score || 0;
+                // ★ status/lastBonusTimeを保持
+                currentScoresMap.set(receiver, { 
+                    ...receiverPlayer, 
+                    score: parseFloat((receiverScore + amount).toFixed(1)) 
+                });
+            } else {
+                 // 存在しないプレイヤーに送金しようとした場合はエラーとするか、新規登録として扱う。
+                 // 今回は、プレイヤーリストから選択するため、基本は存在するはず。
+                 showMessage(messageEl, `エラー: 送金先 ${receiver} のデータが見つかりません。`, 'error');
+                 return;
+            }
+    
+            // ★ 修正: 履歴エントリーの生成と追加を削除
+    
+            const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
             
-            const newScores = Array.from(currentScoresMap.values()); // status/lastBonusTimeフィールドを保持したscores
-            
+            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
             const newData = {
                 scores: newScores,
+                // 修正: historyは保存しない
                 sports_bets: currentData.sports_bets, 
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [],
-                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
             };
     
             const response = await updateAllData(newData);
     
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ ${receiver} へ ${amount.toFixed(1)} P の送金を完了しました。`, 'success');
+                showMessage(messageEl, `✅ ${sender} から ${receiver} へ ${amount.toFixed(1)} P の送金を完了しました。`, 'success');
                 
-                // UIを更新
-                authenticatedUser.score = newSenderScore; // 認証ユーザーのメモリ上のスコアを更新
-                CURRENT_SCORE_ELEMENT.textContent = newSenderScore.toFixed(1); // 画面上のスコアを更新
-                
-                TRANSFER_FORM_MYPAGE.reset();
-                loadTransferReceiverList(); 
+                TRANSFER_FORM.reset();
+                loadPlayerList();
+                loadTransferPlayerLists(); 
+                loadMahjongForm(); 
             } else {
                 showMessage(messageEl, `❌ 送金エラー: ${response.message}`, 'error');
             }
     
         } catch (error) {
-            console.error("送金処理中にエラー:", error);
+            console.error(error);
             showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-        } finally {
-            submitButton.disabled = false;
         }
     });
 }
-// -----------------------------------------------------------------
-// マイページ送金機能 終了
-// -----------------------------------------------------------------
 
 
-/**
- * 賭け入力行を初期化・追加する関数 (変更なし)
- */
-function initializeWagerInputs() {
-    // WAGER_INPUTS_CONTAINERがnullでないことを確認 (安全のため)
-    if (!WAGER_INPUTS_CONTAINER) return;
+// --- 5. スピードストーム レコード管理機能 (履歴削除) ---
 
-    WAGER_INPUTS_CONTAINER.innerHTML = '';
-    // 最初の行をデフォルトで追加
-    addWagerRow(); 
-}
+// タイム文字列 (例: "0:46.965" または "46.965") をミリ秒に変換するヘルパー関数
+function timeToMilliseconds(timeString) {
+    if (!timeString) return NaN;
 
-/**
- * 賭け内容と掛け金の入力行を追加する関数 (変更なし)
- */
-function addWagerRow(item = '', amount = '') {
-    // WAGER_INPUTS_CONTAINERがnullでないことを確認 (安全のため)
-    if (!WAGER_INPUTS_CONTAINER) return;
+    const parts = timeString.split(':');
+    let minutes = 0;
+    let seconds = 0;
 
-    const rowCount = WAGER_INPUTS_CONTAINER.querySelectorAll('.wager-row').length + 1;
-    const row = document.createElement('div');
-    row.className = 'form-group wager-row';
-    row.innerHTML = `
-        <div style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px;">
-            <div style="flex-grow: 1;">
-                <label for="wager-item-${rowCount}">内容 (かけるもの):</label>
-                <input type="text" class="wager-item-input" id="wager-item-${rowCount}" value="${item}" placeholder="例: A選手優勝 or 満貫和了" required>
-            </div>
-            <div style="width: 120px;">
-                <label for="wager-amount-${rowCount}">掛け金 (P):</label>
-                <input type="number" class="wager-amount-input" id="wager-amount-${rowCount}" value="${amount}" step="1" min="1" placeholder="例: 10" required>
-            </div>
-            <button type="button" class="remove-wager-row-button remove-button" style="width: auto; margin-bottom: 0;">×</button>
-        </div>
-    `;
-    
-    row.querySelector('.remove-wager-row-button').addEventListener('click', (e) => {
-        // 最後の1行は削除させない
-        if (WAGER_INPUTS_CONTAINER.querySelectorAll('.wager-row').length > 1) {
-            e.target.closest('.wager-row').remove();
-        } else {
-             showMessage(document.getElementById('wager-message'), '⚠️ 少なくとも1つの賭け行が必要です。', 'info');
-        }
-    });
-
-    WAGER_INPUTS_CONTAINER.appendChild(row);
-}
-
-// 賭け追加ボタンのイベントリスナー (変更なし)
-if (ADD_WAGER_ROW_BUTTON) {
-    ADD_WAGER_ROW_BUTTON.addEventListener('click', () => addWagerRow());
-}
-
-
-/**
- * 最新のくじデータと投票履歴を取得し、表示を更新する (変更なし)
- */
-async function loadBettingDataAndHistory() {
-    const allData = await fetchAllData();
-    const allBets = allData.sports_bets || []; 
-    
-    updateWagerForm(allBets);
-    renderWagerHistory(allBets);
-}
-
-
-/**
- * 投票フォームの対象くじセレクトボックスを更新する (変更なし)
- */
-function updateWagerForm(allBets) {
-    // TARGET_BET_SELECTがnullでないことを確認 (安全のため)
-    if (!TARGET_BET_SELECT) return;
-
-    TARGET_BET_SELECT.innerHTML = '<option value="" disabled selected>開催中のくじを選択</option>';
-    
-    // 開催中のくじのみを対象とする
-    const openBets = allBets.filter(bet => bet.status === 'OPEN' && new Date(bet.deadline) > new Date());
-    
-    if (openBets.length === 0) {
-        TARGET_BET_SELECT.innerHTML = '<option value="" disabled selected>現在、開催中のくじはありません</option>';
-        return;
+    if (parts.length === 2) {
+        minutes = parseInt(parts[0], 10);
+        seconds = parseFloat(parts[1]);
+    } else if (parts.length === 1) {
+        seconds = parseFloat(parts[1]);
+    } else {
+        return NaN;
     }
 
-    let options = '<option value="" disabled selected>開催中のくじを選択</option>';
-    openBets.forEach(bet => {
-        const deadline = new Date(bet.deadline);
-        const formattedDeadline = deadline.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }) + ' ' + 
-                                  deadline.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-                                  
-        options += `<option value="${bet.betId}">${bet.matchName} (#${bet.betId}) - 締切: ${formattedDeadline}</option>`;
-    });
-
-    TARGET_BET_SELECT.innerHTML = options;
+    if (isNaN(minutes) || isNaN(seconds)) return NaN;
+    
+    return Math.round((minutes * 60 + seconds) * 1000);
 }
 
-
-/**
- * 認証ユーザーの投票履歴を表示する (変更なし)
- */
-function renderWagerHistory(allBets) {
-    // WAGER_HISTORY_LISTがnullでないことを確認 (安全のため)
-    if (!WAGER_HISTORY_LIST) return;
-    // ★ 修正: authenticatedUser の null チェック
-    if (!authenticatedUser) return;
-
-    const player = authenticatedUser.name;
+// ミリ秒を "分:秒.ミリ秒" 形式にフォーマットするヘルパー関数
+function formatMilliseconds(ms) {
+    if (isNaN(ms) || ms < 0) return 'N/A';
     
-    // すべてのくじから、認証ユーザーの投票のみを抽出
-    const allPlayerWagers = allBets.flatMap(bet => 
-        bet.wagers
-           .filter(w => w.player === player)
-           .map(w => ({
-                ...w, 
-                betId: bet.betId, 
-                matchName: bet.matchName,
-                betStatus: bet.status 
-            }))
-    );
+    const totalSeconds = ms / 1000;
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
     
-    if (allPlayerWagers.length === 0) {
-        WAGER_HISTORY_LIST.innerHTML = '<li>まだ投票履歴はありません。</li>';
-        return;
+    const formattedSeconds = seconds.toFixed(3);
+    
+    if (minutes > 0) {
+        const secPart = seconds < 10 ? '0' + formattedSeconds : formattedSeconds;
+        return `${minutes}:${secPart}`;
+    } else {
+        return formattedSeconds;
     }
-
-    // タイムスタンプでソートし、最新5件を表示
-    allPlayerWagers.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    const latestWagers = allPlayerWagers.slice(0, 5);
-
-    let html = '';
-    latestWagers.forEach(w => {
-        const timestamp = new Date(w.timestamp).toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-        
-        let resultText = '';
-        let resultClass = 'status-closed'; 
-        
-        if (w.betStatus === 'SETTLED') {
-             if (w.isWin === true) {
-                resultText = `✅ 当選 (x${w.appliedOdds.toFixed(1)}) / 獲得: ${(w.amount * w.appliedOdds).toFixed(1)} P`;
-                resultClass = 'status-open'; // success color
-            } else if (w.isWin === false) {
-                resultText = '❌ 外れ / 損失: 0 P (購入時に減算済み)';
-                resultClass = 'status-settled'; // neutral color
-            } else {
-                 resultText = '結果未確定（くじ完了済みだが投票結果が不明）';
-            }
-        } else if (w.betStatus === 'CLOSED' || w.betStatus === 'OPEN') {
-             resultText = '結果待ち...';
-             resultClass = 'status-closed';
-        }
-
-        html += `
-            <li style="border-bottom: 1px dotted #ccc; padding: 5px 0;">
-                <p style="margin: 0; font-size: 0.9em; color: #6c757d;">${timestamp} - くじ #${w.betId}: ${w.matchName}</p>
-                <p style="margin: 2px 0 0 0;">
-                    ${w.amount} P を <strong>「${w.item}」</strong> に投票
-                </p>
-                <p style="margin: 2px 0 0 10px; font-weight: bold;" class="${resultClass}">${resultText}</p>
-            </li>
-        `;
-    });
-
-    WAGER_HISTORY_LIST.innerHTML = html;
 }
 
-
-// --- イベントハンドラ: 投票（くじ購入） (変更なし) ---
-
-if (WAGER_FORM) {
-    WAGER_FORM.addEventListener('submit', async (e) => {
+// ★ 修正: RACE_RECORD_FORM が存在しないページもあるため、nullチェック
+if (RACE_RECORD_FORM) {
+    RACE_RECORD_FORM.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const messageEl = document.getElementById('race-record-message');
+        // ★ 修正: プルダウンからコース名を取得
+        const courseName = RACE_COURSE_SELECT.value; 
+        const timeString = document.getElementById('race-best-time').value.trim();
+        const recordHolder = RACE_RECORD_HOLDER_SELECT.value;
         
-        // ★ 修正: authenticatedUser の null チェック
-        if (!authenticatedUser) {
-            showMessage(document.getElementById('wager-message'), '❌ 認証エラーが発生しました。', 'error');
+        const newTimeMs = timeToMilliseconds(timeString);
+    
+        if (!courseName || isNaN(newTimeMs) || !recordHolder || newTimeMs <= 0) {
+            showMessage(messageEl, 'エラー: 全ての項目を正しく選択・入力してください (タイムは分:秒.ミリ秒 または 秒.ミリ秒 形式)。', 'error');
             return;
         }
-
-        const messageEl = document.getElementById('wager-message');
-        const betId = parseInt(TARGET_BET_SELECT.value);
-        const player = authenticatedUser.name; 
         
-        // 1. フォームから有効な賭けのリストを収集 (変更なし)
-        const wagersToSubmit = [];
-        let totalWagerAmount = 0;
-        let allValid = true;
-        let hasAtLeastOneValid = false;
-        
-        if (WAGER_INPUTS_CONTAINER) {
-            WAGER_INPUTS_CONTAINER.querySelectorAll('.wager-row').forEach(row => {
-                const itemInput = row.querySelector('.wager-item-input').value.trim();
-                const amountInput = parseFloat(row.querySelector('.wager-amount-input').value);
-                
-                // itemとamountが両方入力されているかチェック
-                if (itemInput && !isNaN(amountInput) && amountInput >= 1) {
-                    wagersToSubmit.push({
-                        item: itemInput,
-                        amount: amountInput,
-                        // 新しいwagersには以下のフィールドを追加:
-                        player: player,
-                        timestamp: new Date().toISOString(),
-                        isWin: null, // 結果確定前はnull
-                        appliedOdds: null // 結果確定前はnull
-                    });
-                    totalWagerAmount += amountInput;
-                    hasAtLeastOneValid = true;
-                } else if (itemInput || !isNaN(amountInput)) {
-                    // 一部でも入力されているが、有効な組み合わせではない場合はエラー
-                    allValid = false;
-                }
-            });
-        }
-
-        if (!betId || !allValid || !hasAtLeastOneValid) {
-            showMessage(messageEl, '❌ 対象くじを選択し、少なくとも一つの有効な「かけるもの」と「掛け金 (1P以上)」を入力してください。', 'error');
-            return;
-        }
-
-        const submitButton = WAGER_FORM.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        showMessage(messageEl, `投票 (${totalWagerAmount} P) を処理中...`, 'info');
-        
+        // ★ 修正: ここから新規コースの追加はできず、既存コースの更新のみを行う
+    
+        showMessage(messageEl, 'レース記録を更新中...', 'info');
+    
         try {
-            // 2. 最新の全データを取得し、残高チェックを厳密に行う
             const currentData = await fetchAllData();
-            const allBets = currentData.sports_bets || [];
-            const betIndex = allBets.findIndex(b => b.betId === betId);
+            let records = currentData.speedstorm_records || [];
             
-            // scoresから認証ユーザーの最新スコアを取得
-            // ★ scores全体をマップとして取得し、更新後のscores配列を再構築するロジックに変更
-            let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
-            let targetPlayer = currentScoresMap.get(player);
+            // 既存のレコードの中から、選択されたコース名と一致するものを探す
+            const existingIndex = records.findIndex(r => r.courseName === courseName);
             
-            // ★ status/pass/lastBonusTimeフィールドのチェックを追加
-            if (!targetPlayer || typeof targetPlayer.pass === 'undefined' || typeof targetPlayer.status === 'undefined') {
-                 showMessage(messageEl, '❌ 認証ユーザーのデータにパスワード情報または会員ステータス情報が不足しています。', 'error');
-                 return;
-            }
-
-            // 認証時のスコアではなく、最新のスコアで残高チェック
-            if (targetPlayer.score < totalWagerAmount) {
-                showMessage(messageEl, `❌ ポイント残高 (${targetPlayer.score.toFixed(1)} P) が不足しているため、合計 ${totalWagerAmount} Pの投票はできません。`, 'error');
+            // ★ 修正: 既存コースが見つからない場合はエラーとする
+            if (existingIndex === -1) {
+                showMessage(messageEl, `❌ エラー: コース名「${courseName}」は既存のコースリストに見つかりませんでした。新規コースの追加はできません。`, 'error');
                 return;
             }
-
-            const currentBet = allBets[betIndex];
-
-            // 締切時刻を過ぎていないかチェック
-            if (betIndex === -1 || currentBet.status !== 'OPEN' || new Date(currentBet.deadline) <= new Date()) {
-                showMessage(messageEl, '❌ 開催中のくじではありません（締切済みの可能性があります）。', 'error');
+    
+            const existingRecord = records[existingIndex];
+            const newRecord = {
+                courseName: courseName,
+                bestTimeMs: newTimeMs,
+                bestTime: formatMilliseconds(newTimeMs),
+                holder: recordHolder,
+                timestamp: new Date().toISOString()
+            };
+    
+            let logMessage = '';
+            let shouldAwardPoints = false;
+            const AWARD_POINTS = 5.0;
+    
+            // 新しい記録が既存の記録より速いか、同タイムで保持者が異なる場合のみ更新
+            if (newTimeMs < existingRecord.bestTimeMs) {
+                records[existingIndex] = newRecord;
+                logMessage = `✅ 記録を更新しました: ${courseName} | ${existingRecord.bestTime} (旧) → ${newRecord.bestTime} (新)`;
+                shouldAwardPoints = true;
+            } else if (newTimeMs === existingRecord.bestTimeMs && recordHolder !== existingRecord.holder) {
+                // 同タイムの場合は、保持者変更として記録を更新し、ポイント付与対象とする（競り合いの評価）
+                records[existingIndex] = newRecord;
+                logMessage = `✅ 同タイムで記録を更新（保持者変更）しました: ${newRecord.bestTime}`;
+                shouldAwardPoints = true;
+            } else {
+                showMessage(messageEl, `❌ 記録は更新されませんでした。入力された ${newRecord.bestTime} は既存の記録 ${existingRecord.bestTime} より遅いか同タイムです(保持者も同じ)。`, 'error');
                 return;
             }
-
-            // 3. スコアから合計ポイントを減算
-            const newScore = parseFloat((targetPlayer.score - totalWagerAmount).toFixed(1));
-
-            // ★ status/lastBonusTimeフィールドを保持したままscoreを更新
-            currentScoresMap.set(player, { 
-                ...targetPlayer, 
-                score: newScore
-            });
-
-
-            // 4. 投票情報を既存のwagers配列に追加 (変更なし)
-            currentBet.wagers.push(...wagersToSubmit);
             
-            // 5. 更新された全データを保存
+            // 更新後のリストをソート (念のため)
+            records.sort((a, b) => a.bestTimeMs - b.bestTimeMs);
+    
+            // let historyChanges = []; // 履歴変更ログを削除
+            let newScores = currentData.scores;
+    
+            if (shouldAwardPoints) {
+                // pass/pro/status/lastBonusTimeフィールドを保持するために、scores全体をマップとして処理
+                let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+                
+                const holderPlayer = currentScoresMap.get(recordHolder);
+                if(holderPlayer) {
+                    const currentScore = holderPlayer.score || 0;
+                    // pass/status/lastBonusTimeフィールドを保持したままscoreを更新
+                    currentScoresMap.set(recordHolder, { 
+                        ...holderPlayer, 
+                        score: parseFloat((currentScore + AWARD_POINTS).toFixed(1)) 
+                    });
+                    // historyChanges.push({name: recordHolder, change: AWARD_POINTS}); // 履歴変更ログの生成を削除
+                }
+                
+                const KABOCHA_NAME = "Kabocha"; 
+                const KABOCHA_BONUS = 1.0;     
+                
+                const kabochaPlayer = currentScoresMap.get(KABOCHA_NAME);
+                if (kabochaPlayer) {
+                    const kabochaCurrentScore = kabochaPlayer.score;
+                    // pass/status/lastBonusTimeフィールドを保持したままscoreを更新
+                    currentScoresMap.set(KABOCHA_NAME, { 
+                        ...kabochaPlayer, 
+                        score: parseFloat((kabochaCurrentScore + KABOCHA_BONUS).toFixed(1)) 
+                    });
+                    // historyChanges.push({name: KABOCHA_NAME, change: KABOCHA_BONUS}); // 履歴変更ログの生成を削除
+                    logMessage += ` (報酬: ${AWARD_POINTS} P + ${KABOCHA_NAME}に ${KABOCHA_BONUS} P)`;
+                } else {
+                     logMessage += ` (報酬: ${AWARD_POINTS} P)`;
+                }
+    
+                // scores配列を再構築
+                newScores = Array.from(currentScoresMap.values());
+    
+                // ★ 修正: 履歴エントリーの生成と追加を完全に削除
+                // const historyEntry = { ... };
+                // currentData.history.push(historyEntry);
+            }
+    
+            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+            const newData = {
+                scores: newScores, // pass/pro/status/lastBonusTimeフィールドを保持したscores
+                sports_bets: currentData.sports_bets,
+                speedstorm_records: records,
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+            };
+    
+            const response = await updateAllData(newData);
+    
+            if (response.status === 'success') {
+                showMessage(messageEl, logMessage, 'success');
+                RACE_RECORD_FORM.reset();
+                loadPlayerList();
+                loadTransferPlayerLists();
+                loadMahjongForm(); 
+                loadRaceCourses(); // コースリストを再ロード
+            } else {
+                showMessage(messageEl, `❌ 更新エラー: ${response.message}`, 'error');
+            }
+    
+        } catch (error) {
+            console.error(error);
+            showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+        }
+    });
+}
+
+
+// --- 6. スポーツくじ管理機能 ---
+
+// イベントハンドラ: 新規くじ作成 (履歴削除)
+// ★ 修正: CREATE_BET_FORM が存在しないページもあるため、nullチェック
+if (CREATE_BET_FORM) {
+    CREATE_BET_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const messageEl = document.getElementById('create-message');
+        const matchName = document.getElementById('match-name').value.trim();
+        // 削除: 開設者名の取得
+        // const creatorName = document.getElementById('creator-name').value.trim();
+        const deadline = document.getElementById('deadline-datetime').value; // ISO 8601形式の文字列を取得
+    
+        // 修正: creatorNameのチェックを削除
+        if (!matchName || !deadline) {
+            showMessage(messageEl, '❌ くじ名、締切日時をすべて入力してください。', 'error');
+            return;
+        }
+        
+        // 締切時刻の有効性チェック
+        const deadlineDate = new Date(deadline);
+        if (isNaN(deadlineDate.getTime()) || deadlineDate <= new Date()) {
+            showMessage(messageEl, '❌ 締切日時は現在時刻よりも後の有効な日時を選択してください。', 'error');
+            return;
+        }
+    
+    
+        try {
+            const currentData = await fetchAllData();
+            let allBets = currentData.sports_bets || [];
+            
+            // ★★★ 修正: 3件以上の記録がある場合、最も古い記録を削除 ★★★
+            // betIdが最小（最も古い）のものを削除
+            if (allBets.length >= 3) {
+                // betIdで昇順ソート
+                allBets.sort((a, b) => a.betId - b.betId);
+                // 最初の要素（最も古い記録）を削除
+                const removedBet = allBets.shift();
+                console.log(`[メンテナンス] スポーツくじ ID:${removedBet.betId}「${removedBet.matchName}」を削除しました。`);
+            }
+
+            const newBetId = allBets.length > 0 ? Math.max(...allBets.map(b => b.betId)) + 1 : 1;
+            
+            // ★ オッズを廃止し、作成者と締切日時を追加
+            const newBet = {
+                betId: newBetId,
+                matchName: matchName,
+                creator: 'Master', // マスター作成
+                deadline: deadlineDate.toISOString(), // 新規: 締切日時 (ISO文字列)
+                status: 'OPEN',
+                // odds: {} は廃止
+                wagers: [] // 投票はwagers配列に直接格納
+            };
+    
+            allBets.push(newBet);
             currentData.sports_bets = allBets;
-            currentData.scores = Array.from(currentScoresMap.values()); // status/lastBonusTimeフィールドを保持したscores
-
+            
+            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
             const newData = {
                 scores: currentData.scores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
             };
+    
+            const response = await updateAllData(newData);
+    
+            if (response.status === 'success') {
+                showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})`, 'success');
+                CREATE_BET_FORM.reset();
+                
+                // フォームリセット後、締切日時を再度設定
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                document.getElementById('deadline-datetime').value = formatDateTimeLocal(now);
+                
+                loadBettingData();
+            } else {
+                showMessage(messageEl, `❌ 作成エラー: ${response.message}`, 'error');
+            }
+    
+        } catch (error) {
+            console.error(error);
+            showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+        }
+    });
+}
 
+
+// イベントハンドラ: くじ締切 (変更なし)
+
+async function handleCloseBet(e) {
+    const betId = parseInt(e.target.dataset.betId);
+    
+    if (!window.confirm(`くじ ID:${betId} の投票を締め切りますか？この操作後は投票できません。`)) {
+        return;
+    }
+
+    try {
+        const currentData = await fetchAllData();
+        const allBets = currentData.sports_bets || [];
+        const bet = allBets.find(b => b.betId === betId);
+
+        if (bet && bet.status === 'OPEN') {
+            // 締切処理
+            bet.status = 'CLOSED';
+            currentData.sports_bets = allBets;
+            
+            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+            const newData = {
+                scores: currentData.scores,
+                sports_bets: currentData.sports_bets,
+                speedstorm_records: currentData.speedstorm_records || [],
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+            };
+            
             const response = await updateAllData(newData);
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ ${player}様の ${totalWagerAmount} P の投票 (${wagersToSubmit.length}件) を登録し、ポイントを減算しました。`, 'success');
-                WAGER_FORM.reset();
-                
-                // 6. 認証ユーザー情報を更新し、画面を再表示
-                authenticatedUser.score = newScore; // 認証ユーザーのメモリ上のスコアを更新
-                CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1); // 画面上のスコアを更新
-                
-                // 投票履歴とくじリストを再ロード
-                loadBettingDataAndHistory(); 
-                initializeWagerInputs(); // フォームを初期状態に戻す
-                
+                showMessage(document.getElementById('create-message'), `✅ くじ ID:${betId} の投票を締め切りました。`, 'success');
+                loadBettingData();
             } else {
-                showMessage(messageEl, `❌ 投票エラー: ${response.message}`, 'error');
+                showMessage(document.getElementById('create-message'), `❌ 締切処理エラー: ${response.message}`, 'error');
+            }
+        }
+    } catch (error) {
+        console.error(error);
+        showMessage(document.getElementById('create-message'), `❌ サーバーエラー: ${error.message}`, 'error');
+    }
+}
+
+
+/**
+ * くじ一覧のHTMLを生成し、表示する (変更なし)
+ * @param {Array<Object>} allBets - すべてのくじのデータ
+ */
+function renderBetList(allBets) {
+    // ★ 修正: BET_LIST_CONTAINER が存在しないページもあるため、nullチェック
+    if (!BET_LIST_CONTAINER) return;
+
+    if (allBets.length === 0) {
+        BET_LIST_CONTAINER.innerHTML = '<p>まだくじが作成されていません。</p>';
+        return;
+    }
+
+    let html = '';
+    const now = new Date();
+    
+    // ソート: OPEN -> CLOSED -> SETTLED
+    const sortedBets = allBets.sort((a, b) => {
+        const order = { 'OPEN': 1, 'CLOSED': 2, 'SETTLED': 3 };
+        return order[a.status] - order[b.status];
+    });
+
+    sortedBets.forEach(bet => {
+        // OPEN状態のくじについて、締切時間を過ぎていたら強制的にCLOSEDとして扱う (表示上のみ)
+        let currentStatus = bet.status;
+        if (currentStatus === 'OPEN' && new Date(bet.deadline) <= now) {
+            currentStatus = 'CLOSED_AUTO'; // 自動締切
+        }
+
+        const totalWagers = bet.wagers.reduce((sum, w) => sum + w.amount, 0);
+        let statusText = '';
+        let statusClass = '';
+        let managementTools = '';
+
+        const formattedDeadline = new Date(bet.deadline).toLocaleString('ja-JP', { 
+            year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
+        });
+
+        // 汎用オッズリストは廃止されたため表示しない
+
+        if (currentStatus === 'OPEN') {
+            statusText = '開催中 (投票受付中)';
+            statusClass = 'status-open';
+            managementTools = `
+                <p>締切: ${formattedDeadline}</p>
+                <button class="action-button close-bet secondary-button" data-bet-id="${bet.betId}" style="width: auto;">投票締切</button>
+            `;
+        } else if (currentStatus === 'CLOSED' || currentStatus === 'CLOSED_AUTO') {
+            statusText = currentStatus === 'CLOSED_AUTO' ? '自動締切 (結果待ち)' : '締切済 (結果待ち)';
+            statusClass = 'status-closed';
+            
+            // ★ 大幅修正箇所：結果確定ツール
+            // 各投票に対する結果入力フォームを生成
+            const unsettledWagers = bet.wagers.filter(w => w.isWin === null); // isWinがnullの結果未入力の投票
+            
+            if (unsettledWagers.length > 0) {
+                managementTools = `
+                    <form class="settle-wagers-form" data-bet-id="${bet.betId}">
+                        <div class="result-tools-score">
+                            <p style="margin-top: 10px;">🎯 **未確定の投票結果入力** (${unsettledWagers.length}件)</p>
+                            <div id="wager-result-inputs-${bet.betId}" style="max-height: 400px; overflow-y: auto; padding: 10px; border: 1px solid #ccc; margin-bottom: 15px;">
+                                <!-- 個別の投票結果入力がJSで生成される -->
+                            </div>
+                            <button type="submit" class="action-button result-button">確定した結果を反映</button>
+                            <p class="instruction" style="color: #dc3545;">※ 当選時はオッズ (1.0以上) を入力してください。</p>
+                        </div>
+                    </form>
+                `;
+            } else {
+                managementTools = '<p class="settled-info" style="color: #28a745; font-weight: bold;">全ての投票結果が確定済みです。</p>';
+                // 全ての投票結果が確定したら、くじ自体をSETTLEDに更新するボタン
+                managementTools += `<button class="action-button finalize-bet secondary-button" data-bet-id="${bet.betId}" style="width: auto;">くじを完了済みにする</button>`;
+            }
+            
+        } else if (bet.status === 'SETTLED') {
+            statusText = `完了`;
+            statusClass = 'status-settled';
+            managementTools = `<p class="settled-info">このくじは完了済みです。</p>`;
+        }
+        
+        let wagersHtml = bet.wagers.length > 0 ? 
+            bet.wagers.map(w => {
+                let winStatus = '';
+                if (w.isWin === true) {
+                    winStatus = ` (✅ x${w.appliedOdds.toFixed(1)})`;
+                } else if (w.isWin === false) {
+                    winStatus = ' (❌)';
+                } else {
+                    winStatus = ' (?)';
+                }
+                const playerInitials = w.player.substring(0, 3);
+                return `<li class="wager-item" title="${w.item}">${playerInitials}: ${w.amount} P - ${w.item} ${winStatus}</li>`;
+            }).join('') :
+            '<li>まだ投票はありません。</li>';
+
+        html += `
+            <div class="bet-card ${statusClass}">
+                <h3>${bet.matchName} (#${bet.betId})</h3>
+                <p class="bet-creator">開設者: <strong>${bet.creator || 'N/A'}</strong></p>
+                <div class="odds-info">
+                    <strong>締切:</strong> ${formattedDeadline}
+                </div>
+                <p class="status-label">ステータス: <span class="${statusClass}">${statusText}</span></p>
+                <div class="wager-info">
+                    <strong>合計投票:</strong> ${totalWagers} P (${bet.wagers.length}件)
+                </div>
+                <ul class="wagers-list" style="font-size: 0.9em;">${wagersHtml}</ul>
+                <div class="management-tools">
+                    ${managementTools}
+                </div>
+            </div>
+        `;
+    });
+
+    BET_LIST_CONTAINER.innerHTML = html;
+
+    // イベントリスナーを再設定
+    document.querySelectorAll('.close-bet').forEach(btn => btn.addEventListener('click', handleCloseBet));
+    document.querySelectorAll('.finalize-bet').forEach(btn => btn.addEventListener('click', handleFinalizeBet));
+    
+    // ★ 新規: 投票結果確定フォームのセットアップ
+    document.querySelectorAll('.settle-wagers-form').forEach(form => {
+        const betId = parseInt(form.dataset.betId);
+        const bet = sortedBets.find(b => b.betId === betId);
+        
+        if (bet) {
+            // 個別投票結果の入力フィールドを生成
+            generateWagerResultInputs(bet);
+            
+            // フォーム送信イベント
+            form.addEventListener('submit', handleSettleWagers);
+        }
+    });
+}
+
+
+/**
+ * 投票結果確定用の入力フィールドを生成する (変更なし)
+ * @param {Object} bet - くじオブジェクト
+ */
+function generateWagerResultInputs(bet) {
+    const container = document.getElementById(`wager-result-inputs-${bet.betId}`);
+    if (!container) return;
+
+    // 結果未入力の投票のみを対象とする
+    const unsettledWagers = bet.wagers.filter(w => w.isWin === null); 
+    
+    let html = '';
+
+    unsettledWagers.forEach((wager, index) => {
+        // isWin: null, appliedOdds: null のものが対象
+        const uniqueId = `${bet.betId}-${index}`;
+        
+        html += `
+            <div class="wager-result-row" style="padding: 5px 0; border-bottom: 1px dotted #ddd;">
+                <p style="margin: 5px 0;">
+                    <strong>${wager.player}:</strong> ${wager.amount} P / ${wager.item}
+                </p>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="flex: 0 0 auto;"><input type="radio" name="result-${uniqueId}" value="win" class="wager-result-radio" data-wager-index="${index}"> 当選</label>
+                    <label style="flex: 0 0 auto;"><input type="radio" name="result-${uniqueId}" value="lose" class="wager-result-radio" data-wager-index="${index}"> 外れ</label>
+                    <div style="flex-grow: 1; display: flex; gap: 5px;">
+                        <input type="number" step="0.1" min="1.0" class="applied-odds-input" data-wager-index="${index}" placeholder="オッズ (当選時)" style="width: 100px; display: none;">
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    
+    // ラジオボタンの変更イベントリスナーを追加
+    container.querySelectorAll('.wager-result-radio').forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const index = e.target.dataset.wagerIndex;
+            const oddsInput = container.querySelector(`.applied-odds-input[data-wager-index="${index}"]`);
+            
+            if (e.target.value === 'win') {
+                oddsInput.style.display = 'inline';
+                oddsInput.required = true;
+                oddsInput.value = oddsInput.value || 1.0; // デフォルト値を設定
+            } else {
+                oddsInput.style.display = 'none';
+                oddsInput.required = false;
+                oddsInput.value = '';
+            }
+        });
+    });
+}
+
+// --- イベントハンドラ: 個別投票結果の確定とポイント反映 (履歴削除) ---
+
+async function handleSettleWagers(e) {
+    e.preventDefault();
+    const form = e.target;
+    const betId = parseInt(form.dataset.betId);
+    const messageEl = document.getElementById('create-message');
+    
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+
+    // ★ 修正: allValid をここで初期化する
+    let allValid = true; 
+
+    try {
+        const currentData = await fetchAllData();
+        const allBets = currentData.sports_bets || [];
+        const betIndex = allBets.findIndex(b => b.betId === betId);
+        
+        if (betIndex === -1 || allBets[betIndex].status === 'SETTLED') {
+            showMessage(messageEl, '❌ くじが見つからないか、既に完了済みです。', 'error');
+            submitButton.disabled = false;
+            return;
+        }
+
+        const bet = allBets[betIndex];
+        // 元のwagers配列（未確定を含む）
+        const originalWagers = bet.wagers; 
+        
+        // let totalPointChange = 0; // 履歴ログ用変数を削除
+        // let historyChanges = []; // 履歴ログ用変数を削除
+        let updatedWagersCount = 0;
+        
+        // pass/pro/status/lastBonusTimeフィールドを保持するために、scores全体をマップとして処理
+        let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+        
+        // フォームから結果データを収集し、元のwagers配列に反映させる
+        const wagerResultInputs = form.querySelectorAll('.wager-result-row');
+
+        // 未確定の投票リストを取得 (フォームのインデックスと対応させるための工夫)
+        const unsettledWagersIndices = originalWagers
+            .map((w, index) => w.isWin === null ? index : -1)
+            .filter(index => index !== -1);
+
+        wagerResultInputs.forEach((row, formIndex) => {
+            // formIndexは0, 1, 2... とフォームに表示されている未確定投票の順序
+            const radioWin = row.querySelector('input[value="win"]');
+            const radioLose = row.querySelector('input[value="lose"]');
+            const oddsInput = row.querySelector('.applied-odds-input');
+            
+            // フォームのインデックスに対応する元のwagers配列のインデックス
+            const originalWagerIndex = unsettledWagersIndices[formIndex];
+            
+            if (originalWagerIndex === undefined || originalWagerIndex === null) return; // 念のためのチェック
+
+            let isWin = null;
+            let appliedOdds = null;
+            let pointChange = 0; // 反映するポイントの増減
+
+            if (radioWin && radioWin.checked) {
+                isWin = true;
+                appliedOdds = parseFloat(oddsInput.value);
+                
+                if (isNaN(appliedOdds) || appliedOdds < 1.0) {
+                    allValid = false; // エラーフラグを立てる
+                    showMessage(messageEl, `❌ 当選結果のオッズが不正です (${originalWagers[originalWagerIndex].item})。`, 'error');
+                    return; 
+                }
+                // ポイント計算: 掛け金 * オッズ (利益分)
+                pointChange = originalWagers[originalWagerIndex].amount * appliedOdds;
+                
+            } else if (radioLose && radioLose.checked) {
+                isWin = false;
+                appliedOdds = 0; // 外れの場合はオッズなし
+                pointChange = 0; // 既に購入時に減算済みのため、追加の増減なし
+            } else {
+                // 結果が選択されていない場合はスキップ
+                return;
+            }
+
+            // データの更新
+            originalWagers[originalWagerIndex].isWin = isWin;
+            originalWagers[originalWagerIndex].appliedOdds = appliedOdds;
+
+            // スコアの更新
+            const player = originalWagers[originalWagerIndex].player;
+            const currentPlayer = currentScoresMap.get(player);
+
+            if (currentPlayer) {
+                const currentScore = currentPlayer.score || 0;
+                // pass/status/lastBonusTimeフィールドを保持したままscoreを更新
+                currentScoresMap.set(player, { 
+                    ...currentPlayer, 
+                    score: parseFloat((currentScore + pointChange).toFixed(1)) 
+                });
+                
+                // 履歴記録用の変更点を蓄積 (削除)
+                // historyChanges.push({ name: player, change: parseFloat(pointChange.toFixed(1)) });
+                // totalPointChange += pointChange;
+            }
+            
+            updatedWagersCount++;
+        });
+
+        // ★ 修正: allValid のチェックをここで行う
+        if (!allValid) {
+             submitButton.disabled = false;
+             return;
+        }
+
+        if (updatedWagersCount === 0) {
+            showMessage(messageEl, '⚠️ 反映する結果が選択されていません。', 'info');
+            submitButton.disabled = false;
+            return;
+        }
+
+        // ★ 修正: 履歴エントリーの生成と追加を完全に削除
+        // const historyEntry = { ... };
+        // currentData.history.push(historyEntry);
+
+        // データ全体を更新
+        bet.wagers = originalWagers;
+        allBets[betIndex] = bet;
+        currentData.sports_bets = allBets;
+        currentData.scores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
+        
+        // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+        const newData = {
+            scores: currentData.scores,
+            sports_bets: currentData.sports_bets,
+            speedstorm_records: currentData.speedstorm_records || [],
+            lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+            gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+            electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+        };
+        
+        const response = await updateAllData(newData);
+
+        if (response.status === 'success') {
+            showMessage(messageEl, `✅ ${updatedWagersCount}件の結果を確定し、ポイントを反映しました。`, 'success');
+            loadBettingData(); // リストを再ロードして更新されたフォームを表示
+            loadPlayerList();
+            loadTransferPlayerLists();
+            loadMahjongForm();
+        } else {
+            showMessage(messageEl, `❌ ポイント反映エラー: ${response.message}`, 'error');
+        }
+
+    } catch (error) {
+        console.error(error);
+        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+    } finally {
+        submitButton.disabled = false;
+    }
+}
+
+// --- イベントハンドラ: くじ完了 (SETTLED) にする (変更なし) ---
+
+async function handleFinalizeBet(e) {
+    const betId = parseInt(e.target.dataset.betId);
+    const messageEl = document.getElementById('create-message');
+
+    if (!window.confirm(`くじ ID:${betId} を「完了済み」にマークしますか？この操作は元に戻せません。`)) {
+        return;
+    }
+
+    try {
+        const currentData = await fetchAllData();
+        const allBets = currentData.sports_bets || [];
+        const betIndex = allBets.findIndex(b => b.betId === betId);
+        
+        if (betIndex === -1 || allBets[betIndex].status === 'SETTLED') {
+            showMessage(messageEl, '❌ くじが見つからないか、既に完了済みです。', 'error');
+            return;
+        }
+
+        const bet = allBets[betIndex];
+        
+        // 未確定の投票がないか最終チェック
+        const unsettledCount = bet.wagers.filter(w => w.isWin === null).length;
+        if (unsettledCount > 0) {
+            showMessage(messageEl, `❌ まだ ${unsettledCount}件の投票結果が未確定です。全ての結果を確定してから完了にしてください。`, 'error');
+            return;
+        }
+
+        bet.status = 'SETTLED';
+        currentData.sports_bets = allBets;
+        
+        // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+        const newData = {
+            scores: currentData.scores,
+            sports_bets: currentData.sports_bets,
+            speedstorm_records: currentData.speedstorm_records || [],
+            lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+            gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+            electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+        };
+        
+        const response = await updateAllData(newData);
+
+        if (response.status === 'success') {
+            showMessage(messageEl, `✅ くじ ID:${betId} を「完了済み」にしました。`, 'success');
+            loadBettingData();
+        } else {
+            showMessage(messageEl, `❌ 完了処理エラー: ${response.message}`, 'error');
+        }
+
+    } catch (error) {
+        console.error(error);
+        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+    }
+}
+
+
+// --- 特殊ポイント調整機能 (履歴削除) ---
+// ★ 修正: adjustment-form が存在しないページもあるため、nullチェック
+if (document.getElementById('adjustment-form')) {
+    document.getElementById('adjustment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const messageEl = document.getElementById('adjustment-message');
+        const targetPlayerName = document.getElementById('target-player').value;
+        const adjustAmount = parseFloat(document.getElementById('adjust-amount').value);
+    
+        if (!targetPlayerName || isNaN(adjustAmount) || adjustAmount === 0) {
+            showMessage(messageEl, 'エラー: 対象プレイヤーと有効な調整ポイントを入力してください。', 'error');
+            return;
+        }
+    
+        try {
+            const currentData = await fetchAllData();
+            // pass/pro/status/lastBonusTimeフィールドを保持するために、scores全体をマップとして処理
+            let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+            
+            const player = currentScoresMap.get(targetPlayerName);
+            
+            if (!player) {
+                showMessage(messageEl, `エラー: プレイヤー ${targetPlayerName} が見つかりません。`, 'error');
+                return;
+            }
+            
+            const newScore = player.score + adjustAmount;
+            
+            // pass/status/lastBonusTimeフィールドを保持したままscoreを更新
+            currentScoresMap.set(targetPlayerName, { 
+                ...player, 
+                score: parseFloat(newScore.toFixed(1)) 
+            });
+            
+            // ★ 修正: 履歴エントリーの生成と追加を削除
+    
+            const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
+    
+            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+            const newData = {
+                scores: newScores,
+                // 修正: historyは保存しない
+                sports_bets: currentData.sports_bets,
+                speedstorm_records: currentData.speedstorm_records || [],
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+            };
+    
+            const response = await updateAllData(newData);
+    
+            if (response.status === 'success') {
+                showMessage(messageEl, `✅ ${targetPlayerName} のポイントを ${adjustAmount.toFixed(1)} P 調整しました。`, 'success');
+                document.getElementById('adjustment-form').reset();
+                loadPlayerList();
+            } else {
+                showMessage(messageEl, `❌ 調整エラー: ${response.message}`, 'error');
+            }
+    
+        } catch (error) {
+            console.error(error);
+            showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+        }
+    });
+}
+
+// --- 日次ポイント徴収機能のロジック (新規追加) ---
+
+// ★ 修正: DAILY_TAX_BUTTON が存在しないページもあるため、nullチェック
+if (DAILY_TAX_BUTTON) {
+    DAILY_TAX_BUTTON.addEventListener('click', async () => {
+        // ★ 修正: TOTAL_TAX_AMOUNT を定数から削除
+        // const TOTAL_TAX_AMOUNT = 100.0; // 削除
+        const TAX_RATE = 0.05; // 徴収率 5%
+        const EXCLUDED_PLAYER_NAMES = ['3mahjong']; 
+        const messageEl = DAILY_TAX_MESSAGE;
+    
+        if (!window.confirm(`全プレイヤーの保有ポイント合計の ${TAX_RATE * 100}% を比例配分で徴収を実行します。よろしいですか？`)) {
+            return;
+        }
+    
+        DAILY_TAX_BUTTON.disabled = true;
+        showMessage(messageEl, 'ポイント徴収を処理中...', 'info');
+        
+        try {
+            const currentData = await fetchAllData();
+            // pass/pro/status/lastBonusTimeフィールドを保持するために、scores全体をマップとして処理
+            let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+            
+            // 1. 徴収対象プレイヤーの特定と総ポイントの計算
+            const targetPlayers = currentData.scores.filter(player => 
+                !EXCLUDED_PLAYER_NAMES.includes(player.name)
+            );
+            
+            // 徴収対象プレイヤーの合計ポイントを計算 (ポイントがマイナスの場合は0として扱う)
+            const totalTargetScore = targetPlayers.reduce((sum, player) => sum + Math.max(0, player.score), 0);
+            
+            // ★ 新規: 徴収合計額を計算 (保有ポイントの合計の0.5割)
+            const CALCULATED_TAX_AMOUNT = parseFloat((totalTargetScore * TAX_RATE).toFixed(1)); 
+
+            if (totalTargetScore <= 0 || CALCULATED_TAX_AMOUNT <= 0) {
+                showMessage(messageEl, '⚠️ 徴収対象プレイヤーの合計ポイントが0以下、または徴収合計額が0です。徴収はスキップされました。', 'info');
+                return;
+            }
+    
+            let pointsToDistribute = {}; // 徴収額を保持するオブジェクト
+    
+            // 2. 各プレイヤーの徴収額を計算
+            targetPlayers.forEach(player => {
+                // ポイントがマイナスまたはゼロの場合は徴収しない
+                if (player.score <= 0) {
+                     pointsToDistribute[player.name] = 0;
+                     return;
+                }
+    
+                // 比例配分で徴収額を計算し、小数点第一位に丸める
+                // CALCULATED_TAX_AMOUNT を使用して比例配分する
+                const taxAmount = parseFloat((CALCULATED_TAX_AMOUNT * (player.score / totalTargetScore)).toFixed(1));
+                pointsToDistribute[player.name] = taxAmount;
+            });
+            
+            // 3. スコアを更新
+            targetPlayers.forEach(player => {
+                const taxAmount = pointsToDistribute[player.name];
+                
+                if (taxAmount > 0) {
+                    const newScore = player.score - taxAmount;
+                    
+                    // pass/status/lastBonusTimeフィールドを保持したままscoreを更新
+                    currentScoresMap.set(player.name, { 
+                        ...player, 
+                        score: parseFloat(newScore.toFixed(1)) 
+                    });
+                }
+            });
+            
+            const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
+    
+            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+            const newData = {
+                scores: newScores,
+                sports_bets: currentData.sports_bets,
+                speedstorm_records: currentData.speedstorm_records || [],
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+            };
+    
+            const response = await updateAllData(newData);
+    
+            if (response.status === 'success') {
+                // 徴収された合計ポイントを再計算し、小数点第一位で表示
+                const finalTaxCollected = newScores
+                    .filter(p => targetPlayers.map(tp => tp.name).includes(p.name)) // 徴収対象プレイヤーのみ
+                    .reduce((sum, current) => {
+                        const originalPlayer = currentData.scores.find(s => s.name === current.name);
+                        // (元のスコア) - (新しいスコア) を計算
+                        return sum + (originalPlayer.score - current.score);
+                    }, 0);
+    
+                showMessage(messageEl, `✅ 日次ポイント徴収を完了しました。合計徴収ポイント: ${finalTaxCollected.toFixed(1)} P (保有ポイント合計 ${totalTargetScore.toFixed(1)} P の約5%)`, 'success');
+                
+                // UIを更新
+                loadPlayerList(); 
+                loadTransferPlayerLists();
+                loadMahjongForm();
+            } else {
+                showMessage(messageEl, `❌ 徴収エラー: ${response.message}`, 'error');
+            }
+    
+        } catch (error) {
+            console.error(error);
+            showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+        } finally {
+            DAILY_TAX_BUTTON.disabled = false;
+        }
+    });
+}
+
+
+// -----------------------------------------------------------------
+// ★★★ 新規追加: プレゼントコード発行機能 ★★★
+// -----------------------------------------------------------------
+
+if (CREATE_GIFT_CODE_FORM) {
+    CREATE_GIFT_CODE_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const messageEl = CREATE_GIFT_CODE_MESSAGE;
+        const submitButton = CREATE_GIFT_CODE_FORM.querySelector('button[type="submit"]');
+
+        const codeName = document.getElementById('gift-code-name').value.trim().toUpperCase();
+        const points = parseFloat(document.getElementById('gift-code-amount').value);
+        const maxUses = parseInt(document.getElementById('gift-code-max-uses').value, 10);
+
+        if (!codeName || isNaN(points) || isNaN(maxUses) || maxUses < 0) {
+            showMessage(messageEl, '❌ エラー: コード名、ポイント、最大利用回数をすべて正しく入力してください。', 'error');
+            return;
+        }
+
+        submitButton.disabled = true;
+        showMessage(messageEl, 'プレゼントコードを作成中...', 'info');
+
+        try {
+            const currentData = await fetchAllData();
+            let allGiftCodes = currentData.gift_codes || [];
+            
+            // 既存コードとの重複チェック
+            const existingCode = allGiftCodes.find(c => c.code === codeName);
+            if (existingCode) {
+                showMessage(messageEl, `❌ エラー: コード名「${codeName}」は既に存在します。`, 'error');
+                return;
+            }
+
+            const newGiftCode = {
+                code: codeName,
+                points: parseFloat(points.toFixed(1)), // 小数点第一位に丸める
+                maxUses: maxUses,
+                currentUses: 0,
+                usedBy: [],
+                createdAt: new Date().toISOString()
+            };
+
+            allGiftCodes.push(newGiftCode);
+            currentData.gift_codes = allGiftCodes;
+            
+            // 全データを更新
+            // fetchAllData() の返却値を信じ、すべてのトップレベルフィールドを明示的に指定します。
+            
+            const response = await updateAllData({
+                scores: currentData.scores,
+                sports_bets: currentData.sports_bets || [],
+                speedstorm_records: currentData.speedstorm_records || [],
+                lotteries: currentData.lotteries || [],
+                gift_codes: currentData.gift_codes || [],
+                // ★★★ 修正箇所: PVPゲームデータ (electric_chair_games) を保持 ★★★
+                electric_chair_games: currentData.electric_chair_games || [],
+                // ★★★ 欠落を防ぐために、fetchAllData()が返すすべてのフィールドをリストアップ ★★★
+            });
+
+            if (response.status === 'success') {
+                showMessage(messageEl, `✅ コード「${codeName}」を発行しました (${newGiftCode.points.toFixed(1)} P、最大${maxUses === 0 ? '無制限' : maxUses}回)。`, 'success');
+                CREATE_GIFT_CODE_FORM.reset();
+                document.getElementById('gift-code-max-uses').value = 1; // フォームリセット後にデフォルト値に戻す
+            } else {
+                showMessage(messageEl, `❌ 発行エラー: ${response.message}`, 'error');
             }
 
         } catch (error) {
-            console.error("投票処理中にエラー:", error);
+            console.error("プレゼントコード発行中にエラー:", error);
             showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
         } finally {
             submitButton.disabled = false;
@@ -1267,543 +1535,147 @@ if (WAGER_FORM) {
 
 
 // -----------------------------------------------------------------
-// ★★★ 宝くじ購入・結果確認機能 (Luxury 20%割引対応 & データ集約化) ★★★
+// ★★★ 新規追加: 宝くじ開催機能 ★★★
 // -----------------------------------------------------------------
 
 /**
- * 宝くじ購入フォームの初期化 (価格連動)
+ * 宝くじフォームの初期化 (日付入力のデフォルト値設定)
  */
-function initializeLotteryPurchaseForm() {
-    if (!LOTTERY_SELECT || !LOTTERY_TICKET_COUNT || !LOTTERY_TOTAL_PRICE_DISPLAY) return;
-
-    // ★ 追加: 購入枚数の上限（もしHTMLで設定されていれば）を撤廃
-    LOTTERY_TICKET_COUNT.removeAttribute('max');
-
-    // ★ Luxury会員の割引率を定義
-    const DISCOUNT_RATE = authenticatedUser && authenticatedUser.status === 'luxury' ? 0.8 : 1.0; 
+function initializeLotteryForm() {
+    if (!CREATE_LOTTERY_FORM) return;
     
-    const updatePrice = () => {
-        const selectedLotteryId = parseInt(LOTTERY_SELECT.value);
-        const count = parseInt(LOTTERY_TICKET_COUNT.value);
-        
-        let discountText = '';
-
-        if (selectedLotteryId && count > 0) {
-            const lottery = availableLotteries.find(l => l.lotteryId === selectedLotteryId);
-            if (lottery) {
-                const originalPrice = lottery.ticketPrice * count;
-                const discountedPrice = originalPrice * DISCOUNT_RATE;
-                
-                // 小数点第一位で四捨五入 (JavaScriptのtoPrecision(2)は使わず、toFixed(1)で表示/計算)
-                const finalPrice = parseFloat(discountedPrice.toFixed(1)); 
-
-                if (DISCOUNT_RATE < 1.0) {
-                    discountText = `(Luxury特典: ${originalPrice.toFixed(1)} P → ${finalPrice.toFixed(1)} P)`;
-                    LOTTERY_TOTAL_PRICE_DISPLAY.innerHTML = `合計: <strong style="color: #28a745;">${finalPrice.toFixed(1)} P</strong> ${discountText}`;
-                } else {
-                    LOTTERY_TOTAL_PRICE_DISPLAY.textContent = `合計: ${finalPrice.toFixed(1)} P`;
-                }
-
-            } else {
-                LOTTERY_TOTAL_PRICE_DISPLAY.textContent = '合計: - P';
-            }
-        } else {
-            LOTTERY_TOTAL_PRICE_DISPLAY.textContent = '合計: - P';
-        }
-    };
-
-    LOTTERY_SELECT.addEventListener('change', updatePrice);
-    LOTTERY_TICKET_COUNT.addEventListener('input', updatePrice);
-    
-    // 初期化
-    updatePrice();
-}
-
-/**
- * 宝くじのデータをロードし、購入フォームと結果表示を更新
- */
-async function loadLotteryData() {
-    if (!authenticatedUser) return;
-    if (!LOTTERY_SELECT || !LOTTERY_RESULTS_CONTAINER) return;
-
-    // 初期化
-    LOTTERY_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
-    LOTTERY_RESULTS_CONTAINER.innerHTML = '<p>購入履歴をロード中...</p>';
-    availableLotteries = [];
-    
-    const allData = await fetchAllData();
-    const allLotteries = allData.lotteries || [];
+    // デフォルト: 購入締切を3日後、結果発表を4日後に設定
     const now = new Date();
-    
-    // 1. 購入フォームのセレクトボックスを生成
-    const openLotteries = allLotteries.filter(l => 
-        l.status === 'OPEN' && new Date(l.purchaseDeadline) > now
-    );
+    const purchaseDeadline = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const resultAnnounceDate = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
 
-    if (openLotteries.length === 0) {
-        LOTTERY_SELECT.innerHTML = '<option value="" disabled>現在購入可能な宝くじはありません</option>';
-    } else {
-        let options = '<option value="" disabled selected>購入する宝くじを選択</option>';
-        openLotteries.forEach(l => {
-            const deadline = new Date(l.purchaseDeadline).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-            options += `<option value="${l.lotteryId}">${l.name} (${l.ticketPrice} P/枚) - 締切: ${deadline}</option>`;
-        });
-        LOTTERY_SELECT.innerHTML = options;
-        availableLotteries = openLotteries; // 価格計算用に保持
-    }
-    
-    // 2. 結果発表セクションを生成
-    const myPlayerName = authenticatedUser.name;
-    // プレイヤーが購入したチケットが含まれる宝くじのみをフィルタリング
-    const myLotteries = allLotteries.filter(l => 
-        l.tickets.some(t => t.player === myPlayerName)
-    );
+    // タイムゾーンを考慮して YYYY-MM-DDTHH:MM 形式に変換
+    purchaseDeadline.setMinutes(purchaseDeadline.getMinutes() - purchaseDeadline.getTimezoneOffset());
+    resultAnnounceDate.setMinutes(resultAnnounceDate.getMinutes() - resultAnnounceDate.getTimezoneOffset());
 
-    if (myLotteries.length === 0) {
-        LOTTERY_RESULTS_CONTAINER.innerHTML = '<p>宝くじの購入履歴はありません。</p>';
-    } else {
-        let html = '';
-        myLotteries.sort((a, b) => new Date(b.resultAnnounceDate) - new Date(a.resultAnnounceDate)); // 新しい順
-
-        myLotteries.forEach(l => {
-            // ログイン中のプレイヤーのチケット（集約型）のみをフィルタリング
-            const myTickets = l.tickets.filter(t => t.player === myPlayerName);
-            const resultAnnounceDate = new Date(l.resultAnnounceDate);
-            
-            // ★★★ 修正: チケットの合計枚数を計算 (集約型データに対応) ★★★
-            const totalTicketsCount = myTickets.reduce((sum, t) => sum + t.count, 0);
-            
-            let statusHtml = '';
-            
-            if (resultAnnounceDate > now) {
-                // 結果発表前
-                statusHtml = `<p class="status-label status-closed">結果発表待ち (発表日時: ${resultAnnounceDate.toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' })})</p>`;
-            } else {
-                // 結果発表後
-                // 未請求のチケット総枚数を計算 (isClaimed: false のチケットの count の合計)
-                const unclaimedTicketsCount = myTickets.filter(t => !t.isClaimed).reduce((sum, t) => sum + t.count, 0);
-                
-                // ★★★ 修正: 結果確認済みの内訳表示ロジック (集約型データに対応) ★★★
-                const claimedTickets = myTickets.filter(t => t.isClaimed);
-                let winnings = 0;
-                let prizeSummary = '';
-                
-                if (claimedTickets.length > 0) {
-                    const winCounts = claimedTickets.reduce((counts, t) => {
-                        // isClaimed=true のチケットは、prizeRankとprizeAmountが最終確定した状態
-                        if (t.prizeRank !== null) { // 当選チケットのみ（ハズレはランクがnull）
-                            const rank = t.prizeRank;
-                            counts[rank] = (counts[rank] || { count: 0, amount: 0 });
-                            counts[rank].count += t.count;
-                            counts[rank].amount += t.prizeAmount * t.count; // 単価*枚数
-                            winnings += t.prizeAmount * t.count;
-                        } else {
-                            // ハズレチケットも集計（合計枚数算出用）
-                             counts['ハズレ'] = (counts['ハズレ'] || { count: 0, amount: 0 });
-                             counts['ハズレ'].count += t.count;
-                        }
-                        return counts;
-                    }, {});
-
-                    // 当選ランクのみを抽出してソート
-                    const ranks = Object.keys(winCounts).filter(r => r !== 'ハズレ').sort((a, b) => parseInt(a) - parseInt(b));
-                    
-                    if (winnings > 0) {
-                        prizeSummary = ranks.map(rank => {
-                            const rankName = `${rank}等`;
-                            return `${rankName}: ${winCounts[rank].count}枚`;
-                        }).join(', ');
-                        
-                        prizeSummary = `<p style="font-size: 0.9em; margin: 5px 0 0 0; font-weight: bold; color: #38c172;">内訳: ${prizeSummary}</p>`;
-
-                    } else {
-                        prizeSummary = `<p style="font-size: 0.9em; margin: 5px 0 0 0; color: #dc3545;">当選はありませんでした。</p>`;
-                    }
-                }
-                
-                if (unclaimedTicketsCount > 0) {
-                    // 未請求チケットがある
-                    statusHtml = `
-                        <button class="action-button check-lottery-result" data-lottery-id="${l.lotteryId}" style="width: auto; background-color: #28a745;">
-                            結果を見る (${unclaimedTicketsCount}枚 未確認)
-                        </button>
-                        ${prizeSummary}
-                    `;
-                } else {
-                    // 結果確認済み
-                    if (winnings > 0) {
-                        statusHtml = `<p class="status-label status-open">✅ 結果確認済み (合計当選: ${winnings.toFixed(1)} P)</p>`;
-                    } else {
-                        statusHtml = `<p class="status-label status-settled">❌ 結果確認済み</p>`;
-                    }
-                    statusHtml += prizeSummary;
-                }
-            }
-            // ★★★ 修正ここまで ★★★
-
-            html += `
-                <div class="bet-card" style="margin-bottom: 10px;">
-                    <h4>${l.name} (#${l.lotteryId})</h4>
-                    <p>購入枚数: ${totalTicketsCount} 枚</p>
-                    ${statusHtml}
-                    <p id="lottery-result-message-${l.lotteryId}" class="hidden"></p>
-                </div>
-            `;
-        });
-        LOTTERY_RESULTS_CONTAINER.innerHTML = html;
-        
-        // 3. イベントリスナーを動的に追加
-        LOTTERY_RESULTS_CONTAINER.querySelectorAll('.check-lottery-result').forEach(button => {
-            button.addEventListener('click', handleCheckLotteryResult);
-        });
-    }
+    document.getElementById('lottery-purchase-deadline').value = purchaseDeadline.toISOString().slice(0, 16);
+    document.getElementById('lottery-result-announce').value = resultAnnounceDate.toISOString().slice(0, 16);
 }
 
 /**
- * 宝くじ購入フォームの送信ハンドラ
+ * 宝くじ開催フォームの送信イベント
  */
-if (LOTTERY_PURCHASE_FORM) {
-    LOTTERY_PURCHASE_FORM.addEventListener('submit', async (e) => {
+if (CREATE_LOTTERY_FORM) {
+    CREATE_LOTTERY_FORM.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const messageEl = CREATE_LOTTERY_MESSAGE;
+        const submitButton = CREATE_LOTTERY_FORM.querySelector('button[type="submit"]');
+
+        const lotteryName = document.getElementById('lottery-name').value.trim();
+        const ticketPrice = parseFloat(document.getElementById('lottery-ticket-price').value);
+        const purchaseDeadline = document.getElementById('lottery-purchase-deadline').value;
+        const resultAnnounceDate = document.getElementById('lottery-result-announce').value;
+
+        if (!lotteryName || isNaN(ticketPrice) || ticketPrice <= 0 || !purchaseDeadline || !resultAnnounceDate) {
+            showMessage(messageEl, '❌ エラー: 基本情報 (名前, 価格, 期限, 発表日) をすべて正しく入力してください。', 'error');
+            return;
+        }
         
-        if (!authenticatedUser) {
-            showMessage(LOTTERY_PURCHASE_MESSAGE, '❌ 認証エラーが発生しました。', 'error');
+        const purchaseDeadlineDate = new Date(purchaseDeadline);
+        const resultAnnounceDateDate = new Date(resultAnnounceDate);
+
+        if (purchaseDeadlineDate <= new Date() || resultAnnounceDateDate <= purchaseDeadlineDate) {
+            showMessage(messageEl, '❌ エラー: 購入期限は現在より後、発表日は購入期限より後に設定してください。', 'error');
             return;
         }
 
-        const lotteryId = parseInt(LOTTERY_SELECT.value);
-        const count = parseInt(LOTTERY_TICKET_COUNT.value);
-        const submitButton = LOTTERY_PURCHASE_FORM.querySelector('button[type="submit"]');
+        // 当選確率と金額の収集
+        const prizes = [];
+        let totalProbability = 0;
+        let validPrizes = 0;
 
-        if (!lotteryId || !count || count <= 0) {
-            showMessage(LOTTERY_PURCHASE_MESSAGE, '❌ 宝くじを選択し、1枚以上の購入枚数を入力してください。', 'error');
+        for (let i = 1; i <= 5; i++) {
+            const amount = parseFloat(document.getElementById(`lottery-prize-amount-${i}`).value);
+            const probPercent = parseFloat(document.getElementById(`lottery-prize-prob-${i}`).value);
+
+            if (!isNaN(amount) && amount > 0 && !isNaN(probPercent) && probPercent > 0) {
+                const probability = probPercent / 100.0; // 1% -> 0.01
+                prizes.push({
+                    rank: i,
+                    amount: amount,
+                    probability: probability
+                });
+                totalProbability += probability;
+                validPrizes++;
+            }
+        }
+
+        if (validPrizes === 0) {
+            showMessage(messageEl, '❌ エラー: 少なくとも1つの有効な当選（金額と確率）を設定してください。', 'error');
             return;
         }
 
-        const lottery = availableLotteries.find(l => l.lotteryId === lotteryId);
-        if (!lottery) {
-            showMessage(LOTTERY_PURCHASE_MESSAGE, '❌ 選択された宝くじ情報が見つかりません。', 'error');
+        if (totalProbability > 1.0) {
+            showMessage(messageEl, `❌ エラー: 当選確率の合計が ${totalProbability * 100}% となり、100% を超えています。`, 'error');
             return;
         }
 
-        // ★★★ 修正: Luxury会員の割引を適用 ★★★
-        const DISCOUNT_RATE = authenticatedUser.status === 'luxury' ? 0.8 : 1.0;
-        const originalPrice = lottery.ticketPrice * count;
-        const discountedPrice = originalPrice * DISCOUNT_RATE;
-        // 最終的な価格を小数点第一位に丸める
-        const finalPrice = parseFloat(discountedPrice.toFixed(1)); 
-        // ★★★ 修正ここまで ★★★
-        
-        if (authenticatedUser.score < finalPrice) {
-            showMessage(LOTTERY_PURCHASE_MESSAGE, `❌ ポイント残高 (${authenticatedUser.score.toFixed(1)} P) が不足しています (必要: ${finalPrice.toFixed(1)} P)。`, 'error');
-            return;
-        }
+        // 当選確率順（高確率＝低ランク）ではなく、ランク順（1等から）にソート
+        prizes.sort((a, b) => a.rank - b.rank); 
 
         submitButton.disabled = true;
-        showMessage(LOTTERY_PURCHASE_MESSAGE, `${count}枚 (${finalPrice.toFixed(1)} P) の宝くじを購入し、抽選処理中...`, 'info');
+        showMessage(messageEl, '宝くじを作成中...', 'info');
 
         try {
             const currentData = await fetchAllData();
-            
-            // 1. スコアマップと宝くじデータを取得
-            let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
             let allLotteries = currentData.lotteries || [];
             
-            // 2. 最新の残高を再チェック
-            let targetPlayer = currentScoresMap.get(authenticatedUser.name);
-            // ★ status/pass/lastBonusTimeフィールドのチェックを追加
-            if (!targetPlayer || targetPlayer.score < finalPrice || typeof targetPlayer.status === 'undefined') {
-                showMessage(LOTTERY_PURCHASE_MESSAGE, `❌ 最新のポイント残高 (${targetPlayer.score.toFixed(1)} P) が不足しているか、ユーザーデータが不完全です。`, 'error');
-                submitButton.disabled = false;
-                return;
-            }
-
-            // 3. 宝くじデータを取得
-            const targetLotteryIndex = allLotteries.findIndex(l => l.lotteryId === lotteryId);
-            if (targetLotteryIndex === -1 || allLotteries[targetLotteryIndex].status !== 'OPEN' || new Date(allLotteries[targetLotteryIndex].purchaseDeadline) <= new Date()) {
-                showMessage(LOTTERY_PURCHASE_MESSAGE, '❌ この宝くじは購入可能ではありません (締切済みの可能性があります)。', 'error');
-                submitButton.disabled = false;
-                await loadLotteryData(); // フォームをリフレッシュ
-                return;
+            // ★★★ 修正: 3件以上の記録がある場合、最も古い記録を削除 ★★★
+            // lotteryIdが最小（最も古い）のものを削除
+            if (allLotteries.length >= 3) {
+                // lotteryIdで昇順ソート
+                allLotteries.sort((a, b) => a.lotteryId - b.lotteryId);
+                // 最初の要素（最も古い記録）を削除
+                const removedLottery = allLotteries.shift();
+                console.log(`[メンテナンス] 宝くじ ID:${removedLottery.lotteryId}「${removedLottery.name}」を削除しました。`);
             }
             
-            const targetLottery = allLotteries[targetLotteryIndex];
+            const newLotteryId = allLotteries.length > 0 ? Math.max(...allLotteries.map(l => l.lotteryId)) + 1 : 1;
+
+            const newLottery = {
+                lotteryId: newLotteryId,
+                name: lotteryName,
+                ticketPrice: ticketPrice,
+                purchaseDeadline: purchaseDeadlineDate.toISOString(),
+                resultAnnounceDate: resultAnnounceDateDate.toISOString(),
+                status: 'OPEN', // OPEN, CLOSED, FINISHED
+                prizes: prizes,
+                tickets: []
+            };
+
+            currentData.lotteries.push(newLottery);
             
-            // ★★★ 修正: 抽選と集約化 ★★★
-            
-            // 抽選結果をランクごとに集計 { rank: { count: number, amount: number } }
-            const drawResultsMap = {}; 
-            let totalWinningsForLog = 0; 
-            let winCount = 0; 
-
-            for (let i = 0; i < count; i++) {
-                const drawResult = performLotteryDraw(targetLottery.prizes);
-                // null (ハズレ) は 'ハズレ' キーとして集計
-                const rankKey = drawResult.prizeRank === null ? 'ハズRE' : drawResult.prizeRank.toString();
-                
-                if (!drawResultsMap[rankKey]) {
-                     drawResultsMap[rankKey] = { count: 0, amount: drawResult.prizeAmount };
-                }
-                
-                drawResultsMap[rankKey].count++;
-                
-                if(drawResult.isWinner) {
-                    totalWinningsForLog += drawResult.prizeAmount;
-                    winCount++;
-                }
-            }
-            
-            const newTickets = [];
-            const purchaseDate = new Date().toISOString();
-            
-            // 集計された結果をチケットとして配列に追加
-            Object.keys(drawResultsMap).forEach(rankKey => {
-                const isWinner = rankKey !== 'ハズRE';
-                const prizeRank = isWinner ? parseInt(rankKey) : null;
-                const prizeAmount = drawResultsMap[rankKey].amount; // 1枚あたりの金額
-                const ticketCount = drawResultsMap[rankKey].count;
-                
-                // ★ チケット集約型構造
-                const newTicket = {
-                    // ★ ticketIdは集約されたチケットのユニークIDとして付与（プレイヤー、ランク、購入日でユニーク）
-                    ticketId: `tkt-${authenticatedUser.name}-${lotteryId}-${rankKey}-${purchaseDate}`,
-                    player: authenticatedUser.name,
-                    purchaseDate: purchaseDate, // 集約されたチケットの購入日は共通
-                    prizeRank: prizeRank,
-                    prizeAmount: prizeAmount, // 1枚あたりの金額 (当選時は当選額、ハズレ時は0)
-                    count: ticketCount, // 購入枚数
-                    isClaimed: false // 結果確認前
-                };
-                
-                newTickets.push(newTicket);
-            });
-            // ★★★ 修正ここまで ★★★
-
-            
-            // 5. プレイヤーのスコアを減算 (割引後の最終価格を使用)
-            const newScore = parseFloat((targetPlayer.score - finalPrice).toFixed(1));
-
-            // ★ status/lastBonusTimeフィールドを保持したままscoreを更新
-            currentScoresMap.set(authenticatedUser.name, { 
-                ...targetPlayer, 
-                score: newScore
-            });
-
-
-            // 6. 宝くじデータにチケットを追加
-            targetLottery.tickets.push(...newTickets);
-            allLotteries[targetLotteryIndex] = targetLottery;
-
-            // 7. 全データを更新
+            // 全データを更新
+            // ★★★ 修正: gift_codes, electric_chair_games フィールドを保持 ★★★
             const newData = {
-                scores: Array.from(currentScoresMap.values()),
-                sports_bets: currentData.sports_bets, 
-                speedstorm_records: currentData.speedstorm_records,
-                lotteries: allLotteries,
-                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+                scores: currentData.scores,
+                sports_bets: currentData.sports_bets,
+                speedstorm_records: currentData.speedstorm_records || [],
+                lotteries: currentData.lotteries,
+                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
             };
 
             const response = await updateAllData(newData);
-            
-            if (response.status === 'success') {
-                showMessage(LOTTERY_PURCHASE_MESSAGE, `✅ ${count}枚の購入が完了しました (ポイント ${finalPrice.toFixed(1)} P 減算)。${DISCOUNT_RATE < 1.0 ? ' Luxury割引が適用されました！' : ''}`, 'success');
-                
-                // (デバッグ/ログ用: 本来ユーザーには見せないが、B案ではここで結果がわかる)
-                console.log(`[抽選結果] ${winCount}枚当選 / 合計 ${totalWinningsForLog} P`);
-                
-                // 認証ユーザー情報を更新
-                authenticatedUser.score = newScore;
-                CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
-                
-                // フォームリセットとUI更新
-                LOTTERY_PURCHASE_FORM.reset();
-                LOTTERY_TOTAL_PRICE_DISPLAY.textContent = '合計: - P';
-                await loadLotteryData(); // 結果発表欄を更新
 
+            if (response.status === 'success') {
+                showMessage(messageEl, `✅ 宝くじ「${lotteryName}」を作成しました (ID: ${newLotteryId})`, 'success');
+                CREATE_LOTTERY_FORM.reset();
+                initializeLotteryForm(); // 日付をリセット
             } else {
-                showMessage(LOTTERY_PURCHASE_MESSAGE, `❌ 購入エラー: ${response.message}`, 'error');
+                showMessage(messageEl, `❌ 作成エラー: ${response.message}`, 'error');
             }
 
         } catch (error) {
-            console.error("宝くじ購入処理中にエラー:", error);
-            showMessage(LOTTERY_PURCHASE_MESSAGE, `❌ サーバーエラー: ${error.message}`, 'error');
+            console.error("宝くじ作成中にエラー:", error);
+            showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
         } finally {
             submitButton.disabled = false;
         }
     });
 }
-
-/**
- * 宝くじの抽選を実行する (B案)
- * @param {Array} prizes - 当選設定 (例: [{rank: 1, amount: 100, prob: 0.01}, ...])
- * @returns {object} - { prizeRank: (1-5 or null), prizeAmount: (金額 or 0), isWinner: (boolean) }
- */
-function performLotteryDraw(prizes) {
-    const randomValue = Math.random(); // 0.0 ... 0.999...
-    let cumulativeProbability = 0;
-
-    // 確率計算のため、ランク順 (1, 2, 3...) でソートされている前提
-    // (master.jsでソート済み)
-    for (const prize of prizes) {
-        cumulativeProbability += prize.probability;
-        
-        if (randomValue < cumulativeProbability) {
-            // 当選！
-            return { prizeRank: prize.rank, prizeAmount: prize.amount, isWinner: true };
-        }
-    }
-
-    // ハズレ
-    return { prizeRank: null, prizeAmount: 0, isWinner: false };
-}
-
-
-/**
- * 宝くじの「結果を見る」ボタンのハンドラ
- */
-async function handleCheckLotteryResult(e) {
-    const button = e.target;
-    const lotteryId = parseInt(button.dataset.lotteryId);
-    
-    if (!authenticatedUser || !lotteryId) return;
-
-    const messageEl = document.getElementById(`lottery-result-message-${lotteryId}`);
-    if (!messageEl) return;
-    
-    button.disabled = true;
-    showMessage(messageEl, '結果を確認し、ポイントを反映中...', 'info');
-
-    try {
-        const currentData = await fetchAllData();
-        
-        let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
-        let allLotteries = currentData.lotteries || [];
-        
-        const targetLotteryIndex = allLotteries.findIndex(l => l.lotteryId === lotteryId);
-        if (targetLotteryIndex === -1) {
-            showMessage(messageEl, '❌ 宝くじデータが見つかりません。', 'error');
-            return;
-        }
-        
-        const lottery = allLotteries[targetLotteryIndex];
-        const player = authenticatedUser.name;
-        
-        let totalWinnings = 0;
-        let winCount = 0;
-        let ticketCount = 0; // 未確認チケットの総枚数
-        
-        // ★★★ 修正: 当選ランクごとの枚数を集計するためのオブジェクト ★★★
-        const winRankCounts = {};
-        
-        // プレイヤーの未請求チケット（集約型）を処理
-        lottery.tickets.forEach(ticket => {
-            if (ticket.player === player && !ticket.isClaimed) {
-                
-                // チケットの枚数を加算
-                ticketCount += ticket.count; 
-                
-                // 当選チケットの場合のみ集計と獲得額の計算
-                if (ticket.prizeRank !== null && ticket.prizeAmount > 0) {
-                    const winningsThisTicket = ticket.prizeAmount * ticket.count;
-                    totalWinnings += winningsThisTicket;
-                    winCount += ticket.count; // 当選枚数を加算
-                    
-                    // 当選ランクごとの枚数を集計
-                    const rank = ticket.prizeRank;
-                    winRankCounts[rank] = (winRankCounts[rank] || 0) + ticket.count;
-                } else {
-                    // ハズレチケットも合計枚数に含める
-                    const rank = 'ハズレ';
-                    winRankCounts[rank] = (winRankCounts[rank] || 0) + ticket.count;
-                }
-                
-                // 確認したら請求済みにする (集約型エントリ全体を更新)
-                ticket.isClaimed = true;
-            }
-        });
-
-        if (ticketCount === 0) {
-            showMessage(messageEl, '✅ 既に確認済みです (新たに確認したチケットはありません)。', 'info');
-            button.style.display = 'none'; // ボタンを隠す (loadLotteryDataの再実行でも隠れる)
-            await loadLotteryData(); // UIを最新化
-            return;
-        }
-
-        let playerUpdated = false;
-        
-        // 当選金があればスコアに反映
-        if (totalWinnings > 0) {
-            let targetPlayer = currentScoresMap.get(player);
-            if (targetPlayer) {
-                const newScore = parseFloat((targetPlayer.score + totalWinnings).toFixed(1));
-                // ★ status/lastBonusTimeを保持
-                currentScoresMap.set(player, { 
-                    ...targetPlayer, 
-                    score: newScore
-                });
-                playerUpdated = true;
-                
-                // 認証ユーザー情報も更新
-                authenticatedUser.score = newScore;
-                CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
-            }
-        }
-        
-        // データを更新
-        allLotteries[targetLotteryIndex] = lottery;
-        
-        const newData = {
-            scores: Array.from(currentScoresMap.values()),
-            sports_bets: currentData.sports_bets, 
-            speedstorm_records: currentData.speedstorm_records,
-            lotteries: allLotteries,
-            gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
-        };
-        
-        const response = await updateAllData(newData);
-        
-        if (response.status === 'success') {
-            
-            let resultMessage = `✅ 結果: ${ticketCount}枚のチケットを確認しました。`;
-
-            if (totalWinnings > 0) {
-                // 当選の内訳を文字列化
-                const ranks = Object.keys(winRankCounts).filter(r => r !== 'ハズレ').sort((a, b) => parseInt(a) - parseInt(b));
-                const prizeDetails = ranks.map(rank => {
-                    const rankName = `${rank}等`;
-                    return `${rankName}: ${winRankCounts[rank]}枚`;
-                }).join(', ');
-
-                resultMessage += ` ${winCount}枚が当選し、合計 ${totalWinnings.toFixed(1)} P を獲得！ (${prizeDetails})`;
-                
-                showMessage(messageEl, resultMessage, 'success');
-            } else {
-                resultMessage += ` 残念ながら当選はありませんでした。`;
-                showMessage(messageEl, resultMessage, 'error');
-            }
-            
-            // UIを最新化 (ボタンが消え、確認済みテキストが表示される)
-            await loadLotteryData();
-            
-        } else {
-             showMessage(messageEl, `❌ 結果確認エラー: ${response.message}`, 'error');
-             button.disabled = false;
-             // 失敗した場合は isClaimed を元に戻す (簡易的にリロードを促す)
-             // (ただし、スコアが加算されてしまった場合はデータ不整合が起きるため、ここではUIのリフレッシュのみ)
-             await loadLotteryData();
-        }
-
-    } catch (error) {
-        console.error("宝くじ結果確認中にエラー:", error);
-        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-        button.disabled = false;
-    }
-}
-
-
-// -----------------------------------------------------------------
-// ★★★ ページロード時の処理に autoLogin を追加 ★★★
-// -----------------------------------------------------------------
-
-// まず自動ログインを試み、失敗した場合（認証情報がない/古い場合）はログイン画面が表示されたままになる
-window.onload = autoLogin;
