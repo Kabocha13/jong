@@ -165,6 +165,109 @@ exports.handler = async (event) => {
                  return { statusCode: 400, body: JSON.stringify({ message: 'Invalid chair ID.' }) };
             }
             
+            // ★修正: 強制終了判定 (残りの椅子が2つ以下の場合)
+            const availableChairs = currentGame.publicChairs.filter(c => c.available);
+            
+            if (availableChairs.length <= 2) {
+                // 残り2つの場合、このアクションはスキップされ、勝敗判定に移行する
+                // 12アクションが完了したのと同じロジックを適用する
+                currentGame.round = 13; // 強制的にラウンドオーバーフラグを立てる
+
+                // 4. 終了条件判定
+                let winner = null;
+                let loser = null;
+                
+                // 感電3回での敗北はここでは判定しない（setShockChair前のため）
+                
+                // 12回アクション(6ラウンド)完了ロジックを適用
+                if (currentGame.scoreA > currentGame.scoreB) {
+                    winner = currentGame.playerA;
+                    loser = currentGame.playerB;
+                } else if (currentGame.scoreB > currentGame.scoreA) {
+                    winner = currentGame.playerB;
+                    loser = currentGame.playerA;
+                } else {
+                    winner = 'DRAW';
+                }
+                
+                if (winner) {
+                    currentGame.status = 'FINISHED';
+                    currentGame.nextActionPlayer = null;
+                    currentGame.winner = winner;
+                    
+                    // ポイント反映
+                    const WIN_POINTS = currentGame.winPoints;
+                    const LOSE_POINTS = currentGame.losePoints;
+
+                    if (winner !== 'DRAW') {
+                        const winnerData = allScoresMap.get(winner);
+                        const loserData = allScoresMap.get(loser);
+
+                        if (winnerData) {
+                             winnerData.score = parseFloat((winnerData.score + WIN_POINTS).toFixed(1));
+                             allScoresMap.set(winner, winnerData);
+                        }
+                        if (loserData) {
+                             loserData.score = parseFloat((loserData.score + LOSE_POINTS).toFixed(1));
+                             allScoresMap.set(loser, loserData);
+                        }
+                        responseMessage = `Game Finished (Chairs limit)! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
+                    } else {
+                        responseMessage = `Game Finished (Chairs limit)! Draw.`;
+                    }
+                    scoreUpdated = true;
+                    allData.scores = Array.from(allScoresMap.values());
+                }
+                
+                currentGame.actionToken = newActionToken; // 最後にトークンを更新
+                
+                // 3. JSONBinに全データを上書き保存
+                allData.electric_chair_games = allGames; 
+
+                const putResponse = await fetch(JSONBIN_URL, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+                    body: JSON.stringify(allData)
+                });
+
+                if (!putResponse.ok) throw new Error(`JSONBin PUT Error: ${putResponse.statusText}`);
+
+                // 4. クライアントに成功応答を返す
+                const publicGameForResponse = {
+                    gameId: currentGame.gameId,
+                    roomCode: currentGame.roomCode,
+                    playerA: currentGame.playerA,
+                    playerB: currentGame.playerB,
+                    status: currentGame.status,
+                    nextActionPlayer: currentGame.nextActionPlayer,
+                    round: currentGame.round,
+                    scoreA: currentGame.scoreA,
+                    scoreB: currentGame.scoreB,
+                    shockCountA: currentGame.shockCountA,
+                    shockCountB: currentGame.shockCountB,
+                    publicChairs: currentGame.publicChairs,
+                    winner: currentGame.winner,
+                    actionToken: currentGame.actionToken,
+                    lastResult: currentGame.lastResult,
+                    winPoints: currentGame.winPoints,
+                    losePoints: currentGame.losePoints,
+                    forfeitPoints: currentGame.forfeitPoints,
+                };
+
+                return {
+                    statusCode: 200,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        status: 'success',
+                        message: responseMessage,
+                        gameData: publicGameForResponse,
+                        actionToken: newActionToken,
+                    })
+                };
+            }
+            // ★修正終わり
+
+            
             const selectedChair = currentGame.secretChairs.find(c => c.id === chairId);
             const publicChair = currentGame.publicChairs.find(c => c.id === chairId);
             
@@ -274,8 +377,8 @@ exports.handler = async (event) => {
                 winner = currentGame.playerA;
                 loser = currentGame.playerB;
             } 
-            // ★修正: アクション回数が12回(6ラウンド)に達したら終了
-            else if (currentGame.round > 12) { // 12回アクション(6ラウンド)完了
+            // アクション回数が12回(6ラウンド)に達したら終了
+            else if (currentGame.round > 12) { 
                 if (currentGame.scoreA > currentGame.scoreB) {
                     winner = currentGame.playerA;
                     loser = currentGame.playerB;
@@ -286,14 +389,13 @@ exports.handler = async (event) => {
                     winner = 'DRAW';
                 }
             }
-            // ★修正終わり
 
             if (winner) {
                 currentGame.status = 'FINISHED';
                 currentGame.nextActionPlayer = null;
                 currentGame.winner = winner;
                 
-                // ★修正: ポイント反映 (ルーム作成時の設定値を使用)
+                // ポイント反映 (ルーム作成時の設定値を使用)
                 const WIN_POINTS = currentGame.winPoints;
                 const LOSE_POINTS = currentGame.losePoints;
 
