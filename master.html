@@ -165,10 +165,10 @@
                 <p id="adjustment-message" class="hidden"></p>
             </div>
             
-            <!-- ★★★ 新規追加: プレゼントコード発行ツール ★★★ -->
+            <!-- ★★★ 修正: プレゼントコード発行ツール ★★★ -->
             <div class="tool-box">
                 <h3>🎁 プレゼントコード発行</h3>
-                <p class="instruction">正負制限のないポイントを設定したコードを発行します。最大利用回数 (1: 1人1回, 0: 無制限) を設定してください。</p>
+                <p class="instruction">正負制限のないポイントを設定したコードを発行します。</p>
                 <form id="create-gift-code-form">
                     <div class="form-group">
                         <label for="gift-code-name">コード名 (英数字):</label>
@@ -179,15 +179,15 @@
                         <input type="number" id="gift-code-amount" step="0.1" required placeholder="例: 10.0 または -50.0">
                     </div>
                     <div class="form-group">
-                        <label for="gift-code-max-uses">最大利用回数:</label>
+                        <label for="gift-code-max-uses">全利用合計回数:</label>
                         <input type="number" id="gift-code-max-uses" min="0" value="1" required>
-                        <p class="instruction" style="margin-top: 5px; font-size: 0.8em; color: #6c757d;">1人1回を保証するため、基本は 1 を設定してください。</p>
+                        <p class="instruction" style="margin-top: 5px; font-size: 0.8em; color: #6c757d;">0 を設定すると利用回数無制限になります。</p>
                     </div>
                     <button type="submit" class="action-button" style="background-color: #ffc107; color: var(--color-text);">コードを発行</button>
                 </form>
                 <p id="create-gift-code-message" class="hidden"></p>
             </div>
-            <!-- ★★★ ここまで新規追加 ★★★ -->
+            <!-- ★★★ ここまで修正 ★★★ -->
             
             <div class="tool-box">
                 <h3>💸 ポイント送金 (プレイヤー間)</h3>
