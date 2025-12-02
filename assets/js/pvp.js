@@ -96,7 +96,7 @@ function initializeLobby() {
     CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score ? authenticatedUser.score.toFixed(1) : '0.0';
     
     // 既存のゲームがあればアリーナに直接移動させる
-    // ★修正: FINISHEDでもアリーナに残すため、FINISHEDチェックを削除
+    // 修正: FINISHEDでもアリーナに残すため、FINISHEDチェックを削除
     if (currentGameState && currentGameState.status !== 'WAITING_JOIN' && currentGameState.playerB) {
         PVP_LOBBY.classList.add('hidden');
         GAME_ARENA.classList.remove('hidden');
@@ -121,13 +121,16 @@ async function fetchAndUpdatePvpData() {
 
     // 2. 進行中のゲームをチェック
     // 自分が参加しているゲームのうち、まだログアウト/削除されていないものを取得
-    const myGame = data.currentGames.find(g => g.status !== 'DELETED'); 
+    // 修正: 自分が参加しているゲームが複数ある場合、最新のものを選ぶ（実際は一つのみを想定）
+    const myGame = data.currentGames
+        .filter(g => g.status !== 'DELETED')
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]; 
 
     if (myGame) {
         // 進行中または終了済みのゲームが見つかった場合
-        // 以下の条件でレンダリング（トークン更新、参加完了、ステータス変更、FINISHEDへの移行）
-        // FINISHEDの場合も、actionTokenが変わらなくても再レンダリングする
-        if (!currentGameState || myGame.actionToken !== currentGameState.actionToken || myGame.status !== currentGameState.status || myGame.status === 'FINISHED') {
+        // FINISHEDの場合は、トークンが変わらなくても強制的に再レンダリングし、結果を確実に表示する
+        const isGameFinished = myGame.status === 'FINISHED';
+        if (!currentGameState || myGame.actionToken !== currentGameState.actionToken || myGame.status !== currentGameState.status || isGameFinished) {
             currentGameState = myGame;
             PVP_LOBBY.classList.add('hidden');
             GAME_ARENA.classList.remove('hidden');
@@ -139,6 +142,9 @@ async function fetchAndUpdatePvpData() {
             currentGameState = null;
             GAME_ARENA.classList.add('hidden');
             PVP_LOBBY.classList.remove('hidden');
+            
+            // ログが削除されロビーに戻ったことを通知
+            showMessage(document.getElementById('create-room-message'), '✅ 対戦が終了し、ロビーに戻りました。', 'success');
         }
         
         // ロビーリストの更新
@@ -155,10 +161,8 @@ function startPolling() {
 
 // --- UIレンダリング ---
 
-// ★修正: 完了したゲームに関する処理を削除
+// 修正: 完了したゲームに関する処理を削除
 function renderLobbyLists(finishedGames, availableGames) {
-    
-    // 完了したゲームのリスト表示は削除されたため、ここでは availableGames の処理のみ行う。
     
     // 参加可能なルーム
     AVAILABLE_GAME_LIST.innerHTML = availableGames.map(g => {
@@ -189,9 +193,8 @@ function renderGameArena(game) {
     if (!game) return;
 
     const myName = authenticatedUser.name;
-    const isPlayerA = game.playerA === myName;
     const leaveButton = document.getElementById('leave-game-button');
-
+    
     // --- 1. プレイヤー情報カードの更新 ---
     const renderPlayerCard = (player, score, shockCount, isCurrentPlayer) => {
         const shockText = '⚡'.repeat(shockCount);
@@ -216,8 +219,8 @@ function renderGameArena(game) {
 
 
     // --- 2. ターンとラウンドの表示 ---
-    // ★修正：アクション回数(game.round)をラウンド数(1-6)に変換して表示
-    const currentRound = Math.ceil(game.round / 2);
+    // アクション回数(game.round)をラウンド数(1-6)に変換して表示
+    const currentRound = Math.min(Math.ceil(game.round / 2), 6); // 最大6ラウンド
     document.getElementById('current-round').textContent = `${currentRound}/6`;
     
     let turnText = '';
@@ -226,11 +229,10 @@ function renderGameArena(game) {
         turnText = `ルームコード: ${game.roomCode}。相手プレイヤー (${game.playerB || '??? '}) の参加を待っています。`;
         CHAIR_CONTAINER.innerHTML = '';
         leaveButton.textContent = 'ルームを削除';
-        leaveButton.dataset.action = 'delete'; // ★修正: data-actionを設定
-    } else if (game.status === 'FINISHED') {
+        leaveButton.dataset.action = 'delete'; // 参加待ちの部屋は削除
+    } else if (isFinished) {
         
-        // ★★★ 修正: 勝敗メッセージを再構築し、常に表示する ★★★
-        
+        // 勝敗メッセージを再構築し、常に表示する
         const myPointChange = game.winner === myName 
             ? game.winPoints
             : (game.winner === 'DRAW' ? 0 : game.losePoints);
@@ -239,20 +241,18 @@ function renderGameArena(game) {
             ? '🏆 勝利!' 
             : (game.winner === 'DRAW' ? '🤝 引き分け' : '😭 敗北...');
 
-        const opponent = myName === game.playerA ? game.playerB : game.playerA;
-        
         const finalMessage = game.winner === 'DRAW' 
             ? `<span style="color: #6c757d;">ゲーム終了! ${myResultText}です。最終スコア ${game.scoreA.toFixed(1)}P vs ${game.scoreB.toFixed(1)}P。</span>`
             : `<span style="color: ${game.winner === myName ? 'var(--color-primary)' : 'var(--color-error)'};">
                 ${game.winner}の${myResultText}です! 
-                あなたの総合ポイントは ${myPointChange > 0 ? '+' : ''}${myPointChange.toFixed(1)} P 反映されました。
+                あなたの総合ポイントは **${myPointChange > 0 ? '+' : ''}${myPointChange.toFixed(1)} P** 反映されました。
             </span>`;
             
         turnText = finalMessage;
         
         CHAIR_CONTAINER.innerHTML = '<p style="text-align: center; font-size: 1.2em; font-weight: bold; color: var(--color-primary);">ゲームは終了しました。</p>';
         
-        // 終了時のボタンアクション
+        // 終了時のボタンアクション: ログ削除に切り替え
         leaveButton.textContent = 'ロビーに戻る (ログ削除)';
         leaveButton.dataset.action = 'delete'; 
 
@@ -263,16 +263,18 @@ function renderGameArena(game) {
         
         renderChairButtons(game.publicChairs, isAttackerPhase, game.gameId, game.actionToken);
         CHAIR_CONTAINER.classList.remove('hidden');
-        leaveButton.textContent = '対戦を辞める (敗北)';
-        leaveButton.dataset.action = 'forfeit';
+        leaveButton.textContent = '対戦を辞める (放棄敗北)';
+        leaveButton.dataset.action = 'forfeit'; // 進行中のゲームは放棄
+        leaveButton.disabled = false;
 
     } else {
         turnText = `相手のターン (${game.nextActionPlayer} のアクション待ち)...`;
         CHAIR_CONTAINER.innerHTML = '<p style="text-align: center; color: #6c757d;">相手の操作を待っています...</p>';
-        leaveButton.textContent = '対戦を辞める (敗北)';
-        leaveButton.dataset.action = 'forfeit';
+        leaveButton.textContent = '対戦を辞める (放棄敗北)';
+        leaveButton.dataset.action = 'forfeit'; // 相手のターンでも放棄は可能
+        leaveButton.disabled = false;
     }
-    TURN_DISPLAY.innerHTML = turnText; // ★修正: HTMLタグを含むため innerHTML を使用
+    TURN_DISPLAY.innerHTML = turnText; 
 
     // --- 3. 直前の結果表示 ---
     if (game.lastResult) {
@@ -304,6 +306,9 @@ function renderGameArena(game) {
 function renderChairButtons(chairs, isAttackerPhase, gameId, actionToken) {
     CHAIR_CONTAINER.innerHTML = '';
     
+    // 自分のターンでなければ、ボタンは表示するが全て無効化する
+    const isMyTurn = currentGameState && currentGameState.nextActionPlayer === authenticatedUser.name;
+
     chairs.forEach(chair => {
         const button = document.createElement('button');
         button.type = 'button';
@@ -314,16 +319,18 @@ function renderChairButtons(chairs, isAttackerPhase, gameId, actionToken) {
         if (!chair.available) {
             button.disabled = true;
             button.classList.add('chosen-chair');
-        } else if (isAttackerPhase) {
-            // 仕掛ける側は、仕掛ける椅子を選択できる
-            button.addEventListener('click', () => handleShockAction(gameId, actionToken, chair.id));
-        } else {
-            // 座る側は、座る椅子を選択できる
-            button.addEventListener('click', () => handleChooseAction(gameId, actionToken, chair.id));
+        } else if (isMyTurn) {
+            if (isAttackerPhase) {
+                // 仕掛ける側は、仕掛ける椅子を選択できる
+                button.addEventListener('click', () => handleShockAction(gameId, actionToken, chair.id));
+            } else {
+                // 座る側は、座る椅子を選択できる
+                button.addEventListener('click', () => handleChooseAction(gameId, actionToken, chair.id));
+            }
         }
         
-        // 自分のアクションでない場合は、ボタンを無効化する
-        if (!currentGameState || currentGameState.nextActionPlayer !== authenticatedUser.name) {
+        // 自分のターンでない場合、または既に使われた椅子の場合は無効化
+        if (!isMyTurn || !chair.available) {
             button.disabled = true;
         }
 
@@ -341,7 +348,7 @@ CREATE_ROOM_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('create-room-message');
     
-    // ★追加: フォームからのポイント値を取得
+    // ポイント値を取得
     const winPoints = parseFloat(document.getElementById('win-points').value);
     const losePoints = parseFloat(document.getElementById('lose-points').value);
     const forfeitPoints = parseFloat(document.getElementById('forfeit-points').value);
@@ -356,7 +363,7 @@ CREATE_ROOM_FORM.addEventListener('submit', async (e) => {
     const response = await sendPvpAction({
         action: 'create',
         player: authenticatedUser.name,
-        // ★追加: ポイント設定を送信
+        // ポイント設定を送信
         pointsConfig: {
             winPoints: winPoints,
             losePoints: losePoints,
@@ -411,6 +418,7 @@ JOIN_ROOM_FORM.addEventListener('submit', async (e) => {
  * 電流を仕掛けるアクション
  */
 async function handleShockAction(gameId, actionToken, chairId) {
+    // 修正: window.confirmをカスタムモーダルに置き換えるべきだが、ここでは仕様に従い一時的にそのまま残す
     if (!window.confirm(`${chairId} P の椅子に電流を仕掛けますか？`)) return;
 
     const messageEl = document.getElementById('chair-action-message');
@@ -428,11 +436,16 @@ async function handleShockAction(gameId, actionToken, chairId) {
     });
 
     if (response.status === 'success') {
-        // UI更新はポーリングに任せる
+        // ゲームが終了した場合（ラウンド終了判定）は、即座にUIを更新
+        if (response.gameData && response.gameData.status === 'FINISHED') {
+             currentGameState = response.gameData;
+             renderGameArena(currentGameState);
+        }
+        
         showMessage(messageEl, `✅ 電流を仕掛けました。相手の操作を待ってください。`, 'success');
         currentGameState.actionToken = response.actionToken; // トークンを更新
     } else {
-        // ★修正: 排他制御エラー（データが古い）の場合はメッセージ表示をスキップ
+        // 排他制御エラー（データが古い）の場合はメッセージ表示をスキップ
         if (response.message.includes('データが古いです')) {
              console.warn('Action rejected due to stale token (normal polling conflict). Suppressing error display.');
         } else {
@@ -449,6 +462,7 @@ async function handleShockAction(gameId, actionToken, chairId) {
  * 椅子に座るアクション
  */
 async function handleChooseAction(gameId, actionToken, chairId) {
+    // 修正: window.confirmをカスタムモーダルに置き換えるべきだが、ここでは仕様に従い一時的にそのまま残す
     if (!window.confirm(`${chairId} P の椅子に座りますか？`)) return;
 
     const messageEl = document.getElementById('chair-action-message');
@@ -483,13 +497,18 @@ async function handleChooseAction(gameId, actionToken, chairId) {
         
         currentGameState.actionToken = response.actionToken; // トークンを更新
         
+        // サーバーから返された最新のゲームデータで状態を更新し、UIを即座に反映 (FINISHEDの場合も含む)
+        if (response.gameData) {
+             currentGameState = response.gameData;
+             renderGameArena(currentGameState);
+        }
+        
         // 1.5秒後にポーリングを待たずにUIを更新 (視覚的なレスポンス向上のため)
-        setTimeout(() => {
-             fetchAndUpdatePvpData();
-        }, 1500);
+        // 既に上の処理でrenderGameArenaを呼んでいる可能性があるため、ここでは削除または短縮する
+        // setTimeout(() => { fetchAndUpdatePvpData(); }, 1500); 
 
     } else {
-        // ★修正: 排他制御エラー（データが古い）の場合はメッセージ表示をスキップ
+        // 排他制御エラー（データが古い）の場合はメッセージ表示をスキップ
         if (response.message.includes('データが古いです')) {
              console.warn('Action rejected due to stale token (normal polling conflict). Suppressing error display.');
         } else {
@@ -509,10 +528,9 @@ async function handleChooseAction(gameId, actionToken, chairId) {
  * ゲームを途中で辞める（または終了後にロビーに戻る）アクション
  */
 document.getElementById('leave-game-button').addEventListener('click', async (e) => {
-    // ★修正: 認証情報とゲーム状態の存在チェックを強化
+    // 認証情報とゲーム状態の存在チェックを強化
     if (!currentGameState || !authenticatedUser) {
         showMessage(document.getElementById('game-message'), '❌ エラー: ゲーム状態または認証情報が見つかりません。ロビーに戻ります。', 'error');
-        // 強制的にロビー状態に戻す
         currentGameState = null;
         fetchAndUpdatePvpData(); 
         return;
@@ -521,10 +539,13 @@ document.getElementById('leave-game-button').addEventListener('click', async (e)
     const leaveButton = e.target;
     const action = leaveButton.dataset.action; // 'delete' or 'forfeit'
     
-    // actionが有効な値かチェック
     if (!['delete', 'forfeit'].includes(action)) {
-        // ★修正: actionが設定されていない場合の明確なエラーメッセージ
         showMessage(document.getElementById('game-message'), '❌ エラー: アクションタイプが不明です (ルームを削除または対戦を辞める)。', 'error');
+        return;
+    }
+    
+    // 参加待ち状態の「ルームを削除」は確認不要
+    if (action === 'delete' && currentGameState.status !== 'WAITING_JOIN' && !window.confirm('ゲームログを削除し、ロビーに戻りますか？')) {
         return;
     }
 
@@ -537,16 +558,23 @@ document.getElementById('leave-game-button').addEventListener('click', async (e)
     leaveButton.disabled = true;
 
     const response = await sendPvpAction({
-        action: action,
+        action: action, // 'delete' または 'forfeit'
         gameId: currentGameState.gameId,
         player: authenticatedUser.name,
         actionToken: currentGameState.actionToken 
     });
 
     if (response.status === 'success') {
-        showMessage(messageEl, `✅ ゲームを終了しました。ロビーに戻ります。`, 'success');
-        currentGameState = null; // 状態をリセット
-        fetchAndUpdatePvpData(); // ロビーを再レンダリング
+        if (action === 'delete') {
+            showMessage(messageEl, `✅ ゲームログを削除しました。ロビーに戻ります。`, 'success');
+            currentGameState = null; // ログがサーバーから削除されたのでクライアント状態をリセット
+            fetchAndUpdatePvpData(); // ロビーを再レンダリング
+        } else if (action === 'forfeit') {
+            // 放棄はFINISHED状態に移行するだけなので、サーバーからの最新データを反映し、UIを更新
+            currentGameState = response.gameData;
+            renderGameArena(currentGameState);
+            showMessage(messageEl, `✅ 対戦を放棄しました。ポイントを反映しました。ログ削除は「ロビーに戻る」から行ってください。`, 'success');
+        }
     } else {
         showMessage(messageEl, `❌ 終了エラー: ${response.message}`, 'error');
     }
