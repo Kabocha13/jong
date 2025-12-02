@@ -50,6 +50,12 @@ const PREMIUM_CREATE_MESSAGE = document.getElementById('premium-create-message')
 const PREMIUM_MATCH_NAME_INPUT = document.getElementById('premium-match-name');
 const PREMIUM_DEADLINE_DATETIME_INPUT = document.getElementById('premium-deadline-datetime');
 
+// ★★★ 新規追加要素: プレゼントコード ★★★
+const APPLY_GIFT_CODE_FORM = document.getElementById('apply-gift-code-form');
+const GIFT_CODE_INPUT = document.getElementById('gift-code-input');
+const APPLY_GIFT_CODE_MESSAGE = document.getElementById('apply-gift-code-message');
+// ★★★ 新規追加ここまで ★★★
+
 
 // 認証されたユーザー情報 ({name: '...', score: ..., pass: '...', status: ..., lastBonusTime: ...})
 let authenticatedUser = null; 
@@ -205,6 +211,9 @@ async function initializeMyPageContent() {
     
     // 8. ★★★ Premiumツール (くじ作成) の初期化と表示制御 ★★★
     initializePremiumBetCreation();
+    
+    // 9. ★★★ 新規追加: プレゼントコード機能の初期化 ★★★
+    initializeGiftCodeFeature();
 }
 
 
@@ -480,7 +489,8 @@ if (PRO_BONUS_BUTTON) {
                 scores: newScores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || []
+                lotteries: currentData.lotteries || [],
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -613,7 +623,8 @@ async function handlePremiumBetCreation(e) {
             scores: currentData.scores,
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || [],
-            lotteries: currentData.lotteries || [] 
+            lotteries: currentData.lotteries || [],
+            gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
         };
 
         const response = await updateAllData(newData);
@@ -640,6 +651,147 @@ async function handlePremiumBetCreation(e) {
         submitButton.disabled = false;
     }
 }
+
+
+// -----------------------------------------------------------------
+// ★★★ 新規追加: プレゼントコード適用機能 ★★★
+// -----------------------------------------------------------------
+
+/**
+ * プレゼントコード機能の初期化
+ */
+function initializeGiftCodeFeature() {
+    if (!APPLY_GIFT_CODE_FORM) return;
+    
+    APPLY_GIFT_CODE_FORM.addEventListener('submit', handleApplyGiftCode);
+    
+    // UIを初期化
+    if (GIFT_CODE_INPUT) {
+        GIFT_CODE_INPUT.value = '';
+    }
+    if (APPLY_GIFT_CODE_MESSAGE) {
+        APPLY_GIFT_CODE_MESSAGE.classList.add('hidden');
+    }
+}
+
+/**
+ * プレゼントコードの適用ハンドラ
+ */
+async function handleApplyGiftCode(e) {
+    e.preventDefault();
+    
+    if (!authenticatedUser) {
+        showMessage(APPLY_GIFT_CODE_MESSAGE, '❌ 認証エラーが発生しました。', 'error');
+        return;
+    }
+
+    const messageEl = APPLY_GIFT_CODE_MESSAGE;
+    const player = authenticatedUser.name;
+    const submitButton = APPLY_GIFT_CODE_FORM.querySelector('button[type="submit"]');
+    
+    // 大文字に変換し、前後の空白を削除してコードを取得
+    const code = (GIFT_CODE_INPUT.value || '').trim().toUpperCase();
+
+    if (!code) {
+        showMessage(messageEl, '❌ コードを入力してください。', 'error');
+        return;
+    }
+
+    submitButton.disabled = true;
+    showMessage(messageEl, 'コードを検証中...', 'info');
+
+    try {
+        const currentData = await fetchAllData();
+        
+        let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+        let allGiftCodes = currentData.gift_codes || [];
+        
+        const codeIndex = allGiftCodes.findIndex(c => c.code === code);
+        
+        if (codeIndex === -1) {
+            showMessage(messageEl, '❌ エラー: 無効なプレゼントコードです。', 'error');
+            return;
+        }
+
+        const giftCode = allGiftCodes[codeIndex];
+        
+        // 1. 最大利用回数チェック
+        if (giftCode.maxUses > 0 && giftCode.currentUses >= giftCode.maxUses) {
+            showMessage(messageEl, '❌ エラー: このコードは最大利用回数に達しています。', 'error');
+            return;
+        }
+        
+        // 2. プレイヤーごとの利用履歴チェック (1人1回の利用)
+        const alreadyUsedByPlayer = giftCode.usedBy.some(u => u.player === player);
+        if (alreadyUsedByPlayer) {
+             showMessage(messageEl, '❌ エラー: このコードは既に利用済みです。', 'error');
+            return;
+        }
+        
+        const pointsToApply = giftCode.points; // 正負制限なしのポイント
+        
+        // 3. ポイント付与
+        let targetPlayer = currentScoresMap.get(player);
+        if (!targetPlayer) {
+             showMessage(messageEl, '❌ ユーザーデータが見つかりません。', 'error');
+             return;
+        }
+
+        const newScore = parseFloat((targetPlayer.score + pointsToApply).toFixed(1));
+        
+        // スコアの更新
+        currentScoresMap.set(player, { 
+            ...targetPlayer, 
+            score: newScore
+        });
+        
+        // 4. コードの利用記録を更新
+        giftCode.currentUses += 1;
+        giftCode.usedBy.push({
+            player: player,
+            timestamp: new Date().toISOString(),
+            pointsApplied: pointsToApply 
+        });
+        allGiftCodes[codeIndex] = giftCode; // 更新されたコードオブジェクトを配列に戻す
+
+        // 5. 全データを更新
+        currentData.scores = Array.from(currentScoresMap.values());
+        currentData.gift_codes = allGiftCodes;
+        
+        const newData = {
+            scores: currentData.scores,
+            sports_bets: currentData.sports_bets,
+            speedstorm_records: currentData.speedstorm_records,
+            lotteries: currentData.lotteries,
+            gift_codes: currentData.gift_codes // ★ 更新されたギフトコード
+        };
+        
+        const response = await updateAllData(newData);
+        
+        if (response.status === 'success') {
+            const actionText = pointsToApply >= 0 ? '獲得' : '消費';
+            showMessage(messageEl, `✅ コード適用成功! ${pointsToApply.toFixed(1)} P を${actionText}しました。`, 'success');
+            
+            // 認証ユーザー情報を更新
+            authenticatedUser.score = newScore;
+            CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
+            
+            // フォームをリセット
+            GIFT_CODE_INPUT.value = '';
+        } else {
+             showMessage(messageEl, `❌ 適用エラー: ${response.message}`, 'error');
+        }
+
+    } catch (error) {
+        console.error("プレゼントコード適用中にエラー:", error);
+        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+    } finally {
+        submitButton.disabled = false;
+    }
+}
+// -----------------------------------------------------------------
+// プレゼントコード適用機能 終了
+// -----------------------------------------------------------------
 
 
 // -----------------------------------------------------------------
@@ -759,7 +911,8 @@ if (TRANSFER_FORM_MYPAGE) {
                 scores: newScores,
                 sports_bets: currentData.sports_bets, 
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [] 
+                lotteries: currentData.lotteries || [],
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -1063,7 +1216,8 @@ if (WAGER_FORM) {
                 scores: currentData.scores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
 
             const response = await updateAllData(newData);
@@ -1426,7 +1580,8 @@ if (LOTTERY_PURCHASE_FORM) {
                 scores: Array.from(currentScoresMap.values()),
                 sports_bets: currentData.sports_bets, 
                 speedstorm_records: currentData.speedstorm_records,
-                lotteries: allLotteries
+                lotteries: allLotteries,
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
 
             const response = await updateAllData(newData);
@@ -1582,7 +1737,8 @@ async function handleCheckLotteryResult(e) {
             scores: Array.from(currentScoresMap.values()),
             sports_bets: currentData.sports_bets, 
             speedstorm_records: currentData.speedstorm_records,
-            lotteries: allLotteries
+            lotteries: allLotteries,
+            gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
         };
         
         const response = await updateAllData(newData);
