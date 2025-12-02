@@ -36,6 +36,11 @@ const DAILY_TAX_MESSAGE = document.getElementById('daily-tax-message');
 const CREATE_LOTTERY_FORM = document.getElementById('create-lottery-form');
 const CREATE_LOTTERY_MESSAGE = document.getElementById('create-lottery-message');
 
+// ★★★ 新規追加要素: プレゼントコード発行 ★★★
+const CREATE_GIFT_CODE_FORM = document.getElementById('create-gift-code-form');
+const CREATE_GIFT_CODE_MESSAGE = document.getElementById('create-gift-code-message');
+// ★★★ 新規追加ここまで ★★★
+
 
 // --- 定数：麻雀ルール (mahjong.jsから移動) ---
 const POINT_RATE = 1000; // 1000点 = 1ポイント
@@ -375,13 +380,14 @@ if (MAHJONG_FORM) {
             const newScores = Array.from(currentScoresMap.values());
             // const newHistory = [...currentData.history, historyEntry]; // 履歴の追加を削除
     
-            // ★★★ 修正: lotteries フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: newScores, // pass/pro/status/lastBonusTimeフィールドを保持したscores
                 // 修正: historyは保存しない
                 sports_bets: currentData.sports_bets || [],
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -518,13 +524,14 @@ if (TRANSFER_FORM) {
     
             const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
             
-            // ★★★ 修正: lotteries フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: newScores,
                 // 修正: historyは保存しない
                 sports_bets: currentData.sports_bets, 
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -698,12 +705,13 @@ if (RACE_RECORD_FORM) {
                 // currentData.history.push(historyEntry);
             }
     
-            // ★★★ 修正: lotteries フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: newScores, // pass/pro/status/lastBonusTimeフィールドを保持したscores
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: records,
-                lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -784,12 +792,13 @@ if (CREATE_BET_FORM) {
             allBets.push(newBet);
             currentData.sports_bets = allBets;
             
-            // ★★★ 修正: lotteries フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: currentData.scores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -835,12 +844,13 @@ async function handleCloseBet(e) {
             bet.status = 'CLOSED';
             currentData.sports_bets = allBets;
             
-            // ★★★ 修正: lotteries フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: currentData.scores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
             
             const response = await updateAllData(newData);
@@ -1174,12 +1184,13 @@ async function handleSettleWagers(e) {
         currentData.sports_bets = allBets;
         currentData.scores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
         
-        // ★★★ 修正: lotteries フィールドを保持 ★★★
+        // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
         const newData = {
             scores: currentData.scores,
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || [],
-            lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
+            lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+            gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
         };
         
         const response = await updateAllData(newData);
@@ -1234,12 +1245,13 @@ async function handleFinalizeBet(e) {
         bet.status = 'SETTLED';
         currentData.sports_bets = allBets;
         
-        // ★★★ 修正: lotteries フィールドを保持 ★★★
+        // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
         const newData = {
             scores: currentData.scores,
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || [],
-            lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
+            lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+            gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
         };
         
         const response = await updateAllData(newData);
@@ -1296,13 +1308,14 @@ if (document.getElementById('adjustment-form')) {
     
             const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
     
-            // ★★★ 修正: lotteries フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: newScores,
                 // 修正: historyは保存しない
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -1321,7 +1334,6 @@ if (document.getElementById('adjustment-form')) {
         }
     });
 }
-
 
 // --- 日次ポイント徴収機能のロジック (新規追加) ---
 
@@ -1395,12 +1407,13 @@ if (DAILY_TAX_BUTTON) {
             
             const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
     
-            // ★★★ 修正: lotteries フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: newScores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [] // ★ 宝くじデータを保持
+                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -1430,6 +1443,81 @@ if (DAILY_TAX_BUTTON) {
             showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
         } finally {
             DAILY_TAX_BUTTON.disabled = false;
+        }
+    });
+}
+
+
+// -----------------------------------------------------------------
+// ★★★ 新規追加: プレゼントコード発行機能 ★★★
+// -----------------------------------------------------------------
+
+if (CREATE_GIFT_CODE_FORM) {
+    CREATE_GIFT_CODE_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const messageEl = CREATE_GIFT_CODE_MESSAGE;
+        const submitButton = CREATE_GIFT_CODE_FORM.querySelector('button[type="submit"]');
+
+        const codeName = document.getElementById('gift-code-name').value.trim().toUpperCase();
+        const points = parseFloat(document.getElementById('gift-code-amount').value);
+        const maxUses = parseInt(document.getElementById('gift-code-max-uses').value, 10);
+
+        if (!codeName || isNaN(points) || isNaN(maxUses) || maxUses < 0) {
+            showMessage(messageEl, '❌ エラー: コード名、ポイント、最大利用回数をすべて正しく入力してください。', 'error');
+            return;
+        }
+
+        submitButton.disabled = true;
+        showMessage(messageEl, 'プレゼントコードを作成中...', 'info');
+
+        try {
+            const currentData = await fetchAllData();
+            let allGiftCodes = currentData.gift_codes || [];
+            
+            // 既存コードとの重複チェック
+            const existingCode = allGiftCodes.find(c => c.code === codeName);
+            if (existingCode) {
+                showMessage(messageEl, `❌ エラー: コード名「${codeName}」は既に存在します。`, 'error');
+                return;
+            }
+
+            const newGiftCode = {
+                code: codeName,
+                points: parseFloat(points.toFixed(1)), // 小数点第一位に丸める
+                maxUses: maxUses,
+                currentUses: 0,
+                usedBy: [],
+                createdAt: new Date().toISOString()
+            };
+
+            allGiftCodes.push(newGiftCode);
+            currentData.gift_codes = allGiftCodes;
+            
+            // 全データを更新
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
+            const newData = {
+                scores: currentData.scores,
+                sports_bets: currentData.sports_bets,
+                speedstorm_records: currentData.speedstorm_records || [],
+                lotteries: currentData.lotteries || [],
+                gift_codes: currentData.gift_codes // ★ 新規追加: gift_codes
+            };
+
+            const response = await updateAllData(newData);
+
+            if (response.status === 'success') {
+                showMessage(messageEl, `✅ コード「${codeName}」を発行しました (${newGiftCode.points.toFixed(1)} P、最大${maxUses === 0 ? '無制限' : maxUses}回)。`, 'success');
+                CREATE_GIFT_CODE_FORM.reset();
+                document.getElementById('gift-code-max-uses').value = 1; // フォームリセット後にデフォルト値に戻す
+            } else {
+                showMessage(messageEl, `❌ 発行エラー: ${response.message}`, 'error');
+            }
+
+        } catch (error) {
+            console.error("プレゼントコード発行中にエラー:", error);
+            showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+        } finally {
+            submitButton.disabled = false;
         }
     });
 }
@@ -1551,8 +1639,17 @@ if (CREATE_LOTTERY_FORM) {
 
             currentData.lotteries.push(newLottery);
             
-            // updateAllData は currentData (全データ) を受け取るため、個別の newData オブジェクトは不要
-            const response = await updateAllData(currentData);
+            // 全データを更新
+            // ★★★ 修正: gift_codes フィールドを保持 ★★★
+            const newData = {
+                scores: currentData.scores,
+                sports_bets: currentData.sports_bets,
+                speedstorm_records: currentData.speedstorm_records || [],
+                lotteries: currentData.lotteries,
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+            };
+
+            const response = await updateAllData(newData);
 
             if (response.status === 'success') {
                 showMessage(messageEl, `✅ 宝くじ「${lotteryName}」を作成しました (ID: ${newLotteryId})`, 'success');
