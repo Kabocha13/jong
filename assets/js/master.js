@@ -68,68 +68,62 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         showMessage(AUTH_MESSAGE, '認証中...', 'info');
     }
     
-    // ★ デバッグログ: 入力ユーザー名を確認
-    console.log(`[DEBUG:master.js] 試行ユーザー名: ${username}`);
-    console.log(`[DEBUG:master.js] 期待マスター名: ${MASTER_USERNAME}`);
-    
     // 1. マスターユーザー名と比較
+    // common.js で MASTER_USERNAME は "Kabocha" に固定されている
     if (username !== MASTER_USERNAME) {
         showMessage(AUTH_MESSAGE, '❌ ユーザー名がマスターユーザー名と異なります。', 'error');
-        // ★ デバッグログ: ユーザー名不一致
-        console.error("[ERROR:master.js] 認証失敗: ユーザー名不一致");
         return false;
     }
 
     // 2. JSONBinからユーザーデータを取得し、パスワードを照合
-    const allData = await fetchAllData();
-    const scores = allData.scores;
-    
-    // 認証対象のマスターユーザーを探す
-    const masterUser = scores.find(p => p.name === MASTER_USERNAME);
-
-    if (!masterUser) {
-        // ★ デバッグログ: ユーザーデータにマスターが存在しない
-        console.error("[ERROR:master.js] 認証失敗: 取得データ内にマスターユーザーが見つかりません。");
-        showMessage(AUTH_MESSAGE, '❌ ユーザーデータにマスターアカウントが見つかりませんでした。', 'error');
-        return false;
-    }
-
-    // ユーザーが見つかり、パスワードが一致するかどうかをチェック
-    if (masterUser.pass === password) {
-        // ★ デバッグログ: 認証成功
-        console.log("[DEBUG:master.js] 認証成功!");
+    try {
+        const allData = await fetchAllData();
+        const scores = allData.scores;
         
-        // 状態を更新
-        isAuthenticatedAsMaster = true;
+        // 認証対象のマスターユーザーを探す
+        const masterUser = scores.find(p => p.name === MASTER_USERNAME);
 
-        // 2. UIの切り替え
-        document.getElementById('auth-section').classList.add('hidden');
-        ADMIN_TOOLS.classList.remove('hidden');
-        MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
+        if (!masterUser) {
+            console.error("[ERROR:master.js] 認証失敗: 取得データ内にマスターユーザーが見つかりません。");
+            showMessage(AUTH_MESSAGE, '❌ ユーザーデータにマスターアカウントが見つかりませんでした。', 'error');
+            return false;
+        }
 
-        // 3. ツール類の初期化
-        loadPlayerList(); 
-        loadTransferPlayerLists(); 
-        loadRaceRecordHolders(); 
-        loadRaceCourses(); 
-        initializeSportsMasterTools(); 
-        loadMahjongForm(); 
-        initializeLotteryForm();
-        
-        if (!isAuto) {
-             showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
+        // ユーザーが見つかり、パスワードが一致するかどうかをチェック
+        // masterUser.passには、mypage.jsと同様にユーザー登録時のパスワードが格納されている想定
+        if (masterUser.pass === password) {
+            // ★ 認証成功ロジック
+            isAuthenticatedAsMaster = true;
+
+            // UIの切り替え
+            document.getElementById('auth-section').classList.add('hidden');
+            ADMIN_TOOLS.classList.remove('hidden');
+            MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
+
+            // ツール類の初期化
+            loadPlayerList(); 
+            loadTransferPlayerLists(); 
+            loadRaceRecordHolders(); 
+            loadRaceCourses(); 
+            initializeSportsMasterTools(); 
+            loadMahjongForm(); 
+            initializeLotteryForm();
+            
+            if (!isAuto) {
+                 showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
+            } else {
+                 AUTH_MESSAGE.classList.add('hidden'); // 自動ログイン時はメッセージを非表示
+            }
+
+            return true;
         } else {
-             AUTH_MESSAGE.classList.add('hidden'); // 自動ログイン時はメッセージを非表示
-        }
-
-        return true;
-    } else {
-        // ★ デバッグログ: パスワード不一致
-        console.error(`[ERROR:master.js] 認証失敗: パスワード不一致。入力: '${password}', 期待: '${masterUser.pass}'`);
-        
-        if (!isAuto) {
+            // パスワード不一致
             showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
+            return false;
         }
+    } catch (error) {
+        console.error("マスター認証中にエラー:", error);
+        showMessage(AUTH_MESSAGE, `❌ サーバーエラーまたはデータ取得エラーが発生しました。`, 'error');
         return false;
     }
 }
@@ -139,13 +133,14 @@ async function attemptMasterLogin(username, password, isAuto = false) {
  * ログアウト処理
  */
 function handleMasterLogout() {
+    // 既存の window.confirm をカスタムモーダルに置き換える指示がないため、一旦そのままにする
     if (!window.confirm('マスターモードからログアウトしますか？')) {
         return;
     }
     
-    // 1. ★ 修正: 状態をリセット
+    // 1. 状態をリセット
     isAuthenticatedAsMaster = false;
-    // (localStorageへの保存は行っていないため、削除の必要なし)
+    // masterページはlocalStorageを使用しないため、削除の必要なし
 
     // 2. 状態をリセットし、UIを切り替える
     document.getElementById('auth-section').classList.remove('hidden');
@@ -159,11 +154,10 @@ function handleMasterLogout() {
 }
 
 /**
- * ページロード時の自動ログイン処理 (★ 修正: キャッシュを使わないため、この関数は空にする)
+ * ページロード時の自動ログイン処理 (master画面では自動ログインを廃止)
  */
 async function autoLogin() { 
-    // ★ 修正: master画面ではキャッシュによる自動ログインを廃止するため、何もしない
-    // ログインフォームが常に表示されます
+    // master画面ではキャッシュによる自動ログインを廃止するため、何もしない
 }
 
 
@@ -202,6 +196,8 @@ async function fetchAndSetPlayerNames() {
 
 // ポイント調整用リストのロード（proステータス表示を削除）
 async function loadPlayerList() {
+    if (!TARGET_PLAYER_SELECT) return; // 要素がない場合はスキップ
+
     TARGET_PLAYER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     const scores = await fetchScores();
 
@@ -221,6 +217,8 @@ async function loadPlayerList() {
 
 // 送金プレイヤーリストのロード（proステータス表示を削除）
 async function loadTransferPlayerLists() {
+    if (!SENDER_PLAYER_SELECT || !RECEIVER_PLAYER_SELECT) return; // 要素がない場合はスキップ
+
     SENDER_PLAYER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     RECEIVER_PLAYER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     
@@ -245,6 +243,8 @@ async function loadTransferPlayerLists() {
 
 // レース記録保持者リストのロード（proステータス表示を削除）
 async function loadRaceRecordHolders() {
+    if (!RACE_RECORD_HOLDER_SELECT) return; // 要素がない場合はスキップ
+
     RACE_RECORD_HOLDER_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     const scores = await fetchScores();
 
@@ -264,6 +264,8 @@ async function loadRaceRecordHolders() {
 
 // 既存コースリストをロードする関数 (変更なし)
 async function loadRaceCourses() {
+    if (!RACE_COURSE_SELECT) return; // 要素がない場合はスキップ
+
     RACE_COURSE_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     
     try {
@@ -365,8 +367,7 @@ if (MAHJONG_FORM) {
             
             results.sort((a, b) => b.score - a.score);
             
-            // ★ 修正: 履歴エントリーの生成と追加を削除
-            // const historyEntry = { ... };
+            // 削除: 履歴エントリーの生成と追加を削除
             
             for (let i = 0; i < results.length; i++) {
                 const result = results[i];
@@ -376,7 +377,6 @@ if (MAHJONG_FORM) {
                 const bonusPoint = UMA_OKA[rankIndex];
                 const finalPointChange = pointDifference + bonusPoint;
                 
-                // historyEntry.changes.push({name: result.name, change: parseFloat(finalPointChange.toFixed(1))});
                 
                 const currentPlayer = currentScoresMap.get(result.name);
                 if (currentPlayer) {
@@ -392,7 +392,7 @@ if (MAHJONG_FORM) {
     
             // scores配列を再構築
             const newScores = Array.from(currentScoresMap.values());
-            // const newHistory = [...currentData.history, historyEntry]; // 履歴の追加を削除
+            
     
             // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
             const newData = {
@@ -535,7 +535,7 @@ if (TRANSFER_FORM) {
                  return;
             }
     
-            // ★ 修正: 履歴エントリーの生成と追加を削除
+            // 削除: 履歴エントリーの生成と追加を削除
     
             const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
             
@@ -585,7 +585,8 @@ function timeToMilliseconds(timeString) {
         minutes = parseInt(parts[0], 10);
         seconds = parseFloat(parts[1]);
     } else if (parts.length === 1) {
-        seconds = parseFloat(parts[1]);
+        // 分が含まれず、秒とミリ秒のみの場合
+        seconds = parseFloat(parts[0]); // parts[0]は元のtimeString全体
     } else {
         return NaN;
     }
@@ -606,6 +607,7 @@ function formatMilliseconds(ms) {
     const formattedSeconds = seconds.toFixed(3);
     
     if (minutes > 0) {
+        // 秒の部分が1桁の場合、'0'をパディングする
         const secPart = seconds < 10 ? '0' + formattedSeconds : formattedSeconds;
         return `${minutes}:${secPart}`;
     } else {
@@ -678,7 +680,7 @@ if (RACE_RECORD_FORM) {
             // 更新後のリストをソート (念のため)
             records.sort((a, b) => a.bestTimeMs - b.bestTimeMs);
     
-            // let historyChanges = []; // 履歴変更ログを削除
+            
             let newScores = currentData.scores;
     
             if (shouldAwardPoints) {
@@ -693,7 +695,7 @@ if (RACE_RECORD_FORM) {
                         ...holderPlayer, 
                         score: parseFloat((currentScore + AWARD_POINTS).toFixed(1)) 
                     });
-                    // historyChanges.push({name: recordHolder, change: AWARD_POINTS}); // 履歴変更ログの生成を削除
+                    
                 }
                 
                 const KABOCHA_NAME = "Kabocha"; 
@@ -707,7 +709,7 @@ if (RACE_RECORD_FORM) {
                         ...kabochaPlayer, 
                         score: parseFloat((kabochaCurrentScore + KABOCHA_BONUS).toFixed(1)) 
                     });
-                    // historyChanges.push({name: KABOCHA_NAME, change: KABOCHA_BONUS}); // 履歴変更ログの生成を削除
+                    
                     logMessage += ` (報酬: ${AWARD_POINTS} P + ${KABOCHA_NAME}に ${KABOCHA_BONUS} P)`;
                 } else {
                      logMessage += ` (報酬: ${AWARD_POINTS} P)`;
@@ -716,9 +718,7 @@ if (RACE_RECORD_FORM) {
                 // scores配列を再構築
                 newScores = Array.from(currentScoresMap.values());
     
-                // ★ 修正: 履歴エントリーの生成と追加を完全に削除
-                // const historyEntry = { ... };
-                // currentData.history.push(historyEntry);
+                // 削除: 履歴エントリーの生成と追加を完全に削除
             }
     
             // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
@@ -1061,7 +1061,8 @@ function generateWagerResultInputs(bet) {
     // ラジオボタンの変更イベントリスナーを追加
     container.querySelectorAll('.wager-result-radio').forEach(radio => {
         radio.addEventListener('change', (e) => {
-            const index = e.target.dataset.wagerIndex;
+            // formIndexではなく、data-wager-indexを使うように修正
+            const index = e.target.closest('.wager-result-row').querySelector('.applied-odds-input').dataset.wagerIndex;
             const oddsInput = container.querySelector(`.applied-odds-input[data-wager-index="${index}"]`);
             
             if (e.target.value === 'win') {
@@ -1106,8 +1107,6 @@ async function handleSettleWagers(e) {
         // 元のwagers配列（未確定を含む）
         const originalWagers = bet.wagers; 
         
-        // let totalPointChange = 0; // 履歴ログ用変数を削除
-        // let historyChanges = []; // 履歴ログ用変数を削除
         let updatedWagersCount = 0;
         
         // pass/pro/status/lastBonusTimeフィールドを保持するために、scores全体をマップとして処理
@@ -1123,7 +1122,7 @@ async function handleSettleWagers(e) {
 
         wagerResultInputs.forEach((row, formIndex) => {
             // formIndexは0, 1, 2... とフォームに表示されている未確定投票の順序
-            const radioWin = row.querySelector('input[value="win"]);
+            const radioWin = row.querySelector('input[value="win"]');
             const radioLose = row.querySelector('input[value="lose"]');
             const oddsInput = row.querySelector('.applied-odds-input');
             
@@ -1142,7 +1141,7 @@ async function handleSettleWagers(e) {
                 
                 if (isNaN(appliedOdds) || appliedOdds < 1.0) {
                     allValid = false; // エラーフラグを立てる
-                    showMessage(messageEl, `❌ 当選結果のオッズが不正です (${originalWagers[originalWagerIndex].item})。`, 'error');
+                    // メッセージはループの外で表示されるため、ここでは return
                     return; 
                 }
                 // ポイント計算: 掛け金 * オッズ (利益分)
@@ -1172,10 +1171,6 @@ async function handleSettleWagers(e) {
                     ...currentPlayer, 
                     score: parseFloat((currentScore + pointChange).toFixed(1)) 
                 });
-                
-                // 履歴記録用の変更点を蓄積 (削除)
-                // historyChanges.push({ name: player, change: parseFloat(pointChange.toFixed(1)) });
-                // totalPointChange += pointChange;
             }
             
             updatedWagersCount++;
@@ -1183,6 +1178,7 @@ async function handleSettleWagers(e) {
 
         // ★ 修正: allValid のチェックをここで行う
         if (!allValid) {
+             showMessage(messageEl, `❌ 当選結果のオッズが不正です（1.0以上の数値を入力してください）。`, 'error');
              submitButton.disabled = false;
              return;
         }
@@ -1193,9 +1189,7 @@ async function handleSettleWagers(e) {
             return;
         }
 
-        // ★ 修正: 履歴エントリーの生成と追加を完全に削除
-        // const historyEntry = { ... };
-        // currentData.history.push(historyEntry);
+        // 削除: 履歴エントリーの生成と追加を完全に削除
 
         // データ全体を更新
         bet.wagers = originalWagers;
@@ -1325,7 +1319,7 @@ if (document.getElementById('adjustment-form')) {
                 score: parseFloat(newScore.toFixed(1)) 
             });
             
-            // ★ 修正: 履歴エントリーの生成と追加を削除
+            // 削除: 履歴エントリーの生成と追加を削除
     
             const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
     
@@ -1362,7 +1356,7 @@ if (document.getElementById('adjustment-form')) {
 // ★ 修正: DAILY_TAX_BUTTON が存在しないページもあるため、nullチェック
 if (DAILY_TAX_BUTTON) {
     DAILY_TAX_BUTTON.addEventListener('click', async () => {
-        // ★ 修正: TOTAL_TAX_AMOUNT を定数から削除
+        // 削除: TOTAL_TAX_AMOUNT を定数から削除
         // const TOTAL_TAX_AMOUNT = 100.0; // 削除
         const TAX_RATE = 0.05; // 徴収率 5%
         const EXCLUDED_PLAYER_NAMES = ['3mahjong']; 
@@ -1563,11 +1557,24 @@ function initializeLotteryForm() {
     const resultAnnounceDate = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
 
     // タイムゾーンを考慮して YYYY-MM-DDTHH:MM 形式に変換
-    purchaseDeadline.setMinutes(purchaseDeadline.getMinutes() - purchaseDeadline.getTimezoneOffset());
-    resultAnnounceDate.setMinutes(resultAnnounceDate.getMinutes() - resultAnnounceDate.getTimezoneOffset());
+    // ブラウザの toISOString() は UTC になるため、setTimezoneOffset() を使用して調整し、
+    // YYYY-MM-DDTHH:MM 形式でローカルタイムとして値を設定する
+    // JavaScriptの Dateオブジェクト操作は複雑なため、ここは簡易的なtoDateString() + toTimeString()で取得できる
+    // 形式に合うよう、ISO文字列の先頭16文字を使用
+    
+    // date.toISOString().slice(0, 16) はUTCベースの文字列を生成するため、ユーザーのローカル時間に変換する
+    
+    const formatLocal = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
 
-    document.getElementById('lottery-purchase-deadline').value = purchaseDeadline.toISOString().slice(0, 16);
-    document.getElementById('lottery-result-announce').value = resultAnnounceDate.toISOString().slice(0, 16);
+    document.getElementById('lottery-purchase-deadline').value = formatLocal(purchaseDeadline);
+    document.getElementById('lottery-result-announce').value = formatLocal(resultAnnounceDate);
 }
 
 /**
