@@ -490,7 +490,7 @@ if (PRO_BONUS_BUTTON) {
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [],
-                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+                gift_codes: currentData.gift_codes || [] // ★ gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -624,7 +624,7 @@ async function handlePremiumBetCreation(e) {
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || [],
             lotteries: currentData.lotteries || [],
-            gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+            gift_codes: currentData.gift_codes || [] // ★ gift_codes
         };
 
         const response = await updateAllData(newData);
@@ -715,18 +715,19 @@ async function handleApplyGiftCode(e) {
 
         const giftCode = allGiftCodes[codeIndex];
         
-        // 1. 最大利用回数チェック
+        // 1. 最大利用回数チェック (全プレイヤー合計)
+        // maxUsesが0の場合は無制限、1以上で制限あり
         if (giftCode.maxUses > 0 && giftCode.currentUses >= giftCode.maxUses) {
-            showMessage(messageEl, '❌ エラー: このコードは最大利用回数に達しています。', 'error');
+            showMessage(messageEl, '❌ エラー: このコードは最大利用合計回数に達しています。', 'error');
             return;
         }
         
-        // 2. プレイヤーごとの利用履歴チェック (1人1回の利用)
-        const alreadyUsedByPlayer = giftCode.usedBy.some(u => u.player === player);
-        if (alreadyUsedByPlayer) {
-             showMessage(messageEl, '❌ エラー: このコードは既に利用済みです。', 'error');
-            return;
-        }
+        // 2. プレイヤーごとの利用履歴チェック (削除)
+        // const alreadyUsedByPlayer = giftCode.usedBy.some(u => u.player === player);
+        // if (alreadyUsedByPlayer) {
+        //      showMessage(messageEl, '❌ エラー: このコードは既に利用済みです。', 'error');
+        //     return;
+        // }
         
         const pointsToApply = giftCode.points; // 正負制限なしのポイント
         
@@ -747,15 +748,17 @@ async function handleApplyGiftCode(e) {
         
         // 4. コードの利用記録を更新
         giftCode.currentUses += 1;
-        giftCode.usedBy.push({
-            player: player,
-            timestamp: new Date().toISOString(),
-            pointsApplied: pointsToApply 
-        });
+        // usedByにログを残す処理を削除
+        // giftCode.usedBy.push({
+        //     player: player,
+        //     timestamp: new Date().toISOString(),
+        //     pointsApplied: pointsToApply 
+        // });
 
         // --------------------------------------------------------
         // ★★★ 修正点: 利用回数が尽きたコードを削除 ★★★
         // --------------------------------------------------------
+        // maxUsesが0 (無制限) でない、かつ currentUsesがmaxUsesに達した場合
         const isFullyUsed = giftCode.maxUses > 0 && giftCode.currentUses >= giftCode.maxUses;
 
         if (isFullyUsed) {
@@ -931,7 +934,7 @@ if (TRANSFER_FORM_MYPAGE) {
                 sports_bets: currentData.sports_bets, 
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [],
-                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+                gift_codes: currentData.gift_codes || [] // ★ gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -1236,7 +1239,7 @@ if (WAGER_FORM) {
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+                gift_codes: currentData.gift_codes || [] // ★ gift_codes
             };
 
             const response = await updateAllData(newData);
@@ -1538,7 +1541,7 @@ if (LOTTERY_PURCHASE_FORM) {
 
             for (let i = 0; i < count; i++) {
                 const drawResult = performLotteryDraw(targetLottery.prizes);
-                // null (ハズレ) は 'ハズレ' キーとして集計
+                // null (ハズレ) は 'ハズRE' キーとして集計
                 const rankKey = drawResult.prizeRank === null ? 'ハズRE' : drawResult.prizeRank.toString();
                 
                 if (!drawResultsMap[rankKey]) {
@@ -1600,7 +1603,7 @@ if (LOTTERY_PURCHASE_FORM) {
                 sports_bets: currentData.sports_bets, 
                 speedstorm_records: currentData.speedstorm_records,
                 lotteries: allLotteries,
-                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+                gift_codes: currentData.gift_codes || [] // ★ gift_codes
             };
 
             const response = await updateAllData(newData);
@@ -1757,7 +1760,7 @@ async function handleCheckLotteryResult(e) {
             sports_bets: currentData.sports_bets, 
             speedstorm_records: currentData.speedstorm_records,
             lotteries: allLotteries,
-            gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+            gift_codes: currentData.gift_codes || [] // ★ gift_codes
         };
         
         const response = await updateAllData(newData);
