@@ -30,7 +30,7 @@ exports.handler = async (event) => {
         }
 
         const data = await response.json();
-        // ★ electric_chair_gamesフィールドを初期化
+        // electric_chair_gamesフィールドを初期化
         const allGames = data.record.electric_chair_games || []; 
         const allScores = data.record.scores || []; // スコア情報も必要
 
@@ -62,12 +62,16 @@ exports.handler = async (event) => {
                     player: game.lastResult.player,
                     result: game.lastResult.result, // 'SHOCK' or 'SAFE'
                     points: game.lastResult.points
-                } : null
+                } : null,
+                // ポイント設定も公開
+                winPoints: game.winPoints, 
+                losePoints: game.losePoints, 
+                forfeitPoints: game.forfeitPoints, 
             };
 
             // 自分が参加しているゲーム
-            if (game.playerA === playerName || game.playerB === playerName) {
-                // 終了済みで古いゲームは除外（ここではシンプルに全て返す）
+            if (game.playerA === playerName || (game.playerB && game.playerB === playerName)) {
+                // 終了済みでも、ログがまだ存在する場合は返す
                 currentGames.push(publicGame);
             } 
             // 自分が参加できるゲーム (参加者Bが空かつ参加待ちステータス)
