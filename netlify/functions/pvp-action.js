@@ -165,19 +165,27 @@ exports.handler = async (event) => {
                  return { statusCode: 400, body: JSON.stringify({ message: 'Invalid chair ID.' }) };
             }
             
-            // ★修正: 強制終了判定 (残りの椅子が1つになった場合)
-            const availableChairs = currentGame.publicChairs.filter(c => c.available);
+            // ★修正: Cの条件（椅子不足による強制終了）を削除。
+
             
-            // ----------------------------------------------------
-            // 残り椅子が1つの場合、次の仕掛けフェーズに入る前にゲームを終了させる
-            // ----------------------------------------------------
-            if (availableChairs.length === 1) { // 修正点: availableChairs.length <= 2 から === 1 に変更
+            const selectedChair = currentGame.secretChairs.find(c => c.id === chairId);
+            const publicChair = currentGame.publicChairs.find(c => c.id === chairId);
+            
+            if (!selectedChair || !selectedChair.available || !publicChair || !publicChair.available) {
+                 return { statusCode: 400, body: JSON.stringify({ message: 'Chair is already taken.' }) };
+            }
+            
+            // ★修正: Bの条件（ラウンド終了による勝敗）の変更
+            // 11回アクション完了後（6ラウンド目の仕掛け時）、仕掛けるアクションが成功した直後にゲーム終了判定を行う
+            if (currentGame.round === 11) { // 11回目（最後の仕掛け）
                 
-                // 強制終了ロジック実行前の勝利判定に必要な情報の初期化
+                // 秘密情報に電流をセット (最後の仕掛けは確定させる)
+                currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
+                
+                // 11アクション完了時の勝敗判定 (ここで最終スコア勝負)
                 let winner = null;
                 let loser = null;
-
-                // 12回アクション(6ラウンド)完了ロジックを適用
+                
                 // スコアで勝敗を決定
                 if (currentGame.scoreA > currentGame.scoreB) {
                     winner = currentGame.playerA;
@@ -190,7 +198,7 @@ exports.handler = async (event) => {
                 }
                 
                 if (winner) {
-                    currentGame.round = 13; // 強制的にラウンドオーバーフラグを立てる
+                    currentGame.round = 12; // アクション回数を12に更新 (最終アクション完了として扱う)
                     currentGame.status = 'FINISHED';
                     currentGame.nextActionPlayer = null;
                     currentGame.winner = winner;
@@ -211,10 +219,9 @@ exports.handler = async (event) => {
                              loserData.score = parseFloat((loserData.score + LOSE_POINTS).toFixed(1));
                              allScoresMap.set(loser, loserData);
                         }
-                        // ★修正: 応答メッセージにポイント変動を含める
-                        responseMessage = `Game Finished (Last chair)! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
+                        responseMessage = `Game Finished (Round Over)! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
                     } else {
-                        responseMessage = `Game Finished (Last chair)! Draw.`;
+                        responseMessage = `Game Finished (Round Over)! Draw.`;
                     }
                     scoreUpdated = true;
                     allData.scores = Array.from(allScoresMap.values());
@@ -266,17 +273,7 @@ exports.handler = async (event) => {
                     })
                 };
             }
-            // ----------------------------------------------------
-            // 強制終了ロジック終わり
-            // ----------------------------------------------------
-
-            
-            const selectedChair = currentGame.secretChairs.find(c => c.id === chairId);
-            const publicChair = currentGame.publicChairs.find(c => c.id === chairId);
-            
-            if (!selectedChair || !selectedChair.available || !publicChair || !publicChair.available) {
-                 return { statusCode: 400, body: JSON.stringify({ message: 'Chair is already taken.' }) };
-            }
+            // ★修正終わり
 
             // 秘密情報に電流をセット
             currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
@@ -380,18 +377,9 @@ exports.handler = async (event) => {
                 winner = currentGame.playerA;
                 loser = currentGame.playerB;
             } 
-            // アクション回数が12回(6ラウンド)に達したら終了
-            else if (currentGame.round > 12) { 
-                if (currentGame.scoreA > currentGame.scoreB) {
-                    winner = currentGame.playerA;
-                    loser = currentGame.playerB;
-                } else if (currentGame.scoreB > currentGame.scoreA) {
-                    winner = currentGame.playerB;
-                    loser = currentGame.playerA;
-                } else {
-                    winner = 'DRAW';
-                }
-            }
+            // ★修正: 12回ではなく、12回以上のアクションでは勝敗判定を行わない。
+            // 11回で勝敗が確定しているため、ここでは感電敗北のみをチェック。
+            // 既にround <= 12の範囲で感電による敗北がなければ、次のsetShockChairで最終判定に進む。
 
             if (winner) {
                 currentGame.status = 'FINISHED';
