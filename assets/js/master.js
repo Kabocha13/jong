@@ -1109,7 +1109,7 @@ async function handleSettleWagers(e) {
 
         wagerResultInputs.forEach((row, formIndex) => {
             // formIndexは0, 1, 2... とフォームに表示されている未確定投票の順序
-            const radioWin = row.querySelector('input[value="win"]');
+            const radioWin = row.querySelector('input[value="win"]);
             const radioLose = row.querySelector('input[value="lose"]');
             const oddsInput = row.querySelector('.applied-odds-input');
             
@@ -1472,7 +1472,7 @@ if (CREATE_GIFT_CODE_FORM) {
         const maxUses = parseInt(document.getElementById('gift-code-max-uses').value, 10);
 
         if (!codeName || isNaN(points) || isNaN(maxUses) || maxUses < 0) {
-            showMessage(messageEl, '❌ エラー: コード名、ポイント、最大利用回数をすべて正しく入力してください。', 'error');
+            showMessage(messageEl, '❌ エラー: コード名、ポイント、全利用合計回数をすべて正しく入力してください。', 'error');
             return;
         }
 
@@ -1495,7 +1495,7 @@ if (CREATE_GIFT_CODE_FORM) {
                 points: parseFloat(points.toFixed(1)), // 小数点第一位に丸める
                 maxUses: maxUses,
                 currentUses: 0,
-                usedBy: [],
+                // usedBy: [], <- ログは残さないため削除
                 createdAt: new Date().toISOString()
             };
 
@@ -1513,11 +1513,10 @@ if (CREATE_GIFT_CODE_FORM) {
                 gift_codes: currentData.gift_codes || [],
                 // ★★★ 修正箇所: PVPゲームデータ (electric_chair_games) を保持 ★★★
                 electric_chair_games: currentData.electric_chair_games || [],
-                // ★★★ 欠落を防ぐために、fetchAllData()が返すすべてのフィールドをリストアップ ★★★
             });
 
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ コード「${codeName}」を発行しました (${newGiftCode.points.toFixed(1)} P、最大${maxUses === 0 ? '無制限' : maxUses}回)。`, 'success');
+                showMessage(messageEl, `✅ コード「${codeName}」を発行しました (${newGiftCode.points.toFixed(1)} P、合計${maxUses === 0 ? '無制限' : maxUses}回)。`, 'success');
                 CREATE_GIFT_CODE_FORM.reset();
                 document.getElementById('gift-code-max-uses').value = 1; // フォームリセット後にデフォルト値に戻す
             } else {
