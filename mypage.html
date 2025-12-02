@@ -83,6 +83,22 @@
                     <p>購入履歴をロード中...</p>
                 </div>
             </div>
+            
+            <!-- ★★★ 新規追加: プレゼントコード入力・適用 ★★★ -->
+            <div class="tool-box">
+                <h3>🎁 プレゼントコード入力</h3>
+                <p class="instruction">コードを入力してポイントを獲得/消費します。</p>
+                <form id="apply-gift-code-form">
+                    <div class="form-group">
+                        <label for="gift-code-input">プレゼントコード:</label>
+                        <input type="text" id="gift-code-input" required placeholder="コードを正確に入力してください">
+                    </div>
+                    <button type="submit" class="action-button" style="background-color: #ffc107; color: var(--color-text);">コードを適用</button>
+                </form>
+                <p id="apply-gift-code-message" class="hidden"></p>
+            </div>
+            <!-- ★★★ ここまで新規追加 ★★★ -->
+
 
             <!-- ★★★ Premium会員専用機能: スポーツくじ作成フォームの追加 ★★★ -->
             <div id="premium-tools-section" class="tool-box hidden">
