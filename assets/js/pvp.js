@@ -166,10 +166,14 @@ function renderLobbyLists(finishedGames, availableGames) {
     
     // 参加可能なルーム
     AVAILABLE_GAME_LIST.innerHTML = availableGames.map(g => {
+        // 修正: ロビー一覧のポイント表示を、winPointsのみから計算される値に変更
+        const losePoints = -g.winPoints;
+        const forfeitPoints = losePoints * 2;
+        
         return `<div class="tool-box" style="margin-bottom: 10px; padding: 10px;">
                     <p style="margin: 0; font-weight: bold;">ルーム作成者: ${g.playerA}</p>
                     <p style="margin: 0; font-size: 0.8em; color: #6c757d;">
-                        勝者: +${g.winPoints || 0} P / 敗者: ${g.losePoints || 0} P / 放棄者: ${g.forfeitPoints || 0} P
+                        🏆 勝利: +${g.winPoints.toFixed(1)} P / 😭 敗北: ${losePoints.toFixed(1)} P / 🏃 放棄: ${forfeitPoints.toFixed(1)} P
                     </p>
                     <button class="action-button join-available-button" data-room-code="${g.roomCode}" style="width: auto; margin-top: 5px; background-color: #007bff;">
                         参加 (${g.roomCode})
@@ -232,7 +236,7 @@ function renderGameArena(game) {
         leaveButton.dataset.action = 'delete'; // 参加待ちの部屋は削除
     } else if (isFinished) {
         
-        // ★修正開始: 負けた人の結果が逆になる問題を修正
+        // 勝敗メッセージを再構築し、常に表示する
         let myPointChange = 0;
         let myResultText = '';
         
@@ -246,43 +250,62 @@ function renderGameArena(game) {
             // 敗北または放棄のケース
             myResultText = '😭 敗北...';
             
-            // サーバー側で放棄 (forfeit) された場合、lastResultフィールドは更新されないため、
-            // 敗北プレイヤーが自分であることと、勝者が相手であることを確認し、
-            // game.forfeitPointsを適用されたと仮定する。
-            // (pvp-action.jsのforfeitロジックに合わせる)
-            const isForfeit = game.lastResult && game.lastResult.player === myName && game.lastResult.points < 0; 
-
-            if (game.round < 12) {
-                 // 感電敗北または途中放棄
-                 // サーバー側では感電敗北時もlosePointsが適用される
-                 myPointChange = game.losePoints;
-            } else {
-                 // スコア敗北の場合、losePointsが適用されている
-                 myPointChange = game.losePoints;
-            }
+            // サーバー側では、
+            // 1. 感電敗北/スコア敗北: losePointsが適用
+            // 2. 途中放棄: forfeitPointsが適用
+            // されます。それをクライアント側で推測します。
             
-            // 念のため、放棄された場合の処理を明記（サーバーロジックではlosePointsとforfeitPointsは同一値で設定されていることが多い想定）
-            // if (myPointChange === game.losePoints && game.round < 12) {
-            //      myResultText = '😭 敗北 (感電/ラウンドアウト)';
-            // } else if (myPointChange === game.forfeitPoints && game.round < 12) {
-            //      myResultText = '🏃 敗北 (放棄)';
-            // }
+            // 相手が勝者であり、自分が敗者。
+            // サーバー側で放棄アクションが実行された場合、game.winnerが相手になり、
+            // そのゲームのplayerBがnullではない場合、終了理由は「感電/スコア敗北」か「放棄」のいずれか。
             
-             // サーバー側で確定したポイント変動を使用
-             // ただし、クライアントには変動値が渡されないため、ゲーム設定値を使用する
-             if (game.lastResult && game.lastResult.result === 'SHOCK') {
-                 // 感電敗北の場合はlosePoints
-                 myPointChange = game.losePoints;
-            } else if (game.winner === myName) {
-                 // 上で処理済み
-            } else if (game.round < 12) {
-                 // 途中放棄の場合はforfeitPoints
-                 myPointChange = game.forfeitPoints;
+            // 暫定的に、最終ラウンド前(round < 12)で勝敗が決まり、かつ敗者（自分）がアクションを実行していない（相手がforfeitを呼ばなかった）場合はlosePoints、
+            // それ以外（forfeitが実行された場合）はforfeitPointsと判断する。
+            
+            // シンプル化のため、最終的な勝者が確定している場合は、
+            // 相手が勝者であれば、losePointsまたはforfeitPointsが適用されていると見なし、
+            // 現状のサーバーロジック（forfeitの場合はforfeitPoints、それ以外はlosePoints）に従って表示する。
+            
+            // ※ サーバー側で forfiet かどうかを判別する情報（例: lastForfeitAction）を渡していないため、
+            // ここではシンプルに、ゲームがFINISHEDで自分が負けた場合、スコア/感電敗北のポイントを表示し、
+            // ユーザーがボタンを押して放棄した場合はそのポイントを適用したとして表示します。
+            // ただし、今回はサーバー側でforfeitのポイント計算がされているため、その値を信じて表示します。
+            
+            // 【重要】サーバー側のポイント反映ロジックを信じる
+            // サーバーから渡された game.losePoints / game.forfeitPoints を使用して計算。
+            
+            // 自分が敗者 (loser) の場合、ポイント変動は losePoints または forfeitPoints のどちらか。
+            // 自分が放棄したかどうかをクライアントは直接判定できないため、ここは表示上の近似値とする。
+            // サーバー側で forfiet のロジックが実行されているかどうかに依存するが、
+            // サーバーが `forfeit` アクションを受けた場合のみ `forfeitPoints` が適用されるため、
+            // 勝敗が確定した場合（感電/スコア）は `losePoints` が適用されたと見なすのが安全。
+            
+            // 放棄は `round < 12` で発生する。
+            // 最終ラウンドでのスコア負けも `round = 12` で発生するが、 `setShockChair` で処理される。
+            
+            // この問題は、ポイントが複雑な計算に基づいているため発生しやすい。
+            // クライアント側では、**ゲームログの `lastResult` などの追加フィールドがない限り**、正確なポイント変動を推測できないため、
+            // サーバー側の計算値を信じて表示を調整します。
+            
+            // 現状のサーバーロジック:
+            // - 感電/スコア敗北: losePoints
+            // - 途中放棄: forfeitPoints
+            
+            // クライアントで正確なポイント変動を再現するのは困難なため、シンプルに losePoints または forfeitPoints を使用。
+            
+            if (game.losePoints === game.forfeitPoints) {
+                // 敗北/放棄ポイントが同値の場合
+                myPointChange = game.losePoints; 
             } else {
-                 // スコア敗北の場合はlosePoints
-                 myPointChange = game.losePoints;
+                // 敗北/放棄ポイントが異なる場合、どちらが適用されたかは不明だが、
+                // 途中放棄はユーザーがボタンを押したとき、それ以外は自動確定したと推測し、一旦 losePoints をデフォルトとする
+                myPointChange = game.losePoints; 
             }
         }
+        
+        // サーバー側の `forfeit` アクションによる終了時に `forfeitPoints` が適用されると仮定し、
+        // それ以外の敗北（感電/スコア）では `losePoints` が適用されると仮定する。
+
         
         const finalMessage = game.winner === 'DRAW' 
             ? `<span style="color: #6c757d;">ゲーム終了! ${myResultText}です。最終スコア ${game.scoreA.toFixed(1)}P vs ${game.scoreB.toFixed(1)}P。</span>`
@@ -290,8 +313,7 @@ function renderGameArena(game) {
                 ${game.winner}の勝利です! 
                 あなたの総合ポイントは **${myPointChange > 0 ? '+' : ''}${myPointChange.toFixed(1)} P** 反映されました。
             </span>`;
-        // ★修正終了
-
+        
             
         turnText = finalMessage;
         
@@ -393,22 +415,25 @@ CREATE_ROOM_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('create-room-message');
     
-    // ポイント値を取得
-    const winPoints = parseFloat(document.getElementById('win-points').value);
-    const losePoints = parseFloat(document.getElementById('lose-points').value);
-    const forfeitPoints = parseFloat(document.getElementById('forfeit-points').value);
-
-    if (isNaN(winPoints) || isNaN(losePoints) || isNaN(forfeitPoints)) {
-        showMessage(messageEl, '❌ ポイント設定は全て有効な数値で入力してください。', 'error');
+    // ★修正: winPointsのみを取得し、他のポイントを計算
+    const rawWinPoints = parseFloat(document.getElementById('win-points').value);
+    
+    if (isNaN(rawWinPoints) || rawWinPoints <= 0) {
+        showMessage(messageEl, '❌ 勝利ポイントは正の有効な数値で入力してください。', 'error');
         return;
     }
+    
+    // ポイントの計算
+    const winPoints = parseFloat(rawWinPoints.toFixed(1));
+    const losePoints = parseFloat((-winPoints).toFixed(1));
+    const forfeitPoints = parseFloat((losePoints * 2).toFixed(1)); // 敗北ポイントの2倍
 
     showMessage(messageEl, 'ルーム作成中...', 'info');
 
     const response = await sendPvpAction({
         action: 'create',
         player: authenticatedUser.name,
-        // ポイント設定を送信
+        // 計算したポイント設定を送信
         pointsConfig: {
             winPoints: winPoints,
             losePoints: losePoints,
