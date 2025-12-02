@@ -126,7 +126,8 @@ async function fetchAndUpdatePvpData() {
     if (myGame) {
         // 進行中または終了済みのゲームが見つかった場合
         // 以下の条件でレンダリング（トークン更新、参加完了、ステータス変更、FINISHEDへの移行）
-        if (!currentGameState || myGame.actionToken !== currentGameState.actionToken || myGame.status !== currentGameState.status) {
+        // FINISHEDの場合も、actionTokenが変わらなくても再レンダリングする
+        if (!currentGameState || myGame.actionToken !== currentGameState.actionToken || myGame.status !== currentGameState.status || myGame.status === 'FINISHED') {
             currentGameState = myGame;
             PVP_LOBBY.classList.add('hidden');
             GAME_ARENA.classList.remove('hidden');
@@ -227,28 +228,32 @@ function renderGameArena(game) {
         leaveButton.textContent = 'ルームを削除';
         leaveButton.dataset.action = 'delete'; // ★修正: data-actionを設定
     } else if (game.status === 'FINISHED') {
-        // ★修正: ゲーム終了時のメッセージを明確に表示
-        const resultText = game.winner === myName ? '🏆 勝利' : (game.winner === 'DRAW' ? '🤝 引き分け' : '😭 敗北');
         
-        let pointChange;
-        if (game.winner === myName) {
-            pointChange = game.winPoints;
-        } else if (game.winner === 'DRAW') {
-            pointChange = 0;
-        } else {
-            pointChange = game.losePoints;
-        }
+        // ★★★ 修正: 勝敗メッセージを再構築し、常に表示する ★★★
+        
+        const myPointChange = game.winner === myName 
+            ? game.winPoints
+            : (game.winner === 'DRAW' ? 0 : game.losePoints);
+        
+        const myResultText = game.winner === myName 
+            ? '🏆 勝利!' 
+            : (game.winner === 'DRAW' ? '🤝 引き分け' : '😭 敗北...');
 
+        const opponent = myName === game.playerA ? game.playerB : game.playerA;
+        
         const finalMessage = game.winner === 'DRAW' 
-            ? `ゲーム終了! ${resultText}です。スコアは${game.scoreA.toFixed(1)}P vs ${game.scoreB.toFixed(1)}P。`
-            : `ゲーム終了! ${game.winner}の${resultText}です。総合ポイントに ${pointChange.toFixed(1)} P が反映されました。`;
+            ? `<span style="color: #6c757d;">ゲーム終了! ${myResultText}です。最終スコア ${game.scoreA.toFixed(1)}P vs ${game.scoreB.toFixed(1)}P。</span>`
+            : `<span style="color: ${game.winner === myName ? 'var(--color-primary)' : 'var(--color-error)'};">
+                ${game.winner}の${myResultText}です! 
+                あなたの総合ポイントは ${myPointChange > 0 ? '+' : ''}${myPointChange.toFixed(1)} P 反映されました。
+            </span>`;
             
         turnText = finalMessage;
+        
         CHAIR_CONTAINER.innerHTML = '<p style="text-align: center; font-size: 1.2em; font-weight: bold; color: var(--color-primary);">ゲームは終了しました。</p>';
         
         // 終了時のボタンアクション
         leaveButton.textContent = 'ロビーに戻る (ログ削除)';
-        // FINISHEDの場合、このボタンはログ削除アクションを実行する
         leaveButton.dataset.action = 'delete'; 
 
     } else if (game.nextActionPlayer === myName) {
@@ -267,7 +272,7 @@ function renderGameArena(game) {
         leaveButton.textContent = '対戦を辞める (敗北)';
         leaveButton.dataset.action = 'forfeit';
     }
-    TURN_DISPLAY.textContent = turnText;
+    TURN_DISPLAY.innerHTML = turnText; // ★修正: HTMLタグを含むため innerHTML を使用
 
     // --- 3. 直前の結果表示 ---
     if (game.lastResult) {
