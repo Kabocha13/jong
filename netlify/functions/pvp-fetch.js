@@ -84,7 +84,8 @@ exports.handler = async (event) => {
         const playerScores = allScores.map(p => ({
             name: p.name,
             pass: p.pass, // 認証のためpassも公開 (mypage.jsと同様の仕組み)
-            score: p.score
+            score: p.score,
+            status: p.status || 'none' // ★修正: status も含める
         }));
 
 
