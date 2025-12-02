@@ -165,21 +165,20 @@ exports.handler = async (event) => {
                  return { statusCode: 400, body: JSON.stringify({ message: 'Invalid chair ID.' }) };
             }
             
-            // ★修正: 強制終了判定 (残りの椅子が2つ以下の場合)
+            // ★修正: 強制終了判定 (残りの椅子が1つになった場合)
             const availableChairs = currentGame.publicChairs.filter(c => c.available);
             
-            if (availableChairs.length <= 2) {
-                // 残り2つの場合、このアクションはスキップされ、勝敗判定に移行する
-                // 12アクションが完了したのと同じロジックを適用する
-                currentGame.round = 13; // 強制的にラウンドオーバーフラグを立てる
-
-                // 4. 終了条件判定
+            // ----------------------------------------------------
+            // 残り椅子が1つの場合、次の仕掛けフェーズに入る前にゲームを終了させる
+            // ----------------------------------------------------
+            if (availableChairs.length === 1) { // 修正点: availableChairs.length <= 2 から === 1 に変更
+                
+                // 強制終了ロジック実行前の勝利判定に必要な情報の初期化
                 let winner = null;
                 let loser = null;
-                
-                // 感電3回での敗北はここでは判定しない（setShockChair前のため）
-                
+
                 // 12回アクション(6ラウンド)完了ロジックを適用
+                // スコアで勝敗を決定
                 if (currentGame.scoreA > currentGame.scoreB) {
                     winner = currentGame.playerA;
                     loser = currentGame.playerB;
@@ -191,6 +190,7 @@ exports.handler = async (event) => {
                 }
                 
                 if (winner) {
+                    currentGame.round = 13; // 強制的にラウンドオーバーフラグを立てる
                     currentGame.status = 'FINISHED';
                     currentGame.nextActionPlayer = null;
                     currentGame.winner = winner;
@@ -212,9 +212,9 @@ exports.handler = async (event) => {
                              allScoresMap.set(loser, loserData);
                         }
                         // ★修正: 応答メッセージにポイント変動を含める
-                        responseMessage = `Game Finished (Chairs limit)! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
+                        responseMessage = `Game Finished (Last chair)! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
                     } else {
-                        responseMessage = `Game Finished (Chairs limit)! Draw.`;
+                        responseMessage = `Game Finished (Last chair)! Draw.`;
                     }
                     scoreUpdated = true;
                     allData.scores = Array.from(allScoresMap.values());
@@ -261,12 +261,14 @@ exports.handler = async (event) => {
                     body: JSON.stringify({
                         status: 'success',
                         message: responseMessage,
-                        gameData: publicGameForResponse,
+                        gameData: publicGameForResponse, // ★ FINISHED状態のデータを返す
                         actionToken: newActionToken,
                     })
                 };
             }
-            // ★修正終わり
+            // ----------------------------------------------------
+            // 強制終了ロジック終わり
+            // ----------------------------------------------------
 
             
             const selectedChair = currentGame.secretChairs.find(c => c.id === chairId);
