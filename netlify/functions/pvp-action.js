@@ -87,13 +87,16 @@ exports.handler = async (event) => {
         // === A. ルーム作成 (create) ===
         if (action === 'create') {
             
-            // ポイント設定の検証と取得
-            const defaultPoints = { winPoints: 20.0, losePoints: -10.0, forfeitPoints: -10.0 };
-            const finalPoints = {
-                winPoints: pointsConfig && !isNaN(pointsConfig.winPoints) ? parseFloat(pointsConfig.winPoints.toFixed(1)) : defaultPoints.winPoints,
-                losePoints: pointsConfig && !isNaN(pointsConfig.losePoints) ? parseFloat(pointsConfig.losePoints.toFixed(1)) : defaultPoints.losePoints,
-                forfeitPoints: pointsConfig && !isNaN(pointsConfig.forfeitPoints) ? parseFloat(pointsConfig.forfeitPoints.toFixed(1)) : defaultPoints.forfeitPoints,
-            };
+            // ★修正: クライアントから渡されたwinPointsを基に、全てのポイントを計算
+            const defaultWinPoints = 10.0;
+            let finalWinPoints = defaultWinPoints;
+
+            if (pointsConfig && !isNaN(pointsConfig.winPoints) && pointsConfig.winPoints > 0) {
+                finalWinPoints = parseFloat(pointsConfig.winPoints.toFixed(1));
+            }
+            
+            const finalLosePoints = parseFloat((-finalWinPoints).toFixed(1));
+            const finalForfeitPoints = parseFloat((finalLosePoints * 2).toFixed(1));
 
             const newGameId = allGames.length > 0 ? Math.max(...allGames.map(g => g.gameId)) + 1 : 1;
             const newRoomCode = generateRoomCode();
@@ -116,10 +119,10 @@ exports.handler = async (event) => {
                 timestamp: now,
                 actionToken: newActionToken,
                 lastResult: null,
-                // プレイヤーが設定したポイント
-                winPoints: finalPoints.winPoints, 
-                losePoints: finalPoints.losePoints, 
-                forfeitPoints: finalPoints.forfeitPoints, 
+                // 計算されたポイントを保存
+                winPoints: finalWinPoints, 
+                losePoints: finalLosePoints, 
+                forfeitPoints: finalForfeitPoints, 
             };
 
             allGames.push(newGame);
@@ -369,7 +372,7 @@ exports.handler = async (event) => {
         
         // === E. ゲーム放棄/削除 (forfeit/delete) ===
         else if (action === 'forfeit') {
-            // ★修正: forfeit処理を分離し、ログは削除しない
+            // forfeit処理: ログは削除せず、FINISHED状態に移行
             if (!currentGame || currentGame.status === 'FINISHED') {
                  // 既に終了している場合は、削除を促すメッセージを返す
                  return { statusCode: 200, body: JSON.stringify({ status: "success", message: 'Game already finished. Use DELETE action to clear log.', gameData: currentGame }) };
@@ -379,7 +382,7 @@ exports.handler = async (event) => {
             const winner = currentGame.playerA === player ? currentGame.playerB : currentGame.playerA;
             const loser = player;
             const WIN_POINTS = currentGame.winPoints; 
-            const FORFEIT_PENALTY = currentGame.forfeitPoints; 
+            const FORFEIT_PENALTY = currentGame.forfeitPoints; // 放棄ポイントを使用
             
             const winnerData = allScoresMap.get(winner);
             const loserData = allScoresMap.get(loser);
@@ -406,7 +409,7 @@ exports.handler = async (event) => {
         } 
         
         else if (action === 'delete') {
-            // ★追加: deleteアクションはログの削除のみを行う
+            // deleteアクションはログの削除のみを行う
             if (!currentGame) {
                  return { statusCode: 400, body: JSON.stringify({ message: 'Game not found.' }) };
             }
