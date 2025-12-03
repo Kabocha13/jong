@@ -281,9 +281,9 @@ exports.handler = async (event) => {
                 loser = currentGame.playerB;
             } 
             
-            // ★追加: 終了条件判定 (ラウンド上限による終了 - 12ラウンド完了時)
-            // 椅子を12脚すべて選んだ後の round = 13 の時に判定を行う
-            const isRoundOver = currentGame.round === 13; 
+            // ★修正: 終了条件判定 (ラウンド上限による終了 - 11ラウンド完了時)
+            // 11個目の椅子をすべて選んだ後の round = 12 の時に判定を行う
+            const isRoundOver = currentGame.round === 12; 
             
             if (isRoundOver) {
                 // スコアで勝敗を決定
