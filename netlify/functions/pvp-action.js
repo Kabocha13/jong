@@ -175,70 +175,17 @@ exports.handler = async (event) => {
                  return { statusCode: 400, body: JSON.stringify({ message: 'Chair is already taken.' }) };
             }
             
-            // 1. ラウンド終了による勝敗判定 (11回目 = 最終仕掛け時)
-            if (currentGame.round === 11) {
-                
-                // 秘密情報に電流をセット (最後の仕掛けは確定させる)
-                currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
-                
-                // 11アクション完了時の勝敗判定 (ここで最終スコア勝負)
-                let winner = null;
-                let loser = null;
-                
-                // スコアで勝敗を決定
-                if (currentGame.scoreA > currentGame.scoreB) {
-                    winner = currentGame.playerA;
-                    loser = currentGame.playerB;
-                } else if (currentGame.scoreB > currentGame.scoreA) {
-                    winner = currentGame.playerB;
-                    loser = currentGame.playerA;
-                } else {
-                    winner = 'DRAW';
-                }
-                
-                // 勝敗が決定したら、ポイントを反映しゲームを終了
-                currentGame.round = 12; // 最終アクション完了として扱う
-                currentGame.status = 'FINISHED';
-                currentGame.nextActionPlayer = null;
-                currentGame.winner = winner;
-                
-                const WIN_POINTS = currentGame.winPoints;
-                const LOSE_POINTS = currentGame.losePoints;
+            // ★修正: setShockChairからはラウンド終了判定を削除
+            
+            // 秘密情報に電流をセット
+            currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
+            
+            // 次のターンは座るフェーズ
+            currentGame.status = isPlayerA ? 'WAITING_B_SIT' : 'WAITING_A_SIT'; 
+            currentGame.nextActionPlayer = isPlayerA ? currentGame.playerB : currentGame.playerA;
 
-                if (winner !== 'DRAW') {
-                    const winnerData = allScoresMap.get(winner);
-                    const loserData = allScoresMap.get(loser);
-
-                    if (winnerData) {
-                         winnerData.score = parseFloat((winnerData.score + WIN_POINTS).toFixed(1));
-                         allScoresMap.set(winner, winnerData);
-                    }
-                    if (loserData) {
-                         loserData.score = parseFloat((loserData.score + LOSE_POINTS).toFixed(1));
-                         allScoresMap.set(loser, loserData);
-                    }
-                    responseMessage = `Game Finished (Round Over)! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
-                } else {
-                    responseMessage = `Game Finished (Round Over)! Draw.`;
-                }
-                scoreUpdated = true;
-                allData.scores = Array.from(allScoresMap.values());
-                
-                // ログ削除はdeleteアクションに任せるため、ここでPUTして処理を終える
-                
-            } else {
-                // 2. 通常の仕掛けフェーズ
-                
-                // 秘密情報に電流をセット
-                currentGame.secretChairs.forEach(c => c.isShock = (c.id === chairId)); 
-                
-                // 次のターンは座るフェーズ
-                currentGame.status = isPlayerA ? 'WAITING_B_SIT' : 'WAITING_A_SIT'; 
-                currentGame.nextActionPlayer = isPlayerA ? currentGame.playerB : currentGame.playerA;
-
-                responseMessage = `Shock set on chair ${chairId}. Waiting for ${currentGame.nextActionPlayer} to sit.`;
-            }
-
+            responseMessage = `Shock set on chair ${chairId}. Waiting for ${currentGame.nextActionPlayer} to sit.`;
+            
             currentGame.actionToken = newActionToken; // トークンを更新
         }
 
@@ -298,7 +245,7 @@ exports.handler = async (event) => {
             secretChair.available = false;
             publicChair.available = false;
 
-            // 3. ラウンド情報の更新と攻守交替
+            // 3. ラウンド情報の更新
             currentGame.round += 1; // アクション回数をインクリメント
             
             // 秘密情報をクリア (次のラウンドの仕掛けに備える)
@@ -333,6 +280,24 @@ exports.handler = async (event) => {
                 winner = currentGame.playerA;
                 loser = currentGame.playerB;
             } 
+            
+            // ★追加: 終了条件判定 (ラウンド上限による終了 - 12ラウンド完了時)
+            // 椅子を12脚すべて選んだ後の round = 13 の時に判定を行う
+            const isRoundOver = currentGame.round === 13; 
+            
+            if (isRoundOver) {
+                // スコアで勝敗を決定
+                if (currentGame.scoreA > currentGame.scoreB) {
+                    winner = currentGame.playerA;
+                    loser = currentGame.playerB;
+                } else if (currentGame.scoreB > currentGame.scoreA) {
+                    winner = currentGame.playerB;
+                    loser = currentGame.playerA;
+                } else {
+                    winner = 'DRAW'; // 引き分け
+                }
+            }
+
 
             if (winner) {
                 currentGame.status = 'FINISHED';
@@ -341,7 +306,7 @@ exports.handler = async (event) => {
                 
                 // ポイント反映 (ルーム作成時の設定値を使用)
                 const WIN_POINTS = currentGame.winPoints;
-                const LOSE_POINTS = currentGame.losePoints;
+                const LOSE_POINTS = currentGame.losePoints; // 敗北ポイント
 
                 if (winner !== 'DRAW') {
                     const winnerData = allScoresMap.get(winner);
@@ -356,10 +321,14 @@ exports.handler = async (event) => {
                          loserData.score = parseFloat((loserData.score + LOSE_POINTS).toFixed(1));
                          allScoresMap.set(loser, loserData);
                     }
-                    responseMessage = `Game Finished! ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
-                } else {
-                    responseMessage = `Game Finished! Draw.`;
+                    
+                    const winMsg = isRoundOver ? 'Round Over' : 'Shock';
+                    responseMessage = `Game Finished! (${winMsg}) ${winner} wins. (+${WIN_POINTS} P / ${loser} ${LOSE_POINTS} P)`;
+                } else if (winner === 'DRAW') {
+                    // 引き分けの場合はポイント変動なし
+                    responseMessage = `Game Finished (Round Over)! Draw.`;
                 }
+
                 scoreUpdated = true;
             }
             
