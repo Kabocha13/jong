@@ -24,7 +24,6 @@
             <p class="instruction">マスターユーザー名とパスワードを入力してログインしてください。</p>
             <form id="auth-form">
                 <div class="form-group">
-                    <!-- ★ 修正: ユーザー名入力フィールドを追加 -->
                     <label for="username">ユーザー名:</label>
                     <input type="text" id="username" required>
                 </div>
@@ -168,7 +167,7 @@
             <!-- ★★★ 修正: プレゼントコード発行ツール ★★★ -->
             <div class="tool-box">
                 <h3>🎁 プレゼントコード発行</h3>
-                <p class="instruction">正負制限のないポイントを設定したコードを発行します。</p>
+                <p class="instruction">コードを発行します。</p>
                 <form id="create-gift-code-form">
                     <div class="form-group">
                         <label for="gift-code-name">コード名 (英数字):</label>
@@ -191,7 +190,7 @@
             
             <div class="tool-box">
                 <h3>💸 ポイント送金 (プレイヤー間)</h3>
-                <p class="instruction">あるプレイヤーから別のプレイヤーへポイントを移動させ、履歴に記録します。</p>
+                <p class="instruction">あるプレイヤーから別のプレイヤーへポイントを移動させます。</p>
                 <form id="transfer-form">
                     <div class="form-group">
                         <label for="sender-player">送金元プレイヤー:</label>
@@ -216,7 +215,7 @@
             
             <div class="tool-box">
                 <h3>💰 日次ポイント徴収 (合計100P)</h3>
-                <p class="instruction">毎日0時に実行することを想定したポイント徴収です。合計100Pを保有ポイントに比例して徴収します。</p>
+                <p class="instruction">合計の5%を保有ポイントに比例して徴収します。</p>
                 <p class="instruction" style="color: #dc3545;">※ 徴収対象外: '3mahjong' プレイヤー</p>
                 <button type="button" id="daily-tax-button" class="action-button" style="background-color: #DAA520; color: var(--color-text);">
                     日次ポイント徴収を実行
@@ -257,8 +256,7 @@
             <a href="index.html" class="input-link">ランキング</a>
             <a href="mypage.html" class="input-link">マイページ</a>
             <a href="master.html" class="input-link">マスター</a>
-            <!-- ★ pvpリンクを追加 ★ -->
-            <a href="pvp.html" class="input-link" style="background-color: var(--color-accent); color: white;">PVP</a>
+            <a href="pvp.html" class="input-link">PVP</a>
         </nav>
     </footer>
 
