@@ -6,7 +6,6 @@ const AUTH_MESSAGE = document.getElementById('auth-message');
 const WAGER_FORM = document.getElementById('wager-form');
 const TARGET_BET_SELECT = document.getElementById('target-bet');
 const WAGER_PLAYER_INPUT = document.getElementById('wager-player');
-// 廃止された要素: WAGER_SELECTION_SELECT
 const AUTHENTICATED_USER_NAME = document.getElementById('authenticated-user-name');
 const CURRENT_SCORE_ELEMENT = document.getElementById('current-score');
 const FIXED_PLAYER_NAME = document.getElementById('fixed-player-name');
@@ -30,12 +29,10 @@ const PRO_BONUS_BUTTON = document.getElementById('pro-bonus-button');
 const PRO_BONUS_MESSAGE = document.getElementById('pro-bonus-message');
 const PRO_BONUS_INSTRUCTION = document.getElementById('pro-bonus-instruction'); 
 
-// ★★★ 新規追加: 送金関連の要素 ★★★
 const TRANSFER_FORM_MYPAGE = document.getElementById('transfer-form-mypage');
 const RECEIVER_PLAYER_SELECT_MYPAGE = document.getElementById('receiver-player-mypage');
 const AUTHENTICATED_USER_TRANSFER = document.getElementById('authenticated-user-transfer');
 
-// ★★★ 新規追加: 宝くじ関連の要素 ★★★
 const LOTTERY_PURCHASE_FORM = document.getElementById('lottery-purchase-form');
 const LOTTERY_SELECT = document.getElementById('lottery-select');
 const LOTTERY_TICKET_COUNT = document.getElementById('lottery-ticket-count');
@@ -50,11 +47,10 @@ const PREMIUM_CREATE_MESSAGE = document.getElementById('premium-create-message')
 const PREMIUM_MATCH_NAME_INPUT = document.getElementById('premium-match-name');
 const PREMIUM_DEADLINE_DATETIME_INPUT = document.getElementById('premium-deadline-datetime');
 
-// ★★★ 新規追加要素: プレゼントコード ★★★
 const APPLY_GIFT_CODE_FORM = document.getElementById('apply-gift-code-form');
 const GIFT_CODE_INPUT = document.getElementById('gift-code-input');
 const APPLY_GIFT_CODE_MESSAGE = document.getElementById('apply-gift-code-message');
-// ★★★ 新規追加ここまで ★★★
+const TARGET_CONTINUE_TOOL = document.getElementById('target-continue-tool');
 
 
 // 認証されたユーザー情報 ({name: '...', score: ..., pass: '...', status: ..., lastBonusTime: ...})
@@ -82,14 +78,11 @@ async function attemptLogin(username, password, isAuto = false) {
     const scores = allData.scores;
 
     // ユーザー名とパスワードで照合
-    // ★ 修正: .pro フィールドではなく .status フィールドをチェックする
     const user = scores.find(p => p.name === username && p.pass === password);
 
     if (user) {
-        // ★ 修正: 認証ユーザー情報を最新のデータで上書き
         authenticatedUser = user; 
         
-        // ★ 修正: statusフィールドが存在しない場合、'none' をデフォルトとして設定
         if (!authenticatedUser.status) {
             authenticatedUser.status = 'none';
         }
@@ -214,6 +207,32 @@ async function initializeMyPageContent() {
     
     // 9. ★★★ 新規追加: プレゼントコード機能の初期化 ★★★
     initializeGiftCodeFeature();
+
+    // 10. ★★★ 新規追加: 目標継続フォームの表示制御 ★★★
+    controlTargetContinueFormDisplay();
+}
+
+
+// --- 目標継続フォームの表示制御 ---
+/**
+ * 目標継続フォームの表示を、指定日時以降に制御する (2026/12/10 00:00:00 JST)
+ */
+function controlTargetContinueFormDisplay() {
+    if (!TARGET_CONTINUE_TOOL) return;
+
+    // 制御開始日時を設定 (2026年12月10日 00:00:00 JST)
+    const TARGET_DATE = new Date('2026-12-10T00:00:00+09:00'); // JST (UTC+9)
+    const now = new Date();
+
+    if (now >= TARGET_DATE) {
+        // 2026年12月10日以降の場合、表示する
+        TARGET_CONTINUE_TOOL.classList.remove('hidden');
+    } else {
+        // それ以前の場合、非表示のままにする
+        TARGET_CONTINUE_TOOL.classList.add('hidden');
+        // 必要であれば、コンソールに非表示の理由を出力
+        // console.log("目標継続フォームはまだ表示されません (2026/12/10 以降に表示されます)。");
+    }
 }
 
 
@@ -223,14 +242,12 @@ async function initializeMyPageContent() {
  * proまたはpremiumまたはluxuryステータスを確認し、ボタンの表示を制御する
  */
 function initializeDarkModeFeature() {
-    // ★ 修正: statusが'pro'または'premium'または'luxury'であれば有効
     const isMember = authenticatedUser && 
                      (authenticatedUser.status === 'pro' || 
                       authenticatedUser.status === 'premium' ||
                       authenticatedUser.status === 'luxury'); // ★ luxuryを追加
     const isDarkModeEnabled = localStorage.getItem('darkMode') === 'enabled';
     
-    // ★ 修正: nullチェックの追加
     if (!DARK_MODE_TOGGLE_BUTTON || !DARK_MODE_STATUS) return;
 
     // pro/premium/luxury会員でない場合、ボタンを無効化・スタイル変更し、理由を表示する
@@ -272,10 +289,8 @@ function updateDarkModeDisplay(isEnabled) {
 /**
  * ダークモード切り替えボタンのイベントリスナー (Luxury対応)
  */
-// ★ 修正: nullチェック
 if (DARK_MODE_TOGGLE_BUTTON) {
     DARK_MODE_TOGGLE_BUTTON.addEventListener('click', () => {
-        // ★ 修正: statusが'pro'または'premium'または'luxury'であれば有効
         const isMember = authenticatedUser && 
                          (authenticatedUser.status === 'pro' || 
                           authenticatedUser.status === 'premium' ||
@@ -314,7 +329,6 @@ if (DARK_MODE_TOGGLE_BUTTON) {
  * Pro/Premium/Luxury会員であるかチェックし、ボタンの表示/有効性を制御
  */
 function initializeMemberBonusFeature() {
-    // ★ 修正: statusが'pro','premium','luxury'の場合に表示
     const isMember = authenticatedUser && 
                      (authenticatedUser.status === 'pro' || 
                       authenticatedUser.status === 'premium' ||
@@ -345,7 +359,6 @@ function updateMemberBonusDisplay() {
     let REFRESH_INTERVAL; // 獲得間隔（ミリ秒）
     let REFRESH_TEXT;     // 獲得間隔（表示用テキスト）
 
-    // ★ 修正: Luxury会員のボーナスを変更 (5.0P / 1時間ごと)
     if (MEMBER_STATUS === 'luxury') {
         BONUS_AMOUNT = 5.0; // Luxuryは5ポイント
         MEMBER_TYPE = 'Luxury';
@@ -398,7 +411,6 @@ function updateMemberBonusDisplay() {
     }
     
     if (PRO_BONUS_INSTRUCTION) {
-        // ★ 修正: REFRESH_TEXTを使用して表示を更新
         PRO_BONUS_INSTRUCTION.innerHTML = `${MEMBER_TYPE}会員特典: ${REFRESH_TEXT}に <strong>${BONUS_AMOUNT.toFixed(1)} P</strong> を獲得できます。`; 
     }
     
@@ -410,7 +422,6 @@ function updateMemberBonusDisplay() {
 /**
  * 会員ボーナスポイントを付与する処理
  */
-// ★ 修正: nullチェック
 if (PRO_BONUS_BUTTON) {
     PRO_BONUS_BUTTON.addEventListener('click', async () => {
         if (!authenticatedUser) {
@@ -422,7 +433,6 @@ if (PRO_BONUS_BUTTON) {
         let BONUS_AMOUNT;
         let REFRESH_INTERVAL; // 獲得間隔（ミリ秒）
 
-        // ★ 修正: Luxury会員 (5.0P / 1時間ごと) を適用
         if (MEMBER_STATUS === 'luxury') {
             BONUS_AMOUNT = 5.0;
             REFRESH_INTERVAL = 3600000; // 1時間
@@ -521,7 +531,7 @@ if (PRO_BONUS_BUTTON) {
 
 
 // -----------------------------------------------------------------
-// Premium会員向けスポーツくじ作成機能 (Luxury会員にも開放)
+// Premium会員向けスポーツくじ作成機能
 // -----------------------------------------------------------------
 
 /**
@@ -544,7 +554,6 @@ function formatDateTimeLocal(date) {
 function initializePremiumBetCreation() {
     if (!PREMIUM_TOOLS_SECTION || !PREMIUM_CREATE_BET_FORM) return;
     
-    // ★ 修正: Luxury会員にも開放
     const isPremiumOrLuxury = authenticatedUser && 
                               (authenticatedUser.status === 'premium' || authenticatedUser.status === 'luxury');
 
@@ -598,7 +607,6 @@ async function handlePremiumBetCreation(e) {
         const currentData = await fetchAllData();
         let allBets = currentData.sports_bets || [];
         
-        // ★★★ 修正: 3件以上の記録がある場合、最も古い記録を削除 (マスターと同じロジック) ★★★
         if (allBets.length >= 3) {
             allBets.sort((a, b) => a.betId - b.betId);
             allBets.shift();
@@ -652,10 +660,6 @@ async function handlePremiumBetCreation(e) {
     }
 }
 
-
-// -----------------------------------------------------------------
-// ★★★ 新規追加: プレゼントコード適用機能 ★★★
-// -----------------------------------------------------------------
 
 /**
  * プレゼントコード機能の初期化
@@ -755,9 +759,6 @@ async function handleApplyGiftCode(e) {
         //     pointsApplied: pointsToApply 
         // });
 
-        // --------------------------------------------------------
-        // ★★★ 修正点: 利用回数が尽きたコードを削除 ★★★
-        // --------------------------------------------------------
         // maxUsesが0 (無制限) でない、かつ currentUsesがmaxUsesに達した場合
         const isFullyUsed = giftCode.maxUses > 0 && giftCode.currentUses >= giftCode.maxUses;
 
@@ -811,14 +812,6 @@ async function handleApplyGiftCode(e) {
         submitButton.disabled = false;
     }
 }
-// -----------------------------------------------------------------
-// プレゼントコード適用機能 終了
-// -----------------------------------------------------------------
-
-
-// -----------------------------------------------------------------
-// 以降、既存の機能 (一部修正済み)
-// -----------------------------------------------------------------
 
 
 // --- 送金機能のロード (変更なし) ---
@@ -856,7 +849,6 @@ async function loadTransferReceiverList() {
 /**
  * 送金処理のイベントハンドラ (変更なし)
  */
-// ★ 修正: nullチェック
 if (TRANSFER_FORM_MYPAGE) {
     TRANSFER_FORM_MYPAGE.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1136,7 +1128,6 @@ if (WAGER_FORM) {
     WAGER_FORM.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // ★ 修正: authenticatedUser の null チェック
         if (!authenticatedUser) {
             showMessage(document.getElementById('wager-message'), '❌ 認証エラーが発生しました。', 'error');
             return;
@@ -1279,7 +1270,6 @@ if (WAGER_FORM) {
 function initializeLotteryPurchaseForm() {
     if (!LOTTERY_SELECT || !LOTTERY_TICKET_COUNT || !LOTTERY_TOTAL_PRICE_DISPLAY) return;
 
-    // ★ 追加: 購入枚数の上限（もしHTMLで設定されていれば）を撤廃
     LOTTERY_TICKET_COUNT.removeAttribute('max');
 
     // ★ Luxury会員の割引率を定義
@@ -1373,7 +1363,6 @@ async function loadLotteryData() {
             const myTickets = l.tickets.filter(t => t.player === myPlayerName);
             const resultAnnounceDate = new Date(l.resultAnnounceDate);
             
-            // ★★★ 修正: チケットの合計枚数を計算 (集約型データに対応) ★★★
             const totalTicketsCount = myTickets.reduce((sum, t) => sum + t.count, 0);
             
             let statusHtml = '';
@@ -1386,7 +1375,6 @@ async function loadLotteryData() {
                 // 未請求のチケット総枚数を計算 (isClaimed: false のチケットの count の合計)
                 const unclaimedTicketsCount = myTickets.filter(t => !t.isClaimed).reduce((sum, t) => sum + t.count, 0);
                 
-                // ★★★ 修正: 結果確認済みの内訳表示ロジック (集約型データに対応) ★★★
                 const claimedTickets = myTickets.filter(t => t.isClaimed);
                 let winnings = 0;
                 let prizeSummary = '';
@@ -1442,7 +1430,6 @@ async function loadLotteryData() {
                     statusHtml += prizeSummary;
                 }
             }
-            // ★★★ 修正ここまで ★★★
 
             html += `
                 <div class="bet-card" style="margin-bottom: 10px;">
@@ -1489,13 +1476,11 @@ if (LOTTERY_PURCHASE_FORM) {
             return;
         }
 
-        // ★★★ 修正: Luxury会員の割引を適用 ★★★
         const DISCOUNT_RATE = authenticatedUser.status === 'luxury' ? 0.8 : 1.0;
         const originalPrice = lottery.ticketPrice * count;
         const discountedPrice = originalPrice * DISCOUNT_RATE;
         // 最終的な価格を小数点第一位に丸める
         const finalPrice = parseFloat(discountedPrice.toFixed(1)); 
-        // ★★★ 修正ここまで ★★★
         
         if (authenticatedUser.score < finalPrice) {
             showMessage(LOTTERY_PURCHASE_MESSAGE, `❌ ポイント残高 (${authenticatedUser.score.toFixed(1)} P) が不足しています (必要: ${finalPrice.toFixed(1)} P)。`, 'error');
@@ -1532,7 +1517,6 @@ if (LOTTERY_PURCHASE_FORM) {
             
             const targetLottery = allLotteries[targetLotteryIndex];
             
-            // ★★★ 修正: 抽選と集約化 ★★★
             
             // 抽選結果をランクごとに集計 { rank: { count: number, amount: number } }
             const drawResultsMap = {}; 
@@ -1580,7 +1564,6 @@ if (LOTTERY_PURCHASE_FORM) {
                 
                 newTickets.push(newTicket);
             });
-            // ★★★ 修正ここまで ★★★
 
             
             // 5. プレイヤーのスコアを減算 (割引後の最終価格を使用)
