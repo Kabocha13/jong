@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>マイページ (スポーツくじ購入)</title>
-    <!-- ★★★ 追加: ファビコン設定 ★★★ -->
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
@@ -46,7 +45,7 @@
             <div id="pro-bonus-tool" class="tool-box hidden">
                 <h4>⭐ 会員ボーナス</h4>
                 <!-- JS側でPro(10P) / Premium(15P)に応じて内容が動的に更新されます -->
-                <p class="instruction" id="pro-bonus-instruction">Pro/Premium会員特典: 24時間ごとにボーナスポイントを獲得できます。</p>
+                <p class="instruction" id="pro-bonus-instruction">Pro/Premium会員特典</p>
                 <button type="button" id="pro-bonus-button" class="action-button" style="width: auto; background-color: #38c172;">
                     ボーナス (+P) を受け取る
                 </button>
@@ -84,10 +83,9 @@
                 </div>
             </div>
             
-            <!-- ★★★ 新規追加: プレゼントコード入力・適用 ★★★ -->
             <div class="tool-box">
                 <h3>🎁 プレゼントコード入力</h3>
-                <p class="instruction">コードを入力してポイントを獲得/消費します。</p>
+                <p class="instruction">コードを入力してポイントを獲得します。</p>
                 <form id="apply-gift-code-form">
                     <div class="form-group">
                         <label for="gift-code-input">プレゼントコード:</label>
@@ -97,16 +95,15 @@
                 </form>
                 <p id="apply-gift-code-message" class="hidden"></p>
             </div>
-            <!-- ★★★ ここまで新規追加 ★★★ -->
 
 
-            <!-- ★★★ Premium会員専用機能: スポーツくじ作成フォームの追加 ★★★ -->
+            <!-- ★★★ Premium会員専用機能: スポーツくじ作成フォーム ★★★ -->
             <div id="premium-tools-section" class="tool-box hidden">
                 <h2>👑 Premium会員専用ツール</h2>
                 
                 <div class="tool-box" style="border: none; padding: 0;">
                     <h3>📝 新規スポーツくじ作成・公開</h3>
-                    <p class="instruction">Premium会員は、マスター権限と同様に新しいくじを開催できます。</p>
+                    <p class="instruction">新しいくじを開催できます。</p>
                     <form id="premium-create-bet-form">
                         <div class="form-group">
                             <label for="premium-match-name">くじ名:</label>
@@ -121,7 +118,6 @@
                     <p id="premium-create-message" class="hidden"></p>
                 </div>
             </div>
-            <!-- ★★★ ここまでPremiumツール ★★★ -->
             
             <div class="tool-box">
                 <h3>💰 スポーツくじ購入</h3>
@@ -191,8 +187,7 @@
             <a href="index.html" class="input-link">ランキング</a>
             <a href="mypage.html" class="input-link">マイページ</a>
             <a href="master.html" class="input-link">マスター</a>
-            <!-- ★ pvpリンクを追加 ★ -->
-            <a href="pvp.html" class="input-link" style="background-color: var(--color-accent); color: white;">PVP</a>
+            <a href="pvp.html" class="input-link">PVP</a>
         </nav>
     </footer>
 
