@@ -6,10 +6,9 @@
 // クライアント側ではAPIキーなしで、サーバーレス関数を呼び出す
 const FETCH_URL = "/.netlify/functions/fetch-data";
 const UPDATE_URL = "/.netlify/functions/update-data";
-// ★★★ 新規追加: PVPゲーム専用エンドポイント ★★★
+
 const PVP_FETCH_URL = "/.netlify/functions/pvp-fetch";
 const PVP_ACTION_URL = "/.netlify/functions/pvp-action";
-// ★★★ 新規追加ここまで ★★★
 
 
 // -----------------------------------------------------------------
@@ -32,7 +31,7 @@ async function fetchAllData() {
 
     while (attempt < MAX_RETRIES) {
         try {
-            // ★ 修正: Netlify Functionを呼び出す
+            // Netlify Functionを呼び出す
             const response = await fetch(FETCH_URL, {
                 method: 'GET',
                 // APIキーはサーバーレス関数側で設定するため、ヘッダーから削除
