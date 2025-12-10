@@ -221,7 +221,7 @@ function controlTargetContinueFormDisplay() {
     if (!TARGET_CONTINUE_TOOL) return;
 
     // 制御開始日時を設定 (2026年12月10日 00:00:00 JST)
-    const TARGET_DATE = new Date('2026-12-10T00:00:00+09:00'); // JST (UTC+9)
+    const TARGET_DATE = new Date('2025-12-10T00:00:00+09:00'); // JST (UTC+9)
     const now = new Date();
 
     if (now >= TARGET_DATE) {
