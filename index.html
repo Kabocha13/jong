@@ -3,84 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JONG - SPACE RANKING</title>
+    <title>賭</title>
     <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .lottery-prize-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        .lottery-prize-table th, .lottery-prize-table td {
+            border: 1px solid #ddd;
+            padding: 4px 8px;
+            text-align: left;
+        }
+        .lottery-prize-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #333;
+        }
+        .lottery-prize-table tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        /* ダークモード対応 */
+        .dark-mode .lottery-prize-table th {
+            background-color: #333;
+            color: #eee;
+        }
+        .dark-mode .lottery-prize-table td {
+            border-color: #444;
+        }
+        .dark-mode .lottery-prize-table tbody tr:nth-child(even) {
+            background-color: #383838;
+        }
+    </style>
 </head>
-<body class="space-theme">
-    <header class="electric-header">
-        <div class="scanline"></div>
-        <h1>JONG 2025</h1>
-        <p class="header-subtitle">SYSTEM STATUS: NEON ONLINE</p>
+<body>
+    <header>
+        <h1>Jong</h1>
     </header>
 
-    <main class="glass-interface">
-        <!-- 年末カウントダウン -->
-        <div id="countdown-section" class="countdown-container main-countdown">
-            <p class="countdown-label">⚡ 2025 TERMINAL COUNTDOWN ⚡</p>
-            <div id="countdown-timer">00d 00:00:00</div>
+    <main>
+        <h2>現在のスコア</h2>
+        <div id="scores-container">
+            <p>データを読み込み中...</p>
         </div>
+        
+        <p class="update-info" id="last-update"></p>
+        <button id="refresh-button">🔄 更新</button>
 
-        <section class="content-block neon-border-cyan">
-            <h2 class="neon-title">RANKING PROTOCOL</h2>
-            <div id="scores-container">
-                <p class="status-msg">INITIALIZING DATA SYNC...</p>
-            </div>
-            <p class="update-info" id="last-update" style="text-align: right; font-size: 0.8em; opacity: 0.6;"></p>
-            <button id="refresh-button" class="neon-btn">🔄 RELOAD RANKING</button>
-        </section>
-
-        <!-- 宝くじエリア (表示復元) -->
-        <div class="info-box neon-border-purple">
-            <h3 class="icon-title">🎟️ ACTIVE LOTTERIES</h3>
+        <div class="info-box" style="margin-top: 20px;">
+            <h3 class="icon-title">🎟️ 開催中の宝くじ</h3>
             <div id="lottery-list-container">
-                <p class="status-msg">ACCESSING LOTTERY DATA...</p>
+                <p>宝くじデータを読み込み中...</p>
             </div>
         </div>
         
-        <!-- スポーツくじエリア -->
-        <div class="info-box neon-border-cyan">
-            <h3 class="icon-title">⚽ SPORTS WAGERING</h3>
+        <div class="info-box" style="margin-top: 20px;">
+            <h3 class="icon-title">⚽ 開催中のスポーツくじ</h3>
             <div id="sports-bets-container">
-                <p class="status-msg">SCANNING ACTIVE MATCHES...</p>
+                <p>くじデータを読み込み中...</p>
             </div>
         </div>
 
-        <div class="info-box glass-box">
-            <h3 class="icon-title">💱 REWARD CATALOG</h3>
-            <ul class="exchange-list">
-                <li><span class="p-val">250P</span> 自販機ドリンク (200円まで)</li>
-                <li><span class="p-val">300P</span> 下田の講義 (10分間)</li>
-                <li><span class="p-val">1000P</span> JongPro 1ヶ月券</li>
-                <li><span class="p-val">1500P</span> 第1回リアルイベント特典</li>
-                <li><span class="p-val">1500P</span> 第2回リアルイベント特典</li>
-                <li><span class="p-val">1500P</span> JongPremium 1ヶ月券</li>
-                <li><span class="p-val">1500P</span> 2026年座席選択権 (残2)</li>
-                <li><span class="p-val">2000P</span> 2027年ベッド優先権 (残1)</li>
-                <li><span class="p-val">10000P</span> TDR TICKET</li>
-            </ul>
+        <div class="info-box">
+            <h3 class="icon-title">💱 交換商品とレート</h3>
+            <li>250P...自販機でドリンク1本(200円まで)</li>
+            <li>300P...下田の講義(内容自由,10分間)</li>
+            <li>1000P...JongPro1ヶ月券</li>
+            <li>1500P...第1回リアルイベント特典</li>
+            <li>1500P...第2回リアルイベント特典</li>
+            <li>1500P...JongPremium1ヶ月券</li>
+            <li>1500P...2026年旅行飛行機座席選択権(残2)</li>
+            <li>2000P...2027年旅行ベッド優先選択権(残1)</li>
+            <li>10000P...TDRチケット</li>
         </div>
 
-        <div class="info-box glass-box">
-            <h3 class="icon-title">🏎️ SPEED STORM RECORDS</h3>
-            <ul id="race-records-list" class="race-list">
-                <li class="condition">LOG: B.HARD / CPU7 / LAP1 / HYPER</li>
-                <p>FETCHING RECORDS...</p>
+        <div class="info-box">
+            <h3 class="icon-title">🏎️ スピードストーム BestTime</h3>
+            <ul id="race-records-list" style="list-style-type: none; padding: 0;">
+                <li>記録条件:ローカルフリー　ベリーハード　CPU7　ラップ1　超高速</li>
+                <p>記録を読み込み中...</p>
             </ul>
         </div>
     </main>
 
-    <footer class="cyber-footer">
-        <nav class="footer-nav" id="main-nav">
-            <a href="index.html" class="nav-link active">RANKING</a>
-            <a href="pvp.html" class="nav-link">PVP</a>
-            <a href="mypage.html" class="nav-link">MY PAGE</a>
-            <a href="master.html" class="nav-link">MASTER</a>
+    <footer>
+        <nav class="footer-nav">
+            <a href="index.html" class="input-link">ランキング</a>
+            <a href="mypage.html" class="input-link">マイページ</a>
+            <a href="pvp.html" class="input-link">PVP</a>
+            <a href="master.html" class="input-link">マスター</a>
         </nav>
     </footer>
 
     <script src="assets/js/common.js"></script>
     <script src="assets/js/main.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                document.body.classList.add('dark-mode');
+            }
+        });
+    </script>
 </body>
 </html>
