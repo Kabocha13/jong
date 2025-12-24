@@ -7,110 +7,82 @@
     <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
-    <style>
-        /* 宝くじテーブルの電脳デザイン化 */
-        .lottery-prize-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9em;
-            margin-top: 10px;
-            color: #fff;
-            background: rgba(0, 255, 255, 0.05);
-        }
-        .lottery-prize-table th, .lottery-prize-table td {
-            border: 1px solid var(--electric-cyan);
-            padding: 8px;
-            text-align: left;
-        }
-        .lottery-prize-table th {
-            background-color: rgba(189, 0, 255, 0.3);
-            font-weight: bold;
-            text-shadow: 0 0 5px var(--electric-cyan);
-        }
-        /* ダークモード/通常共通で宇宙デザインを貫通 */
-    </style>
 </head>
 <body class="space-theme">
     <header class="electric-header">
         <div class="scanline"></div>
         <h1>JONG 2025</h1>
-        <p class="header-subtitle">MISSION TO 2026</p>
+        <p class="header-subtitle">SYSTEM STATUS: OPERATIONAL</p>
     </header>
 
     <main class="glass-interface">
-        <!-- カウントダウンセクション (宇宙と電気の中枢) -->
+        <!-- 年末カウントダウン中央制御ユニット -->
         <div id="countdown-section" class="countdown-container main-countdown">
-            <p class="countdown-label">TIME TO RELOAD</p>
+            <p class="countdown-label">⚡ 2025 TERMINAL COUNTDOWN ⚡</p>
             <div id="countdown-timer">00d 00:00:00</div>
         </div>
 
         <section class="content-block">
-            <h2 class="neon-title">CORE RANKING</h2>
+            <h2 class="neon-title">RANKING PROTOCOL</h2>
             <div id="scores-container">
-                <p>SYNCING DATA...</p>
+                <p class="status-msg">INITIALIZING DATA SYNC...</p>
             </div>
             
             <p class="update-info" id="last-update"></p>
-            <button id="refresh-button" class="neon-btn">🔄 SYSTEM UPDATE</button>
+            <button id="refresh-button" class="neon-btn">🔄 RELOAD SYSTEM</button>
         </section>
 
+        <!-- 詳細表示が復活した宝くじエリア -->
         <div class="info-box neon-border-purple">
-            <h3 class="icon-title">🎟️ ACTIVE LOTTERIES</h3>
+            <h3 class="icon-title">🎟️ ACTIVE LOTTERY MODULES</h3>
             <div id="lottery-list-container">
-                <p>LOADING TICKETS...</p>
+                <p class="status-msg">ACCESSING LOTTERY DATA...</p>
             </div>
         </div>
         
         <div class="info-box neon-border-cyan">
-            <h3 class="icon-title">⚽ SPORTS WAGERING</h3>
+            <h3 class="icon-title">⚽ SPORTS PREDICTIONS</h3>
             <div id="sports-bets-container">
-                <p>LOADING ODDS...</p>
+                <p class="status-msg">SCANNING ACTIVE MATCHES...</p>
             </div>
         </div>
 
         <div class="info-box glass-box">
-            <h3 class="icon-title">💱 REWARD EXCHANGE</h3>
+            <h3 class="icon-title">💱 REWARD CATALOG</h3>
             <ul class="exchange-list">
-                <li>250P...自販機でドリンク1本(200円まで)</li>
-                <li>300P...下田の講義(内容自由,10分間)</li>
-                <li>1000P...JongPro1ヶ月券</li>
-                <li>1500P...第1回リアルイベント特典</li>
-                <li>1500P...第2回リアルイベント特典</li>
-                <li>1500P...JongPremium1ヶ月券</li>
-                <li>1500P...2026年旅行飛行機座席選択権(残2)</li>
-                <li>2000P...2027年旅行ベッド優先選択権(残1)</li>
-                <li>10000P...TDRチケット</li>
+                <li><span class="p-val">250P</span> 自販機ドリンク (200円まで)</li>
+                <li><span class="p-val">300P</span> 下田の講義 (10分間)</li>
+                <li><span class="p-val">1000P</span> JongPro 1ヶ月券</li>
+                <li><span class="p-val">1500P</span> 第1回リアルイベント特典</li>
+                <li><span class="p-val">1500P</span> 第2回リアルイベント特典</li>
+                <li><span class="p-val">1500P</span> JongPremium 1ヶ月券</li>
+                <li><span class="p-val">1500P</span> 2026年旅行座席選択権(残2)</li>
+                <li><span class="p-val">2000P</span> 2027年旅行ベッド優先権(残1)</li>
+                <li><span class="p-val">10000P</span> TDR TICKET</li>
             </ul>
         </div>
 
         <div class="info-box glass-box">
-            <h3 class="icon-title">🏎️ SPEED STORM RECORDS</h3>
+            <h3 class="icon-title">🏎️ SPEED STORM BEST TIME</h3>
             <ul id="race-records-list" class="race-list">
-                <li class="condition">CONDITION: LOCAL FREE / VERY HARD / CPU7 / LAP1 / HYPER</li>
-                <p>SYNCING RECORDS...</p>
+                <li class="condition">LOG: B.HARD / CPU7 / LAP1 / HYPER</li>
+                <p>FETCHING RECORDS...</p>
             </ul>
         </div>
     </main>
 
     <footer class="cyber-footer">
-        <nav class="footer-nav">
+        <nav class="footer-nav" id="main-nav">
             <a href="index.html" class="nav-link active">RANKING</a>
-            <a href="mypage.html" class="nav-link">MY PAGE</a>
-            <a href="pvp.html" class="nav-link">PVP</a>
-            <a href="master.html" class="nav-link">MASTER</a>
+            <!-- 認証が必要なリンクはJSで制御されます -->
+            <a href="mypage.html" class="nav-link auth-required hidden">MY PAGE</a>
+            <a href="pvp.html" class="nav-link auth-required hidden">PVP</a>
+            <a href="master.html" class="nav-link master-required hidden">MASTER</a>
+            <a href="mypage.html" class="nav-link guest-only">LOGIN</a>
         </nav>
     </footer>
 
     <script src="assets/js/common.js"></script>
     <script src="assets/js/main.js"></script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // 年末仕様のため常に宇宙デザインを優先するが、設定は維持
-            if (localStorage.getItem('darkMode') === 'enabled') {
-                document.body.classList.add('dark-mode');
-            }
-        });
-    </script>
 </body>
 </html>
