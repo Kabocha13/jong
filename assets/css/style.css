@@ -1,4 +1,4 @@
-/* assets/css/style.css - Year-End Countdown (Enhanced Space & Auth logic) */
+/* assets/css/style.css - Year-End Countdown Global Space Theme */
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap');
 
@@ -23,20 +23,39 @@ body {
     background-attachment: fixed;
     color: var(--color-text);
     margin: 0; padding: 0;
-    padding-bottom: 110px;
+    padding-bottom: 120px;
     overflow-x: hidden;
 }
 
-/* --- Header --- */
-.electric-header {
+/* 宇宙の星屑背景 */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: 
+        radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
+        radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px);
+    background-size: 550px 550px, 350px 350px;
+    opacity: 0.1;
+    z-index: -1;
+    animation: stars-drift 100s linear infinite;
+}
+
+@keyframes stars-drift {
+    from { background-position: 0 0; }
+    to { background-position: 1000px 500px; }
+}
+
+/* --- ヘッダー --- */
+header, .electric-header {
     background: rgba(0, 0, 0, 0.9);
     padding: 30px 15px;
     border-bottom: 1px solid var(--electric-cyan);
     text-align: center;
-    box-shadow: 0 0 15px var(--electric-cyan);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
 }
 
-.electric-header h1 {
+header h1, .electric-header h1 {
     font-family: var(--font-display);
     font-size: 2em;
     letter-spacing: 5px;
@@ -45,142 +64,133 @@ body {
     margin: 0;
 }
 
-/* --- Main Glass Container --- */
-main.glass-interface {
+/* --- コンテンツエリア --- */
+main, .glass-interface {
     max-width: 800px;
-    margin: 15px auto;
-    padding: 15px;
+    margin: 20px auto;
+    padding: 20px;
     background: rgba(10, 10, 20, 0.7);
-    backdrop-filter: blur(8px);
-    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
 }
 
-/* --- Countdown --- */
-.countdown-container {
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px solid var(--electric-cyan);
-    box-shadow: 0 0 10px var(--electric-cyan);
-    border-radius: 10px;
-    padding: 25px;
-    margin-bottom: 25px;
-    text-align: center;
-}
-
-#countdown-timer {
-    font-family: var(--font-mono);
-    font-size: 2.8em;
-    color: #fff;
-    text-shadow: 0 0 15px var(--electric-cyan);
-}
-
-/* --- Ranking --- */
-.ranking-item {
+/* --- 各種カード/ブロック --- */
+.info-box, .tool-box, .content-block, section {
     background: rgba(255, 255, 255, 0.03);
-    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
-    margin-bottom: 5px;
-    padding: 12px;
-    display: flex;
-    justify-content: space-between;
-    font-family: var(--font-mono);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 25px;
 }
-.rank-1 { color: #ffd700; background: rgba(255, 215, 0, 0.05); border-left: 3px solid #ffd700; }
-.rank-2 { color: #c0c0c0; border-left: 3px solid #c0c0c0; }
-.rank-3 { color: #cd7f32; border-left: 3px solid #cd7f32; }
 
-/* --- Cyber Table (Lottery Details) --- */
-.cyber-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 10px 0;
-    font-family: var(--font-mono);
-    font-size: 0.8em;
-    background: rgba(0, 0, 0, 0.3);
-}
-.cyber-table th {
-    background: rgba(189, 0, 255, 0.2);
-    color: var(--electric-purple);
-    padding: 6px;
-    text-align: left;
-    border: 1px solid rgba(189, 0, 255, 0.3);
-}
-.cyber-table td {
-    padding: 6px;
-    border: 1px solid rgba(0, 255, 255, 0.1);
-    color: #ccc;
-}
-.loss-row { color: #666; font-style: italic; }
+.neon-border-purple { border: 1px solid var(--electric-purple); box-shadow: 0 0 10px var(--electric-purple); }
+.neon-border-cyan { border: 1px solid var(--electric-cyan); box-shadow: 0 0 10px var(--electric-cyan); }
 
-/* --- Info Boxes --- */
-.info-box {
-    background: rgba(20, 20, 30, 0.8);
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
-}
-.neon-border-purple { border: 1px solid var(--electric-purple); box-shadow: 0 0 8px var(--electric-purple); }
-.neon-border-cyan { border: 1px solid var(--electric-cyan); box-shadow: 0 0 8px var(--electric-cyan); }
-
-.icon-title {
+h2, h3, .icon-title, .neon-title {
     font-family: var(--font-display);
-    font-size: 1em;
     color: #fff;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    padding-bottom: 8px;
+    text-shadow: 0 0 10px var(--electric-cyan);
+    border-bottom: 1px solid var(--electric-cyan);
+    padding-bottom: 10px;
+    margin-top: 0;
 }
 
-/* --- Navigation & Footer --- */
+/* --- 入力・ボタン --- */
+input, select, textarea {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--electric-cyan);
+    color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+input:focus {
+    box-shadow: 0 0 10px var(--electric-cyan);
+    outline: none;
+}
+
+.action-button, .neon-btn, button[type="submit"] {
+    background: transparent;
+    border: 1px solid var(--electric-cyan);
+    color: var(--electric-cyan);
+    padding: 12px;
+    font-family: var(--font-display);
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+    text-shadow: 0 0 5px var(--electric-cyan);
+    box-shadow: 0 0 5px var(--electric-cyan);
+    width: 100%;
+    margin-top: 10px;
+}
+
+.action-button:hover, .neon-btn:hover {
+    background: var(--electric-cyan);
+    color: #000;
+    box-shadow: 0 0 20px var(--electric-cyan);
+}
+
+.secondary-button {
+    border-color: var(--electric-purple);
+    color: var(--electric-purple);
+    box-shadow: 0 0 5px var(--electric-purple);
+}
+
+.secondary-button:hover {
+    background: var(--electric-purple);
+    color: #fff;
+    box-shadow: 0 0 20px var(--electric-purple);
+}
+
+/* --- ナビゲーション & フッター --- */
 .cyber-footer {
     position: fixed;
-    bottom: 0; width: 100%;
+    bottom: 0; left: 0; width: 100%;
     background: rgba(0, 0, 0, 0.95);
     border-top: 1px solid var(--electric-purple);
-    padding: 12px 0;
+    padding: 15px 0;
     z-index: 1000;
 }
+
 .footer-nav {
     display: flex;
     justify-content: space-around;
     max-width: 800px;
     margin: 0 auto;
 }
+
 .nav-link {
     color: #555;
     text-decoration: none;
     font-family: var(--font-display);
-    font-size: 0.75em;
+    font-size: 0.8em;
+    padding: 10px;
     transition: color 0.3s;
 }
+
 .nav-link.active, .nav-link:not(.hidden):hover {
     color: var(--electric-cyan);
-    text-shadow: 0 0 8px var(--electric-cyan);
-}
-.hidden { display: none !important; }
-
-/* --- Buttons --- */
-.neon-btn {
-    width: 100%;
-    padding: 12px;
-    background: transparent;
-    border: 1px solid var(--electric-cyan);
-    color: var(--electric-cyan);
-    font-family: var(--font-display);
-    cursor: pointer;
-    box-shadow: 0 0 5px var(--electric-cyan);
-    margin-top: 10px;
-}
-.neon-btn:hover {
-    background: var(--electric-cyan);
-    color: #000;
+    text-shadow: 0 0 10px var(--electric-cyan);
 }
 
-/* --- Race & Exchange --- */
-.race-item {
+/* --- 特殊リスト --- */
+.ranking-item {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    margin-bottom: 8px;
     display: flex;
     justify-content: space-between;
-    padding: 5px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-family: var(--font-mono);
+    border-left: 3px solid var(--electric-cyan);
 }
-.time { color: var(--electric-cyan); font-weight: bold; }
-.exchange-list { list-style: none; padding: 0; }
-.exchange-list li { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-.p-val { color: var(--electric-cyan); font-weight: bold; width: 60px; display: inline-block; }
+
+.rank-1 { border-color: gold; color: gold; text-shadow: 0 0 5px gold; }
+.rank-2 { border-color: silver; }
+.rank-3 { border-color: #cd7f32; }
+
+.hidden { display: none !important; }
