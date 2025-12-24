@@ -11,7 +11,7 @@ const EXCLUDED_PLAYERS = ['3mahjong'];
 let previousScores = new Map(JSON.parse(localStorage.getItem('previousScores') || '[]'));
 
 /**
- * ★★★ 新規追加: 2026年1月1日へのカウントダウン更新関数 ★★★
+ * 2026年1月1日へのカウントダウン更新関数
  */
 function updateCountdown() {
     const display = document.getElementById('countdown-display');
@@ -117,7 +117,7 @@ async function renderScores() {
 }
 
 /**
- * 開催中の宝くじを描画する関数
+ * ★★★ 修正: 宝くじの可視性を改善 ★★★
  */
 function renderLotteries(lotteries) {
     if (!LOTTERY_LIST_CONTAINER) return; 
@@ -136,6 +136,7 @@ function renderLotteries(lotteries) {
         const formattedDeadline = deadline.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }) + ' ' + deadline.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
         const formattedAnnounce = announceDate.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' });
 
+        // テーブル内のインラインスタイルを削除し、CSSクラスに変更
         let prizesTable = '<table class="lottery-prize-table"><thead><tr><th>等級</th><th>ポイント</th><th>確率</th></tr></thead><tbody>';
         let totalProbability = 0;
         l.prizes.sort((a, b) => a.rank - b.rank).forEach(p => {
@@ -143,19 +144,21 @@ function renderLotteries(lotteries) {
             totalProbability += p.probability;
         });
         const lossProbability = Math.max(0, 1.0 - totalProbability);
-        prizesTable += `<tr style="background-color: #f8d7da;"><td>ハズレ</td><td>0.0 P</td><td>${(lossProbability * 100).toFixed(3)} %</td></tr></tbody></table>`;
+        // ハズレ行にクラス 'loss-row' を適用
+        prizesTable += `<tr class="loss-row"><td>ハズレ</td><td>0.0 P</td><td>${(lossProbability * 100).toFixed(3)} %</td></tr></tbody></table>`;
 
         const totalTickets = l.tickets.reduce((sum, t) => sum + (t.count || 1), 0);
         html += `
             <div class="bet-tile status-open">
                 <h4>🎟️ ${l.name} (#${l.lotteryId})</h4>
                 <div class="odds-info-display">
-                    <p class="bet-deadline">価格: <strong>${l.ticketPrice.toFixed(1)} P /枚</strong></p>
+                    <p class="bet-deadline">価格: <strong style="color:var(--color-electric-gold)">${l.ticketPrice.toFixed(1)} P /枚</strong></p>
                     <p class="bet-deadline">購入締切: ${formattedDeadline}</p>
                     <p class="bet-deadline">発表日: ${formattedAnnounce}</p>
                 </div>
-                <div class="my-wager-text" style="font-weight: bold; border-left-color: var(--color-accent); background-color: #fffae6; padding: 10px;">
-                    <p style="margin-top: 0; margin-bottom: 5px;">🏆 当選詳細</p>
+                <!-- クラスを 'lottery-details-box' に変更 -->
+                <div class="lottery-details-box">
+                    <p class="details-title">🏆 当選詳細</p>
                     ${prizesTable}
                 </div>
                 <p class="total-wager-text">総購入枚数: ${totalTickets} 枚</p>
@@ -235,7 +238,7 @@ function renderSportsBets(sportsBets, displayScores) {
 // 初期ロードとボタンイベント
 window.onload = () => {
     renderScores();
-    updateCountdown(); // ★ カウントダウンの初期化
+    updateCountdown(); 
 };
 
 document.getElementById('refresh-button').addEventListener('click', renderScores);
