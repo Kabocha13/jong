@@ -96,12 +96,50 @@ h2, h3 {
     text-shadow: 0 0 5px rgba(0, 242, 255, 0.3);
 }
 
-/* カウントダウン用スタイル */
+/* ★ カウントダウン用スタイル（回転アニメーション追加） ★ */
 .countdown-container {
     text-align: center;
     margin-bottom: 25px;
-    background: rgba(0, 242, 255, 0.05);
-    border-color: var(--color-electric-blue);
+    position: relative;
+    padding: 20px;
+    background: var(--color-surface); /* 背景を透過させない */
+    border-radius: 12px;
+    overflow: hidden; /* 回転する要素をはみ出させない */
+    border: none; /* 標準の枠線を消す */
+}
+
+/* 回転する光のボーダー */
+.countdown-container::before {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(
+        transparent, 
+        var(--color-electric-blue), 
+        var(--color-electric-purple), 
+        var(--color-electric-gold), 
+        transparent 30%
+    );
+    animation: rotate-cosmic 4s linear infinite;
+    z-index: -2;
+}
+
+/* 内側のマスク（ボーダーっぽく見せる） */
+.countdown-container::after {
+    content: "";
+    position: absolute;
+    inset: 3px; /* ボーダーの太さ */
+    background: var(--color-bg-alt);
+    border-radius: 10px;
+    z-index: -1;
+}
+
+@keyframes rotate-cosmic {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 .countdown-text {
@@ -115,12 +153,13 @@ h2, h3 {
     align-items: baseline;
     gap: 8px;
     flex-wrap: wrap;
+    position: relative;
 }
 
 .cd-num { font-size: 1.2em; }
 .cd-unit { font-size: 0.5em; color: var(--color-text-dim); margin-right: 10px; }
 
-/* ★ 宝くじ詳細の可視性向上スタイル ★ */
+/* 宝くじ詳細の可視性向上スタイル */
 .lottery-details-box {
     margin: 15px 0;
     padding: 12px;
@@ -158,7 +197,7 @@ h2, h3 {
 
 .lottery-prize-table .loss-row {
     color: var(--color-text-dim);
-    background: rgba(255, 77, 77, 0.05); /* ほんのり赤色 */
+    background: rgba(255, 77, 77, 0.05);
 }
 
 .lottery-prize-table .loss-row td {
