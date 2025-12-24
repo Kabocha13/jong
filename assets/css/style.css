@@ -1,8 +1,9 @@
-/* assets/css/style.css - Year-End Countdown Global Space Theme */
+/* assets/css/style.css - Year-End Countdown (Space & Electric) Theme */
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap');
 
 :root {
+    /* Space & Electric Palette */
     --space-black: #05050a;
     --deep-space: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
     --electric-cyan: #00ffff;
@@ -10,24 +11,32 @@
     --neon-pink: #ff00ff;
     --glass-bg: rgba(255, 255, 255, 0.05);
     --glass-border: rgba(255, 255, 255, 0.1);
+    
+    --color-primary: var(--electric-cyan);
+    --color-accent: var(--electric-purple);
     --color-text: #e0e0e0;
+    --color-light: #ffffff;
+    
+    /* Fonts */
     --font-main: 'Rajdhani', sans-serif;
     --font-display: 'Orbitron', sans-serif;
     --font-mono: 'Share Tech Mono', monospace;
 }
 
+/* --- Base Layout --- */
 body {
     font-family: var(--font-main);
     background: var(--space-black);
     background-image: var(--deep-space);
     background-attachment: fixed;
     color: var(--color-text);
-    margin: 0; padding: 0;
-    padding-bottom: 120px;
+    margin: 0;
+    padding: 0;
+    padding-bottom: 110px; /* Footer space */
     overflow-x: hidden;
 }
 
-/* 宇宙の星屑背景 */
+/* 星屑背景 */
 body::before {
     content: "";
     position: fixed;
@@ -36,9 +45,9 @@ body::before {
         radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
         radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px);
     background-size: 550px 550px, 350px 350px;
-    opacity: 0.1;
+    opacity: 0.15;
     z-index: -1;
-    animation: stars-drift 100s linear infinite;
+    animation: stars-drift 120s linear infinite;
 }
 
 @keyframes stars-drift {
@@ -46,25 +55,38 @@ body::before {
     to { background-position: 1000px 500px; }
 }
 
-/* --- ヘッダー --- */
-header, .electric-header {
-    background: rgba(0, 0, 0, 0.9);
+/* --- Header --- */
+.electric-header {
+    background: rgba(0, 0, 0, 0.95);
     padding: 30px 15px;
     border-bottom: 1px solid var(--electric-cyan);
     text-align: center;
+    position: relative;
     box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
 }
 
-header h1, .electric-header h1 {
+.electric-header h1 {
     font-family: var(--font-display);
     font-size: 2em;
+    margin: 0;
     letter-spacing: 5px;
     color: #fff;
     text-shadow: 0 0 10px var(--electric-cyan), 0 0 20px var(--electric-purple);
-    margin: 0;
 }
 
-/* --- コンテンツエリア --- */
+.scanline {
+    width: 100%; height: 2px;
+    background: rgba(0, 255, 255, 0.05);
+    position: absolute; top: 0; left: 0;
+    z-index: 10;
+    animation: scanline-anim 8s linear infinite;
+}
+
+@keyframes scanline-anim {
+    0% { top: 0; } 100% { top: 100%; }
+}
+
+/* --- Main Glass Container --- */
 main, .glass-interface {
     max-width: 800px;
     margin: 20px auto;
@@ -73,11 +95,35 @@ main, .glass-interface {
     backdrop-filter: blur(10px);
     border-radius: 15px;
     border: 1px solid var(--glass-border);
-    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
 }
 
-/* --- 各種カード/ブロック --- */
-.info-box, .tool-box, .content-block, section {
+/* --- Countdown Card --- */
+.countdown-container {
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid var(--electric-cyan);
+    box-shadow: 0 0 15px var(--electric-cyan);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+    text-align: center;
+    animation: pulse-glow 3s infinite alternate;
+}
+
+@keyframes pulse-glow {
+    from { box-shadow: 0 0 10px var(--electric-cyan); }
+    to { box-shadow: 0 0 25px var(--electric-purple); }
+}
+
+#countdown-timer {
+    font-family: var(--font-mono);
+    font-size: 2.8em;
+    color: #fff;
+    text-shadow: 0 0 15px var(--electric-cyan);
+}
+
+/* --- Info Boxes & Tiles --- */
+.info-box, .tool-box {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--glass-border);
     border-radius: 10px;
@@ -85,36 +131,46 @@ main, .glass-interface {
     margin-bottom: 25px;
 }
 
-.neon-border-purple { border: 1px solid var(--electric-purple); box-shadow: 0 0 10px var(--electric-purple); }
 .neon-border-cyan { border: 1px solid var(--electric-cyan); box-shadow: 0 0 10px var(--electric-cyan); }
+.neon-border-purple { border: 1px solid var(--electric-purple); box-shadow: 0 0 10px var(--electric-purple); }
 
-h2, h3, .icon-title, .neon-title {
+.neon-title, .icon-title {
     font-family: var(--font-display);
     color: #fff;
     text-shadow: 0 0 10px var(--electric-cyan);
-    border-bottom: 1px solid var(--electric-cyan);
+    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
     padding-bottom: 10px;
     margin-top: 0;
 }
 
-/* --- 入力・ボタン --- */
+/* --- Ranking Items --- */
+.ranking-item {
+    background: rgba(0, 0, 0, 0.3);
+    border-left: 3px solid var(--electric-cyan);
+    margin-bottom: 8px;
+    padding: 12px 15px;
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+}
+
+.rank-1 { border-left-color: gold; color: gold; }
+.rank-2 { border-left-color: silver; }
+.rank-3 { border-left-color: #cd7f32; }
+
+/* --- Forms & Buttons --- */
 input, select, textarea {
     background: rgba(0, 0, 0, 0.5);
     border: 1px solid var(--electric-cyan);
     color: #fff;
     padding: 10px;
-    border-radius: 5px;
+    border-radius: 4px;
     font-family: var(--font-mono);
     width: 100%;
     box-sizing: border-box;
 }
 
-input:focus {
-    box-shadow: 0 0 10px var(--electric-cyan);
-    outline: none;
-}
-
-.action-button, .neon-btn, button[type="submit"] {
+.neon-btn, .action-button:not(.secondary-button) {
     background: transparent;
     border: 1px solid var(--electric-cyan);
     color: var(--electric-cyan);
@@ -123,31 +179,27 @@ input:focus {
     font-weight: bold;
     cursor: pointer;
     transition: 0.3s;
-    text-shadow: 0 0 5px var(--electric-cyan);
     box-shadow: 0 0 5px var(--electric-cyan);
-    width: 100%;
-    margin-top: 10px;
+    text-transform: uppercase;
 }
 
-.action-button:hover, .neon-btn:hover {
+.neon-btn:hover {
     background: var(--electric-cyan);
     color: #000;
     box-shadow: 0 0 20px var(--electric-cyan);
 }
 
 .secondary-button {
-    border-color: var(--electric-purple);
+    background: transparent;
+    border: 1px solid var(--electric-purple);
     color: var(--electric-purple);
+    padding: 8px 15px;
+    cursor: pointer;
+    font-family: var(--font-display);
     box-shadow: 0 0 5px var(--electric-purple);
 }
 
-.secondary-button:hover {
-    background: var(--electric-purple);
-    color: #fff;
-    box-shadow: 0 0 20px var(--electric-purple);
-}
-
-/* --- ナビゲーション & フッター --- */
+/* --- Navigation & Footer --- */
 .cyber-footer {
     position: fixed;
     bottom: 0; left: 0; width: 100%;
@@ -160,6 +212,7 @@ input:focus {
 .footer-nav {
     display: flex;
     justify-content: space-around;
+    align-items: center;
     max-width: 800px;
     margin: 0 auto;
 }
@@ -169,28 +222,41 @@ input:focus {
     text-decoration: none;
     font-family: var(--font-display);
     font-size: 0.8em;
-    padding: 10px;
+    padding: 5px 10px;
     transition: color 0.3s;
+    text-transform: uppercase;
 }
 
 .nav-link.active, .nav-link:not(.hidden):hover {
     color: var(--electric-cyan);
-    text-shadow: 0 0 10px var(--electric-cyan);
+    text-shadow: 0 0 8px var(--electric-cyan);
 }
-
-/* --- 特殊リスト --- */
-.ranking-item {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 15px;
-    margin-bottom: 8px;
-    display: flex;
-    justify-content: space-between;
-    font-family: var(--font-mono);
-    border-left: 3px solid var(--electric-cyan);
-}
-
-.rank-1 { border-color: gold; color: gold; text-shadow: 0 0 5px gold; }
-.rank-2 { border-color: silver; }
-.rank-3 { border-color: #cd7f32; }
 
 .hidden { display: none !important; }
+
+/* --- Tables & Lists --- */
+.lottery-prize-table, .cyber-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    margin-top: 10px;
+}
+.lottery-prize-table th, .lottery-prize-table td {
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    padding: 8px;
+    text-align: left;
+}
+.lottery-prize-table th { background: rgba(189, 0, 255, 0.2); color: #fff; }
+
+.exchange-list, .race-list { list-style: none; padding: 0; }
+.exchange-list li, .race-list li { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.p-val { color: var(--electric-cyan); font-weight: bold; width: 60px; display: inline-block; }
+
+/* --- PVP Specific --- */
+.chair-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.chair-button { 
+    background: rgba(0,0,0,0.5); border: 1px solid var(--electric-cyan); color: #fff; 
+    padding: 15px 5px; font-family: var(--font-mono); font-weight: bold; cursor: pointer;
+}
+.chair-button:hover:not(:disabled) { background: var(--electric-cyan); color: #000; }
