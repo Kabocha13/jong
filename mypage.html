@@ -3,74 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JONG - USER INTERFACE</title>
+    <title>マイページ (スポーツくじ購入)</title>
+    <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body class="space-theme">
-    <header class="electric-header">
-        <div class="scanline"></div>
-        <h1>USER INTERFACE</h1>
+<body>
+    <header>
+        <h1>👤 マイページ 💰</h1>
     </header>
 
-    <main class="glass-interface">
+    <main id="main-content">
         <section id="auth-section">
-            <h2 class="neon-title">USER AUTHENTICATION</h2>
+            <h2>認証</h2>
+            <p class="instruction">ご自身のユーザー名とパスワードを入力してログインしてください。</p>
             <form id="auth-form">
-                <input type="text" id="username" placeholder="USERNAME" required style="margin-bottom: 15px;">
-                <input type="password" id="password" placeholder="PASSWORD" required>
-                <button type="submit" class="neon-btn">SYNC LOGIN</button>
+                <div class="form-group">
+                    <label for="username">ユーザー名:</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">パスワード:</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit">ログイン</button>
             </form>
             <p id="auth-message" class="hidden"></p>
         </section>
 
         <section id="mypage-content" class="hidden">
-            <div class="tool-box neon-border-cyan" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="tool-box" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
                 <div>
-                    <h3>WELCOME, <span id="authenticated-user-name"></span></h3>
-                    <p>CREDITS: <strong id="current-score" style="color: var(--electric-cyan); font-size: 1.5em;"></strong> P</p>
+                    <h3>ようこそ、<span id="authenticated-user-name"></span>様！</h3>
+                    <p>現在のポイント残高: <strong id="current-score" style="font-size: 1.5em; color: var(--color-accent);"></strong> P</p>
+                    <p id="score-update-message" class="hidden message"></p>
                 </div>
-                <button id="logout-button" class="action-button secondary-button" style="width: auto;">LOGOUT</button>
+                <button type="button" id="logout-button" class="action-button secondary-button" style="width: auto; margin-top: 10px;">
+                    ログアウト
+                </button>
             </div>
 
-            <div id="pro-bonus-tool" class="tool-box neon-border-purple hidden">
-                <h3>⭐ MEMBER BONUS</h3>
-                <p id="pro-bonus-instruction"></p>
-                <button id="pro-bonus-button" class="neon-btn">CLAIM BONUS</button>
+            <div id="pro-bonus-tool" class="tool-box hidden">
+                <h4>⭐ 会員ボーナス</h4>
+                <!-- JS側でPro(10P) / Premium(15P)に応じて内容が動的に更新されます -->
+                <p class="instruction" id="pro-bonus-instruction">Pro/Premium会員特典</p>
+                <button type="button" id="pro-bonus-button" class="action-button" style="width: auto; background-color: #38c172;">
+                    ボーナス (+P) を受け取る
+                </button>
+                <p id="pro-bonus-message" class="hidden"></p>
             </div>
 
             <div class="tool-box">
-                <h3>🎟️ LOTTERY PURCHASE</h3>
+                <h3>🎟️ 宝くじ購入</h3>
                 <form id="lottery-purchase-form">
-                    <select id="lottery-select" required></select>
-                    <input type="number" id="lottery-ticket-count" min="1" value="1" style="margin: 15px 0;">
-                    <p id="lottery-total-price">TOTAL: - P</p>
-                    <button type="submit" class="neon-btn">ACQUIRE TICKETS</button>
+                    <div class="form-group">
+                        <label for="lottery-select">開催中の宝くじ:</label>
+                        <select id="lottery-select" required>
+                            <option value="" disabled selected>ロード中...</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display: flex; gap: 10px; align-items: flex-end;">
+                        <div style="flex-grow: 1;">
+                            <label for="lottery-ticket-count">購入枚数:</label>
+                            <input type="number" id="lottery-ticket-count" min="1" max="100" value="1" required>
+                        </div>
+                        <div style="flex: 0 0 120px;">
+                            <strong id="lottery-total-price" style="font-size: 1.1em; color: var(--color-primary);">合計: - P</strong>
+                        </div>
+                    </div>
+                    <button type="submit" class="action-button" style="background-color: #38c172;">宝くじを購入する</button>
                 </form>
                 <p id="lottery-purchase-message" class="hidden"></p>
             </div>
+
+            <div class="tool-box">
+                <h3>📋 宝くじ結果発表</h3>
+                <p class="instruction">購入した宝くじの結果発表日を過ぎると、「結果を見る」ボタンが表示されます。</p>
+                <div id="lottery-results-container">
+                    <p>購入履歴をロード中...</p>
+                </div>
+            </div>
             
             <div class="tool-box">
-                <h3>💰 POINT TRANSFER</h3>
+                <h3>🎁 プレゼントコード入力</h3>
+                <p class="instruction">コードを入力してポイントを獲得します。</p>
+                <form id="apply-gift-code-form">
+                    <div class="form-group">
+                        <label for="gift-code-input">プレゼントコード:</label>
+                        <input type="text" id="gift-code-input" required placeholder="コードを正確に入力してください">
+                    </div>
+                    <button type="submit" class="action-button" style="background-color: #ffc107; color: var(--color-text);">コードを適用</button>
+                </form>
+                <p id="apply-gift-code-message" class="hidden"></p>
+            </div>
+
+
+            <!-- ★★★ Premium会員専用機能: スポーツくじ作成フォーム ★★★ -->
+            <div id="premium-tools-section" class="tool-box hidden">
+                <h2>👑 Premium会員専用ツール</h2>
+                
+                <div class="tool-box" style="border: none; padding: 0;">
+                    <h3>📝 新規スポーツくじ作成・公開</h3>
+                    <p class="instruction">新しいくじを開催できます。</p>
+                    <form id="premium-create-bet-form">
+                        <div class="form-group">
+                            <label for="premium-match-name">くじ名:</label>
+                            <input type="text" id="premium-match-name" required placeholder="例: 競馬G1結果, 陸上100m優勝者">
+                        </div>
+                        <div class="form-group">
+                            <label for="premium-deadline-datetime">締切日時:</label>
+                            <input type="datetime-local" id="premium-deadline-datetime" required>
+                        </div>
+                        <button type="submit">くじを作成 (OPEN)</button>
+                    </form>
+                    <p id="premium-create-message" class="hidden"></p>
+                </div>
+            </div>
+            
+            <div class="tool-box">
+                <h3>💰 スポーツくじ購入</h3>
+                
+                <div id="wager-history-container" style="margin-bottom: 20px;">
+                    <h4>投票履歴 (最新5件)</h4>
+                    <ul id="wager-history-list">
+                        <li>履歴をロード中...</li>
+                    </ul>
+                </div>
+
+                <form id="wager-form">
+                    <p class="instruction">投票は認証されたユーザー (<strong id="fixed-player-name"></strong>) に固定されます。</p>
+                    <div class="form-group">
+                        <label for="target-bet">対象くじ:</label>
+                        <select id="target-bet" required>
+                            <option value="" disabled selected>開催中のくじを選択</option>
+                        </select>
+                    </div>
+                    
+                    <input type="hidden" id="wager-player" name="wager-player">
+
+                    <p class="instruction" style="margin-top: 20px;">賭けの内容（かけるもの）と掛け金を複数入力できます。</p>
+                    
+                    <div id="wager-inputs-container">
+                    </div>
+
+                    <button type="button" id="add-wager-row-button" class="action-button secondary-button" style="width: auto; margin-top: 10px;">+ 賭けを追加</button>
+                    
+                    <button type="submit" style="margin-top: 20px;">投票を登録</button>
+                </form>
+                <p id="wager-message" class="hidden"></p>
+            </div>
+
+            <div class="tool-box">
+                <h3>💸 ポイント送金 (プレイヤーへ)</h3>
+                <p class="instruction">ログイン中のプレイヤー (<strong id="authenticated-user-transfer"></strong>) から、他のプレイヤーへポイントを送金します。</p>
                 <form id="transfer-form-mypage">
-                    <select id="receiver-player-mypage" required></select>
-                    <input type="number" id="transfer-amount-mypage" step="0.1" placeholder="AMOUNT" required style="margin: 15px 0;">
-                    <button type="submit" class="neon-btn">EXECUTE TRANSFER</button>
+                    <div class="form-group">
+                        <label for="receiver-player-mypage">送金先プレイヤー:</label>
+                        <select id="receiver-player-mypage" required>
+                            <option value="" disabled selected>ロード中...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="transfer-amount-mypage">送金ポイント:</label>
+                        <input type="number" id="transfer-amount-mypage" step="0.1" min="0.1" placeholder="例: 5.0" required>
+                    </div>
+                    <button type="submit" class="action-button" style="background-color: #28a745;">送金を実行</button>
                 </form>
                 <p id="transfer-message-mypage" class="hidden"></p>
+            </div>
+            
+            <div id="target-continue-tool" class="tool-box hidden" style="border-left: 5px solid var(--color-accent); padding-left: 15px;">
+                <h2>🎯 目標継続</h2>
+                <a href="https://forms.gle/rwXz18n7dkyf6MY78" target="_blank" rel="noopener noreferrer">
+                    <button type="button" class="action-button" style="width: auto; margin-top: 10px; background-color: #007bff; color: white;">
+                        目標継続フォームを開く
+                    </button>
+                </a>
+            </div>
+
+
+            <div id="dark-mode-tool" class="tool-box" style="margin-top: 30px;">
+                <h4>🌙 ダークモード設定</h4>
+                <button type="button" id="dark-mode-toggle-button" class="action-button secondary-button" style="width: auto; margin-top: 5px;">
+                    ダークモードを切り替える
+                </button>
+                <p id="dark-mode-message" class="hidden"></p>
+                <p id="dark-mode-status" style="font-size: 0.9em; margin-top: 10px; color: #6c757d;"></p>
             </div>
         </section>
     </main>
 
-    <footer class="cyber-footer">
-        <nav class="footer-nav" id="main-nav">
-            <a href="index.html" class="nav-link">RANKING</a>
-            <a href="pvp.html" class="nav-link">PVP</a>
-            <a href="mypage.html" class="nav-link active">MY PAGE</a>
-            <a href="master.html" class="nav-link">MASTER</a>
+    <footer>
+        <nav class="footer-nav">
+            <a href="index.html" class="input-link">ランキング</a>
+            <a href="mypage.html" class="input-link">マイページ</a>
+            <a href="master.html" class="input-link">マスター</a>
+            <a href="pvp.html" class="input-link">PVP</a>
         </nav>
     </footer>
 
     <script src="assets/js/common.js"></script>
     <script src="assets/js/mypage.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                document.body.classList.add('dark-mode');
+            }
+        });
+    </script>
 </body>
 </html>
