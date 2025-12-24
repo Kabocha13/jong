@@ -8,14 +8,20 @@
 </head>
 <body class="space-theme">
     <header class="electric-header">
+        <div class="scanline"></div>
         <h1>MASTER CONSOLE</h1>
+        <div id="master-header-actions" style="margin-top: 10px;">
+            <button type="button" id="master-logout-button" class="action-button secondary-button hidden" style="width: auto; margin: auto;">
+                マスターログアウト
+            </button>
+        </div>
     </header>
 
     <main class="glass-interface">
         <section id="auth-section">
-            <h2>MASTER OVERRIDE</h2>
+            <h2 class="neon-title">MASTER OVERRIDE</h2>
             <form id="auth-form">
-                <input type="text" id="username" placeholder="MASTER USER" required style="margin-bottom: 10px;">
+                <input type="text" id="username" placeholder="MASTER USER" required style="margin-bottom: 15px;">
                 <input type="password" id="password" placeholder="ACCESS KEY" required>
                 <button type="submit" class="neon-btn">BYPASS AUTH</button>
             </form>
@@ -23,36 +29,36 @@
         </section>
 
         <section id="admin-tools" class="hidden">
-            <div class="tool-box neon-border-purple" style="display: flex; justify-content: space-between; align-items: center;">
-                <h3>SYSTEM TOOLS ACTIVE</h3>
-                <button id="master-logout-button" class="action-button secondary-button" style="width: auto;">DISCONNECT</button>
-            </div>
-
-            <div class="tool-box">
-                <h3>🀄 MAHJONG INPUT</h3>
+            <div class="tool-box neon-border-purple">
+                <h3 class="icon-title">🀄 MAHJONG INPUT</h3>
                 <form id="mahjong-form">
                     <div id="mahjong-player-inputs"></div>
-                    <button type="submit" class="neon-btn">OVERWRITE DATA</button>
+                    <button type="submit" id="mahjong-submit-button" class="neon-btn">OVERWRITE DATA</button>
+                    <p id="mahjong-message" class="hidden"></p>
                 </form>
             </div>
 
-            <div class="tool-box">
-                <h3>🎟️ LOTTERY CREATOR</h3>
+            <div class="tool-box neon-border-cyan">
+                <h3 class="icon-title">🎟️ LOTTERY INITIALIZER</h3>
                 <form id="create-lottery-form">
                     <input type="text" id="lottery-name" placeholder="LOTTERY NAME" required style="margin-bottom: 10px;">
-                    <input type="number" id="lottery-ticket-price" placeholder="PRICE (P)" required>
-                    <!-- 詳細入力は master.js がハンドル -->
-                    <button type="submit" class="neon-btn">INITIALIZE LOTTERY</button>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <input type="number" id="lottery-ticket-price" placeholder="PRICE (P)" required style="flex: 1;">
+                        <input type="datetime-local" id="lottery-purchase-deadline" required style="flex: 1;">
+                    </div>
+                    <button type="submit" class="neon-btn">CREATE LOTTERY MODULE</button>
+                    <p id="create-lottery-message" class="hidden"></p>
                 </form>
             </div>
 
-            <div class="tool-box">
-                <h3>💸 POINT ADJUSTMENT</h3>
+            <div class="tool-box glass-box">
+                <h3 class="icon-title">💸 POINT OFFSET</h3>
                 <form id="adjustment-form">
                     <select id="target-player" required></select>
-                    <input type="number" id="adjust-amount" placeholder="OFFSET" required style="margin: 10px 0;">
+                    <input type="number" id="adjust-amount" placeholder="OFFSET AMOUNT" required style="margin: 15px 0;">
                     <button type="submit" class="neon-btn">APPLY OFFSET</button>
                 </form>
+                <p id="adjustment-message" class="hidden"></p>
             </div>
         </section>
     </main>
@@ -60,9 +66,9 @@
     <footer class="cyber-footer">
         <nav class="footer-nav" id="main-nav">
             <a href="index.html" class="nav-link">RANKING</a>
-            <a href="mypage.html" class="nav-link auth-required hidden">MY PAGE</a>
-            <a href="pvp.html" class="nav-link auth-required hidden">PVP</a>
             <a href="master.html" class="nav-link active master-required hidden">MASTER</a>
+            <a href="pvp.html" class="nav-link auth-required hidden">PVP</a>
+            <a href="mypage.html" class="nav-link auth-required hidden">MY PAGE</a>
             <a href="mypage.html" class="nav-link guest-only">LOGIN</a>
         </nav>
     </footer>
