@@ -3,78 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JONG - THE FINAL COUNTDOWN</title>
-    <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
+    <title>JONG - RANKING SYSTEM</title>
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body class="space-theme">
     <header class="electric-header">
-        <div class="scanline"></div>
         <h1>JONG 2025</h1>
-        <p class="header-subtitle">SYSTEM STATUS: OPERATIONAL</p>
+        <p class="header-subtitle">SYNCING WITH CORE SYSTEM...</p>
     </header>
 
     <main class="glass-interface">
-        <!-- 年末カウントダウン中央制御ユニット -->
-        <div id="countdown-section" class="countdown-container main-countdown">
-            <p class="countdown-label">⚡ 2025 TERMINAL COUNTDOWN ⚡</p>
-            <div id="countdown-timer">00d 00:00:00</div>
+        <div id="countdown-section" class="countdown-container neon-border-cyan">
+            <p class="countdown-label">⚡ 2025 ENDING SEQUENCE ⚡</p>
+            <div id="countdown-timer" style="font-family: var(--font-mono); font-size: 2.5em; text-align: center;">00d 00:00:00</div>
         </div>
 
         <section class="content-block">
-            <h2 class="neon-title">RANKING PROTOCOL</h2>
+            <h2 class="neon-title">CORE RANKING</h2>
             <div id="scores-container">
-                <p class="status-msg">INITIALIZING DATA SYNC...</p>
+                <p>SYNCING DATA...</p>
             </div>
-            
-            <p class="update-info" id="last-update"></p>
-            <button id="refresh-button" class="neon-btn">🔄 RELOAD SYSTEM</button>
+            <p class="update-info" id="last-update" style="text-align: right; font-size: 0.8em; opacity: 0.6;"></p>
+            <button id="refresh-button" class="neon-btn">🔄 RELOAD DATA</button>
         </section>
 
-        <!-- 詳細表示が復活した宝くじエリア -->
         <div class="info-box neon-border-purple">
-            <h3 class="icon-title">🎟️ ACTIVE LOTTERY MODULES</h3>
-            <div id="lottery-list-container">
-                <p class="status-msg">ACCESSING LOTTERY DATA...</p>
-            </div>
+            <h3>🎟️ ACTIVE LOTTERIES</h3>
+            <div id="lottery-list-container"></div>
         </div>
-        
+
         <div class="info-box neon-border-cyan">
-            <h3 class="icon-title">⚽ SPORTS PREDICTIONS</h3>
-            <div id="sports-bets-container">
-                <p class="status-msg">SCANNING ACTIVE MATCHES...</p>
-            </div>
-        </div>
-
-        <div class="info-box glass-box">
-            <h3 class="icon-title">💱 REWARD CATALOG</h3>
-            <ul class="exchange-list">
-                <li><span class="p-val">250P</span> 自販機ドリンク (200円まで)</li>
-                <li><span class="p-val">300P</span> 下田の講義 (10分間)</li>
-                <li><span class="p-val">1000P</span> JongPro 1ヶ月券</li>
-                <li><span class="p-val">1500P</span> 第1回リアルイベント特典</li>
-                <li><span class="p-val">1500P</span> 第2回リアルイベント特典</li>
-                <li><span class="p-val">1500P</span> JongPremium 1ヶ月券</li>
-                <li><span class="p-val">1500P</span> 2026年旅行座席選択権(残2)</li>
-                <li><span class="p-val">2000P</span> 2027年旅行ベッド優先権(残1)</li>
-                <li><span class="p-val">10000P</span> TDR TICKET</li>
-            </ul>
-        </div>
-
-        <div class="info-box glass-box">
-            <h3 class="icon-title">🏎️ SPEED STORM BEST TIME</h3>
-            <ul id="race-records-list" class="race-list">
-                <li class="condition">LOG: B.HARD / CPU7 / LAP1 / HYPER</li>
-                <p>FETCHING RECORDS...</p>
-            </ul>
+            <h3>⚽ SPORTS WAGERING</h3>
+            <div id="sports-bets-container"></div>
         </div>
     </main>
 
     <footer class="cyber-footer">
         <nav class="footer-nav" id="main-nav">
             <a href="index.html" class="nav-link active">RANKING</a>
-            <!-- 認証が必要なリンクはJSで制御されます -->
             <a href="mypage.html" class="nav-link auth-required hidden">MY PAGE</a>
             <a href="pvp.html" class="nav-link auth-required hidden">PVP</a>
             <a href="master.html" class="nav-link master-required hidden">MASTER</a>
