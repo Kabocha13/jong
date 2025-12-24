@@ -3,50 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>賭</title>
-    <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
+    <title>Jong - Universe Edition</title>
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
-    <style>
-        .lottery-prize-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9em;
-            margin-top: 5px;
-        }
-        .lottery-prize-table th, .lottery-prize-table td {
-            border: 1px solid #ddd;
-            padding: 4px 8px;
-            text-align: left;
-        }
-        .lottery-prize-table th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-            color: #333;
-        }
-        .lottery-prize-table tbody tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        /* ダークモード対応 */
-        .dark-mode .lottery-prize-table th {
-            background-color: #333;
-            color: #eee;
-        }
-        .dark-mode .lottery-prize-table td {
-            border-color: #444;
-        }
-        .dark-mode .lottery-prize-table tbody tr:nth-child(even) {
-            background-color: #383838;
-        }
-    </style>
 </head>
 <body>
     <header>
-        <h1>Jong</h1>
+        <h1>🌌 Jong 🌠</h1>
     </header>
 
     <main>
-        <h2>現在のスコア</h2>
+        <h2>✨ 現在のスコアランキング</h2>
         <div id="scores-container">
             <p>データを読み込み中...</p>
         </div>
@@ -54,60 +21,47 @@
         <p class="update-info" id="last-update"></p>
         <button id="refresh-button">🔄 更新</button>
 
-        <div class="info-box" style="margin-top: 20px;">
+        <div class="info-box mt-20">
             <h3 class="icon-title">🎟️ 開催中の宝くじ</h3>
             <div id="lottery-list-container">
-                <p>宝くじデータを読み込み中...</p>
+                <p>データを同期中...</p>
             </div>
         </div>
         
-        <div class="info-box" style="margin-top: 20px;">
-            <h3 class="icon-title">⚽ 開催中のスポーツくじ</h3>
+        <div class="info-box mt-20">
+            <h3 class="icon-title">⚽ スポーツ・ベッティング</h3>
             <div id="sports-bets-container">
-                <p>くじデータを読み込み中...</p>
+                <p>データを同期中...</p>
             </div>
         </div>
 
         <div class="info-box">
-            <h3 class="icon-title">💱 交換商品とレート</h3>
-            <li>250P...自販機でドリンク1本(200円まで)</li>
-            <li>300P...下田の講義(内容自由,10分間)</li>
-            <li>1000P...JongPro1ヶ月券</li>
-            <li>1500P...第1回リアルイベント特典</li>
-            <li>1500P...第2回リアルイベント特典</li>
-            <li>1500P...JongPremium1ヶ月券</li>
-            <li>1500P...2026年旅行飛行機座席選択権(残2)</li>
-            <li>2000P...2027年旅行ベッド優先選択権(残1)</li>
+            <h3 class="icon-title">💱 交換リソースとレート</h3>
+            <li>250P...ドリンク1本</li>
+            <li>300P...秘密の講義(10分間)</li>
+            <li>1000P...JongPro ライセンス</li>
+            <li>1500P...Premium メンバーシップ</li>
             <li>10000P...TDRチケット</li>
         </div>
 
         <div class="info-box">
-            <h3 class="icon-title">🏎️ スピードストーム BestTime</h3>
+            <h3 class="icon-title">🏎️ Speed Storm 記録</h3>
             <ul id="race-records-list" style="list-style-type: none; padding: 0;">
-                <li>記録条件:ローカルフリー　ベリーハード　CPU7　ラップ1　超高速</li>
-                <p>記録を読み込み中...</p>
+                <p>最速記録をスキャン中...</p>
             </ul>
         </div>
     </main>
 
     <footer>
         <nav class="footer-nav">
-            <a href="index.html" class="input-link">ランキング</a>
-            <a href="mypage.html" class="input-link">マイページ</a>
+            <a href="index.html" class="input-link">RANKING</a>
+            <a href="mypage.html" class="input-link">MY PAGE</a>
             <a href="pvp.html" class="input-link">PVP</a>
-            <a href="master.html" class="input-link">マスター</a>
+            <a href="master.html" class="input-link">MASTER</a>
         </nav>
     </footer>
 
     <script src="assets/js/common.js"></script>
     <script src="assets/js/main.js"></script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            if (localStorage.getItem('darkMode') === 'enabled') {
-                document.body.classList.add('dark-mode');
-            }
-        });
-    </script>
 </body>
 </html>
