@@ -1,212 +1,802 @@
-/* assets/css/style.css - Year-End Countdown (Space & Electric) Theme */
+/* assets/css/style.css - Christmas / Holiday Theme */
 
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;700&family=Share+Tech+Mono&display=swap');
-
+/* --- Colors & Fonts --- */
 :root {
-    /* Space & Electric Palette */
-    --space-black: #05050a;
-    --deep-space: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
-    --electric-cyan: #00ffff;
-    --electric-purple: #bd00ff;
-    --neon-pink: #ff00ff;
-    --glass-bg: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    
-    --color-primary: var(--electric-cyan);
-    --color-accent: var(--electric-purple);
-    --color-text: #e0e0e0;
-    --color-light: #ffffff;
-    
-    /* Fonts */
-    --font-main: 'Rajdhani', sans-serif;
-    --font-display: 'Orbitron', sans-serif;
-    --font-mono: 'Share Tech Mono', monospace;
+    --color-primary: #006400;     /* Deep Green (Christmas Tree) */
+    --color-accent: #DC143C;      /* Crimson Red (Santa Suit / Ornaments) */
+    --color-text: #1c1c1c;        /* Near Black (for contrast) */
+    --color-light: #ffffff;       /* White / Snow */
+    --color-background: #f0f0f0;  /* Light Background (White Snow) */
+    --color-gold: #FFD700;        /* Gold Accent */
+    --font-primary: 'Playfair Display', 'Times New Roman', serif; /* Classic / Decorative Font */
+
+    /* ★★★ ダークモード変数 ★★★ */
+    --dm-color-primary: #DC143C;      /* Crimson Red (DM accent) */
+    --dm-color-accent: #006400;       /* Deep Green (DM second accent) */
+    --dm-color-text: #EAEAEA;         /* Light Grey text (DM) */
+    --dm-color-light: #1c1c1c;        /* Dark background elements (DM) */
+    --dm-color-background: #121212;   /* Deep Dark background (DM) */
+    --dm-color-box: #1E1E1E;          /* Slightly lighter dark box (DM) */
 }
 
-/* --- Base Layout --- */
 body {
-    font-family: var(--font-main);
-    background: var(--space-black);
-    background-image: var(--deep-space);
-    background-attachment: fixed;
+    font-family: var(--font-primary);
+    background-color: var(--color-background);
     color: var(--color-text);
     margin: 0;
     padding: 0;
-    padding-bottom: 110px; /* Footer space */
-    overflow-x: hidden;
+    padding-bottom: 80px;
 }
 
-/* 星屑背景 */
-body::before {
-    content: "";
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background-image: 
-        radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
-        radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px);
-    background-size: 550px 550px, 350px 350px;
-    opacity: 0.15;
-    z-index: -1;
-    animation: stars-drift 120s linear infinite;
+/* ★★★ ダークモードスタイル ★★★ */
+body.dark-mode {
+    background-color: var(--dm-color-background);
+    color: var(--dm-color-text);
+    padding-bottom: 80px;
 }
 
-@keyframes stars-drift {
-    from { background-position: 0 0; }
-    to { background-position: 1000px 500px; }
+body.dark-mode header {
+    background-color: var(--dm-color-box);
+    color: var(--dm-color-text);
+    /* 白い雪の影 */
+    box-shadow: 0 5px 15px rgba(255, 255, 255, 0.15); 
 }
 
-/* --- Header --- */
-.electric-header {
-    background: rgba(0, 0, 0, 0.95);
-    padding: 30px 15px;
-    border-bottom: 1px solid var(--electric-cyan);
+body.dark-mode header h1 {
+    /* 赤と緑のボーダー */
+    border-bottom: 3px double var(--dm-color-primary); 
+    color: var(--dm-color-primary); /* 赤で強調 */
+}
+
+body.dark-mode main {
+    background-color: var(--dm-color-box);
+    border: 2px solid var(--dm-color-primary);
+}
+
+body.dark-mode h2,
+body.dark-mode h3,
+body.dark-mode .icon-title {
+    color: var(--dm-color-primary); /* 赤 */
+    border-color: var(--dm-color-accent); /* 緑 */
+}
+
+body.dark-mode input[type="text"],
+body.dark-mode input[type="password"],
+body.dark-mode input[type="number"],
+body.dark-mode select,
+body.dark-mode textarea {
+    background-color: #2c2c2c;
+    border: 1px solid var(--dm-color-accent);
+    color: var(--dm-color-text);
+}
+
+/* リンクとボタン */
+body.dark-mode .input-link {
+    color: var(--dm-color-light); /* Dark box color */
+    background-color: var(--dm-color-primary); /* Red */
+    border: 1px solid var(--dm-color-accent); /* Green */
+}
+body.dark-mode .input-link:hover {
+    background-color: #a01030; /* Darker Red */
+}
+
+body.dark-mode #submit-button,
+body.dark-mode button[type="submit"]:not(#auth-form button),
+body.dark-mode .action-button {
+    background-color: var(--dm-color-primary); /* Red */
+    color: var(--dm-color-box);
+    border: 2px solid var(--dm-color-accent);
+}
+body.dark-mode #submit-button:hover:not(:disabled),
+body.dark-mode button[type="submit"]:not(#auth-form button):hover:not(:disabled),
+body.dark-mode .action-button:hover:not(:disabled) {
+    background-color: #a01030; /* Darker Red */
+    border-color: var(--dm-color-primary);
+}
+body.dark-mode .secondary-button {
+    background-color: var(--dm-color-accent) !important; /* Green */
+    border-color: var(--dm-color-primary) !important; /* Red */
+    color: var(--dm-color-text) !important;
+}
+body.dark-mode .secondary-button:hover {
+    background-color: #004d00 !important; /* Darker Green */
+}
+
+body.dark-mode #auth-form button[type="submit"] {
+    background-color: var(--dm-color-accent); /* Green */
+    color: var(--dm-color-text);
+    border: 1px solid var(--dm-color-primary); /* Red */
+}
+body.dark-mode #auth-form button[type="submit"]:hover {
+    background-color: #004d00; /* Darker Green */
+}
+
+/* ツールボックスとランキングアイテム */
+body.dark-mode .tool-box {
+    background-color: var(--dm-color-box);
+    border: 1px solid var(--dm-color-accent);
+}
+
+body.dark-mode .ranking-item {
+    background-color: #2c2c2c;
+    box-shadow: 0 4px 0 0 var(--dm-color-primary);
+    border: 1px solid var(--dm-color-accent);
+}
+body.dark-mode .ranking-item:hover {
+    transform: translateY(-2px);
+    background-color: #353535;
+}
+body.dark-mode .rank-num {
+    color: var(--dm-color-primary);
+}
+body.dark-mode .player-score {
+    color: var(--dm-color-text);
+    text-shadow: 1px 1px 0 var(--dm-color-primary);
+}
+body.dark-mode .pro-mark {
+    color: #ffd700; /* Gold */
+    text-shadow: none;
+}
+body.dark-mode .premium-mark {
+    color: #87CEEB; /* Light Sky Blue / Icy Blue */
+    text-shadow: none;
+}
+/* ★★★ Luxuryマークのダークモードスタイル追加 ★★★ */
+body.dark-mode .luxury-mark {
+    color: #ffd700; /* Bright Gold */
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+/* ★★★ Luxury会員の名前フォント（ダークモード） ★★★ */
+body.dark-mode .player-name.luxury-name {
+    font-family: 'Times New Roman', serif;
+    font-weight: bold;
+    color: #ffd700;
+    letter-spacing: 1px;
+}
+
+
+/* 1, 2, 3位のボーダーと背景 */
+body.dark-mode .rank-1 {
+    border: 2px solid var(--dm-color-primary); /* 赤 */
+    background-color: #351a1a; /* Dark Reddish */
+}
+body.dark-mode .rank-1::before {
+    background-color: var(--dm-color-primary);
+}
+body.dark-mode .rank-2 {
+    border: 2px solid var(--dm-color-accent); /* 緑 */
+    background-color: #1a351a; /* Dark Greenish */
+}
+body.dark-mode .rank-2::before {
+    background-color: var(--dm-color-accent);
+}
+body.dark-mode .rank-3 {
+    border: 2px solid #daa520; /* ゴールド */
+    background-color: #35351a; /* Dark Goldish */
+}
+body.dark-mode .rank-3::before {
+    background-color: #daa520;
+}
+
+/* info-boxとタイル */
+body.dark-mode .info-box {
+    background-color: var(--dm-color-box);
+    border: 1px solid var(--dm-color-primary);
+}
+
+body.dark-mode .titles-list li {
+    background-color: var(--dm-color-primary); /* 赤 */
+    color: var(--dm-color-light);
+    box-shadow: 4px 4px 0 0 var(--dm-color-accent); /* 緑のシャドウ */
+    border: 1px solid var(--dm-color-accent);
+}
+body.dark-mode .my-wager-text {
+    color: var(--dm-color-text);
+    border-left: 4px solid var(--dm-color-primary); 
+    background-color: #3a1c1c; /* Dark Reddish Background */
+}
+
+body.dark-mode #refresh-button {
+    background-color: var(--dm-color-accent);
+    color: var(--dm-color-text);
+    border: 2px solid var(--dm-color-primary);
+}
+body.dark-mode #refresh-button:hover {
+    background-color: #004d00;
+}
+
+body.dark-mode .bet-tile {
+    background-color: var(--dm-color-box);
+    border: 2px solid var(--dm-color-primary);
+    box-shadow: 4px 4px 0 0 var(--dm-color-accent);
+}
+body.dark-mode .bet-tile.status-closed {
+    border-color: var(--dm-color-accent);
+    background-color: #1a1e1a; /* Dark Greenish */
+}
+body.dark-mode .bet-tile h4 {
+    color: var(--dm-color-primary);
+    border-bottom: 2px dashed var(--dm-color-accent);
+}
+
+/* メッセージボックスの調整 */
+body.dark-mode .message.success {
+    background-color: #004d00; /* Darker Green */
+    color: var(--dm-color-text);
+    border-color: #006400;
+}
+body.dark-mode .message.error {
+    background-color: #502828;
+    color: var(--dm-color-text);
+    border-color: #DC143C;
+}
+body.dark-mode .message.info {
+    background-color: #283a50;
+    color: var(--dm-color-text);
+    border-color: #3a5a7a;
+}
+
+/* Dark mode specific for Race Records */
+body.dark-mode #race-records-list strong {
+    color: var(--dm-color-primary) !important;
+}
+
+body.dark-mode .instruction {
+    color: var(--dm-color-text);
+    border-left: 3px solid var(--dm-color-primary);
+}
+
+/* ★★★ 新規追加: Proボーナスボタンのダークモード調整 ★★★ */
+body.dark-mode #pro-bonus-button {
+    background-color: #FFD700 !important; /* Gold */
+    color: var(--dm-color-box) !important;
+    border: 2px solid var(--dm-color-primary) !important; /* Red */
+}
+body.dark-mode #pro-bonus-button:hover:not(:disabled) {
+    background-color: #b8860b !important;
+}
+
+
+/* --- Global Layout & Containers --- */
+header {
+    background-color: var(--color-primary); /* Deep Green */
+    color: var(--color-light);
+    padding: 30px 20px 20px;
     text-align: center;
-    position: relative;
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
 }
 
-.electric-header h1 {
-    font-family: var(--font-display);
-    font-size: 2em;
-    margin: 0;
+header h1 {
+    margin: 0 0 15px 0;
+    font-size: 1.9em;
     letter-spacing: 5px;
-    color: #fff;
-    text-shadow: 0 0 10px var(--electric-cyan), 0 0 20px var(--electric-purple);
-}
-
-.scanline {
-    width: 100%; height: 2px;
-    background: rgba(0, 255, 255, 0.05);
-    position: absolute; top: 0; left: 0;
-    z-index: 10;
-    animation: scanline-anim 8s linear infinite;
-}
-
-@keyframes scanline-anim {
-    0% { top: 0; } 100% { top: 100%; }
-}
-
-/* --- Main Glass Container --- */
-main, .glass-interface {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 20px;
-    background: rgba(10, 10, 20, 0.7);
-    backdrop-filter: blur(10px);
-    border-radius: 15px;
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
-}
-
-/* --- Countdown Card --- */
-.countdown-container {
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px solid var(--electric-cyan);
-    box-shadow: 0 0 15px var(--electric-cyan);
-    border-radius: 12px;
-    padding: 25px;
-    margin-bottom: 30px;
-    text-align: center;
-    animation: pulse-glow 3s infinite alternate;
-}
-
-@keyframes pulse-glow {
-    from { box-shadow: 0 0 10px var(--electric-cyan); }
-    to { box-shadow: 0 0 25px var(--electric-purple); }
-}
-
-#countdown-timer {
-    font-family: var(--font-mono);
-    font-size: 2.8em;
-    color: #fff;
-    text-shadow: 0 0 15px var(--electric-cyan);
-}
-
-/* --- Info Boxes & Tiles --- */
-.info-box, .tool-box {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--glass-border);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 25px;
-}
-
-.neon-border-cyan { border: 1px solid var(--electric-cyan); box-shadow: 0 0 10px var(--electric-cyan); }
-.neon-border-purple { border: 1px solid var(--electric-purple); box-shadow: 0 0 10px var(--electric-purple); }
-
-.neon-title, .icon-title {
-    font-family: var(--font-display);
-    color: #fff;
-    text-shadow: 0 0 10px var(--electric-cyan);
-    border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+    /* クリスマスカラーのダブルライン装飾 */
+    display: inline-block;
     padding-bottom: 10px;
+    border-bottom: 3px double var(--color-accent); /* Red double line */
+}
+
+main {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 25px;
+    background-color: var(--color-light);
+    border-radius: 5px; /* ソフトな角丸 */
+    border: 2px solid var(--color-primary); /* Deep Green frame */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); /* ソフトな影 */
+}
+
+/* --- Links & Buttons --- */
+.input-link {
+    display: inline-block;
+    color: var(--color-light); /* White text */
+    background-color: var(--color-accent); /* Red */
+    padding: 8px 15px;
+    border-radius: 5px; /* ソフトな角丸 */
+    text-decoration: none;
+    font-weight: bold;
+    letter-spacing: 1px;
+    font-size: 0.9em;
+    border: 1px solid var(--color-primary); /* Green border */
+    transition: background-color 0.3s;
+}
+.input-link:hover {
+    background-color: #a01030; /* Darker Red */
+}
+
+/* 送信ボタン/アクションボタン (プライマリ) */
+#submit-button,
+button[type="submit"]:not(#auth-form button):not(#dark-mode-tool button),
+.action-button:not(#dark-mode-toggle-button) {
+    background-color: var(--color-primary); /* Green */
+    color: var(--color-light);
+    border: 2px solid var(--color-accent); /* Red border */
+    padding: 10px 18px;
+    border-radius: 5px; /* ソフトな角丸 */
+    cursor: pointer;
+    font-size: 1.0em;
+    width: 100%;
+    transition: background-color 0.3s, border-color 0.3s;
+    margin-top: 15px;
+    letter-spacing: 1px;
+}
+#submit-button:hover:not(:disabled),
+button[type="submit"]:not(#auth-form button):not(#dark-mode-tool button):hover:not(:disabled),
+.action-button:not(#dark-mode-toggle-button):hover:not(:disabled) {
+    background-color: #004d00; /* Darker Green */
+    border-color: var(--color-gold); /* Gold highlight */
+}
+#submit-button:disabled,
+button[type="submit"]:disabled,
+.action-button:disabled {
+    background-color: #6c757d;
+    border-color: #bbb;
+    cursor: not-allowed;
+}
+
+/* セカンダリボタン (オッズ編集追加ボタンなど) */
+.secondary-button {
+    background-color: var(--color-accent); /* Red */
+    color: var(--color-light);
+    border-color: var(--color-primary); /* Green */
+    width: auto !important;
     margin-top: 0;
 }
-
-/* --- Ranking Items --- */
-.ranking-item {
-    background: rgba(0, 0, 0, 0.3);
-    border-left: 3px solid var(--electric-cyan);
-    margin-bottom: 8px;
-    padding: 12px 15px;
-    display: flex;
-    justify-content: space-between;
-    font-family: var(--font-mono);
+.secondary-button:hover {
+    background-color: #a01030; /* Darker Red */
+    border-color: var(--color-gold);
 }
 
-.rank-1 { border-left-color: gold; color: gold; }
-.rank-2 { border-left-color: silver; }
-.rank-3 { border-left-color: #cd7f32; }
 
-/* --- Forms & Buttons --- */
-input, select, textarea {
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--electric-cyan);
-    color: #fff;
-    padding: 10px;
-    border-radius: 4px;
-    font-family: var(--font-mono);
-    width: 100%;
-    box-sizing: border-box;
+/* 削除/結果確定ボタン (赤) */
+.remove-button, .result-button {
+    background-color: #8b0000 !important; /* Dark Red */
+    border-color: #ff8e98 !important;
+}
+.remove-button:hover, .result-button:hover {
+    background-color: #6e0000 !important;
 }
 
-.neon-btn, .action-button:not(.secondary-button) {
-    background: transparent;
-    border: 1px solid var(--electric-cyan);
-    color: var(--electric-cyan);
-    padding: 12px;
-    font-family: var(--font-display);
+/* フォーム内の小さな削除ボタン (オッズ行など) */
+.remove-generic-odds-button, .remove-edit-odds-button {
+    width: auto !important;
+    margin: 0 !important;
+    padding: 4px 8px !important;
+    font-size: 0.8em !important;
+}
+
+/* 認証ボタンのみスタイルを分ける */
+#auth-form button[type="submit"] {
+    background-color: var(--color-gold); /* Gold */
+    color: var(--color-text);
+    border: 1px solid var(--color-primary); /* Green */
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+    transition: background-color 0.3s;
+    width: auto;
+    margin-top: 5px;
+}
+#auth-form button[type="submit"]:hover {
+    background-color: #daa520; /* Darker Gold */
+}
+
+#refresh-button {
+    background-color: var(--color-accent); /* Red */
+    color: var(--color-light);
+    border: 2px solid var(--color-primary); /* Green */
+    padding: 8px;
+    border-radius: 5px;
+    font-size: 0.9em;
     font-weight: bold;
     cursor: pointer;
-    transition: 0.3s;
-    box-shadow: 0 0 5px var(--electric-cyan);
-    text-transform: uppercase;
+    transition: background-color 0.3s;
+    width: 100%;
+    margin-top: 15px;
+}
+#refresh-button:hover {
+    background-color: #a01030; /* Darker Red */
 }
 
-.neon-btn:hover {
-    background: var(--electric-cyan);
-    color: #000;
-    box-shadow: 0 0 20px var(--electric-cyan);
+
+/* --- Forms & Tools --- */
+h2 {
+    color: var(--color-primary); /* Green */
+    border-bottom: 2px solid var(--color-accent); /* Red line */
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+    font-size: 1.5em;
+}
+h3 {
+    color: var(--color-primary);
+    border-bottom: 1px dashed var(--color-accent); /* Red dashed line */
+    padding-bottom: 5px;
+    margin-top: 0;
+    font-size: 1.2em;
 }
 
-.secondary-button {
-    background: transparent;
-    border: 1px solid var(--electric-purple);
-    color: var(--electric-purple);
-    padding: 8px 15px;
-    cursor: pointer;
-    font-family: var(--font-display);
-    box-shadow: 0 0 5px var(--electric-purple);
+.tool-box {
+    background-color: var(--color-light);
+    padding: 20px;
+    border-radius: 5px;
+    margin-bottom: 25px;
+    border: 1px solid var(--color-primary); /* Green border */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
-/* --- Navigation & Footer --- */
-.cyber-footer {
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select,
+textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--color-primary); /* Green border */
+    border-radius: 3px;
+    box-sizing: border-box;
+    font-size: 0.95em;
+    background-color: #fcfcfc;
+}
+
+/* --- Ranking List (index.html) --- */
+.ranking-list {
+    list-style: none;
+    padding: 0;
+}
+
+.ranking-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 8px;
+    background-color: var(--color-light);
+    border-radius: 5px;
+    box-shadow: 0 3px 0 0 var(--color-accent); /* Red shadow */
+    border: 1px solid var(--color-primary);
+    transition: transform 0.2s, background-color 0.2s;
+}
+.ranking-item:hover {
+    transform: translateY(-2px);
+    background-color: #fcfcfc;
+    box-shadow: 0 5px 0 0 var(--color-accent);
+}
+
+/* ランキングの装飾: ::beforeでリボンを表現 */
+.rank-1, .rank-2, .rank-3 {
+    border-left: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.rank-1::before, .rank-2::before, .rank-3::before {
+    content: '★'; /* 星/リボンをイメージ */
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 30px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    color: var(--color-light);
+    z-index: 10;
+}
+.rank-1 {
+    border: 2px solid var(--color-gold);
+    background-color: #fffaf0; /* Light Goldish */
+}
+.rank-1::before {
+    content: '🥇';
+    background-color: var(--color-gold);
+}
+
+.rank-2 {
+    border: 2px solid #a8a8a8;
+    background-color: #f8f8f8;
+}
+.rank-2::before {
+    content: '🥈';
+    background-color: #a8a8a8;
+}
+
+.rank-3 {
+    border: 2px solid #cd7f32;
+    background-color: #fcfcfc;
+}
+.rank-3::before {
+    content: '🥉';
+    background-color: #cd7f32;
+}
+
+
+.rank-num {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--color-primary);
+    width: 40px;
+    text-align: left;
+    letter-spacing: 1px;
+    margin-left: 30px; /* ::beforeのスペースを確保 */
+}
+.player-name {
+    flex-grow: 1;
+    font-size: 1.0em;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+}
+.player-score {
+    font-size: 1.3em;
+    font-weight: bold;
+    color: var(--color-accent); /* Red score */
+    text-shadow: 1px 1px 0 var(--color-primary); /* Green shadow */
+}
+
+/* ★★★ 新規追加: プロ/プレミアム/ラグジュアリーマークのスタイル ★★★ */
+.pro-mark {
+    font-size: 0.9em;
+    color: var(--color-gold);
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
+    margin-left: 5px;
+}
+.premium-mark {
+    font-size: 0.9em;
+    color: #87CEEB; /* Light Sky Blue / Icy Blue */
+    text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
+    margin-left: 5px;
+}
+/* ★★★ Luxuryマークのスタイル追加 ★★★ */
+.luxury-mark {
+    font-size: 1.1em;
+    color: #ffd700; /* Gold */
+    text-shadow: 2px 2px 3px #daa520, 0 0 5px rgba(255, 255, 255, 0.7);
+    margin-left: 5px;
+}
+
+/* ★★★ Luxury会員の名前フォント ★★★ */
+.player-name.luxury-name {
+    font-family: 'Times New Roman', serif;
+    font-weight: bold;
+    color: var(--color-gold);
+    font-size: 1.1em;
+    letter-spacing: 1.5px;
+}
+
+/* --- Info Boxes (index.html) --- */
+.info-box {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    margin-top: 25px;
+    border: 1px solid var(--color-primary);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+.icon-title {
+    margin-top: 0;
+    color: var(--color-primary);
+    /* 赤のダブルライン装飾 */
+    border-bottom: 3px double var(--color-accent);
+    padding-bottom: 5px;
+    letter-spacing: 1px;
+    font-size: 1.2em;
+}
+.titles-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+.titles-list li {
+    background-color: var(--color-accent); /* Red tile */
+    color: var(--color-light);
+    padding: 6px 12px;
+    border-radius: 3px;
+    box-shadow: 4px 4px 0 0 var(--color-primary); /* Green shadow */
+    font-size: 0.8em;
+    border: 1px solid var(--color-primary);
+}
+
+/* --- Utility & Messaging --- */
+.update-info {
+    text-align: right;
+    color: #6c757d;
+    font-size: 0.8em;
+    margin-top: 15px;
+}
+
+.message {
+    padding: 8px;
+    border-radius: 5px;
+    margin-top: 12px;
+    font-weight: bold;
+    text-align: center;
+    border: 1px solid;
+    letter-spacing: 1px;
+    font-size: 0.9em;
+}
+.message.success {
+    background-color: #e6ffe6;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+.message.error {
+    background-color: #fff0f0;
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+.message.info {
+    background-color: #e9f5ff;
+    color: #007bff;
+    border-color: #007bff;
+}
+.hidden {
+    display: none !important;
+}
+
+/* --- Mahjong (mahjong.html) & Master Tools (master.html) Specific --- */
+.player-input-row {
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 10px;
+}
+.instruction {
+    color: var(--color-primary);
+    font-weight: 500;
+    border-left: 3px solid var(--color-accent); /* Red left border */
+    padding-left: 10px;
+    font-size: 0.9em;
+}
+
+
+/* --- Sports Bets (master_sports.html & index.html) Specific --- */
+
+.generic-odds-row .selection-input,
+.generic-odds-row .odds-input {
+    border-radius: 3px;
+}
+
+.bet-card {
+    border: 1px solid var(--color-primary);
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    box-shadow: 4px 4px 0 0 var(--color-accent); /* Red shadow */
+}
+
+.bet-card h3 {
+    color: var(--color-primary);
+    border-bottom: 1px solid var(--color-accent);
+    padding-bottom: 5px;
+}
+
+.status-label {
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.status-open { color: var(--color-primary); } 
+.status-closed { color: var(--color-accent); } /* Red for closed */
+.status-settled { color: #6c757d; } 
+
+.odds-info {
+    margin-bottom: 10px;
+    padding: 8px;
+    background-color: #f7f7f7;
+    border-radius: 3px;
+    border: 1px dashed var(--color-accent);
+}
+.score-odds-item {
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    margin-right: 8px;
+    display: inline-block;
+    border: 1px solid var(--color-accent);
+}
+
+.result-tools-score {
+    border: 2px solid var(--color-accent); /* Red border */
+    border-radius: 5px;
+}
+
+.result-tools-score p {
+    color: var(--color-accent);
+}
+
+
+/* Sports Bets Home Tile (index.html) */
+
+.bet-grid {
+    display: grid;
+    grid-template-columns: 1fr; 
+    gap: 15px;
+    margin-top: 15px;
+}
+
+/* 画面幅が広い場合は2列にする */
+@media (min-width: 600px) {
+    .bet-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+
+.bet-tile {
+    background-color: var(--color-light); 
+    padding: 15px;
+    border-radius: 5px;
+    border: 2px solid var(--color-primary);
+    box-shadow: 4px 4px 0 0 var(--color-accent);
+}
+.bet-tile:hover {
+    transform: none;
+    box-shadow: 6px 6px 0 0 var(--color-accent);
+}
+.bet-tile.status-closed {
+    border-color: var(--color-accent);
+    background-color: #fffaf0; /* Light Goldish */
+}
+
+
+.bet-tile h4 {
+    color: var(--color-primary);
+    border-bottom: 2px dashed var(--color-accent);
+    font-size: 1.1em;
+}
+
+.odds-info-display {
+    border-bottom: 1px solid #ddd;
+}
+
+.generic-odds-list-display li {
+    font-size: 0.75em;
+    background-color: #f9f9f9;
+    padding: 3px 6px;
+    border-radius: 3px;
+    border: 1px solid #ccc;
+}
+.generic-odds-list-display strong {
+    color: var(--color-primary);
+}
+
+.my-wager-text {
+    color: var(--color-text);
+    border-left: 4px solid var(--color-accent); 
+    background-color: #fff0f0; /* Light Reddish */
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+/* Race Records List */
+#race-records-list {
+    font-size: 0.7em;
+}
+#race-records-list li {
+    padding: 4px 0;
+    border-bottom: 1px dotted #ccc;
+    font-size: 1em;
+}
+#race-records-list strong {
+    color: var(--color-accent) !important;
+    font-weight: bold;
+}
+
+/* ★★★ 新規追加: 固定フッターナビゲーション ★★★ */
+footer {
     position: fixed;
-    bottom: 0; left: 0; width: 100%;
-    background: rgba(0, 0, 0, 0.95);
-    border-top: 1px solid var(--electric-purple);
-    padding: 15px 0;
-    z-index: 1000;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: var(--color-primary);
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.4);
+    padding: 10px 0;
+    z-index: 100;
 }
 
 .footer-nav {
@@ -215,48 +805,40 @@ input, select, textarea {
     align-items: center;
     max-width: 800px;
     margin: 0 auto;
+    padding: 0 10px;
 }
 
-.nav-link {
-    color: #555;
-    text-decoration: none;
-    font-family: var(--font-display);
-    font-size: 0.8em;
-    padding: 5px 10px;
-    transition: color 0.3s;
-    text-transform: uppercase;
+/* フッター内のリンクスタイルを調整 */
+footer .input-link {
+    flex-grow: 1;
+    text-align: center;
+    margin: 0 5px;
+    padding: 10px 5px;
+    font-size: 0.9em;
+    border: 1px solid var(--color-accent); /* Red border */
+    background-color: var(--color-primary); /* Green background */
+    color: var(--color-light);
+    text-decoration: none; 
+    font-weight: bold; 
+    letter-spacing: 1px; 
+    transition: background-color 0.3s; 
+    border-radius: 3px; 
+}
+footer .input-link:hover {
+    background-color: #004d00; /* Darker Green */
+    border-color: var(--color-gold);
 }
 
-.nav-link.active, .nav-link:not(.hidden):hover {
-    color: var(--electric-cyan);
-    text-shadow: 0 0 8px var(--electric-cyan);
+body.dark-mode footer {
+    background-color: var(--dm-color-box);
+    box-shadow: 0 -5px 15px rgba(255, 255, 255, 0.15);
 }
 
-.hidden { display: none !important; }
-
-/* --- Tables & Lists --- */
-.lottery-prize-table, .cyber-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-family: var(--font-mono);
-    font-size: 0.85em;
-    margin-top: 10px;
+body.dark-mode footer .input-link {
+    background-color: var(--dm-color-accent); /* Green */
+    color: var(--dm-color-text);
+    border: 1px solid var(--dm-color-primary); /* Red */
 }
-.lottery-prize-table th, .lottery-prize-table td {
-    border: 1px solid rgba(0, 255, 255, 0.2);
-    padding: 8px;
-    text-align: left;
+body.dark-mode footer .input-link:hover {
+    background-color: #004d00;
 }
-.lottery-prize-table th { background: rgba(189, 0, 255, 0.2); color: #fff; }
-
-.exchange-list, .race-list { list-style: none; padding: 0; }
-.exchange-list li, .race-list li { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-.p-val { color: var(--electric-cyan); font-weight: bold; width: 60px; display: inline-block; }
-
-/* --- PVP Specific --- */
-.chair-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.chair-button { 
-    background: rgba(0,0,0,0.5); border: 1px solid var(--electric-cyan); color: #fff; 
-    padding: 15px 5px; font-family: var(--font-mono); font-weight: bold; cursor: pointer;
-}
-.chair-button:hover:not(:disabled) { background: var(--electric-cyan); color: #000; }
