@@ -3,83 +3,252 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JONG - BATTLE ARENA</title>
+    <title>電気椅子PVPゲーム</title>
+    <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        /* 共通レイアウトの調整（モバイル最適化） */
+        main {
+            padding: 10px; /* パディングを減らす */
+        }
+        
+        /* PVP専用スタイル */
+        .chair-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr); /* 4列に増やす */
+            gap: 5px; /* 隙間を減らす */
+            margin-top: 10px;
+        }
+        .chair-button {
+            padding: 8px 5px; /* パディングを減らし、ボタンを小さく */
+            font-size: 0.85em; /* フォントを小さく */
+            font-weight: bold;
+            border-radius: 6px; 
+            background-color: var(--color-background-secondary);
+            color: var(--color-text);
+            border: 2px solid var(--color-primary);
+            transition: transform 0.1s, background-color 0.1s;
+        }
+        
+        /* プレイヤー情報カードをコンパクトに */
+        .player-info-card {
+            padding: 8px; /* パディングを減らす */
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border: 1px solid var(--color-border);
+            background-color: var(--color-background-secondary);
+        }
+        .player-info-card h4 {
+            font-size: 0.9em; /* タイトルを小さく */
+            margin: 0;
+        }
+        .player-info-card p {
+            font-size: 0.8em; /* スコア表示を小さく */
+            margin: 2px 0 0 0;
+        }
+        
+        /* ターンインジケーターをコンパクトに */
+        .turn-indicator {
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .shock-counter {
+            font-size: 0.9em;
+        }
+        
+        /* ラベルの調整 */
+        .form-group label {
+            font-size: 0.8em;
+        }
+
+        /* 結果メッセージを小さく */
+        #last-result-display {
+            margin-bottom: 10px !important;
+            padding: 5px;
+        }
+        #result-message {
+            font-size: 0.85em !important;
+        }
+        
+        /* ポイント設定フォームの調整 - 単一入力に合わせる */
+        .point-config-grid {
+            display: grid;
+            grid-template-columns: 1fr; /* 1列に変更 */
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .point-config-grid .form-group {
+            margin-bottom: 0;
+        }
+        .point-config-grid input[type="number"] {
+            font-size: 0.9em;
+            padding: 5px;
+        }
+
+        /* ------------------------------------- */
+        /* アニメーションと共通クラスは維持 */
+        .current-player {
+            border: 2px solid var(--color-accent);
+        }
+        .chosen-chair {
+            background-color: var(--color-accent) !important;
+            color: white !important;
+            border-color: var(--color-accent) !important;
+        }
+        .dark-mode .turn-indicator {
+            background-color: #5d4a0a;
+            color: #ffeb3b;
+        }
+        .shocked {
+            animation: shake 0.5s;
+            background-color: #dc3545 !important;
+            color: white !important;
+        }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+    </style>
 </head>
-<body class="space-theme">
-    <header class="electric-header">
-        <div class="scanline"></div>
-        <h1>BATTLE ARENA</h1>
+<body>
+    <header>
+        <h1>⚡ 電気椅子PVPゲーム ⚡</h1>
     </header>
 
-    <main class="glass-interface">
+    <main id="main-content">
+        <!-- 認証セクション -->
         <section id="auth-section">
-            <h2 class="neon-title">ARENA LOGIN</h2>
+            <h2>認証</h2>
+            <p class="instruction">このゲームをプレイするには、ユーザー名とパスワードでログインしてください。</p>
             <form id="auth-form">
-                <input type="text" id="username" placeholder="USERNAME" required style="margin-bottom: 15px;">
-                <input type="password" id="password" placeholder="PASSWORD" required>
-                <button type="submit" class="neon-btn">ENTER ARENA</button>
+                <div class="form-group">
+                    <label for="username">ユーザー名:</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">パスワード:</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit">ログイン</button>
             </form>
             <p id="auth-message" class="hidden"></p>
         </section>
 
         <section id="pvp-lobby" class="hidden">
-            <div class="tool-box neon-border-cyan" style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h3>GLADIATOR: <span id="authenticated-user-name"></span></h3>
-                    <p>CREDITS: <strong id="current-score"></strong> P</p>
-                </div>
-                <button id="logout-button" class="action-button secondary-button" style="width: auto;">LEAVE</button>
-            </div>
+            <h3 style="margin-bottom: 5px;">ようこそ、<span id="authenticated-user-name"></span>様！</h3>
+            <p style="font-size: 0.9em; margin-bottom: 20px;">現在のポイント: <strong id="current-score" style="color: var(--color-accent);"></strong> P</p>
+            <button type="button" id="logout-button" class="action-button secondary-button" style="width: auto; margin-bottom: 20px;">ログアウト</button>
 
-            <div class="tool-box neon-border-purple">
-                <h3>ROOM MANAGEMENT</h3>
-                <p id="create-room-restriction-message" class="hidden">MEMBER STATUS REQUIRED.</p>
-                <form id="create-room-form">
-                    <input type="number" id="win-points" value="10.0" step="0.1" style="margin-bottom: 15px;">
-                    <button type="submit" class="neon-btn">INITIALIZE ROOM</button>
+            <!-- ルーム作成・参加フォーム -->
+            <div id="room-management" class="tool-box">
+                <h4>🚪 新しい対戦を開始・参加</h4>
+                
+                <p id="create-room-restriction-message" class="error hidden" style="margin-bottom: 15px; padding: 10px; border-radius: 4px; background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;">
+                    ルームを作成できるのは**プレミアム**または**ラグジュアリー**会員様限定です。
+                </p>
+
+                <form id="create-room-form" style="margin-bottom: 20px;">
+                    <h5 style="margin-bottom: 5px;">🏆 勝利ポイント設定 (P)</h5>
+                    <div class="point-config-grid">
+                        <div class="form-group">
+                            <label for="win-points">勝利ポイント (例: 10.0)</label>
+                            <input type="number" id="win-points" step="0.1" value="10.0" required>
+                            <p style="font-size: 0.75em; color: #6c757d; margin-top: 5px;">
+                                敗北ポイントは <span style="font-weight: bold;">-勝利ポイント</span><br>
+                                放棄ポイントは <span style="font-weight: bold;">-勝利ポイントの2倍</span> に自動設定されます。
+                            </p>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="action-button" style="background-color: #28a745; width: 100%;">ルームを作成する</button>
+                    <p id="create-room-message" class="hidden"></p>
                 </form>
-                <hr style="border: 1px solid var(--glass-border); margin: 20px 0;">
+
                 <form id="join-room-form">
-                    <input type="text" id="room-code" placeholder="ENTER CODE" maxlength="6" style="margin-bottom: 15px;">
-                    <button type="submit" class="neon-btn">JOIN ROOM</button>
+                    <div class="form-group">
+                        <label for="room-code">ルームコード (6桁):</label>
+                        <input type="text" id="room-code" maxlength="6" required placeholder="例: A1B2C3">
+                    </div>
+                    <button type="submit" class="action-button" style="background-color: #007bff; width: 100%;">ルームに参加する</button>
+                    <p id="join-room-message" class="hidden"></p>
                 </form>
             </div>
             
-            <div class="tool-box">
-                <h3>ACTIVE LOBBIES</h3>
-                <div id="available-game-list"></div>
+            <!-- 参加可能なゲームリスト -->
+            <div id="available-games-container" class="tool-box">
+                <h4>🤝 参加可能なルーム</h4>
+                <div id="available-game-list">
+                    <p>参加可能なルームをロード中...</p>
+                </div>
             </div>
         </section>
 
         <section id="game-arena" class="hidden">
-            <h2 id="game-title">ENGAGEMENT</h2>
-            <div id="last-result-display" class="tool-box hidden" style="background: rgba(0, 255, 255, 0.1);">
-                <p id="result-message"></p>
+            <h2 id="game-title">対戦中</h2>
+            
+            <!-- 結果メッセージ -->
+            <div id="last-result-display" class="tool-box hidden" style="margin-bottom: 20px; background-color: #ffe0e0;">
+                <p id="result-message" style="font-size: 1.1em; font-weight: bold; margin: 0;"></p>
             </div>
-            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <div id="player-a-card" class="info-box neon-border-cyan" style="flex: 1;"></div>
-                <div id="player-b-card" class="info-box neon-border-purple" style="flex: 1;"></div>
+            
+            <!-- プレイヤー情報 -->
+            <div style="display: flex; justify-content: space-around; gap: 10px;">
+                <div id="player-a-card" class="player-info-card" style="flex: 1;"></div>
+                <div id="player-b-card" class="player-info-card" style="flex: 1;"></div>
             </div>
-            <p id="turn-display" class="status-msg" style="text-align: center; color: var(--electric-cyan); font-weight: bold;"></p>
-            <p id="round-display" style="text-align: center;">ROUND: <span id="current-round">1</span> / 6</p>
-            <div class="tool-box neon-border-cyan">
-                <div id="chair-container" class="chair-grid"></div>
-                <button id="leave-game-button" class="action-button secondary-button" style="margin-top: 20px;">ABORT</button>
+            
+            <p id="turn-display" class="turn-indicator"></p>
+            <p id="round-display" style="text-align: center; font-size: 1em; margin-bottom: 10px;">ラウンド: <strong id="current-round">1</strong> / 6</p>
+
+            <!-- 椅子グリッド -->
+            <div class="tool-box" style="padding: 10px;">
+                <h3 style="font-size: 1em; margin-top: 0; margin-bottom: 10px;">椅子リスト (1〜12 P)</h3>
+                <form id="action-form">
+                    <div id="chair-container" class="chair-grid">
+                        <!-- 椅子ボタンがJSで生成される -->
+                    </div>
+                    <p id="chair-action-message" class="hidden"></p>
+                </form>
+                <div style="margin-top: 10px;">
+                    <button id="leave-game-button" class="action-button secondary-button" style="background-color: #ccc;">対戦を辞める</button>
+                </div>
             </div>
+            
+            <p id="game-message" class="hidden"></p>
         </section>
     </main>
 
-    <footer class="cyber-footer">
-        <nav class="footer-nav" id="main-nav">
-            <a href="index.html" class="nav-link">RANKING</a>
-            <a href="pvp.html" class="nav-link active">PVP</a>
-            <a href="mypage.html" class="nav-link">MY PAGE</a>
-            <a href="master.html" class="nav-link">MASTER</a>
+    <footer>
+        <nav class="footer-nav">
+            <a href="index.html" class="input-link">ランキング</a>
+            <a href="mypage.html" class="input-link">マイページ</a>
+            <a href="master.html" class="input-link">マスター</a>
+            <a href="pvp.html" class="input-link">PVP</a>
         </nav>
     </footer>
 
     <script src="assets/js/common.js"></script>
     <script src="assets/js/pvp.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                document.body.classList.add('dark-mode');
+            }
+        });
+    </script>
 </body>
 </html>
