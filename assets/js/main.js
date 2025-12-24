@@ -10,28 +10,20 @@ const COUNTDOWN_TIMER_ELEMENT = document.getElementById('countdown-timer');
 const EXCLUDED_PLAYERS = ['3mahjong']; 
 
 /**
- * ★ ナビゲーションの表示制御
+ * ★ ナビゲーションの表示制御 (常時表示へ変更)
  */
 function updateNavigation() {
-    const authUser = localStorage.getItem('authUsername') || localStorage.getItem('pvpAuthUsername');
-    // マスターはメモリ管理だが、便宜上フラグをチェック
-    const isMaster = window.isAuthenticatedAsMaster || false;
-
-    const authLinks = document.querySelectorAll('.auth-required');
-    const masterLinks = document.querySelectorAll('.master-required');
-    const guestLinks = document.querySelectorAll('.guest-only');
-
-    if (authUser) {
-        authLinks.forEach(el => el.classList.remove('hidden'));
-        guestLinks.forEach(el => el.classList.add('hidden'));
-    } else {
-        authLinks.forEach(el => el.classList.add('hidden'));
-        guestLinks.forEach(el => el.classList.remove('hidden'));
-    }
-
-    if (isMaster) {
-        masterLinks.forEach(el => el.classList.remove('hidden'));
-    }
+    // ボタン自体の表示・非表示は行わず、現在地のハイライトなどのみ行う（必要に応じて）
+    const path = window.location.pathname;
+    const navLinks = document.querySelectorAll('.nav-link');
+    
+    navLinks.forEach(link => {
+        if (link.getAttribute('href') === path.split('/').pop()) {
+            link.classList.add('active');
+        } else {
+            link.classList.remove('active');
+        }
+    });
 }
 
 /**
@@ -112,12 +104,13 @@ async function renderScores() {
 }
 
 /**
- * 宝くじの描画
+ * 宝くじの描画 (復元修正)
  */
 function renderLotteries(lotteries) {
     if (!LOTTERY_LIST_CONTAINER) return; 
 
     const now = new Date();
+    // 締切前の宝くじを表示
     const openLotteries = lotteries.filter(l => 
         l.status === 'OPEN' && new Date(l.purchaseDeadline) > now
     );
