@@ -96,7 +96,7 @@ h2, h3 {
     text-shadow: 0 0 5px rgba(0, 242, 255, 0.3);
 }
 
-/* ★ カウントダウン用スタイル */
+/* カウントダウン用スタイル */
 .countdown-container {
     text-align: center;
     margin-bottom: 25px;
@@ -117,14 +117,60 @@ h2, h3 {
     flex-wrap: wrap;
 }
 
-.cd-num {
-    font-size: 1.2em;
+.cd-num { font-size: 1.2em; }
+.cd-unit { font-size: 0.5em; color: var(--color-text-dim); margin-right: 10px; }
+
+/* ★ 宝くじ詳細の可視性向上スタイル ★ */
+.lottery-details-box {
+    margin: 15px 0;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-left: 3px solid var(--color-electric-blue);
+    border-radius: 4px;
 }
 
-.cd-unit {
-    font-size: 0.5em;
+.details-title {
+    margin: 0 0 8px 0;
+    font-size: 0.9em;
+    font-weight: bold;
+    color: var(--color-electric-gold);
+}
+
+.lottery-prize-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+    color: var(--color-text);
+}
+
+.lottery-prize-table th {
+    background: rgba(0, 242, 255, 0.1);
+    color: var(--color-electric-blue);
+    text-align: left;
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(0, 242, 255, 0.3);
+}
+
+.lottery-prize-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.lottery-prize-table .loss-row {
     color: var(--color-text-dim);
-    margin-right: 10px;
+    background: rgba(255, 77, 77, 0.05); /* ほんのり赤色 */
+}
+
+.lottery-prize-table .loss-row td {
+    border-bottom: none;
+}
+
+/* タイル内のフォント調整 */
+.bet-tile h4 {
+    margin-top: 0;
+    color: #fff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 8px;
 }
 
 .tool-box {
@@ -142,11 +188,7 @@ h2, h3 {
 }
 
 /* --- Inputs & Buttons --- */
-input[type="text"],
-input[type="password"],
-input[type="number"],
-input[type="datetime-local"],
-select {
+input[type="text"], input[type="password"], input[type="number"], input[type="datetime-local"], select {
     background: rgba(0, 0, 0, 0.4);
     border: 1px solid rgba(0, 242, 255, 0.4);
     color: #fff;
@@ -182,13 +224,6 @@ button:hover {
     filter: brightness(1.1);
 }
 
-.secondary-button {
-    background: transparent !important;
-    border: 1px solid var(--color-text-dim) !important;
-    color: var(--color-text) !important;
-    box-shadow: none !important;
-}
-
 /* --- Ranking List --- */
 .ranking-item {
     display: flex;
@@ -204,40 +239,6 @@ button:hover {
 .ranking-item:nth-child(1) {
     border-color: var(--color-electric-gold);
     background: rgba(255, 215, 0, 0.05);
-}
-
-/* --- PVP Specific --- */
-.chair-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-}
-
-.chair-button {
-    background: rgba(20, 25, 45, 0.8);
-    border: 1px solid var(--color-electric-blue);
-    color: var(--color-electric-blue);
-    padding: 15px 5px;
-    border-radius: 8px;
-    font-weight: bold;
-    box-shadow: none;
-}
-
-.chosen-chair {
-    background: var(--color-electric-purple) !important;
-    color: #fff !important;
-    border-color: #fff !important;
-    box-shadow: 0 0 15px var(--color-electric-purple) !important;
-}
-
-.shocked {
-    animation: shock-glow 0.3s infinite;
-}
-
-@keyframes shock-glow {
-    0% { background-color: #ff0044; box-shadow: 0 0 20px #ff0044; }
-    50% { background-color: #ff4d4d; box-shadow: 0 0 40px #ff4d4d; }
-    100% { background-color: #ff0044; box-shadow: 0 0 20px #ff0044; }
 }
 
 /* --- Footer Navigation --- */
@@ -274,8 +275,7 @@ footer {
     background: rgba(255, 255, 255, 0.05);
 }
 
-.footer-nav .input-link:hover, 
-.footer-nav .input-link[href*="current"] {
+.footer-nav .input-link:hover {
     color: var(--color-electric-blue);
     background: rgba(0, 242, 255, 0.1);
     box-shadow: inset 0 0 10px rgba(0, 242, 255, 0.2);
@@ -286,8 +286,3 @@ footer {
 .flex-between { display: flex; justify-content: space-between; align-items: center; }
 .text-large { font-size: 1.6em; font-weight: bold; }
 #current-score { color: var(--color-electric-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
-
-/* Dark mode overrides (Now the base theme is dark, so these ensure compatibility) */
-body.dark-mode {
-    /* Base theme is already space-themed */
-}
