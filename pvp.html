@@ -5,27 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JONG - BATTLE ARENA</title>
     <link rel="stylesheet" href="assets/css/style.css">
-    <style>
-        .chair-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 20px; }
-        .chair-button { 
-            background: rgba(0,0,0,0.5); border: 1px solid var(--electric-cyan); color: #fff;
-            padding: 15px; font-family: var(--font-mono); font-weight: bold; cursor: pointer; transition: 0.2s;
-        }
-        .chair-button:hover:not(:disabled) { box-shadow: 0 0 15px var(--electric-cyan); transform: scale(1.05); }
-        .chosen-chair { border-color: var(--electric-purple); opacity: 0.5; cursor: not-allowed; }
-        .current-player { box-shadow: 0 0 20px var(--electric-cyan); border-width: 2px; }
-    </style>
 </head>
 <body class="space-theme">
     <header class="electric-header">
+        <div class="scanline"></div>
         <h1>BATTLE ARENA</h1>
     </header>
 
     <main class="glass-interface">
         <section id="auth-section">
-            <h2>ARENA LOGIN</h2>
+            <h2 class="neon-title">ARENA LOGIN</h2>
             <form id="auth-form">
-                <input type="text" id="username" placeholder="USERNAME" required style="margin-bottom: 10px;">
+                <input type="text" id="username" placeholder="USERNAME" required style="margin-bottom: 15px;">
                 <input type="password" id="password" placeholder="PASSWORD" required>
                 <button type="submit" class="neon-btn">ENTER ARENA</button>
             </form>
@@ -33,46 +24,48 @@
         </section>
 
         <section id="pvp-lobby" class="hidden">
-            <div class="tool-box neon-border-cyan">
-                <h3>WELCOME, <span id="authenticated-user-name"></span></h3>
-                <p>CREDITS: <strong id="current-score"></strong> P</p>
+            <div class="tool-box neon-border-cyan" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h3>GLADIATOR: <span id="authenticated-user-name"></span></h3>
+                    <p>CREDITS: <strong id="current-score"></strong> P</p>
+                </div>
                 <button id="logout-button" class="action-button secondary-button" style="width: auto;">LEAVE</button>
             </div>
 
-            <div id="room-management" class="tool-box">
-                <h3>CREATE / JOIN ROOM</h3>
-                <p id="create-room-restriction-message" class="hidden">MEMBER STATUS REQUIRED TO CREATE ROOM.</p>
+            <div class="tool-box neon-border-purple">
+                <h3>ROOM MANAGEMENT</h3>
+                <p id="create-room-restriction-message" class="hidden">MEMBER STATUS REQUIRED.</p>
                 <form id="create-room-form">
-                    <input type="number" id="win-points" value="10.0" step="0.1" style="margin-bottom: 10px;">
-                    <button type="submit" class="neon-btn">INITIALIZE NEW ROOM</button>
+                    <input type="number" id="win-points" value="10.0" step="0.1" style="margin-bottom: 15px;">
+                    <button type="submit" class="neon-btn">INITIALIZE ROOM</button>
                 </form>
-                <hr style="border-color: var(--glass-border); margin: 20px 0;">
+                <hr style="border: 1px solid var(--glass-border); margin: 20px 0;">
                 <form id="join-room-form">
-                    <input type="text" id="room-code" placeholder="ENTER 6-DIGIT CODE" maxlength="6" style="margin-bottom: 10px;">
-                    <button type="submit" class="neon-btn">SYNC JOIN ROOM</button>
+                    <input type="text" id="room-code" placeholder="ENTER CODE" maxlength="6" style="margin-bottom: 15px;">
+                    <button type="submit" class="neon-btn">JOIN ROOM</button>
                 </form>
             </div>
-
-            <div id="available-games-container" class="tool-box neon-border-purple">
+            
+            <div class="tool-box">
                 <h3>ACTIVE LOBBIES</h3>
                 <div id="available-game-list"></div>
             </div>
         </section>
 
         <section id="game-arena" class="hidden">
-            <h2 id="game-title">ENGAGED</h2>
-            <div id="last-result-display" class="tool-box hidden" style="background: rgba(189, 0, 255, 0.1);">
+            <h2 id="game-title">ENGAGEMENT</h2>
+            <div id="last-result-display" class="tool-box hidden" style="background: rgba(0, 255, 255, 0.1);">
                 <p id="result-message"></p>
             </div>
             <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <div id="player-a-card" class="info-box" style="flex: 1;"></div>
-                <div id="player-b-card" class="info-box" style="flex: 1;"></div>
+                <div id="player-a-card" class="info-box neon-border-cyan" style="flex: 1;"></div>
+                <div id="player-b-card" class="info-box neon-border-purple" style="flex: 1;"></div>
             </div>
-            <p id="turn-display" style="text-align: center; font-weight: bold; color: var(--electric-cyan);"></p>
-            <p id="round-display" style="text-align: center; font-size: 0.9em;">ROUND: <span id="current-round">1</span>/6</p>
-            <div class="tool-box">
+            <p id="turn-display" class="status-msg" style="text-align: center; color: var(--electric-cyan); font-weight: bold;"></p>
+            <p id="round-display" style="text-align: center;">ROUND: <span id="current-round">1</span> / 6</p>
+            <div class="tool-box neon-border-cyan">
                 <div id="chair-container" class="chair-grid"></div>
-                <button id="leave-game-button" class="action-button secondary-button" style="margin-top: 20px;">ABORT MISSION</button>
+                <button id="leave-game-button" class="action-button secondary-button" style="margin-top: 20px;">ABORT</button>
             </div>
         </section>
     </main>
@@ -80,9 +73,9 @@
     <footer class="cyber-footer">
         <nav class="footer-nav" id="main-nav">
             <a href="index.html" class="nav-link">RANKING</a>
-            <a href="mypage.html" class="nav-link auth-required hidden">MY PAGE</a>
-            <a href="pvp.html" class="nav-link active auth-required hidden">PVP</a>
             <a href="master.html" class="nav-link master-required hidden">MASTER</a>
+            <a href="pvp.html" class="nav-link active auth-required hidden">PVP</a>
+            <a href="mypage.html" class="nav-link auth-required hidden">MY PAGE</a>
             <a href="mypage.html" class="nav-link guest-only">LOGIN</a>
         </nav>
     </footer>
