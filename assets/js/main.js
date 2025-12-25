@@ -11,7 +11,7 @@ const EXCLUDED_PLAYERS = ['3mahjong'];
 let previousScores = new Map(JSON.parse(localStorage.getItem('previousScores') || '[]'));
 
 /**
- * 2026年1月1日へのカウントダウン更新関数
+ * ★★★ 修正: 2026年1月1日へのカウントダウン更新関数 (HH:MM:SS 形式) ★★★
  */
 function updateCountdown() {
     const display = document.getElementById('countdown-display');
@@ -24,21 +24,26 @@ function updateCountdown() {
         const distance = targetDate - now;
 
         if (distance < 0) {
-            display.textContent = "明けましておめでとうございます！ (2026)";
+            display.textContent = "HAPPY NEW YEAR 2026!";
             display.style.color = "var(--color-electric-gold)";
             return;
         }
 
-        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        // 全体の秒数を計算
+        const totalSeconds = Math.floor(distance / 1000);
+        
+        // 日数を時間に統合して計算
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
 
+        // 形式を HH:MM:SS に統一 (2桁埋め)
         display.innerHTML = `
-            <span class="cd-num">${days}</span><span class="cd-unit">日</span>
-            <span class="cd-num">${String(hours).padStart(2, '0')}</span><span class="cd-unit">時間</span>
-            <span class="cd-num">${String(minutes).padStart(2, '0')}</span><span class="cd-unit">分</span>
-            <span class="cd-num">${String(seconds).padStart(2, '0')}</span><span class="cd-unit">秒</span>
+            <span class="cd-num">${String(hours).padStart(2, '0')}</span>
+            <span class="cd-sep">:</span>
+            <span class="cd-num">${String(minutes).padStart(2, '0')}</span>
+            <span class="cd-sep">:</span>
+            <span class="cd-num">${String(seconds).padStart(2, '0')}</span>
         `;
     };
 
@@ -117,7 +122,7 @@ async function renderScores() {
 }
 
 /**
- * ★★★ 修正: 宝くじの可視性を改善 ★★★
+ * 宝くじの可視性を改善した描画関数
  */
 function renderLotteries(lotteries) {
     if (!LOTTERY_LIST_CONTAINER) return; 
@@ -136,7 +141,6 @@ function renderLotteries(lotteries) {
         const formattedDeadline = deadline.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }) + ' ' + deadline.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
         const formattedAnnounce = announceDate.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' });
 
-        // テーブル内のインラインスタイルを削除し、CSSクラスに変更
         let prizesTable = '<table class="lottery-prize-table"><thead><tr><th>等級</th><th>ポイント</th><th>確率</th></tr></thead><tbody>';
         let totalProbability = 0;
         l.prizes.sort((a, b) => a.rank - b.rank).forEach(p => {
@@ -144,7 +148,6 @@ function renderLotteries(lotteries) {
             totalProbability += p.probability;
         });
         const lossProbability = Math.max(0, 1.0 - totalProbability);
-        // ハズレ行にクラス 'loss-row' を適用
         prizesTable += `<tr class="loss-row"><td>ハズレ</td><td>0.0 P</td><td>${(lossProbability * 100).toFixed(3)} %</td></tr></tbody></table>`;
 
         const totalTickets = l.tickets.reduce((sum, t) => sum + (t.count || 1), 0);
@@ -156,7 +159,6 @@ function renderLotteries(lotteries) {
                     <p class="bet-deadline">購入締切: ${formattedDeadline}</p>
                     <p class="bet-deadline">発表日: ${formattedAnnounce}</p>
                 </div>
-                <!-- クラスを 'lottery-details-box' に変更 -->
                 <div class="lottery-details-box">
                     <p class="details-title">🏆 当選詳細</p>
                     ${prizesTable}
