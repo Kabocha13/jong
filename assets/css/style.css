@@ -1,272 +1,364 @@
-/* assets/css/style.css - Japanese New Year Edition */
+/* assets/css/style.css - New Year (Oshougatsu) Animated Theme */
 
-/* --- Colors & Fonts --- */
+/* --- 変数定義 --- */
 :root {
-    --color-primary: #b22222;     /* Firebrick Red (お正月) */
-    --color-accent: #DAA520;      /* Gold */
-    --color-text: #1c1c1c;        /* Near Black */
-    --color-light: #ffffff;       /* White */
-    --color-background: #fffafa;  /* Snow White */
-    --font-primary: 'Century Gothic', 'Futura', Arial, sans-serif;
+    --color-primary: #c0392b;     /* 祝儀の赤 (Shoujouhi) */
+    --color-accent: #d4af37;      /* 豪華な金 (Kinpaku) */
+    --color-text: #2c3e50;        /* 墨色 (Deep Charcoal) */
+    --color-light: #ffffff;
+    --color-background: #fffaf0;  /* 鳥の子色 (Ivory) */
+    --font-primary: 'Yu Mincho', 'Hiragino Mincho ProN', 'MS Mincho', serif;
 
-    /* ★★★ ダークモード変数 ★★★ */
-    --dm-color-primary: #DAA520;      /* Gold for accents (DM) */
-    --dm-color-accent: #8b0000;       /* Dark Red for second accent (DM) */
-    --dm-color-text: #EAEAEA;         /* Light Grey text (DM) */
-    --dm-color-light: #1c1c1c;        /* Dark background elements (DM) */
-    --dm-color-background: #121212;   /* Deep Dark background (DM) */
-    --dm-color-box: #1E1E1E;          /* Slightly lighter dark box (DM) */
+    /* ダークモード変数 */
+    --dm-color-primary: #d4af37;
+    --dm-color-accent: #e67e22;
+    --dm-color-text: #fdf6e3;
+    --dm-color-light: #2c0000;
+    --dm-color-background: #1a0000;
+    --dm-color-box: #2d0a0a;
 
-    /* 追加の共通カラー */
-    --color-error: #dc3545;
-    --color-success: #28a745;
-    --color-info: #007bff;
-    --color-border: #d4af37;      /* Golden border */
-    --color-background-secondary: #fff5f5;
+    --color-error: #e74c3c;
+    --color-success: #27ae60;
+    --color-info: #2980b9;
 }
 
+/* --- アニメーション定義 --- */
+
+/* ボタンがキラリと光るエフェクト */
+@keyframes shimmery {
+    0% { left: -150%; }
+    30% { left: 150%; }
+    100% { left: 150%; }
+}
+
+/* 縁起物がゆらゆら揺れる動き (ヘッダー用) */
+@keyframes yura-yura {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-5px) rotate(1deg); }
+}
+
+/* ふわっと表示される動き (メインコンテンツ用) */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* 文字が少し光るエフェクト */
+@keyframes text-glow {
+    0%, 100% { text-shadow: 0 0 5px rgba(212, 175, 55, 0.2); }
+    50% { text-shadow: 0 0 15px rgba(212, 175, 55, 0.6); }
+}
+
+/* --- 基本スタイル --- */
 body {
     font-family: var(--font-primary);
     background-color: var(--color-background);
     color: var(--color-text);
     margin: 0;
     padding: 0;
-    padding-bottom: 80px; 
-    background-image: radial-gradient(var(--color-background-secondary) 1px, transparent 1px);
-    background-size: 20px 20px;
+    padding-bottom: 80px;
+    line-height: 1.6;
 }
 
-/* --- Dark Mode Styles --- */
 body.dark-mode {
     background-color: var(--dm-color-background);
     color: var(--dm-color-text);
-    padding-bottom: 80px;
-    background-image: none;
+}
+
+/* --- ヘッダー --- */
+header {
+    background-color: var(--color-primary);
+    color: var(--color-light);
+    padding: 30px 20px 25px;
+    text-align: center;
+    box-shadow: 0 5px 20px rgba(192, 57, 43, 0.4);
+    background-image: radial-gradient(var(--color-accent) 0.6px, transparent 0.6px);
+    background-size: 24px 24px;
+    position: relative;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.8em;
+    letter-spacing: 4px;
+    display: inline-block;
+    padding: 8px 25px;
+    border: 3px double var(--color-accent);
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    animation: yura-yura 4s ease-in-out infinite;
 }
 
 body.dark-mode header {
     background-color: var(--dm-color-box);
-    color: var(--dm-color-text);
-    box-shadow: 0 5px 15px rgba(218, 165, 32, 0.2);
+    box-shadow: 0 5px 15px rgba(212, 175, 55, 0.2);
 }
 
-body.dark-mode header h1 {
-    border-bottom: 3px double var(--dm-color-primary);
+/* --- メインレイアウト --- */
+main {
+    max-width: 800px;
+    margin: 30px auto;
+    padding: 25px;
+    background-color: var(--color-light);
+    border: 2px solid var(--color-primary);
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    animation: fadeIn 0.8s ease-out forwards;
 }
 
 body.dark-mode main {
     background-color: var(--dm-color-box);
-    border: 2px solid var(--dm-color-primary);
+    border-color: var(--dm-color-primary);
 }
 
-body.dark-mode h2,
-body.dark-mode h3,
-body.dark-mode .icon-title {
-    color: var(--dm-color-primary);
-    border-color: var(--dm-color-accent);
+/* --- ツールボックス --- */
+.tool-box {
+    background-color: #fff;
+    padding: 22px;
+    margin-bottom: 30px;
+    border: 2px solid var(--color-accent);
+    border-radius: 10px;
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-body.dark-mode input[type="text"],
-body.dark-mode input[type="password"],
-body.dark-mode input[type="number"],
-body.dark-mode select,
-body.dark-mode textarea {
-    background-color: #2c2c2c;
-    border: 1px solid var(--dm-color-accent);
-    color: var(--dm-color-text);
+.tool-box:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(212, 175, 55, 0.15);
 }
 
-body.dark-mode .input-link {
-    color: var(--dm-color-text);
-    background-color: var(--dm-color-accent);
-    border: 1px solid var(--dm-color-primary);
-}
-
-body.dark-mode #submit-button,
-body.dark-mode button[type="submit"]:not(#auth-form button),
-body.dark-mode .action-button {
-    background-color: var(--dm-color-primary);
-    color: var(--dm-color-box);
-    border: 2px solid var(--dm-color-accent);
+.tool-box::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    border: 1px solid rgba(212, 175, 55, 0.25);
+    pointer-events: none;
+    border-radius: 6px;
 }
 
 body.dark-mode .tool-box {
-    background-color: var(--dm-color-box);
-    border: 1px solid var(--dm-color-accent);
+    background-color: #351515;
+    border-color: var(--dm-color-primary);
 }
 
-/* --- Global Layout --- */
-header {
-    background-color: var(--color-primary);
-    color: var(--color-light);
-    padding: 30px 20px 20px;
-    text-align: center;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    border-bottom: 4px solid var(--color-accent);
-}
+/* --- ボタンデザイン (ここがメインの修正箇所) --- */
 
-header h1 {
-    margin: 0 0 15px 0;
-    font-size: 1.9em;
-    letter-spacing: 5px;
-    display: inline-block;
-    padding-bottom: 10px;
-    border-bottom: 3px double var(--color-accent);
-    text-shadow: 2px 2px 0px rgba(0,0,0,0.3);
-}
-
-main {
-    max-width: 800px;
-    margin: 40px auto;
-    padding: 25px;
-    background-color: var(--color-light);
-    border: 2px solid var(--color-primary);
-    box-shadow: 0 0 20px rgba(178, 34, 34, 0.1);
-}
-
-/* --- Utility Classes --- */
-.hidden { display: none !important; }
-.mt-10 { margin-top: 10px !important; }
-.mt-20 { margin-top: 20px !important; }
-.mb-5 { margin-bottom: 5px !important; }
-.mb-10 { margin-bottom: 10px !important; }
-.mb-15 { margin-bottom: 15px !important; }
-.mb-20 { margin-bottom: 20px !important; }
-.p-10 { padding: 10px !important; }
-.p-0 { padding: 0 !important; }
-.border-none { border: none !important; }
-.text-center { text-align: center !important; }
-.w-full { width: 100% !important; }
-.w-auto { width: auto !important; }
-.flex { display: flex !important; }
-.flex-between { display: flex; justify-content: space-between; align-items: center; }
-.flex-around { display: flex; justify-content: space-around; align-items: stretch; gap: 10px; }
-.gap-10 { gap: 10px !important; }
-.items-end { align-items: flex-end !important; }
-.flex-1 { flex: 1 !important; }
-.font-bold { font-weight: bold !important; }
-.text-small { font-size: 0.9em !important; }
-.text-xs { font-size: 0.75em !important; }
-.text-large { font-size: 1.5em !important; }
-
-/* --- Components --- */
-.input-link {
-    display: inline-block;
-    color: var(--color-text);
-    background-color: var(--color-accent);
-    padding: 8px 15px;
-    text-decoration: none;
-    font-weight: bold;
-    font-size: 0.9em;
-    border: 1px solid var(--color-text);
-    transition: all 0.3s;
-}
-
-#submit-button,
-button[type="submit"]:not(#auth-form button):not(#dark-mode-tool button),
-.action-button:not(#dark-mode-toggle-button) {
-    background-color: var(--color-primary);
+/* すべての主要ボタンに適用 */
+button[type="submit"],
+.action-button,
+#refresh-button,
+#mahjong-submit-button,
+#daily-tax-button {
+    position: relative;
+    overflow: hidden; /* 光るエフェクト用 */
+    background: linear-gradient(135deg, var(--color-primary) 0%, #a93226 100%);
     color: var(--color-light);
     border: 2px solid var(--color-accent);
-    padding: 10px 18px;
+    padding: 14px 20px;
     cursor: pointer;
     width: 100%;
-    transition: all 0.3s;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     margin-top: 15px;
     font-weight: bold;
-    text-transform: uppercase;
+    font-family: var(--font-primary);
+    border-radius: 6px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+    box-shadow: 0 4px 0 #8e2c21;
+    letter-spacing: 2px;
 }
 
-#submit-button:hover, .action-button:hover {
+/* ボタンに光が走るアニメーション (5秒おき) */
+button[type="submit"]::after,
+.action-button::after,
+#refresh-button::after,
+#daily-tax-button::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -150%;
+    width: 40%;
+    height: 200%;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transform: rotate(35deg);
+    animation: shimmery 6s infinite;
+}
+
+/* ホバー時のボタン挙動 */
+button[type="submit"]:hover,
+.action-button:hover,
+#refresh-button:hover {
     filter: brightness(1.1);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 #8e2c21;
 }
 
-.secondary-button {
-    background-color: #6c757d;
-    color: var(--color-light);
-    border-color: #999;
+button[type="submit"]:active,
+.action-button:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 #8e2c21;
+}
+
+/* セカンダリボタン (漆塗り風デザイン) */
+.secondary-button,
+#dark-mode-toggle-button {
+    background: linear-gradient(135deg, #2c3e50 0%, #000000 100%) !important;
+    color: var(--color-accent) !important;
+    border: 1px solid var(--color-accent) !important;
+    box-shadow: 0 4px 0 #1a1a1a !important;
     width: auto !important;
     margin-top: 0;
 }
 
-.tool-box {
-    background-color: #fff;
-    padding: 20px;
-    margin-bottom: 25px;
-    border: 1px solid var(--color-border);
-    border-left: 5px solid var(--color-primary);
+/* 特定の機能ボタンの色を正月風に上書き (HTMLのinline-style対策) */
+button[style*="background-color: #38c172"],
+button[style*="background-color: #28a745"] {
+    background: linear-gradient(135deg, #1e5e3a 0%, #27ae60 100%) !important;
+    box-shadow: 0 4px 0 #145a32 !important;
 }
 
-.info-box {
-    background-color: #fff;
-    padding: 20px;
-    margin-top: 25px;
-    border: 1px solid var(--color-primary);
-    border-radius: 0 15px 0 15px;
+button[style*="background-color: #ffc107"],
+button[style*="background-color: #DAA520"] {
+    background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%) !important;
+    color: #1a0000 !important;
+    border: 2px solid #fff !important;
+    box-shadow: 0 4px 0 #7d5a00 !important;
 }
 
-.message {
-    padding: 8px;
-    margin-top: 12px;
-    font-weight: bold;
-    text-align: center;
-    border: 1px solid;
+button[style*="background-color: #007bff"] {
+    background: linear-gradient(135deg, #2980b9 0%, #1a5276 100%) !important;
+    box-shadow: 0 4px 0 #154360 !important;
 }
 
-.message.success { background-color: #f0fff0; color: #155724; border-color: #c3e6cb; }
-.message.error { background-color: #fff5f5; color: #721c24; border-color: #f5c6cb; }
-.message.info { background-color: #e9f5ff; color: #004085; border-color: #b8daff; }
-
-/* --- Ranking & Tiles --- */
-.ranking-list { list-style: none; padding: 0; }
-.ranking-item {
+/* --- リスト・ランキング項目 --- */
+.ranking-item, .bet-tile {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px;
-    margin-bottom: 8px;
-    background-color: var(--color-light);
-    border: 1px solid var(--color-primary);
-    box-shadow: 4px 4px 0 0 var(--color-accent);
-}
-
-.rank-1 { border-color: var(--color-accent); background-color: #fffcf0; }
-.rank-1 .rank-num { color: var(--color-accent); font-size: 1.2em; }
-
-.bet-grid { display: grid; grid-template-columns: 1fr; gap: 15px; margin-top: 15px; }
-@media (min-width: 600px) { .bet-grid { grid-template-columns: 1fr 1fr; } }
-
-.bet-tile {
-    background-color: var(--color-light);
     padding: 15px;
+    margin-bottom: 12px;
+    background-color: var(--color-light);
     border: 2px solid var(--color-primary);
     box-shadow: 4px 4px 0 0 var(--color-accent);
+    border-radius: 6px;
+    transition: all 0.3s ease;
 }
 
-/* --- Footer --- */
+.ranking-item:hover, .bet-tile:hover {
+    transform: translateX(8px);
+    background-color: #fffdf9;
+}
+
+body.dark-mode .ranking-item, 
+body.dark-mode .bet-tile {
+    background-color: #2d0a0a;
+    border-color: var(--dm-color-primary);
+}
+
+/* --- フッターナビゲーション --- */
 footer {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
     background-color: var(--color-primary);
-    padding: 10px 0;
-    z-index: 100;
-    border-top: 3px solid var(--color-accent);
+    padding: 12px 0;
+    z-index: 1000;
+    border-top: 2px solid var(--color-accent);
 }
-.footer-nav { display: flex; justify-content: space-around; max-width: 800px; margin: 0 auto; padding: 0 10px; }
-footer .input-link {
+
+.footer-nav {
+    display: flex;
+    justify-content: space-around;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 10px;
+}
+
+.footer-nav .input-link {
     flex-grow: 1;
     text-align: center;
     margin: 0 5px;
-    padding: 10px 5px;
+    padding: 12px 5px;
     color: var(--color-light);
-    background-color: var(--color-primary);
+    background-color: rgba(0,0,0,0.3);
     border: 1px solid var(--color-accent);
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 0.85em;
+    border-radius: 6px;
+    transition: all 0.3s;
 }
-footer .input-link:hover {
+
+.footer-nav .input-link:hover {
     background-color: var(--color-accent);
     color: var(--color-primary);
+    transform: translateY(-3px);
 }
-body.dark-mode footer { background-color: var(--dm-color-box); }
+
+/* --- ユーティリティ --- */
+.hidden { display: none !important; }
+.mt-20 { margin-top: 20px !important; }
+.mb-20 { margin-bottom: 20px !important; }
+.text-center { text-align: center !important; }
+
+/* フォーム入力欄の正月風アレンジ */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-family: inherit;
+    transition: border-color 0.3s;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
+}
+
+body.dark-mode input, 
+body.dark-mode select {
+    background-color: #3d1a1a;
+    border-color: var(--dm-color-accent);
+    color: #fff;
+}
+
+/* メッセージのアニメーション */
+.message {
+    padding: 12px;
+    margin-top: 15px;
+    border-radius: 6px;
+    font-weight: bold;
+    text-align: center;
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* PVP 特有のスタイル */
+.chair-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.chair-button {
+    padding: 20px;
+    font-size: 1.5em;
+    background: #fff;
+    border: 2px solid var(--color-primary);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.chair-button:hover {
+    background-color: var(--color-background);
+    border-color: var(--color-accent);
+    transform: scale(1.05);
+}
