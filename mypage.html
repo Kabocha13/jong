@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>マイページ - Jong</title>
+    <title>マイページ </title>
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
     <header>
-        <h1>👤 マイページ 💰</h1>
+        <h1>🧧 マイページ 🌅</h1>
     </header>
 
     <main id="main-content">
         <section id="auth-section">
-            <h2>認証</h2>
+            <h2>初ログイン</h2>
             <form id="auth-form">
                 <div class="form-group">
                     <label for="username">ユーザー名:</label>
@@ -32,23 +32,23 @@
         <section id="mypage-content" class="hidden">
             <div class="tool-box flex-between">
                 <div>
-                    <h3>ようこそ、<span id="authenticated-user-name"></span>様！</h3>
-                    <p>現在のポイント残高: <strong id="current-score" class="text-large" style="color: var(--color-accent);"></strong> P</p>
+                    <h3>あけましておめでとうございます、<span id="authenticated-user-name"></span>様！</h3>
+                    <p>現在のポイント残高: <strong id="current-score" class="text-large" style="color: var(--color-primary);"></strong> P</p>
                 </div>
                 <button type="button" id="logout-button" class="action-button secondary-button mt-10">ログアウト</button>
             </div>
 
             <div id="pro-bonus-tool" class="tool-box hidden">
-                <h4>⭐ 会員ボーナス</h4>
+                <h4>⭐ お年玉ボーナス</h4>
                 <p class="instruction" id="pro-bonus-instruction">特典ロード中...</p>
-                <button type="button" id="pro-bonus-button" class="action-button w-auto" style="background-color: #38c172;">
+                <button type="button" id="pro-bonus-button" class="action-button w-auto" style="background-color: var(--color-primary);">
                     ボーナスを受け取る
                 </button>
                 <p id="pro-bonus-message" class="hidden"></p>
             </div>
 
             <div class="tool-box">
-                <h3>🎟️ 宝くじ購入</h3>
+                <h3>🎟️ 新春運試し！宝くじ購入</h3>
                 <form id="lottery-purchase-form">
                     <div class="form-group">
                         <label for="lottery-select">開催中の宝くじ:</label>
@@ -63,32 +63,33 @@
                             <strong id="lottery-total-price" class="text-small" style="color: var(--color-primary);">合計: - P</strong>
                         </div>
                     </div>
-                    <button type="submit" class="action-button" style="background-color: #38c172;">宝くじを購入する</button>
+                    <button type="submit" class="action-button">宝くじを購入する</button>
                 </form>
                 <p id="lottery-purchase-message" class="hidden"></p>
             </div>
 
             <div class="tool-box">
-                <h3>📋 宝くじ結果発表</h3>
+                <h3>📋 抽選結果</h3>
                 <div id="lottery-results-container"><p>ロード中...</p></div>
             </div>
             
             <div class="tool-box">
-                <h3>🎁 プレゼントコード入力</h3>
+                <h3>🎁 プレゼントコード</h3>
                 <form id="apply-gift-code-form">
                     <div class="form-group">
-                        <label for="gift-code-input">プレゼントコード:</label>
+                        <label for="gift-code-input">お年玉コード入力:</label>
                         <input type="text" id="gift-code-input" required placeholder="コードを入力">
                     </div>
-                    <button type="submit" class="action-button w-auto" style="background-color: #ffc107;">コードを適用</button>
+                    <button type="submit" class="action-button w-auto" style="background-color: var(--color-accent); color: #000;">適用する</button>
                 </form>
                 <p id="apply-gift-code-message" class="hidden"></p>
             </div>
 
+            <!-- その他のコンテンツは既存のJSによって制御されます -->
             <div id="premium-tools-section" class="tool-box hidden">
                 <h2>👑 Premium会員専用ツール</h2>
                 <div class="p-0 border-none">
-                    <h3>📝 新規スポーツくじ作成</h3>
+                    <h3>📝 スポーツくじ作成</h3>
                     <form id="premium-create-bet-form">
                         <div class="form-group">
                             <input type="text" id="premium-match-name" required placeholder="くじ名">
@@ -96,55 +97,23 @@
                         <div class="form-group">
                             <input type="datetime-local" id="premium-deadline-datetime" required>
                         </div>
-                        <button type="submit">くじを作成 (OPEN)</button>
+                        <button type="submit">くじを公開</button>
                     </form>
                     <p id="premium-create-message" class="hidden"></p>
                 </div>
             </div>
-            
+
             <div class="tool-box">
-                <h3>💰 スポーツくじ購入</h3>
+                <h3>💰 送金・くじ履歴</h3>
                 <div id="wager-history-container" class="mb-20">
                     <h4>投票履歴 (最新5件)</h4>
                     <ul id="wager-history-list"><li>履歴をロード中...</li></ul>
                 </div>
-                <form id="wager-form">
-                    <p class="instruction">投票ユーザー: <strong id="fixed-player-name"></strong></p>
-                    <div class="form-group">
-                        <select id="target-bet" required><option value="" disabled selected>くじを選択</option></select>
-                    </div>
-                    <input type="hidden" id="wager-player" name="wager-player">
-                    <div id="wager-inputs-container"></div>
-                    <button type="button" id="add-wager-row-button" class="action-button secondary-button mt-10">+ 賭けを追加</button>
-                    <button type="submit" class="mt-20">投票を登録</button>
-                </form>
-                <p id="wager-message" class="hidden"></p>
-            </div>
-
-            <div class="tool-box">
-                <h3>💸 ポイント送金</h3>
-                <p class="instruction">送金元: <strong id="authenticated-user-transfer"></strong></p>
-                <form id="transfer-form-mypage">
-                    <div class="form-group flex gap-10">
-                        <select id="receiver-player-mypage" required class="flex-1"><option value="" disabled selected>送金先を選択</option></select>
-                        <input type="number" id="transfer-amount-mypage" step="0.1" min="0.1" placeholder="P" required style="flex: 0 0 100px;">
-                    </div>
-                    <button type="submit" class="action-button w-auto" style="background-color: #28a745;">送金を実行</button>
-                </form>
-                <p id="transfer-message-mypage" class="hidden"></p>
-            </div>
-            
-            <div id="target-continue-tool" class="tool-box hidden" style="border-left: 5px solid var(--color-accent);">
-                <h2>🎯 目標継続</h2>
-                <a href="https://forms.gle/rwXz18n7dkyf6MY78" target="_blank">
-                    <button type="button" class="action-button w-auto" style="background-color: #007bff; color: white;">フォームを開く</button>
-                </a>
             </div>
 
             <div id="dark-mode-tool" class="tool-box mt-20">
-                <h4>🌙 ダークモード設定</h4>
-                <button type="button" id="dark-mode-toggle-button" class="action-button secondary-button mt-10">切り替える</button>
-                <p id="dark-mode-message" class="hidden"></p>
+                <h4>🌙 デザイン設定</h4>
+                <button type="button" id="dark-mode-toggle-button" class="action-button secondary-button mt-10">ダークモード切替</button>
                 <p id="dark-mode-status" class="text-xs mt-10" style="color: #6c757d;"></p>
             </div>
         </section>
