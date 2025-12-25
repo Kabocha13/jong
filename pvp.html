@@ -3,98 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Electric Chair PVP</title>
+    <title>電気椅子PVP - 新春対戦</title>
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
     <header>
-        <h1>⚡ ELECTRIC CHAIR ⚡</h1>
+        <h1>🎍 新春 電気椅子PVP 🎍</h1>
     </header>
 
     <main id="main-content" class="pvp-main">
         <section id="auth-section">
-            <h2>System Auth</h2>
+            <h2>新春対戦 ログイン</h2>
             <form id="auth-form">
                 <div class="form-group">
-                    <label for="username">ID:</label>
+                    <label for="username">ユーザー名:</label>
                     <input type="text" id="username" required>
                 </div>
                 <div class="form-group">
-                    <label for="password">PASS:</label>
+                    <label for="password">パスワード:</label>
                     <input type="password" id="password" required>
                 </div>
-                <button type="submit">CONNECT</button>
+                <button type="submit">参戦する</button>
             </form>
             <p id="auth-message" class="hidden"></p>
         </section>
 
         <section id="pvp-lobby" class="hidden">
-            <h3 class="mb-5">Welcome, <span id="authenticated-user-name"></span></h3>
-            <p class="text-small mb-20">Energy: <strong id="current-score"></strong> P</p>
-            <button type="button" id="logout-button" class="action-button secondary-button w-auto mb-20">DISCONNECT</button>
+            <h3 class="mb-5">ようこそ、<span id="authenticated-user-name"></span>様！</h3>
+            <p class="text-small mb-20">ポイント: <strong id="current-score" style="color: var(--color-primary);"></strong> P</p>
+            <button type="button" id="logout-button" class="action-button secondary-button w-auto mb-20">ロビーを去る</button>
 
             <div id="room-management" class="tool-box">
-                <h4>🚪 Create Instance</h4>
+                <h4>🚪 新規対戦ルーム</h4>
+                <p id="create-room-restriction-message" class="error hidden room-restriction-alert">ルーム作成は上位会員限定です。</p>
                 <form id="create-room-form" class="mb-20">
-                    <h5 class="mb-5">🏆 Win Bonus (P)</h5>
+                    <h5 class="mb-5">🏆 勝利ポイント設定 (P)</h5>
                     <div class="point-config-grid">
                         <div class="form-group">
                             <input type="number" id="win-points" step="0.1" value="10.0" required>
                         </div>
                     </div>
-                    <button type="submit" class="action-button w-full" style="background: var(--color-electric-purple); color: #fff;">START NEW GAME</button>
+                    <button type="submit" class="action-button w-full" style="background-color: var(--color-success); border-color: #fff;">ルームを作成</button>
+                    <p id="create-room-message" class="hidden"></p>
                 </form>
                 <form id="join-room-form">
                     <div class="form-group">
-                        <label for="room-code">Room Code:</label>
+                        <label for="room-code">ルームコード (6桁):</label>
                         <input type="text" id="room-code" maxlength="6" required>
                     </div>
-                    <button type="submit" class="action-button w-full">JOIN SYSTEM</button>
+                    <button type="submit" class="action-button w-full" style="background-color: var(--color-info); border-color: #fff;">参加する</button>
+                    <p id="join-room-message" class="hidden"></p>
                 </form>
             </div>
             
             <div id="available-games-container" class="tool-box">
-                <h4>🤝 Active Instances</h4>
-                <div id="available-game-list"><p>スキャン中...</p></div>
+                <h4>🤝 参加可能なルーム一覧</h4>
+                <div id="available-game-list"><p>ロード中...</p></div>
             </div>
         </section>
 
         <section id="game-arena" class="hidden">
-            <h2 id="game-title">Battle in Progress</h2>
-            <div id="last-result-display" class="tool-box hidden mb-20" style="background-color: rgba(255, 0, 68, 0.2); border-color: #ff0044;">
-                <p id="result-message" class="text-small font-bold" style="margin: 0; color: #ff0044;"></p>
+            <h2 id="game-title">⚡ 新春対戦中 ⚡</h2>
+            <div id="last-result-display" class="tool-box hidden mb-20" style="background-color: #fffaf0;">
+                <p id="result-message" class="text-small font-bold" style="margin: 0;"></p>
             </div>
             <div class="flex-around mb-10">
                 <div id="player-a-card" class="player-info-card flex-1"></div>
                 <div id="player-b-card" class="player-info-card flex-1"></div>
             </div>
             <p id="turn-display" class="turn-indicator"></p>
-            <p id="round-display" class="text-center mb-10 text-small">Phase: <strong id="current-round">1</strong> / 6</p>
+            <p id="round-display" class="text-center mb-10 text-small">ラウンド: <strong id="current-round">1</strong> / 6</p>
 
             <div class="tool-box p-10">
-                <h3 class="text-small mt-0 mb-10">Terminal Selection (1〜12 P)</h3>
+                <h3 class="text-small mt-0 mb-10">椅子を選択してください</h3>
                 <form id="action-form">
                     <div id="chair-container" class="chair-grid"></div>
                     <p id="chair-action-message" class="hidden"></p>
                 </form>
                 <div class="mt-10">
-                    <button id="leave-game-button" class="action-button secondary-button">ABORT</button>
+                    <button id="leave-game-button" class="action-button secondary-button">対戦を終了</button>
                 </div>
             </div>
+            <p id="game-message" class="hidden"></p>
         </section>
     </main>
 
     <footer>
         <nav class="footer-nav">
-            <a href="index.html" class="input-link">RANKING</a>
-            <a href="mypage.html" class="input-link">MY PAGE</a>
+            <a href="index.html" class="input-link">ランキング</a>
+            <a href="mypage.html" class="input-link">マイページ</a>
+            <a href="master.html" class="input-link">マスター</a>
             <a href="pvp.html" class="input-link">PVP</a>
-            <a href="master.html" class="input-link">MASTER</a>
         </nav>
     </footer>
 
     <script src="assets/js/common.js"></script>
     <script src="assets/js/pvp.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                document.body.classList.add('dark-mode');
+            }
+        });
+    </script>
 </body>
 </html>
