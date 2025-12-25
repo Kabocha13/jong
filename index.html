@@ -3,76 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jong </title>
+    <title>Jong</title>
+    <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
     <header>
-        <h1>🌌 Jong 🌠</h1>
+        <h1>🌅 謹賀新年 Jong 🎍</h1>
     </header>
 
     <main>
-        <!-- ★ カウントダウンタイマーの追加 -->
-        <div id="countdown-timer" class="info-box countdown-container">
-            <h3 class="icon-title">⏳ 2026年まであと...</h3>
-            <div id="countdown-display" class="countdown-text">
-                読み込み中...
-            </div>
-        </div>
-
-        <h2>✨ 現在のスコアランキング</h2>
+        <h2>🎍 現在のスコアランキング 🌅</h2>
         <div id="scores-container">
-            <p>データを読み込み中...</p>
+            <p>新春データを読み込み中...</p>
         </div>
         
         <p class="update-info" id="last-update"></p>
-        <button id="refresh-button">🔄 更新</button>
+        <button id="refresh-button">🔄 ランキング更新</button>
 
         <div class="info-box mt-20">
-            <h3 class="icon-title">🎟️ 開催中の宝くじ</h3>
+            <h3 class="icon-title">🧧 新春！宝くじ開催中</h3>
             <div id="lottery-list-container">
-                <p>データを同期中...</p>
+                <p>宝くじデータを読み込み中...</p>
             </div>
         </div>
         
         <div class="info-box mt-20">
-            <h3 class="icon-title">⚽ スポーツ・ベッティング</h3>
+            <h3 class="icon-title">⚽ スポーツくじ</h3>
             <div id="sports-bets-container">
-                <p>データを同期中...</p>
+                <p>くじデータを読み込み中...</p>
             </div>
         </div>
 
         <div class="info-box">
-            <h3 class="icon-title">💱 交換リソースとレート</h3>
-            <li>250P...自販機でドリンク1本(200円まで)</li>
-            <li>300P...下田の講義(内容自由,10分間)</li>
+            <h3 class="icon-title">💱 2026年 交換レート</h3>
+            <li>250P...自販機でドリンク1本</li>
+            <li>300P...下田の特別講義(10分間)</li>
             <li>1000P...JongPro1ヶ月券</li>
-            <li>1500P...第2回リアルイベント特典</li>
             <li>1500P...JongPremium1ヶ月券</li>
-            <li>1500P...2026年旅行飛行機座席選択権(残2)</li>
-            <li>2000P...2027年旅行ベッド優先選択権(残1)</li>
-            <li>10000P...TDRチケット</li>
+            <li>1500P...2026年旅行 飛行機座席選択権(残2)</li>
+            <li>2000P...2027年旅行 ベッド優先選択権(残1)</li>
+            <li>10000P...TDRペアチケット</li>
         </div>
 
         <div class="info-box">
-            <h3 class="icon-title">🏎️ Speed Storm 記録</h3>
+            <h3 class="icon-title">🏎️ スピードストーム レコード</h3>
             <ul id="race-records-list" style="list-style-type: none; padding: 0;">
-                <p>最速記録をスキャン中...</p>
+                <li>記録条件:ローカルフリー ベリーハード CPU7 ラップ1 超高速</li>
+                <p>記録を読み込み中...</p>
             </ul>
         </div>
     </main>
 
     <footer>
         <nav class="footer-nav">
-            <a href="index.html" class="input-link">RANKING</a>
-            <a href="mypage.html" class="input-link">MY PAGE</a>
+            <a href="index.html" class="input-link">ランキング</a>
+            <a href="mypage.html" class="input-link">マイページ</a>
             <a href="pvp.html" class="input-link">PVP</a>
-            <a href="master.html" class="input-link">MASTER</a>
+            <a href="master.html" class="input-link">マスター</a>
         </nav>
     </footer>
 
     <script src="assets/js/common.js"></script>
     <script src="assets/js/main.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                document.body.classList.add('dark-mode');
+            }
+        });
+    </script>
 </body>
 </html>
