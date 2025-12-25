@@ -24,11 +24,17 @@
 
 /* --- アニメーション定義 --- */
 
-/* ボタンがキラリと光るエフェクト */
+/* ボタンや名前がキラリと光るエフェクト */
 @keyframes shimmery {
     0% { left: -150%; }
     30% { left: 150%; }
     100% { left: 150%; }
+}
+
+/* 豪華会員用の文字の輝き */
+@keyframes luxury-glow {
+    0%, 100% { text-shadow: 0 0 5px rgba(212, 175, 55, 0.3); }
+    50% { text-shadow: 0 0 15px rgba(212, 175, 55, 0.8), 0 0 20px rgba(255, 215, 0, 0.4); }
 }
 
 /* 縁起物がゆらゆら揺れる動き (ヘッダー用) */
@@ -41,12 +47,6 @@
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(15px); }
     to { opacity: 1; transform: translateY(0); }
-}
-
-/* 文字が少し光るエフェクト */
-@keyframes text-glow {
-    0%, 100% { text-shadow: 0 0 5px rgba(212, 175, 55, 0.2); }
-    50% { text-shadow: 0 0 15px rgba(212, 175, 55, 0.6); }
 }
 
 /* --- 基本スタイル --- */
@@ -144,7 +144,7 @@ body.dark-mode .tool-box {
     border-color: var(--dm-color-primary);
 }
 
-/* --- ボタンデザイン (ここがメインの修正箇所) --- */
+/* --- ボタンデザイン --- */
 
 /* すべての主要ボタンに適用 */
 button[type="submit"],
@@ -170,7 +170,7 @@ button[type="submit"],
     letter-spacing: 2px;
 }
 
-/* ボタンに光が走るアニメーション (5秒おき) */
+/* ボタンに光が走るアニメーション (6秒おき) */
 button[type="submit"]::after,
 .action-button::after,
 #refresh-button::after,
@@ -212,26 +212,6 @@ button[type="submit"]:active,
     margin-top: 0;
 }
 
-/* 特定の機能ボタンの色を正月風に上書き (HTMLのinline-style対策) */
-button[style*="background-color: #38c172"],
-button[style*="background-color: #28a745"] {
-    background: linear-gradient(135deg, #1e5e3a 0%, #27ae60 100%) !important;
-    box-shadow: 0 4px 0 #145a32 !important;
-}
-
-button[style*="background-color: #ffc107"],
-button[style*="background-color: #DAA520"] {
-    background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%) !important;
-    color: #1a0000 !important;
-    border: 2px solid #fff !important;
-    box-shadow: 0 4px 0 #7d5a00 !important;
-}
-
-button[style*="background-color: #007bff"] {
-    background: linear-gradient(135deg, #2980b9 0%, #1a5276 100%) !important;
-    box-shadow: 0 4px 0 #154360 !important;
-}
-
 /* --- リスト・ランキング項目 --- */
 .ranking-item, .bet-tile {
     display: flex;
@@ -254,6 +234,48 @@ button[style*="background-color: #007bff"] {
 body.dark-mode .ranking-item, 
 body.dark-mode .bet-tile {
     background-color: #2d0a0a;
+    border-color: var(--dm-color-primary);
+}
+
+/* ★ Luxury会員専用の特別目立ちスタイル ★ */
+.luxury-user {
+    color: #b8860b !important; /* 深みのあるゴールド */
+    font-weight: 900 !important;
+    font-size: 1.15em !important;
+    letter-spacing: 1px;
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    animation: luxury-glow 3s ease-in-out infinite;
+    background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0px 1px 1px rgba(0,0,0,0.2));
+}
+
+.luxury-user::before {
+    content: "👑";
+    margin-right: 6px;
+    font-size: 1.1em;
+    -webkit-text-fill-color: initial; /* 絵文字の色は維持 */
+    filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.5));
+}
+
+/* 高級感のある枠線（Luxury会員がランキングにいる場合） */
+.ranking-item:has(.luxury-user) {
+    border: 2px solid var(--color-accent);
+    background: linear-gradient(135deg, #ffffff 0%, #fffdf0 100%);
+    box-shadow: 4px 4px 15px rgba(212, 175, 55, 0.25);
+}
+
+body.dark-mode .luxury-user {
+    background: linear-gradient(to right, #d4af37, #fff5d7, #d4af37);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+body.dark-mode .ranking-item:has(.luxury-user) {
+    background: linear-gradient(135deg, #2d0a0a 0%, #3d1a1a 100%);
     border-color: var(--dm-color-primary);
 }
 
@@ -302,9 +324,8 @@ footer {
 .hidden { display: none !important; }
 .mt-20 { margin-top: 20px !important; }
 .mb-20 { margin-bottom: 20px !important; }
-.text-center { text-align: center !important; }
 
-/* フォーム入力欄の正月風アレンジ */
+/* フォーム入力欄 */
 input[type="text"],
 input[type="password"],
 input[type="number"],
@@ -330,17 +351,7 @@ body.dark-mode select {
     color: #fff;
 }
 
-/* メッセージのアニメーション */
-.message {
-    padding: 12px;
-    margin-top: 15px;
-    border-radius: 6px;
-    font-weight: bold;
-    text-align: center;
-    animation: fadeIn 0.4s ease-out;
-}
-
-/* PVP 特有のスタイル */
+/* PVP 特有 */
 .chair-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -355,10 +366,4 @@ body.dark-mode select {
     border-radius: 10px;
     cursor: pointer;
     transition: all 0.2s;
-}
-
-.chair-button:hover {
-    background-color: var(--color-background);
-    border-color: var(--color-accent);
-    transform: scale(1.05);
 }
