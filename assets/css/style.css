@@ -96,7 +96,7 @@ h2, h3 {
     text-shadow: 0 0 5px rgba(0, 242, 255, 0.3);
 }
 
-/* カウントダウン用スタイル（回転アニメーション） */
+/* カウントダウン用スタイル */
 .countdown-container {
     text-align: center;
     margin-bottom: 25px;
@@ -108,7 +108,6 @@ h2, h3 {
     border: none;
 }
 
-/* 回転する光のボーダー */
 .countdown-container::before {
     content: "";
     position: absolute;
@@ -127,7 +126,6 @@ h2, h3 {
     z-index: -2;
 }
 
-/* 内側のマスク */
 .countdown-container::after {
     content: "";
     position: absolute;
@@ -144,7 +142,7 @@ h2, h3 {
 
 .countdown-text {
     font-family: 'Consolas', 'Courier New', monospace;
-    font-size: 2.2em; /* 少し大きく */
+    font-size: 2.2em;
     font-weight: bold;
     color: var(--color-electric-blue);
     text-shadow: 0 0 15px rgba(0, 242, 255, 0.6);
@@ -155,17 +153,8 @@ h2, h3 {
     position: relative;
 }
 
-.cd-num {
-    min-width: 1.2em;
-    text-align: center;
-}
-
-.cd-sep {
-    color: var(--color-electric-purple);
-    font-size: 0.8em;
-    opacity: 0.8;
-    animation: pulse-sep 1s ease-in-out infinite;
-}
+.cd-num { min-width: 1.2em; text-align: center; }
+.cd-sep { color: var(--color-electric-purple); font-size: 0.8em; opacity: 0.8; animation: pulse-sep 1s ease-in-out infinite; }
 
 @keyframes pulse-sep {
     0%, 100% { opacity: 0.8; }
@@ -213,25 +202,62 @@ h2, h3 {
     background: rgba(255, 77, 77, 0.05);
 }
 
-.lottery-prize-table .loss-row td {
-    border-bottom: none;
+/* ★ ボタンと入力フォームの復活・修正 ★ */
+button, .action-button {
+    background: linear-gradient(135deg, var(--color-electric-blue) 0%, #00a2ff 100%);
+    color: #050510;
+    border: none;
+    padding: 12px 24px;
+    font-size: 1em;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 15px rgba(0, 242, 255, 0.3);
+    display: inline-block;
+    margin: 5px 0;
 }
 
-/* タイル内のフォント調整 */
-.bet-tile h4 {
-    margin-top: 0;
+button:hover, .action-button:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 0 20px var(--color-electric-blue), 0 0 40px rgba(0, 242, 255, 0.2);
+    filter: brightness(1.1);
+}
+
+button:active, .action-button:active {
+    transform: translateY(1px) scale(0.98);
+}
+
+.secondary-button {
+    background: transparent !important;
+    border: 1px solid var(--color-electric-purple) !important;
+    color: var(--color-electric-purple) !important;
+    box-shadow: none !important;
+}
+
+.secondary-button:hover {
+    background: rgba(188, 19, 254, 0.1) !important;
+    box-shadow: 0 0 15px rgba(188, 19, 254, 0.3) !important;
+}
+
+/* フォーム入力 */
+input[type="text"], input[type="password"], input[type="number"], input[type="datetime-local"], select {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(0, 242, 255, 0.3);
     color: #fff;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 8px;
+    padding: 12px;
+    border-radius: 6px;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
 
-.tool-box {
-    background: rgba(255, 255, 255, 0.03);
-    padding: 20px;
-    margin-bottom: 25px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    transition: transform 0.2s, border-color 0.2s;
+input:focus, select:focus {
+    border-color: var(--color-electric-blue);
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.4);
 }
 
 /* --- Ranking List --- */
@@ -245,6 +271,8 @@ h2, h3 {
     border: 1px solid rgba(188, 19, 254, 0.2);
     border-radius: 6px;
 }
+
+.ranking-item.rank-1 { border-color: var(--color-electric-gold); background: rgba(255, 215, 0, 0.05); }
 
 /* --- Footer Navigation --- */
 footer {
@@ -288,6 +316,5 @@ footer {
 
 /* --- Utilities --- */
 .hidden { display: none !important; }
-.flex-between { display: flex; justify-content: space-between; align-items: center; }
-.text-large { font-size: 1.6em; font-weight: bold; }
-#current-score { color: var(--color-electric-gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+.mt-20 { margin-top: 20px; }
+#last-update { font-size: 0.85em; color: var(--color-text-dim); margin-top: 10px; }
