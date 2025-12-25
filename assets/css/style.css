@@ -33,8 +33,8 @@
 
 /* 豪華会員用の文字の輝き */
 @keyframes luxury-glow {
-    0%, 100% { text-shadow: 0 0 5px rgba(212, 175, 55, 0.3); }
-    50% { text-shadow: 0 0 15px rgba(212, 175, 55, 0.8), 0 0 20px rgba(255, 215, 0, 0.4); }
+    0%, 100% { filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.4)); }
+    50% { filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.8)); }
 }
 
 /* 縁起物がゆらゆら揺れる動き (ヘッダー用) */
@@ -139,21 +139,14 @@ body.dark-mode main {
     border-radius: 6px;
 }
 
-body.dark-mode .tool-box {
-    background-color: #351515;
-    border-color: var(--dm-color-primary);
-}
-
 /* --- ボタンデザイン --- */
-
-/* すべての主要ボタンに適用 */
 button[type="submit"],
 .action-button,
 #refresh-button,
 #mahjong-submit-button,
 #daily-tax-button {
     position: relative;
-    overflow: hidden; /* 光るエフェクト用 */
+    overflow: hidden;
     background: linear-gradient(135deg, var(--color-primary) 0%, #a93226 100%);
     color: var(--color-light);
     border: 2px solid var(--color-accent);
@@ -170,11 +163,9 @@ button[type="submit"],
     letter-spacing: 2px;
 }
 
-/* ボタンに光が走るアニメーション (6秒おき) */
 button[type="submit"]::after,
 .action-button::after,
-#refresh-button::after,
-#daily-tax-button::after {
+#refresh-button::after {
     content: "";
     position: absolute;
     top: -50%;
@@ -186,34 +177,17 @@ button[type="submit"]::after,
     animation: shimmery 6s infinite;
 }
 
-/* ホバー時のボタン挙動 */
 button[type="submit"]:hover,
-.action-button:hover,
-#refresh-button:hover {
+.action-button:hover {
     filter: brightness(1.1);
     transform: translateY(-2px);
     box-shadow: 0 6px 0 #8e2c21;
 }
 
-button[type="submit"]:active,
-.action-button:active {
-    transform: translateY(2px);
-    box-shadow: 0 2px 0 #8e2c21;
-}
+/* --- ランキング項目 --- */
+.ranking-list { list-style: none; padding: 0; }
 
-/* セカンダリボタン (漆塗り風デザイン) */
-.secondary-button,
-#dark-mode-toggle-button {
-    background: linear-gradient(135deg, #2c3e50 0%, #000000 100%) !important;
-    color: var(--color-accent) !important;
-    border: 1px solid var(--color-accent) !important;
-    box-shadow: 0 4px 0 #1a1a1a !important;
-    width: auto !important;
-    margin-top: 0;
-}
-
-/* --- リスト・ランキング項目 --- */
-.ranking-item, .bet-tile {
+.ranking-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -226,60 +200,75 @@ button[type="submit"]:active,
     transition: all 0.3s ease;
 }
 
-.ranking-item:hover, .bet-tile:hover {
+.ranking-item:hover {
     transform: translateX(8px);
     background-color: #fffdf9;
 }
 
-body.dark-mode .ranking-item, 
-body.dark-mode .bet-tile {
-    background-color: #2d0a0a;
-    border-color: var(--dm-color-primary);
-}
+.rank-num { font-weight: bold; font-size: 1.2em; color: var(--color-primary); margin-right: 12px; }
+.player-score { font-weight: bold; font-size: 1.1em; color: var(--color-primary); }
 
-/* ★ Luxury会員専用の特別目立ちスタイル ★ */
-.luxury-user {
-    color: #b8860b !important; /* 深みのあるゴールド */
+/* ★ JS側のクラス名に合わせて修正: Luxury会員の特別スタイル ★ */
+.luxury-name {
+    color: #b8860b !important;
     font-weight: 900 !important;
-    font-size: 1.15em !important;
+    font-size: 1.25em !important; /* 通常より大きく */
     letter-spacing: 1px;
     display: inline-flex;
     align-items: center;
     position: relative;
-    animation: luxury-glow 3s ease-in-out infinite;
-    background: linear-gradient(to right, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+    /* 金色の文字グラデーション */
+    background: linear-gradient(to bottom, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0px 1px 1px rgba(0,0,0,0.2));
+    animation: luxury-glow 3s ease-in-out infinite;
 }
 
-.luxury-user::before {
-    content: "👑";
-    margin-right: 6px;
-    font-size: 1.1em;
+.luxury-mark {
+    margin-left: 5px;
     -webkit-text-fill-color: initial; /* 絵文字の色は維持 */
-    filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.5));
+    filter: drop-shadow(0 0 3px rgba(212, 175, 55, 0.6));
+    font-size: 1.1em;
 }
 
-/* 高級感のある枠線（Luxury会員がランキングにいる場合） */
-.ranking-item:has(.luxury-user) {
+/* Luxury会員を含む行全体を目立たせる */
+.ranking-item:has(.luxury-name) {
     border: 2px solid var(--color-accent);
     background: linear-gradient(135deg, #ffffff 0%, #fffdf0 100%);
-    box-shadow: 4px 4px 15px rgba(212, 175, 55, 0.25);
+    box-shadow: 4px 4px 15px rgba(212, 175, 55, 0.3);
+    position: relative;
+    overflow: hidden;
 }
 
-body.dark-mode .luxury-user {
+/* 行全体に光を走らせる（Luxury会員のみ） */
+.ranking-item:has(.luxury-name)::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 20%;
+    height: 100%;
+    background: linear-gradient(to right, transparent, rgba(212, 175, 55, 0.1), transparent);
+    transform: skewX(-25deg);
+    animation: shimmery 8s infinite 2s;
+}
+
+body.dark-mode .luxury-name {
     background: linear-gradient(to right, #d4af37, #fff5d7, #d4af37);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
-body.dark-mode .ranking-item:has(.luxury-user) {
+body.dark-mode .ranking-item:has(.luxury-name) {
     background: linear-gradient(135deg, #2d0a0a 0%, #3d1a1a 100%);
     border-color: var(--dm-color-primary);
 }
 
-/* --- フッターナビゲーション --- */
+/* その他の会員マーク */
+.premium-mark { color: #ff8c00; text-shadow: 0 0 5px rgba(255, 140, 0, 0.3); }
+.pro-mark { color: #32cd32; text-shadow: 0 0 5px rgba(50, 205, 50, 0.3); }
+
+/* --- フッターナビ --- */
 footer {
     position: fixed;
     bottom: 0;
@@ -323,13 +312,9 @@ footer {
 /* --- ユーティリティ --- */
 .hidden { display: none !important; }
 .mt-20 { margin-top: 20px !important; }
-.mb-20 { margin-bottom: 20px !important; }
 
-/* フォーム入力欄 */
-input[type="text"],
-input[type="password"],
-input[type="number"],
-select {
+/* フォーム入力 */
+input[type="text"], input[type="password"], input[type="number"], select {
     width: 100%;
     padding: 12px;
     border: 2px solid #ddd;
@@ -344,26 +329,8 @@ input:focus, select:focus {
     box-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
 }
 
-body.dark-mode input, 
-body.dark-mode select {
+body.dark-mode input, body.dark-mode select {
     background-color: #3d1a1a;
     border-color: var(--dm-color-accent);
     color: #fff;
-}
-
-/* PVP 特有 */
-.chair-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-}
-
-.chair-button {
-    padding: 20px;
-    font-size: 1.5em;
-    background: #fff;
-    border: 2px solid var(--color-primary);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s;
 }
