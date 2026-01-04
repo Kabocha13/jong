@@ -1,289 +1,305 @@
-/* assets/css/style.css - Valentine & White Day Theme */
+/* assets/css/style.css - Valentine & White Day Sweet Theme */
 
-/* --- Colors & Fonts --- */
+/* --- 変数定義 --- */
 :root {
-    --color-primary: #7d3c3c;     /* Bitter Chocolate */
-    --color-accent: #ff6b81;      /* Strawberry Pink */
-    --color-text: #4a3030;        /* Dark Chocolate Text */
-    --color-light: #fff5f7;       /* Marshmallow White */
-    --color-background: #fff0f3;  /* Sweet Rose Background */
-    --font-primary: 'Helvetica Neue', 'Arial', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', sans-serif;
+    --color-primary: #ff6b81;     /* ストロベリーピンク */
+    --color-accent: #6d4c41;      /* ミルクチョコブラウン */
+    --color-text: #4e342e;        /* ビターチョコ */
+    --color-light: #ffffff;
+    --color-background: #fff5f7;  /* スウィートピンク（背景） */
+    --color-whiteday: #87ceeb;    /* ホワイトデー・スカイブルー */
+    --font-primary: 'Hiragino Sans', 'Meiryo', 'Helvetica Neue', sans-serif;
 
-    /* ★★★ ダークモード変数 (ベリー＆ホワイトチョコ) ★★★ */
-    --dm-color-primary: #ff8fa3;      /* Soft Pink */
-    --dm-color-accent: #a2d2ff;       /* White Day Sky Blue */
-    --dm-color-text: #f8f9fa;         /* Cream */
-    --dm-color-light: #3d2b2b;        /* Dark Cocoa Box */
-    --dm-color-background: #2b1a1a;   /* Deep Cacao Background */
-    --dm-color-box: #4a3030;          /* Milk Chocolate Box */
+    /* ダークモード変数 (ビターチョコレート・ナイト) */
+    --dm-color-primary: #ff85a2;
+    --dm-color-accent: #d2b48c;
+    --dm-color-text: #fce4ec;
+    --dm-color-light: #2d1b15;
+    --dm-color-background: #1a0f0d;
+    --dm-color-box: #261410;
 
-    /* 追加の共通カラー */
-    --color-error: #e63946;
-    --color-success: #4ade80;
-    --color-info: #70d6ff;
-    --color-border: #f1d1d1;
-    --color-background-secondary: #fdf2f2;
+    --color-error: #e91e63;
+    --color-success: #4caf50;
+    --color-info: #00bcd4;
 }
 
+/* --- アニメーション定義 --- */
+
+/* チョコがとろけるような、あるいは光が走るエフェクト */
+@keyframes shimmery {
+    0% { left: -150%; }
+    30% { left: 150%; }
+    100% { left: 150%; }
+}
+
+/* スウィートな輝き */
+@keyframes luxury-glow {
+    0%, 100% { filter: drop-shadow(0 0 2px rgba(255, 107, 129, 0.4)); }
+    50% { filter: drop-shadow(0 0 10px rgba(255, 107, 129, 0.8)); }
+}
+
+/* ハートがふわふわ浮く動き */
+@keyframes heart-float {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-8px) scale(1.05); }
+}
+
+/* ふわっと表示される動き */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- 基本スタイル --- */
 body {
     font-family: var(--font-primary);
     background-color: var(--color-background);
-    background-image: radial-gradient(#ffc1cc 0.5px, transparent 0.5px); /* ドットパターン */
-    background-size: 20px 20px;
     color: var(--color-text);
     margin: 0;
     padding: 0;
-    padding-bottom: 80px; 
+    padding-bottom: 80px;
     line-height: 1.6;
 }
 
-/* --- Dark Mode Styles --- */
 body.dark-mode {
     background-color: var(--dm-color-background);
-    background-image: radial-gradient(#4a3030 0.5px, transparent 0.5px);
     color: var(--dm-color-text);
 }
 
-body.dark-mode header {
-    background-color: var(--dm-color-box);
-    color: var(--dm-color-text);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-}
-
-body.dark-mode header h1 {
-    border-bottom: 3px double var(--dm-color-primary);
-}
-
-body.dark-mode main {
-    background-color: var(--dm-color-light);
-    border: 2px solid var(--dm-color-primary);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-
-body.dark-mode h2,
-body.dark-mode h3,
-body.dark-mode .icon-title {
-    color: var(--dm-color-primary);
-    border-color: var(--dm-color-accent);
-}
-
-body.dark-mode .tool-box,
-body.dark-mode .info-box {
-    background-color: var(--dm-color-box);
-    border: 1px solid var(--dm-color-primary);
-}
-
-/* --- Global Layout --- */
+/* --- ヘッダー --- */
 header {
     background-color: var(--color-primary);
-    color: #fff;
-    padding: 40px 20px 30px;
+    color: var(--color-light);
+    padding: 35px 20px 30px;
     text-align: center;
-    box-shadow: 0 4px 10px rgba(125, 60, 60, 0.2);
+    box-shadow: 0 4px 15px rgba(255, 107, 129, 0.3);
+    /* 柔らかいドットパターン */
+    background-image: radial-gradient(rgba(255, 255, 255, 0.3) 1.5px, transparent 1.5px);
+    background-size: 20px 20px;
     position: relative;
-    overflow: hidden;
+    border-bottom: 4px solid var(--color-accent);
 }
-
-/* ヘッダーの装飾 */
-header::before, header::after {
-    content: '❤';
-    position: absolute;
-    font-size: 2rem;
-    opacity: 0.2;
-    color: var(--color-accent);
-}
-header::before { left: 10%; top: 20%; transform: rotate(-15deg); }
-header::after { right: 10%; bottom: 20%; transform: rotate(15deg); }
 
 header h1 {
     margin: 0;
     font-size: 2.2em;
     letter-spacing: 2px;
     display: inline-block;
-    padding-bottom: 5px;
-    border-bottom: 3px double var(--color-accent);
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    padding: 10px 30px;
+    border: 2px dashed var(--color-light);
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 50px;
+    animation: heart-float 3s ease-in-out infinite;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+body.dark-mode header {
+    background-color: var(--dm-color-box);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    border-bottom-color: var(--dm-color-primary);
+}
+
+/* --- メインレイアウト --- */
 main {
     max-width: 800px;
-    margin: 20px auto;
-    padding: 30px;
+    margin: 30px auto;
+    padding: 25px;
+    background-color: var(--color-light);
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(109, 76, 65, 0.1);
+    animation: fadeIn 0.8s ease-out forwards;
+}
+
+body.dark-mode main {
+    background-color: var(--dm-color-box);
+}
+
+/* --- ツールボックス --- */
+.tool-box {
     background-color: #fff;
-    border: 3px solid var(--color-primary);
-    border-radius: 24px;
-    box-shadow: 0 10px 25px rgba(125, 60, 60, 0.1);
+    padding: 22px;
+    margin-bottom: 30px;
+    border: 2px solid #fce4ec;
+    border-radius: 15px;
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* --- Components --- */
-.input-link {
-    display: inline-block;
-    color: #fff;
-    background-color: var(--color-accent);
-    padding: 10px 20px;
-    text-decoration: none;
-    font-weight: bold;
-    border-radius: 50px;
-    transition: all 0.3s ease;
+.tool-box:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 107, 129, 0.12);
+}
+
+.tool-box h3, .tool-box h2, .tool-box h4 {
+    color: var(--color-accent);
+    border-bottom: 2px solid #f8bbd0;
+    padding-bottom: 8px;
+}
+
+/* --- ボタンデザイン --- */
+button[type="submit"],
+.action-button,
+#refresh-button,
+#mahjong-submit-button,
+#daily-tax-button {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--color-primary) 0%, #ff4757 100%);
+    color: var(--color-light);
     border: none;
-    box-shadow: 0 4px 0 #e05266;
-}
-
-.input-link:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 0 #e05266;
-    filter: brightness(1.05);
-}
-
-button[type="submit"]:not(#auth-form button),
-.action-button:not(#dark-mode-toggle-button) {
-    background: linear-gradient(135deg, var(--color-primary), #5d2b2b);
-    color: #fff;
-    border: none;
-    border-radius: 12px;
-    padding: 12px 20px;
-    font-weight: bold;
+    padding: 16px 20px;
     cursor: pointer;
     width: 100%;
-    transition: all 0.3s;
-    box-shadow: 0 4px 15px rgba(125, 60, 60, 0.3);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    margin-top: 15px;
+    font-weight: bold;
+    font-family: var(--font-primary);
+    border-radius: 12px;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(255, 107, 129, 0.25);
+    letter-spacing: 1px;
+}
+
+/* セカンダリボタンはホワイトデーカラーに */
+.secondary-button {
+    background: linear-gradient(135deg, var(--color-whiteday) 0%, #70a1ff 100%) !important;
+    box-shadow: 0 4px 12px rgba(112, 161, 255, 0.25) !important;
+}
+
+button[type="submit"]::after,
+.action-button::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -150%;
+    width: 40%;
+    height: 200%;
+    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transform: rotate(35deg);
+    animation: shimmery 5s infinite;
 }
 
 button[type="submit"]:hover,
 .action-button:hover {
-    filter: brightness(1.1);
-    transform: scale(1.02);
+    filter: brightness(1.05);
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 6px 18px rgba(255, 107, 129, 0.35);
 }
 
-.tool-box, .info-box {
-    background-color: var(--color-background-secondary);
-    padding: 20px;
-    margin-bottom: 25px;
-    border: 2px dashed var(--color-border);
-    border-radius: 18px;
-}
+/* --- ランキング項目 --- */
+.ranking-list { list-style: none; padding: 0; }
 
-.icon-title {
-    color: var(--color-primary);
-    border-bottom: 2px solid var(--color-accent);
-    padding-bottom: 5px;
-    margin-bottom: 15px;
-}
-
-/* --- Ranking & Tiles --- */
 .ranking-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px;
+    padding: 15px 20px;
     margin-bottom: 12px;
     background-color: #fff;
-    border: 2px solid var(--color-border);
-    border-radius: 15px;
-    transition: transform 0.2s;
+    border: 1px solid #fce4ec;
+    border-radius: 12px;
+    transition: all 0.3s ease;
 }
 
 .ranking-item:hover {
     transform: translateX(5px);
-    border-color: var(--color-accent);
+    background-color: #fffafd;
+    border-color: var(--color-primary);
 }
 
-.rank-1 { border-color: #ff6b81; background-color: #fff0f3; }
-.rank-2 { border-color: #ff9fb0; }
-.rank-3 { border-color: #ffcbd5; }
+.rank-num { font-weight: bold; font-size: 1.3em; color: var(--color-primary); margin-right: 15px; font-style: italic; }
+.player-score { font-weight: bold; font-size: 1.2em; color: var(--color-accent); }
 
-.rank-num {
-    font-weight: 900;
-    color: var(--color-accent);
-    font-size: 1.2em;
-}
-
-.bet-tile {
-    background-color: #fff;
-    padding: 20px;
-    border: 2px solid var(--color-primary);
-    border-radius: 20px;
-    box-shadow: 6px 6px 0 var(--color-accent);
+/* Luxury会員: Strawberry Chocolate スタイル */
+.luxury-name {
+    color: #d81b60 !important;
+    font-weight: 900 !important;
+    font-size: 1.25em !important;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
     position: relative;
+    /* ピンクと白のストライプ・グラデーション */
+    background: linear-gradient(45deg, #ff80ab, #f06292, #ff80ab, #f06292);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: luxury-glow 3s ease-in-out infinite;
 }
 
-.bet-tile::before {
-    content: '🎁';
-    position: absolute;
-    top: -10px;
-    right: -10px;
-    font-size: 1.5rem;
+.ranking-item:has(.luxury-name) {
+    border: 2px solid #f48fb1;
+    background: linear-gradient(135deg, #ffffff 0%, #fff0f3 100%);
+    box-shadow: 0 5px 15px rgba(244, 143, 177, 0.2);
 }
 
-/* --- pvp.html Specific --- */
-.chair-button {
-    padding: 12px 5px;
-    font-size: 1em;
-    border-radius: 12px;
-    background-color: #fff;
-    border: 2px solid var(--color-primary);
-    color: var(--color-primary);
-    transition: all 0.2s;
-}
+/* その他アイコン */
+.premium-mark { color: var(--color-whiteday); filter: drop-shadow(0 0 2px rgba(135, 206, 235, 0.5)); }
+.pro-mark { color: #f06292; }
 
-.chair-button:hover:not(:disabled) {
-    background-color: var(--color-accent);
-    color: #fff;
-    border-color: var(--color-accent);
-}
-
-.chosen-chair {
-    background-color: var(--color-primary) !important;
-    color: #fff !important;
-}
-
-/* --- Footer --- */
+/* --- フッターナビ --- */
 footer {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
-    background-color: #fff;
-    padding: 10px 0;
-    z-index: 100;
-    box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
-    border-top: 2px solid var(--color-border);
+    background-color: var(--color-accent); /* チョコブラウン */
+    padding: 12px 0;
+    z-index: 1000;
+    border-top: 3px solid var(--color-primary);
 }
 
-.footer-nav { 
-    display: flex; 
-    justify-content: space-around; 
-    max-width: 800px; 
-    margin: 0 auto; 
-}
-
-footer .input-link {
+.footer-nav .input-link {
     flex-grow: 1;
     text-align: center;
     margin: 0 5px;
     padding: 12px 5px;
-    background-color: transparent;
-    color: var(--color-primary);
-    border: 2px solid transparent;
-    border-radius: 12px;
-    box-shadow: none;
+    color: var(--color-light);
+    background-color: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 0.9em;
+    border-radius: 10px;
+    transition: all 0.3s;
 }
 
-footer .input-link:hover {
-    background-color: var(--color-background-secondary);
-    color: var(--color-accent);
-    transform: none;
+.footer-nav .input-link:hover {
+    background-color: var(--color-primary);
+    transform: translateY(-5px);
 }
 
-body.dark-mode footer {
-    background-color: var(--dm-color-box);
-    border-top-color: var(--dm-color-primary);
+/* --- 入力要素 --- */
+input[type="text"], input[type="password"], input[type="number"], select {
+    border-radius: 10px;
+    border: 2px solid #eee;
+    padding: 14px;
 }
 
-body.dark-mode footer .input-link {
-    color: var(--dm-color-text);
+input:focus, select:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 10px rgba(255, 107, 129, 0.2);
 }
 
-/* --- Utilities --- */
-.luxury-mark { color: #70d6ff; text-shadow: 0 0 5px #fff; }
-.premium-mark { color: #ffd700; }
+/* 宝くじ等のカード */
+.bet-tile, .bet-card {
+    border-radius: 15px;
+    border-left: 5px solid var(--color-primary);
+    background-color: #fff9fa;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.status-open { border-left-color: var(--color-primary); }
+.status-closed { border-left-color: var(--color-accent); }
+
+/* ダークモード調整 */
+body.dark-mode .tool-box {
+    border-color: var(--dm-color-accent);
+}
+
+body.dark-mode .ranking-item {
+    background-color: #2d1b15;
+    border-color: #3e2723;
+}
