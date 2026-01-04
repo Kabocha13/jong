@@ -38,6 +38,32 @@
                 <button type="button" id="logout-button" class="action-button secondary-button mt-10">ログアウト</button>
             </div>
 
+            <div class="tool-box roulette-section">
+                <h3>🎡 プレミアム・ルーレット</h3>
+                <p class="instruction">1回 <strong>20 P</strong> で挑戦！豪華景品を狙いましょう。</p>
+                
+                <div class="roulette-wrapper">
+                    <div class="roulette-pointer"></div>
+                    <div id="roulette-wheel" class="roulette-wheel">
+                    </div>
+                </div>
+
+                <div class="roulette-controls">
+                    <button type="button" id="spin-button" class="action-button">20Pでスピン！</button>
+                </div>
+                <p id="roulette-message" class="hidden"></p>
+                
+                <div class="prize-list-info">
+                    <ul>
+                        <li><span class="rank rank-1">1等</span> Luxury 1ヶ月 (0.2%)</li>
+                        <li><span class="rank rank-2">2等</span> 1,000 P (0.5%)</li>
+                        <li><span class="rank rank-3">3等</span> 500 P (1.0%)</li>
+                        <li><span class="rank rank-4">4等</span> Premium 1週間 (3.0%)</li>
+                        <li><span class="rank rank-5">5等</span> 20 P (35.3%)</li>
+                    </ul>
+                </div>
+            </div>
+
             <div id="pro-bonus-tool" class="tool-box hidden">
                 <h4>⭐ 会員ボーナス</h4>
                 <p class="instruction" id="pro-bonus-instruction">特典ロード中...</p>
@@ -154,8 +180,8 @@
         <nav class="footer-nav">
             <a href="index.html" class="input-link">ランキング</a>
             <a href="mypage.html" class="input-link">マイページ</a>
-            <a href="pvp.html" class="input-link">PVP</a>
             <a href="master.html" class="input-link">マスター</a>
+            <a href="pvp.html" class="input-link">PVP</a>
         </nav>
     </footer>
 
