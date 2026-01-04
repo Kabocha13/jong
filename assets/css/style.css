@@ -6,7 +6,7 @@
     --color-accent: #6d4c41;      /* ミルクチョコブラウン */
     --color-text: #4e342e;        /* ビターチョコ */
     --color-light: #ffffff;
-    --color-background: #fff5f7;  /* スウィートピンク（背景） */
+    --color-background: #6d4c41;  /* 板チョコのベースカラーに変更 */
     --color-whiteday: #87ceeb;    /* ホワイトデー・スカイブルー */
     --font-primary: 'Hiragino Sans', 'Meiryo', 'Helvetica Neue', sans-serif;
 
@@ -15,7 +15,7 @@
     --dm-color-accent: #d2b48c;
     --dm-color-text: #fce4ec;
     --dm-color-light: #2d1b15;
-    --dm-color-background: #1a0f0d;
+    --dm-color-background: #2d1b15; /* より深いチョコ */
     --dm-color-box: #261410;
 
     --color-error: #e91e63;
@@ -53,7 +53,19 @@
 /* --- 基本スタイル --- */
 body {
     font-family: var(--font-primary);
-    background-color: var(--color-background);
+    /* チョコレートタイルの背景デザイン */
+    background-color: var(--color-accent);
+    background-image: 
+        /* 下側の溝（シャドウ） */
+        linear-gradient(to bottom, transparent 96%, rgba(0,0,0,0.4) 96%),
+        /* 右側の溝（シャドウ） */
+        linear-gradient(to right, transparent 96%, rgba(0,0,0,0.4) 96%),
+        /* 上側のエッジ（ハイライト） */
+        linear-gradient(to bottom, rgba(255,255,255,0.1) 4%, transparent 4%),
+        /* 左側のエッジ（ハイライト） */
+        linear-gradient(to right, rgba(255,255,255,0.1) 4%, transparent 4%);
+    background-size: 80px 100px; /* チョコのひとかけらのサイズ */
+    background-attachment: fixed;
     color: var(--color-text);
     margin: 0;
     padding: 0;
@@ -63,6 +75,11 @@ body {
 
 body.dark-mode {
     background-color: var(--dm-color-background);
+    background-image: 
+        linear-gradient(to bottom, transparent 96%, rgba(0,0,0,0.6) 96%),
+        linear-gradient(to right, transparent 96%, rgba(0,0,0,0.6) 96%),
+        linear-gradient(to bottom, rgba(255,255,255,0.05) 4%, transparent 4%),
+        linear-gradient(to right, rgba(255,255,255,0.05) 4%, transparent 4%);
     color: var(--dm-color-text);
 }
 
@@ -107,7 +124,7 @@ main {
     background-color: var(--color-light);
     border: none;
     border-radius: 20px;
-    box-shadow: 0 10px 30px rgba(109, 76, 65, 0.1);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); /* 背景が暗くなったので影を強調 */
     animation: fadeIn 0.8s ease-out forwards;
 }
 
