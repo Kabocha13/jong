@@ -321,7 +321,7 @@ if (DARK_MODE_TOGGLE_BUTTON) {
 
 
 // -----------------------------------------------------------------
-// ★★★ 会員ボーナス機能 (Luxury 5.0P / 1時間ごと) ★★★
+// ★★★ 会員ボーナス機能 (Luxury 10.0P / 1時間ごと) ★★★
 // -----------------------------------------------------------------
 
 /**
@@ -360,7 +360,7 @@ function updateMemberBonusDisplay() {
     let REFRESH_TEXT;     // 獲得間隔（表示用テキスト）
 
     if (MEMBER_STATUS === 'luxury') {
-        BONUS_AMOUNT = 5.0; // Luxuryは5ポイント
+        BONUS_AMOUNT = 10.0; // Luxuryは10ポイント
         MEMBER_TYPE = 'Luxury';
         REFRESH_INTERVAL = 3600000; // 1時間 (60 * 60 * 1000)
         REFRESH_TEXT = '1時間ごと';
