@@ -1,63 +1,26 @@
-/* assets/css/style.css - New Year (Oshougatsu) Animated Theme */
+/* assets/css/style.css - Art Deco Theme & Roulette Extensions */
 
-/* --- 変数定義 --- */
+/* --- Colors & Fonts --- */
 :root {
-    --color-primary: #c0392b;     /* 祝儀の赤 (Shoujouhi) */
-    --color-accent: #d4af37;      /* 豪華な金 (Kinpaku) */
-    --color-text: #2c3e50;        /* 墨色 (Deep Charcoal) */
+    --color-primary: #2c3e50;
+    --color-accent: #DAA520;
+    --color-text: #1c1c1c;
     --color-light: #ffffff;
-    --color-background: #fffaf0;  /* 鳥の子色 (Ivory) */
-    --font-primary: 'Yu Mincho', 'Hiragino Mincho ProN', 'MS Mincho', serif;
-
+    --color-background: #f0f0f0;
+    
     /* ダークモード変数 */
-    --dm-color-primary: #d4af37;
-    --dm-color-accent: #e67e22;
-    --dm-color-text: #fdf6e3;
-    --dm-color-light: #2c0000;
-    --dm-color-background: #1a0000;
-    --dm-color-box: #2d0a0a;
-
-    --color-error: #e74c3c;
-    --color-success: #27ae60;
-    --color-info: #2980b9;
+    --dm-color-primary: #DAA520;
+    --dm-color-text: #EAEAEA;
+    --dm-color-background: #121212;
+    --dm-color-box: #1E1E1E;
 }
 
-/* --- アニメーション定義 --- */
-
-/* ボタンや名前がキラリと光るエフェクト */
-@keyframes shimmery {
-    0% { left: -150%; }
-    30% { left: 150%; }
-    100% { left: 150%; }
-}
-
-/* 豪華会員用の文字の輝き */
-@keyframes luxury-glow {
-    0%, 100% { filter: drop-shadow(0 0 2px rgba(212, 175, 55, 0.4)); }
-    50% { filter: drop-shadow(0 0 8px rgba(212, 175, 55, 0.8)); }
-}
-
-/* 縁起物がゆらゆら揺れる動き (ヘッダー用) */
-@keyframes yura-yura {
-    0%, 100% { transform: translateY(0) rotate(0); }
-    50% { transform: translateY(-5px) rotate(1deg); }
-}
-
-/* ふわっと表示される動き (メインコンテンツ用) */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(15px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* --- 基本スタイル --- */
 body {
-    font-family: var(--font-primary);
+    font-family: 'Century Gothic', Arial, sans-serif;
     background-color: var(--color-background);
     color: var(--color-text);
     margin: 0;
-    padding: 0;
     padding-bottom: 80px;
-    line-height: 1.6;
 }
 
 body.dark-mode {
@@ -65,272 +28,182 @@ body.dark-mode {
     color: var(--dm-color-text);
 }
 
-/* --- ヘッダー --- */
+/* --- Layout --- */
 header {
     background-color: var(--color-primary);
     color: var(--color-light);
-    padding: 30px 20px 25px;
+    padding: 20px;
     text-align: center;
-    box-shadow: 0 5px 20px rgba(192, 57, 43, 0.4);
-    background-image: radial-gradient(var(--color-accent) 0.6px, transparent 0.6px);
-    background-size: 24px 24px;
-    position: relative;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 
-header h1 {
-    margin: 0;
-    font-size: 1.8em;
-    letter-spacing: 4px;
-    display: inline-block;
-    padding: 8px 25px;
-    border: 3px double var(--color-accent);
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    animation: yura-yura 4s ease-in-out infinite;
-}
-
-body.dark-mode header {
-    background-color: var(--dm-color-box);
-    box-shadow: 0 5px 15px rgba(212, 175, 55, 0.2);
-}
-
-/* --- メインレイアウト --- */
 main {
     max-width: 800px;
-    margin: 30px auto;
-    padding: 25px;
-    background-color: var(--color-light);
-    border: 2px solid var(--color-primary);
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
-    animation: fadeIn 0.8s ease-out forwards;
+    margin: 20px auto;
+    padding: 15px;
 }
 
-body.dark-mode main {
-    background-color: var(--dm-color-box);
-    border-color: var(--dm-color-primary);
-}
-
-/* --- ツールボックス --- */
 .tool-box {
     background-color: #fff;
-    padding: 22px;
-    margin-bottom: 30px;
-    border: 2px solid var(--color-accent);
-    border-radius: 10px;
-    position: relative;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    padding: 20px;
+    margin-bottom: 25px;
+    border: 1px solid #ccc;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
 }
 
-.tool-box:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(212, 175, 55, 0.15);
+body.dark-mode .tool-box {
+    background-color: var(--dm-color-box);
+    border-color: #444;
 }
 
-.tool-box::before {
-    content: "";
-    position: absolute;
-    top: 6px;
-    left: 6px;
-    right: 6px;
-    bottom: 6px;
-    border: 1px solid rgba(212, 175, 55, 0.25);
-    pointer-events: none;
-    border-radius: 6px;
-}
-
-/* --- ボタンデザイン --- */
-button[type="submit"],
-.action-button,
-#refresh-button,
-#mahjong-submit-button,
-#daily-tax-button {
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(135deg, var(--color-primary) 0%, #a93226 100%);
-    color: var(--color-light);
-    border: 2px solid var(--color-accent);
-    padding: 14px 20px;
-    cursor: pointer;
-    width: 100%;
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    margin-top: 15px;
-    font-weight: bold;
-    font-family: var(--font-primary);
-    border-radius: 6px;
-    text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
-    box-shadow: 0 4px 0 #8e2c21;
-    letter-spacing: 2px;
-}
-
-button[type="submit"]::after,
-.action-button::after,
-#refresh-button::after {
-    content: "";
-    position: absolute;
-    top: -50%;
-    left: -150%;
-    width: 40%;
-    height: 200%;
-    background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transform: rotate(35deg);
-    animation: shimmery 6s infinite;
-}
-
-button[type="submit"]:hover,
-.action-button:hover {
-    filter: brightness(1.1);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 0 #8e2c21;
-}
-
-/* --- ランキング項目 --- */
-.ranking-list { list-style: none; padding: 0; }
-
-.ranking-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    margin-bottom: 12px;
-    background-color: var(--color-light);
+/* --- 🎡 Roulette Styles --- */
+.roulette-section {
+    text-align: center;
     border: 2px solid var(--color-primary);
-    box-shadow: 4px 4px 0 0 var(--color-accent);
-    border-radius: 6px;
-    transition: all 0.3s ease;
+    background: linear-gradient(135deg, #fff 0%, #f9f9f9 100%);
 }
 
-.ranking-item:hover {
-    transform: translateX(8px);
-    background-color: #fffdf9;
-}
-
-.rank-num { font-weight: bold; font-size: 1.2em; color: var(--color-primary); margin-right: 12px; }
-.player-score { font-weight: bold; font-size: 1.1em; color: var(--color-primary); }
-
-/* ★ JS側のクラス名に合わせて修正: Luxury会員の特別スタイル ★ */
-.luxury-name {
-    color: #b8860b !important;
-    font-weight: 900 !important;
-    font-size: 1.25em !important; /* 通常より大きく */
-    letter-spacing: 1px;
-    display: inline-flex;
-    align-items: center;
-    position: relative;
-    /* 金色の文字グラデーション */
-    background: linear-gradient(to bottom, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: luxury-glow 3s ease-in-out infinite;
-}
-
-.luxury-mark {
-    margin-left: 5px;
-    -webkit-text-fill-color: initial; /* 絵文字の色は維持 */
-    filter: drop-shadow(0 0 3px rgba(212, 175, 55, 0.6));
-    font-size: 1.1em;
-}
-
-/* Luxury会員を含む行全体を目立たせる */
-.ranking-item:has(.luxury-name) {
-    border: 2px solid var(--color-accent);
-    background: linear-gradient(135deg, #ffffff 0%, #fffdf0 100%);
-    box-shadow: 4px 4px 15px rgba(212, 175, 55, 0.3);
-    position: relative;
-    overflow: hidden;
-}
-
-/* 行全体に光を走らせる（Luxury会員のみ） */
-.ranking-item:has(.luxury-name)::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 20%;
-    height: 100%;
-    background: linear-gradient(to right, transparent, rgba(212, 175, 55, 0.1), transparent);
-    transform: skewX(-25deg);
-    animation: shimmery 8s infinite 2s;
-}
-
-body.dark-mode .luxury-name {
-    background: linear-gradient(to right, #d4af37, #fff5d7, #d4af37);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-body.dark-mode .ranking-item:has(.luxury-name) {
-    background: linear-gradient(135deg, #2d0a0a 0%, #3d1a1a 100%);
+body.dark-mode .roulette-section {
+    background: linear-gradient(135deg, #1e1e1e 0%, #121212 100%);
     border-color: var(--dm-color-primary);
 }
 
-/* その他の会員マーク */
-.premium-mark { color: #ff8c00; text-shadow: 0 0 5px rgba(255, 140, 0, 0.3); }
-.pro-mark { color: #32cd32; text-shadow: 0 0 5px rgba(50, 205, 50, 0.3); }
+.roulette-wrapper {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin: 30px auto;
+    border-radius: 50%;
+    background-color: var(--color-primary);
+    padding: 10px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
 
-/* --- フッターナビ --- */
+.roulette-pointer {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 15px solid transparent;
+    border-right: 15px solid transparent;
+    border-top: 30px solid var(--color-accent);
+    z-index: 10;
+}
+
+.roulette-wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    border: 5px solid var(--color-accent);
+    background: conic-gradient(
+        #d4af37 0deg 60deg,     /* 1等: Gold */
+        #2c3e50 60deg 120deg,  /* 2等: Navy */
+        #daa520 120deg 180deg, /* 3等: Bronze */
+        #34495e 180deg 240deg, /* 4等: Steel */
+        #c0c0c0 240deg 300deg, /* 5等: Silver */
+        #f0f0f0 300deg 360deg  /* ハズレ: Light */
+    );
+}
+
+.roulette-wheel::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px; height: 20px;
+    background: var(--color-accent);
+    border-radius: 50%;
+    z-index: 5;
+    border: 2px solid var(--color-primary);
+}
+
+.win-flash {
+    animation: flash 0.2s infinite alternate;
+}
+@keyframes flash {
+    from { filter: brightness(1); }
+    to { filter: brightness(1.5); }
+}
+
+.prize-list-info {
+    margin-top: 15px;
+    padding: 10px;
+    border-top: 1px dashed #ccc;
+}
+
+.prize-list-info ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+.prize-list-info li {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    background: #eee;
+    border-radius: 4px;
+}
+
+body.dark-mode .prize-list-info li {
+    background: #333;
+    color: #eee;
+}
+
+.rank { font-weight: bold; margin-right: 4px; }
+.rank-1 { color: #d4af37; }
+.rank-2 { color: #2c3e50; }
+.rank-3 { color: #daa520; }
+
+/* --- UI Components --- */
+.action-button {
+    background-color: var(--color-primary);
+    color: white;
+    border: none;
+    padding: 12px;
+    cursor: pointer;
+    font-weight: bold;
+    width: 100%;
+    transition: 0.3s;
+}
+
+.secondary-button { background-color: #6c757d; width: auto !important; padding: 8px 15px; }
+
+.form-group { margin-bottom: 15px; text-align: left; }
+.form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+input, select { width: 100%; padding: 10px; border: 1px solid #ccc; box-sizing: border-box; }
+
+.hidden { display: none !important; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex { display: flex; }
+.gap-10 { gap: 10px; }
+.flex-1 { flex: 1; }
+.items-end { align-items: flex-end; }
+.mt-10 { margin-top: 10px; }
+.mt-20 { margin-top: 20px; }
+.mb-20 { margin-bottom: 20px; }
+
+.message { padding: 10px; margin-top: 10px; border: 1px solid; border-radius: 4px; text-align: center; font-weight: bold; }
+.message.success { background: #e6ffe6; color: #28a745; border-color: #28a745; }
+.message.error { background: #fff0f0; color: #dc3545; border-color: #dc3545; }
+.message.info { background: #e9f5ff; color: #007bff; border-color: #007bff; }
+
+/* --- Footer --- */
 footer {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background-color: var(--color-primary);
-    padding: 12px 0;
-    z-index: 1000;
-    border-top: 2px solid var(--color-accent);
+    bottom: 0; left: 0; width: 100%;
+    background: var(--color-primary);
+    padding: 10px 0;
+    z-index: 100;
 }
+.footer-nav { display: flex; justify-content: space-around; max-width: 800px; margin: 0 auto; }
+.input-link { color: white; text-decoration: none; font-weight: bold; font-size: 0.9em; }
 
-.footer-nav {
-    display: flex;
-    justify-content: space-around;
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 0 10px;
-}
-
-.footer-nav .input-link {
-    flex-grow: 1;
-    text-align: center;
-    margin: 0 5px;
-    padding: 12px 5px;
-    color: var(--color-light);
-    background-color: rgba(0,0,0,0.3);
-    border: 1px solid var(--color-accent);
-    text-decoration: none;
-    font-weight: bold;
-    font-size: 0.85em;
-    border-radius: 6px;
-    transition: all 0.3s;
-}
-
-.footer-nav .input-link:hover {
-    background-color: var(--color-accent);
-    color: var(--color-primary);
-    transform: translateY(-3px);
-}
-
-/* --- ユーティリティ --- */
-.hidden { display: none !important; }
-.mt-20 { margin-top: 20px !important; }
-
-/* フォーム入力 */
-input[type="text"], input[type="password"], input[type="number"], select {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid #ddd;
-    border-radius: 6px;
-    font-family: inherit;
-    transition: border-color 0.3s;
-}
-
-input:focus, select:focus {
-    outline: none;
-    border-color: var(--color-accent);
-    box-shadow: 0 0 8px rgba(212, 175, 55, 0.3);
-}
-
-body.dark-mode input, body.dark-mode select {
-    background-color: #3d1a1a;
-    border-color: var(--dm-color-accent);
-    color: #fff;
+@media (max-width: 480px) {
+    .roulette-wrapper { width: 220px; height: 220px; }
 }
