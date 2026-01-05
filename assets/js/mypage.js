@@ -434,7 +434,7 @@ if (PRO_BONUS_BUTTON) {
         let REFRESH_INTERVAL; // 獲得間隔（ミリ秒）
 
         if (MEMBER_STATUS === 'luxury') {
-            BONUS_AMOUNT = 5.0;
+            BONUS_AMOUNT = 10.0;
             REFRESH_INTERVAL = 3600000; // 1時間
         } else if (MEMBER_STATUS === 'premium') {
             BONUS_AMOUNT = 15.0; 
