@@ -10,14 +10,6 @@
     --color-whiteday: #87ceeb;    /* ホワイトデー・スカイブルー */
     --font-primary: 'Hiragino Sans', 'Meiryo', 'Helvetica Neue', sans-serif;
 
-    /* ダークモード変数 (ビターチョコレート・ナイト) */
-    --dm-color-primary: #ff85a2;
-    --dm-color-accent: #d2b48c;
-    --dm-color-text: #fce4ec;
-    --dm-color-light: #2d1b15;
-    --dm-color-background: #2d1b15; /* より深いチョコ */
-    --dm-color-box: #261410;
-
     --color-error: #e91e63;
     --color-success: #4caf50;
     --color-info: #00bcd4;
@@ -73,16 +65,6 @@ body {
     line-height: 1.6;
 }
 
-body.dark-mode {
-    background-color: var(--dm-color-background);
-    background-image: 
-        linear-gradient(to bottom, transparent 96%, rgba(0,0,0,0.6) 96%),
-        linear-gradient(to right, transparent 96%, rgba(0,0,0,0.6) 96%),
-        linear-gradient(to bottom, rgba(255,255,255,0.05) 4%, transparent 4%),
-        linear-gradient(to right, rgba(255,255,255,0.05) 4%, transparent 4%);
-    color: var(--dm-color-text);
-}
-
 /* --- ヘッダー --- */
 header {
     background-color: var(--color-primary);
@@ -110,12 +92,6 @@ header h1 {
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-body.dark-mode header {
-    background-color: var(--dm-color-box);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
-    border-bottom-color: var(--dm-color-primary);
-}
-
 /* --- メインレイアウト --- */
 main {
     max-width: 800px;
@@ -124,12 +100,8 @@ main {
     background-color: var(--color-light);
     border: none;
     border-radius: 20px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); /* 背景が暗くなったので影を強調 */
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); 
     animation: fadeIn 0.8s ease-out forwards;
-}
-
-body.dark-mode main {
-    background-color: var(--dm-color-box);
 }
 
 /* --- ツールボックス --- */
@@ -178,7 +150,6 @@ button[type="submit"],
     letter-spacing: 1px;
 }
 
-/* セカンダリボタンはホワイトデーカラーに */
 .secondary-button {
     background: linear-gradient(135deg, var(--color-whiteday) 0%, #70a1ff 100%) !important;
     box-shadow: 0 4px 12px rgba(112, 161, 255, 0.25) !important;
@@ -228,7 +199,7 @@ button[type="submit"]:hover,
 .rank-num { font-weight: bold; font-size: 1.3em; color: var(--color-primary); margin-right: 15px; font-style: italic; }
 .player-score { font-weight: bold; font-size: 1.2em; color: var(--color-accent); }
 
-/* Luxury会員: Strawberry Chocolate スタイル */
+/* Luxury会員 */
 .luxury-name {
     color: #d81b60 !important;
     font-weight: 900 !important;
@@ -237,7 +208,6 @@ button[type="submit"]:hover,
     display: inline-flex;
     align-items: center;
     position: relative;
-    /* ピンクと白のストライプ・グラデーション */
     background: linear-gradient(45deg, #ff80ab, #f06292, #ff80ab, #f06292);
     background-size: 200% 200%;
     -webkit-background-clip: text;
@@ -251,7 +221,6 @@ button[type="submit"]:hover,
     box-shadow: 0 5px 15px rgba(244, 143, 177, 0.2);
 }
 
-/* その他アイコン */
 .premium-mark { color: var(--color-whiteday); filter: drop-shadow(0 0 2px rgba(135, 206, 235, 0.5)); }
 .pro-mark { color: #f06292; }
 
@@ -261,7 +230,7 @@ footer {
     bottom: 0;
     left: 0;
     width: 100%;
-    background-color: var(--color-accent); /* チョコブラウン */
+    background-color: var(--color-accent); 
     padding: 12px 0;
     z-index: 1000;
     border-top: 3px solid var(--color-primary);
@@ -317,14 +286,4 @@ input:focus, select:focus {
 
 .form-group.hidden {
     display: none !important;
-}
-
-/* ダークモード調整 */
-body.dark-mode .tool-box {
-    border-color: var(--dm-color-accent);
-}
-
-body.dark-mode .ranking-item {
-    background-color: #2d1b15;
-    border-color: #3e2723;
 }
