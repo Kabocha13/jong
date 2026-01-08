@@ -593,7 +593,7 @@ if (TRANSFER_FORM_MYPAGE) {
                 scores: newScores,
                 sports_bets: currentData.sports_bets, 
                 speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [],
+                lotteries: currentData.lotteries || [], 
                 gift_codes: currentData.gift_codes || []
             };
     
@@ -888,7 +888,12 @@ function initializeLotteryPurchaseForm() {
 
     LOTTERY_TICKET_COUNT.removeAttribute('max');
 
-    const DISCOUNT_RATE = authenticatedUser && authenticatedUser.status === 'luxury' ? 0.8 : 1.0; 
+    // ★ 修正: Premium会員の5%OFFを追加
+    let DISCOUNT_RATE = 1.0;
+    if (authenticatedUser) {
+        if (authenticatedUser.status === 'luxury') DISCOUNT_RATE = 0.8;
+        else if (authenticatedUser.status === 'premium') DISCOUNT_RATE = 0.95;
+    }
     
     const updatePrice = () => {
         const selectedLotteryId = parseInt(LOTTERY_SELECT.value);
@@ -905,7 +910,8 @@ function initializeLotteryPurchaseForm() {
                 const finalPrice = parseFloat(discountedPrice.toFixed(1)); 
 
                 if (DISCOUNT_RATE < 1.0) {
-                    discountText = `(Luxury特典: ${originalPrice.toFixed(1)} P → ${finalPrice.toFixed(1)} P)`;
+                    const discountType = authenticatedUser.status === 'luxury' ? 'Luxury' : 'Premium';
+                    discountText = `(${discountType}特典: ${originalPrice.toFixed(1)} P → ${finalPrice.toFixed(1)} P)`;
                     LOTTERY_TOTAL_PRICE_DISPLAY.innerHTML = `合計: <strong style=\"color: #28a745;\">${finalPrice.toFixed(1)} P</strong> ${discountText}`;
                 } else {
                     LOTTERY_TOTAL_PRICE_DISPLAY.textContent = `合計: ${finalPrice.toFixed(1)} P`;
@@ -1069,7 +1075,11 @@ if (LOTTERY_PURCHASE_FORM) {
             return;
         }
 
-        const DISCOUNT_RATE = authenticatedUser.status === 'luxury' ? 0.8 : 1.0;
+        // ★ 修正: Premium会員の5%OFFを追加
+        let DISCOUNT_RATE = 1.0;
+        if (authenticatedUser.status === 'luxury') DISCOUNT_RATE = 0.8;
+        else if (authenticatedUser.status === 'premium') DISCOUNT_RATE = 0.95;
+
         const originalPrice = lottery.ticketPrice * count;
         const discountedPrice = originalPrice * DISCOUNT_RATE;
         const finalPrice = parseFloat(discountedPrice.toFixed(1)); 
@@ -1168,7 +1178,7 @@ if (LOTTERY_PURCHASE_FORM) {
             const response = await updateAllData(newData);
             
             if (response.status === 'success') {
-                showMessage(LOTTERY_PURCHASE_MESSAGE, `✅ ${count}枚の購入が完了しました (ポイント ${finalPrice.toFixed(1)} P 減算)。${DISCOUNT_RATE < 1.0 ? ' Luxury割引が適用されました！' : ''}`, 'success');
+                showMessage(LOTTERY_PURCHASE_MESSAGE, `✅ ${count}枚の購入が完了しました (ポイント ${finalPrice.toFixed(1)} P 減算)。${DISCOUNT_RATE < 1.0 ? ' 会員割引が適用されました！' : ''}`, 'success');
                 
                 authenticatedUser.score = newScore;
                 CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
@@ -1320,7 +1330,7 @@ async function handleCheckLotteryResult(e) {
         }
 
     } catch (error) {
-        console.error("宝くじ結果確認中にエラー:", error);
+        console.error(\"宝くじ結果確認中にエラー:\", error);
         showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
         button.disabled = false;
     }
