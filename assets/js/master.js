@@ -4,7 +4,6 @@ const AUTH_FORM = document.getElementById('auth-form');
 const ADMIN_TOOLS = document.getElementById('admin-tools');
 const AUTH_MESSAGE = document.getElementById('auth-message');
 const TARGET_PLAYER_SELECT = document.getElementById('target-player');
-// ★ 新規追加: ログアウトボタン
 const MASTER_LOGOUT_BUTTON = document.getElementById('master-logout-button');
 
 // ★ 送金機能 (既存)
@@ -18,7 +17,7 @@ const RACE_RECORD_HOLDER_SELECT = document.getElementById('race-record-holder');
 const RACE_COURSE_SELECT = document.getElementById('race-course-select'); 
 
 
-// ★ スポーツくじ管理機能 (大幅修正)
+// ★ スポーツくじ管理機能
 const BET_LIST_CONTAINER = document.getElementById('bet-list-container');
 const CREATE_BET_FORM = document.getElementById('create-bet-form');
 
@@ -233,7 +232,6 @@ async function loadTransferPlayerLists() {
 
     let options = '<option value="" disabled selected>プレイヤーを選択</option>';
     scores.forEach(player => {
-        // ★ 修正: proステータス表示ロジックを削除
         options += `<option value="${player.name}">${player.name}</option>`;
     });
 
@@ -255,7 +253,6 @@ async function loadRaceRecordHolders() {
 
     let options = '<option value="" disabled selected>記録保持者を選択</option>';
     scores.forEach(player => {
-        // ★ 修正: proステータス表示ロジックを削除
         options += `<option value="${player.name}">${player.name}</option>`;
     });
 
@@ -291,7 +288,7 @@ async function loadRaceCourses() {
 }
 
 
-// --- 麻雀結果フォーム生成/処理 (履歴削除) ---
+// --- 麻雀結果フォーム生成/処理 ---
 async function loadMahjongForm() {
     // ★ 修正: MAHJONG_PLAYER_INPUTS_CONTAINER が存在しないページ (master_sports等) もあるため、nullチェック
     if (!MAHJONG_PLAYER_INPUTS_CONTAINER) return;
@@ -353,8 +350,6 @@ if (MAHJONG_FORM) {
             showMessage(MAHJONG_MESSAGE_ELEMENT, `警告: 合計点が ${totalScore} です。120000点周辺ではありません。計算を再確認してください。`, 'error');
         }
     
-        // 削除: メモの取得
-        // const memo = document.getElementById('mahjong-memo').value;
         
         MAHJONG_SUBMIT_BUTTON.disabled = true;
         MAHJONG_SUBMIT_BUTTON.textContent = '送信中...';
@@ -367,7 +362,6 @@ if (MAHJONG_FORM) {
             
             results.sort((a, b) => b.score - a.score);
             
-            // 削除: 履歴エントリーの生成と追加を削除
             
             for (let i = 0; i < results.length; i++) {
                 const result = results[i];
@@ -394,10 +388,8 @@ if (MAHJONG_FORM) {
             const newScores = Array.from(currentScoresMap.values());
             
     
-            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
             const newData = {
                 scores: newScores, // pass/pro/status/lastBonusTimeフィールドを保持したscores
-                // 修正: historyは保存しない
                 sports_bets: currentData.sports_bets || [],
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
@@ -620,7 +612,7 @@ if (RACE_RECORD_FORM) {
     RACE_RECORD_FORM.addEventListener('submit', async (e) => {
         e.preventDefault();
         const messageEl = document.getElementById('race-record-message');
-        // ★ 修正: プルダウンからコース名を取得
+        // プルダウンからコース名を取得
         const courseName = RACE_COURSE_SELECT.value; 
         const timeString = document.getElementById('race-best-time').value.trim();
         const recordHolder = RACE_RECORD_HOLDER_SELECT.value;
@@ -632,7 +624,7 @@ if (RACE_RECORD_FORM) {
             return;
         }
         
-        // ★ 修正: ここから新規コースの追加はできず、既存コースの更新のみを行う
+        // ここから新規コースの追加はできず、既存コースの更新のみを行う
     
         showMessage(messageEl, 'レース記録を更新中...', 'info');
     
@@ -660,7 +652,7 @@ if (RACE_RECORD_FORM) {
     
             let logMessage = '';
             let shouldAwardPoints = false;
-            const AWARD_POINTS = 5.0;
+            const AWARD_POINTS = 10.0;
     
             // 新しい記録が既存の記録より速いか、同タイムで保持者が異なる場合のみ更新
             if (newTimeMs < existingRecord.bestTimeMs) {
@@ -718,7 +710,6 @@ if (RACE_RECORD_FORM) {
                 // scores配列を再構築
                 newScores = Array.from(currentScoresMap.values());
     
-                // 削除: 履歴エントリーの生成と追加を完全に削除
             }
     
             // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
