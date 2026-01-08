@@ -43,7 +43,6 @@ async function attemptLogin(username, password, isAuto = false) {
     const pvpData = await fetchPvpData(username);
     const allScores = pvpData.allScores;
 
-    // ★修正: ユーザーオブジェクトには status が含まれていることを期待
     const user = allScores.find(p => p.name === username && p.pass === password);
 
     if (user) {
@@ -103,7 +102,6 @@ function initializeLobby() {
     AUTHENTICATED_USER_NAME.textContent = authenticatedUser.name;
     CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score ? authenticatedUser.score.toFixed(1) : '0.0';
     
-    // ★追加: ルーム作成権限のチェックとUIの制御
     const canCreateRoom = ALLOWED_STATUSES.includes(authenticatedUser.status);
     
     if (canCreateRoom) {
@@ -115,7 +113,6 @@ function initializeLobby() {
     }
     
     // 既存のゲームがあればアリーナに直接移動させる
-    // 修正: FINISHEDでもアリーナに残すため、FINISHEDチェックを削除
     if (currentGameState && currentGameState.status !== 'WAITING_JOIN' && currentGameState.playerB) {
         PVP_LOBBY.classList.add('hidden');
         GAME_ARENA.classList.remove('hidden');
@@ -141,7 +138,6 @@ async function fetchAndUpdatePvpData() {
 
     // 2. 進行中のゲームをチェック
     // 自分が参加しているゲームのうち、まだログアウト/削除されていないものを取得
-    // 修正: 自分が参加しているゲームが複数ある場合、最新のものを選ぶ（実際は一つのみを想定）
     const myGame = data.currentGames
         .filter(g => g.status !== 'DELETED')
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]; 
@@ -184,12 +180,10 @@ function startPolling() {
 
 // --- UIレンダリング ---
 
-// 修正: 完了したゲームに関する処理を削除
 function renderLobbyLists(finishedGames, availableGames) {
     
     // 参加可能なルーム
     AVAILABLE_GAME_LIST.innerHTML = availableGames.map(g => {
-        // 修正: ロビー一覧のポイント表示を、winPointsのみから計算される値に変更
         const losePoints = -g.winPoints;
         const forfeitPoints = losePoints * 2;
         
@@ -395,7 +389,6 @@ CREATE_ROOM_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl = document.getElementById('create-room-message');
     
-    // ★追加: ルーム作成権限の再チェック
     if (!ALLOWED_STATUSES.includes(authenticatedUser.status)) {
          showMessage(messageEl, '❌ ルームを作成できるのはプレミアム、ラグジュアリー会員限定です。', 'error');
          return;
