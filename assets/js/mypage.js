@@ -403,7 +403,7 @@ async function handleApplyGiftCode(e) {
 
     const messageEl = APPLY_GIFT_CODE_MESSAGE;
     const player = authenticatedUser.name;
-    const submitButton = APPLY_GIFT_CODE_FORM.querySelector('button[type=\"submit\"]');
+    const submitButton = APPLY_GIFT_CODE_FORM.querySelector('button[type="submit"]');
     const code = (GIFT_CODE_INPUT.value || '').trim().toUpperCase();
 
     if (!code) {
@@ -501,22 +501,22 @@ async function loadTransferReceiverList() {
     if (!RECEIVER_PLAYER_SELECT_MYPAGE) return;
     if (!authenticatedUser) return;
     
-    RECEIVER_PLAYER_SELECT_MYPAGE.innerHTML = '<option value=\"\" disabled selected>ロード中...</option>';
+    RECEIVER_PLAYER_SELECT_MYPAGE.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     
     const allData = await fetchAllData(); 
     const scores = allData.scores;
 
     if (scores.length === 0) {
-        RECEIVER_PLAYER_SELECT_MYPAGE.innerHTML = '<option value=\"\" disabled selected>リストの取得に失敗</option>';
+        RECEIVER_PLAYER_SELECT_MYPAGE.innerHTML = '<option value="" disabled selected>リストの取得に失敗</option>';
         return;
     }
 
-    let options = '<option value=\"\" disabled selected>送金先プレイヤーを選択</option>';
+    let options = '<option value="" disabled selected>送金先プレイヤーを選択</option>';
     const senderName = authenticatedUser.name;
 
     scores.forEach(player => {
         if (player.name !== senderName) {
-            options += `<option value=\"${player.name}\">${player.name}</option>`;
+            options += `<option value="${player.name}">${player.name}</option>`;
         }
     });
 
@@ -536,7 +536,7 @@ if (TRANSFER_FORM_MYPAGE) {
         const sender = authenticatedUser.name; 
         const receiver = RECEIVER_PLAYER_SELECT_MYPAGE.value;
         const amount = parseFloat(document.getElementById('transfer-amount-mypage').value);
-        const submitButton = TRANSFER_FORM_MYPAGE.querySelector('button[type=\"submit\"]');
+        const submitButton = TRANSFER_FORM_MYPAGE.querySelector('button[type="submit"]');
     
         if (!receiver || isNaN(amount) || amount <= 0) {
             showMessage(messageEl, 'エラー: 送金先と有効なポイント (0.1P以上) を入力してください。', 'error');
@@ -635,16 +635,16 @@ function addWagerRow(item = '', amount = '') {
     const row = document.createElement('div');
     row.className = 'form-group wager-row';
     row.innerHTML = `
-        <div style=\"display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px;\">
-            <div style=\"flex-grow: 1;\">
-                <label for=\"wager-item-${rowCount}\">内容 (かけるもの):</label>
-                <input type=\"text\" class=\"wager-item-input\" id=\"wager-item-${rowCount}\" value=\"${item}\" placeholder=\"例: A選手優勝 or 満貫和了\" required>
+        <div style="display: flex; gap: 10px; align-items: flex-end; margin-bottom: 10px;">
+            <div style="flex-grow: 1;">
+                <label for="wager-item-${rowCount}">内容 (かけるもの):</label>
+                <input type="text" class="wager-item-input" id="wager-item-${rowCount}" value="${item}" placeholder="例: A選手優勝 or 満貫和了" required>
             </div>
-            <div style=\"width: 120px;\">
-                <label for=\"wager-amount-${rowCount}\">掛け金 (P):</label>
-                <input type=\"number\" class=\"wager-amount-input\" id=\"wager-amount-${rowCount}\" value=\"${amount}\" step=\"1\" min=\"1\" placeholder=\"例: 10\" required>
+            <div style="width: 120px;">
+                <label for="wager-amount-${rowCount}">掛け金 (P):</label>
+                <input type="number" class="wager-amount-input" id="wager-amount-${rowCount}" value="${amount}" step="1" min="1" placeholder="例: 10" required>
             </div>
-            <button type=\"button\" class=\"remove-wager-row-button remove-button\" style=\"width: auto; margin-bottom: 0;\">×</button>
+            <button type="button" class="remove-wager-row-button remove-button" style="width: auto; margin-bottom: 0;">×</button>
         </div>
     `;
     
@@ -676,22 +676,22 @@ async function loadBettingDataAndHistory() {
 function updateWagerForm(allBets) {
     if (!TARGET_BET_SELECT) return;
 
-    TARGET_BET_SELECT.innerHTML = '<option value=\"\" disabled selected>開催中のくじを選択</option>';
+    TARGET_BET_SELECT.innerHTML = '<option value="" disabled selected>開催中のくじを選択</option>';
     
     const openBets = allBets.filter(bet => bet.status === 'OPEN' && new Date(bet.deadline) > new Date());
     
     if (openBets.length === 0) {
-        TARGET_BET_SELECT.innerHTML = '<option value=\"\" disabled selected>現在、開催中のくじはありません</option>';
+        TARGET_BET_SELECT.innerHTML = '<option value="" disabled selected>現在、開催中のくじはありません</option>';
         return;
     }
 
-    let options = '<option value=\"\" disabled selected>開催中のくじを選択</option>';
+    let options = '<option value="" disabled selected>開催中のくじを選択</option>';
     openBets.forEach(bet => {
         const deadline = new Date(bet.deadline);
         const formattedDeadline = deadline.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }) + ' ' + 
                                   deadline.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
                                   
-        options += `<option value=\"${bet.betId}\">${bet.matchName} (#${bet.betId}) - 締切: ${formattedDeadline}</option>`;
+        options += `<option value="${bet.betId}">${bet.matchName} (#${bet.betId}) - 締切: ${formattedDeadline}</option>`;
     });
 
     TARGET_BET_SELECT.innerHTML = options;
@@ -746,12 +746,12 @@ function renderWagerHistory(allBets) {
         }
 
         html += `
-            <li style=\"border-bottom: 1px dotted #ccc; padding: 5px 0;\">
-                <p style=\"margin: 0; font-size: 0.9em; color: #6c757d;\">${timestamp} - くじ #${w.betId}: ${w.matchName}</p>
-                <p style=\"margin: 2px 0 0 0;\">
+            <li style="border-bottom: 1px dotted #ccc; padding: 5px 0;">
+                <p style="margin: 0; font-size: 0.9em; color: #6c757d;">${timestamp} - くじ #${w.betId}: ${w.matchName}</p>
+                <p style="margin: 2px 0 0 0;">
                     ${w.amount} P を <strong>「${w.item}」</strong> に投票
                 </p>
-                <p style=\"margin: 2px 0 0 10px; font-weight: bold;\" class=\"${resultClass}\">${resultText}</p>
+                <p style="margin: 2px 0 0 10px; font-weight: bold;" class="${resultClass}">${resultText}</p>
             </li>
         `;
     });
@@ -805,7 +805,7 @@ if (WAGER_FORM) {
             return;
         }
 
-        const submitButton = WAGER_FORM.querySelector('button[type=\"submit\"]');
+        const submitButton = WAGER_FORM.querySelector('button[type="submit"]');
         submitButton.disabled = true;
         showMessage(messageEl, `投票 (${totalWagerAmount} P) を処理中...`, 'info');
         
@@ -912,7 +912,7 @@ function initializeLotteryPurchaseForm() {
                 if (DISCOUNT_RATE < 1.0) {
                     const discountType = authenticatedUser.status === 'luxury' ? 'Luxury' : 'Premium';
                     discountText = `(${discountType}特典: ${originalPrice.toFixed(1)} P → ${finalPrice.toFixed(1)} P)`;
-                    LOTTERY_TOTAL_PRICE_DISPLAY.innerHTML = `合計: <strong style=\"color: #28a745;\">${finalPrice.toFixed(1)} P</strong> ${discountText}`;
+                    LOTTERY_TOTAL_PRICE_DISPLAY.innerHTML = `合計: <strong style="color: #28a745;">${finalPrice.toFixed(1)} P</strong> ${discountText}`;
                 } else {
                     LOTTERY_TOTAL_PRICE_DISPLAY.textContent = `合計: ${finalPrice.toFixed(1)} P`;
                 }
@@ -935,7 +935,7 @@ async function loadLotteryData() {
     if (!authenticatedUser) return;
     if (!LOTTERY_SELECT || !LOTTERY_RESULTS_CONTAINER) return;
 
-    LOTTERY_SELECT.innerHTML = '<option value=\"\" disabled selected>ロード中...</option>';
+    LOTTERY_SELECT.innerHTML = '<option value="" disabled selected>ロード中...</option>';
     LOTTERY_RESULTS_CONTAINER.innerHTML = '<p>購入履歴をロード中...</p>';
     availableLotteries = [];
     
@@ -948,12 +948,12 @@ async function loadLotteryData() {
     );
 
     if (openLotteries.length === 0) {
-        LOTTERY_SELECT.innerHTML = '<option value=\"\" disabled>現在購入可能な宝くじはありません</option>';
+        LOTTERY_SELECT.innerHTML = '<option value="" disabled>現在購入可能な宝くじはありません</option>';
     } else {
-        let options = '<option value=\"\" disabled selected>購入する宝くじを選択</option>';
+        let options = '<option value="" disabled selected>購入する宝くじを選択</option>';
         openLotteries.forEach(l => {
             const deadline = new Date(l.purchaseDeadline).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-            options += `<option value=\"${l.lotteryId}\">${l.name} (${l.ticketPrice} P/枚) - 締切: ${deadline}</option>`;
+            options += `<option value="${l.lotteryId}">${l.name} (${l.ticketPrice} P/枚) - 締切: ${deadline}</option>`;
         });
         LOTTERY_SELECT.innerHTML = options;
         availableLotteries = openLotteries; 
@@ -979,7 +979,7 @@ async function loadLotteryData() {
             let statusHtml = '';
             
             if (resultAnnounceDate > now) {
-                statusHtml = `<p class=\"status-label status-closed\">結果発表待ち (発表日時: ${resultAnnounceDate.toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' })})</p>`;
+                statusHtml = `<p class="status-label status-closed">結果発表待ち (発表日時: ${resultAnnounceDate.toLocaleString('ja-JP', { dateStyle: 'short', timeStyle: 'short' })})</p>`;
             } else {
                 const unclaimedTicketsCount = myTickets.filter(t => !t.isClaimed).reduce((sum, t) => sum + t.count, 0);
                 
@@ -1010,36 +1010,36 @@ async function loadLotteryData() {
                             return `${rankName}: ${winCounts[rank].count}枚`;
                         }).join(', ');
                         
-                        prizeSummary = `<p style=\"font-size: 0.9em; margin: 5px 0 0 0; font-weight: bold; color: #38c172;\">内訳: ${prizeSummary}</p>`;
+                        prizeSummary = `<p style="font-size: 0.9em; margin: 5px 0 0 0; font-weight: bold; color: #38c172;">内訳: ${prizeSummary}</p>`;
 
                     } else {
-                        prizeSummary = `<p style=\"font-size: 0.9em; margin: 5px 0 0 0; color: #dc3545;\">当選はありませんでした。</p>`;
+                        prizeSummary = `<p style="font-size: 0.9em; margin: 5px 0 0 0; color: #dc3545;">当選はありませんでした。</p>`;
                     }
                 }
                 
                 if (unclaimedTicketsCount > 0) {
                     statusHtml = `
-                        <button class=\"action-button check-lottery-result\" data-lottery-id=\"${l.lotteryId}\" style=\"width: auto; background-color: #28a745;\">
+                        <button class="action-button check-lottery-result" data-lottery-id="${l.lotteryId}" style="width: auto; background-color: #28a745;">
                             結果を見る (${unclaimedTicketsCount}枚 未確認)
                         </button>
                         ${prizeSummary}
                     `;
                 } else {
                     if (winnings > 0) {
-                        statusHtml = `<p class=\"status-label status-open\">✅ 結果確認済み (合計当選: ${winnings.toFixed(1)} P)</p>`;
+                        statusHtml = `<p class="status-label status-open">✅ 結果確認済み (合計当選: ${winnings.toFixed(1)} P)</p>`;
                     } else {
-                        statusHtml = `<p class=\"status-label status-settled\">❌ 結果確認済み</p>`;
+                        statusHtml = `<p class="status-label status-settled">❌ 結果確認済み</p>`;
                     }
                     statusHtml += prizeSummary;
                 }
             }
 
             html += `
-                <div class=\"bet-card\" style=\"margin-bottom: 10px;\">
+                <div class="bet-card" style="margin-bottom: 10px;">
                     <h4>${l.name} (#${l.lotteryId})</h4>
                     <p>購入枚数: ${totalTicketsCount} 枚</p>
                     ${statusHtml}
-                    <p id=\"lottery-result-message-${l.lotteryId}\" class=\"hidden\"></p>
+                    <p id="lottery-result-message-${l.lotteryId}" class="hidden"></p>
                 </div>
             `;
         });
@@ -1062,7 +1062,7 @@ if (LOTTERY_PURCHASE_FORM) {
 
         const lotteryId = parseInt(LOTTERY_SELECT.value);
         const count = parseInt(LOTTERY_TICKET_COUNT.value);
-        const submitButton = LOTTERY_PURCHASE_FORM.querySelector('button[type=\"submit\"]');
+        const submitButton = LOTTERY_PURCHASE_FORM.querySelector('button[type="submit"]');
 
         if (!lotteryId || !count || count <= 0) {
             showMessage(LOTTERY_PURCHASE_MESSAGE, '❌ 宝くじを選択し、1枚以上の購入枚数を入力してください。', 'error');
@@ -1330,7 +1330,7 @@ async function handleCheckLotteryResult(e) {
         }
 
     } catch (error) {
-        console.error(\"宝くじ結果確認中にエラー:\", error);
+        console.error("宝くじ結果確認中にエラー:", error);
         showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
         button.disabled = false;
     }
@@ -1338,3 +1338,5 @@ async function handleCheckLotteryResult(e) {
 
 
 window.onload = autoLogin;
+
+}
