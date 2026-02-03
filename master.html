@@ -41,13 +41,11 @@
             
             <div class="tool-box">
                 <h3>🀄 麻雀結果入力</h3>
-                <p class="instruction">4人の最終得点を入力(30000点越え3000点で1P, 1位3P, 2位1P, 3位-1P, 4位-2P)</p>
-                
+                <p class="instruction">4人の最終得点を入力</p>
                 <form id="mahjong-form">
                     <div id="mahjong-player-inputs">
                         <p>プレイヤーリストをロード中...</p>
                     </div>
-                    
                     <button type="submit" id="mahjong-submit-button">結果を反映する</button>
                     <p id="mahjong-message" class="hidden"></p>
                 </form>
@@ -56,14 +54,13 @@
             <div class="tool-box">
                 <h2>🎟️ 宝くじ開催</h2>
                 <form id="create-lottery-form">
-                    <h4>基本情報</h4>
                     <div class="form-group">
                         <label for="lottery-name">宝くじ名:</label>
-                        <input type="text" id="lottery-name" required placeholder="例: サマーJongボ 2025">
+                        <input type="text" id="lottery-name" required>
                     </div>
                     <div class="form-group">
                         <label for="lottery-ticket-price">一口の購入額 (P):</label>
-                        <input type="number" id="lottery-ticket-price" step="0.1" min="0.1" required>
+                        <input type="number" id="lottery-ticket-price" step="0.1" required>
                     </div>
                     <div class="form-group">
                         <label for="lottery-purchase-deadline">購入締切:</label>
@@ -73,37 +70,7 @@
                         <label for="lottery-result-announce">当選発表日:</label>
                         <input type="datetime-local" id="lottery-result-announce" required>
                     </div>
-
-                    <h4 class="mt-20">当選設定 (1等〜5等)</h4>
-                    <p class="instruction text-xs">※ 確率は合計で100%以下にしてください。</p>
-                    
-                    <div class="form-group flex gap-10 items-end">
-                        <label class="flex-1">1等:</label>
-                        <input type="number" id="lottery-prize-amount-1" placeholder="当選額 (P)" class="flex-1">
-                        <input type="number" id="lottery-prize-prob-1" step="0.0000001" placeholder="確率 (%)" class="flex-1">
-                    </div>
-                    <!-- 同様の構成で2等〜5等 (master.jsで対応) -->
-                    <div class="form-group flex gap-10 items-end">
-                        <label class="flex-1">2等:</label>
-                        <input type="number" id="lottery-prize-amount-2" placeholder="当選額 (P)" class="flex-1">
-                        <input type="number" id="lottery-prize-prob-2" step="0.0000001" placeholder="確率 (%)" class="flex-1">
-                    </div>
-                    <div class="form-group flex gap-10 items-end">
-                        <label class="flex-1">3等:</label>
-                        <input type="number" id="lottery-prize-amount-3" placeholder="当選額 (P)" class="flex-1">
-                        <input type="number" id="lottery-prize-prob-3" step="0.0000001" placeholder="確率 (%)" class="flex-1">
-                    </div>
-                    <div class="form-group flex gap-10 items-end">
-                        <label class="flex-1">4等:</label>
-                        <input type="number" id="lottery-prize-amount-4" placeholder="当選額 (P)" class="flex-1">
-                        <input type="number" id="lottery-prize-prob-4" step="0.0000001" placeholder="確率 (%)" class="flex-1">
-                    </div>
-                    <div class="form-group flex gap-10 items-end">
-                        <label class="flex-1">5等:</label>
-                        <input type="number" id="lottery-prize-amount-5" placeholder="当選額 (P)" class="flex-1">
-                        <input type="number" id="lottery-prize-prob-5" step="0.0000001" placeholder="確率 (%)" class="flex-1">
-                    </div>
-
+                    <!-- 当選設定省略 -->
                     <button type="submit" class="action-button" style="background-color: #38c172;">宝くじを開催</button>
                     <p id="create-lottery-message" class="hidden"></p>
                 </form>
@@ -111,107 +78,33 @@
 
             <div class="tool-box">
                 <h2>⚽ スポーツくじ管理</h2>
-                <div class="p-0 border-none">
-                    <h3>📝 新規くじ作成・公開</h3>
-                    <form id="create-bet-form">
-                        <div class="form-group">
-                            <label for="match-name">くじ名:</label>
-                            <input type="text" id="match-name" required placeholder="例: 競馬G1結果">
-                        </div>
-                        <div class="form-group">
-                            <label for="deadline-datetime">締切日時:</label>
-                            <input type="datetime-local" id="deadline-datetime" required>
-                        </div>
-                        <button type="submit">くじを作成 (OPEN)</button>
-                    </form>
-                    <p id="create-message" class="hidden"></p>
-                </div>
-                <div class="p-0 border-none mt-20">
-                    <h3>現在のくじ一覧・管理</h3>
-                    <div id="bet-list-container">
-                        <p>くじデータを読み込み中...</p>
+                <form id="create-bet-form">
+                    <div class="form-group">
+                        <label for="match-name">くじ名:</label>
+                        <input type="text" id="match-name" required>
                     </div>
-                </div>
+                    <div class="form-group">
+                        <label for="deadline-datetime">締切日時:</label>
+                        <input type="datetime-local" id="deadline-datetime" required>
+                    </div>
+                    <button type="submit">くじを作成</button>
+                </form>
+                <div id="bet-list-container" class="mt-20"></div>
             </div>
             
             <div class="tool-box">
                 <h3>± 特殊ポイント調整</h3>
                 <form id="adjustment-form">
-                    <div class="form-group">
-                        <label for="target-player">対象プレイヤー:</label>
-                        <select id="target-player" required><option value="" disabled selected>ロード中...</option></select>
-                    </div>
-                    <div class="form-group">
-                        <label for="adjust-amount">増減ポイント:</label>
-                        <input type="number" id="adjust-amount" step="0.1" required>
-                    </div>
-                    <button type="submit">ポイントを調整</button>
+                    <select id="target-player" required></select>
+                    <input type="number" id="adjust-amount" step="0.1" required>
+                    <button type="submit">ポイント調整</button>
                 </form>
-                <p id="adjustment-message" class="hidden"></p>
-            </div>
-            
-            <div class="tool-box">
-                <h3>🎁 プレゼントコード発行</h3>
-                <form id="create-gift-code-form">
-                    <div class="form-group">
-                        <label for="gift-code-name">コード名 (英数字):</label>
-                        <input type="text" id="gift-code-name" required pattern="[a-zA-Z0-9]+">
-                    </div>
-                    <div class="form-group">
-                        <label for="gift-code-amount">付与ポイント (P):</label>
-                        <input type="number" id="gift-code-amount" step="0.1" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="gift-code-max-uses">全利用合計回数:</label>
-                        <input type="number" id="gift-code-max-uses" min="0" value="1" required>
-                    </div>
-                    <button type="submit" class="action-button w-auto" style="background-color: #ffc107;">コードを発行</button>
-                </form>
-                <p id="create-gift-code-message" class="hidden"></p>
-            </div>
-            
-            <div class="tool-box">
-                <h3>💸 ポイント送金 (プレイヤー間)</h3>
-                <form id="transfer-form">
-                    <div class="form-group flex gap-10">
-                        <select id="sender-player" required class="flex-1"><option value="" disabled selected>送金元</option></select>
-                        <select id="receiver-player" required class="flex-1"><option value="" disabled selected>送金先</option></select>
-                    </div>
-                    <div class="form-group">
-                        <label for="transfer-amount">送金ポイント:</label>
-                        <input type="number" id="transfer-amount" step="0.1" min="0.1" required>
-                    </div>
-                    <button type="submit" class="action-button" style="background-color: #28a745;">送金を実行</button>
-                </form>
-                <p id="transfer-message" class="hidden"></p>
             </div>
             
             <div class="tool-box">
                 <h3>💰 日次ポイント徴収 (5%)</h3>
-                <button type="button" id="daily-tax-button" class="action-button w-auto" style="background-color: #DAA520;">
-                    日次ポイント徴収を実行
-                </button>
+                <button type="button" id="daily-tax-button" class="action-button w-auto" style="background-color: #DAA520;">徴収実行</button>
                 <p id="daily-tax-message" class="hidden"></p>
-            </div>
-            
-            <div class="tool-box">
-                <h3>🏎️ スピードストーム 記録更新</h3>
-                <form id="race-record-form">
-                    <div class="form-group">
-                        <label for="race-course-select">コース名:</label>
-                        <select id="race-course-select" required><option value="" disabled selected>コースを選択</option></select>
-                    </div>
-                    <div class="form-group">
-                        <label for="race-best-time">ベストタイム (分:秒.ミリ秒):</label>
-                        <input type="text" id="race-best-time" required placeholder="例: 0:46.965">
-                    </div>
-                    <div class="form-group">
-                        <label for="race-record-holder">記録保持者:</label>
-                        <select id="race-record-holder" required><option value="" disabled selected>保持者を選択</option></select>
-                    </div>
-                    <button type="submit" class="action-button" style="background-color: #007bff;">記録を更新</button>
-                </form>
-                <p id="race-record-message" class="hidden"></p>
             </div>
         </section>
     </main>
