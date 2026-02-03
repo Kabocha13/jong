@@ -35,22 +35,21 @@ const LOTTERY_RESULTS_CONTAINER = document.getElementById('lottery-results-conta
 const APPLY_GIFT_CODE_FORM = document.getElementById('apply-gift-code-form');
 const GIFT_CODE_INPUT = document.getElementById('gift-code-input');
 const APPLY_GIFT_CODE_MESSAGE = document.getElementById('apply-gift-code-message');
+const TARGET_CONTINUE_TOOL = document.getElementById('target-continue-tool');
+
 
 let authenticatedUser = null; 
 let availableLotteries = [];
 
 // -----------------------------------------------------------------
-// 認証とログイン状態の管理
+// ★★★ 認証とログイン状態の管理 ★★★
 // -----------------------------------------------------------------
 
 async function attemptLogin(username, password, isAuto = false) {
-    if (!isAuto) {
-        showMessage(AUTH_MESSAGE, '認証中...', 'info');
-    }
+    if (!isAuto) showMessage(AUTH_MESSAGE, '認証中...', 'info');
     
     const allData = await fetchAllData();
     const scores = allData.scores;
-
     const user = scores.find(p => p.name === username && p.pass === password);
 
     if (user) {
@@ -63,11 +62,8 @@ async function attemptLogin(username, password, isAuto = false) {
         document.getElementById('auth-section').classList.add('hidden');
         MYPAGE_CONTENT.classList.remove('hidden');
         
-        if (!isAuto) {
-             showMessage(AUTH_MESSAGE, `✅ ログイン成功! ようこそ、${username}様。`, 'success');
-        } else {
-             AUTH_MESSAGE.classList.add('hidden');
-        }
+        if (!isAuto) showMessage(AUTH_MESSAGE, `✅ ようこそ、${username}様。`, 'success');
+        else AUTH_MESSAGE.classList.add('hidden');
         
         initializeMyPageContent(); 
         return true;
@@ -75,9 +71,7 @@ async function attemptLogin(username, password, isAuto = false) {
         if (isAuto) {
             localStorage.removeItem('authUsername');
             localStorage.removeItem('authPassword');
-        } else {
-            showMessage(AUTH_MESSAGE, '❌ ユーザー名またはパスワードが間違っています。', 'error');
-        }
+        } else showMessage(AUTH_MESSAGE, '❌ 認証失敗', 'error');
         return false;
     }
 }
@@ -85,9 +79,7 @@ async function attemptLogin(username, password, isAuto = false) {
 async function autoLogin() {
     const username = localStorage.getItem('authUsername');
     const password = localStorage.getItem('authPassword');
-    if (username && password) {
-        await attemptLogin(username, password, true);
-    }
+    if (username && password) await attemptLogin(username, password, true);
 }
 
 function handleLogout() {
@@ -98,7 +90,6 @@ function handleLogout() {
     document.getElementById('auth-section').classList.remove('hidden');
     MYPAGE_CONTENT.classList.add('hidden');
     AUTH_FORM.reset();
-    showMessage(AUTH_MESSAGE, '👋 ログアウトしました。', 'info');
 }
 
 AUTH_FORM.addEventListener('submit', async (e) => {
@@ -109,7 +100,7 @@ AUTH_FORM.addEventListener('submit', async (e) => {
 LOGOUT_BUTTON.addEventListener('click', handleLogout);
 
 // -----------------------------------------------------------------
-// 初期化と各機能
+// ★★★ 初期化 ★★★
 // -----------------------------------------------------------------
 
 async function initializeMyPageContent() {
@@ -128,85 +119,78 @@ async function initializeMyPageContent() {
     await loadLotteryData();
     initializeLotteryPurchaseForm();
     initializeGiftCodeFeature();
+    controlTargetContinueFormDisplay();
 }
 
-// --- 会員ボーナス ---
+function controlTargetContinueFormDisplay() {
+    if (!TARGET_CONTINUE_TOOL) return;
+    const TARGET_DATE = new Date('2025-12-10T00:00:00+09:00'); 
+    if (new Date() >= TARGET_DATE) TARGET_CONTINUE_TOOL.classList.remove('hidden');
+}
+
+// -----------------------------------------------------------------
+// ★★★ 会員ボーナス機能 ★★★
+// -----------------------------------------------------------------
+
 function initializeMemberBonusFeature() {
     const isMember = authenticatedUser && ['pro', 'premium', 'luxury'].includes(authenticatedUser.status);
     if (isMember) {
         if (PRO_BONUS_TOOL) PRO_BONUS_TOOL.classList.remove('hidden');
         updateMemberBonusDisplay(); 
-    } else {
-        if (PRO_BONUS_TOOL) PRO_BONUS_TOOL.classList.add('hidden');
     }
 }
 
 function updateMemberBonusDisplay() {
     if (!authenticatedUser) return;
-    const MEMBER_STATUS = authenticatedUser.status;
-    let BONUS_AMOUNT = 10.0;
-    let REFRESH_INTERVAL = 86400000;
-    let REFRESH_TEXT = '24時間ごと';
+    const status = authenticatedUser.status;
+    let amount, interval;
 
-    if (MEMBER_STATUS === 'luxury') {
-        BONUS_AMOUNT = 10.0; REFRESH_INTERVAL = 3600000; REFRESH_TEXT = '1時間ごと';
-    } else if (MEMBER_STATUS === 'premium') {
-        BONUS_AMOUNT = 15.0; 
-    }
+    if (status === 'luxury') { amount = 10.0; interval = 3600000; }
+    else if (status === 'premium') { amount = 15.0; interval = 86400000; }
+    else if (status === 'pro') { amount = 10.0; interval = 86400000; }
+    else return;
 
     const now = Date.now();
     const last = authenticatedUser.lastBonusTime ? new Date(authenticatedUser.lastBonusTime).getTime() : 0;
-    const isReady = (now - last) >= REFRESH_INTERVAL;
+    const ready = (now - last) >= interval;
     
     if (PRO_BONUS_BUTTON) {
-        PRO_BONUS_BUTTON.disabled = !isReady;
-        if (isReady) {
-            PRO_BONUS_BUTTON.textContent = `ボーナス (+${BONUS_AMOUNT.toFixed(1)} P) を受け取る`;
-        } else {
-            const remaining = last + REFRESH_INTERVAL - now;
-            const hours = Math.floor(remaining / 3600000);
-            const mins = Math.ceil((remaining % 3600000) / 60000);
-            PRO_BONUS_BUTTON.textContent = `獲得済み (次は ${hours > 0 ? hours + '時間' : ''}${mins}分後)`;
-        }
-    }
-    if (PRO_BONUS_INSTRUCTION) {
-        PRO_BONUS_INSTRUCTION.innerHTML = `${MEMBER_STATUS}特典: ${REFRESH_TEXT}に <strong>${BONUS_AMOUNT.toFixed(1)} P</strong> 獲得可能`;
+        PRO_BONUS_BUTTON.disabled = !ready;
+        PRO_BONUS_BUTTON.textContent = ready ? `ボーナス (+${amount.toFixed(1)} P) を受け取る` : `獲得済み`;
     }
 }
 
 if (PRO_BONUS_BUTTON) {
     PRO_BONUS_BUTTON.addEventListener('click', async () => {
-        const player = authenticatedUser.name;
         const status = authenticatedUser.status;
-        let amount = (status === 'premium') ? 15.0 : 10.0;
-        let interval = (status === 'luxury') ? 3600000 : 86400000;
+        let amount, interval;
+        if (status === 'luxury') { amount = 10.0; interval = 3600000; }
+        else { amount = (status === 'premium' ? 15.0 : 10.0); interval = 86400000; }
 
         try {
-            const data = await fetchAllData();
-            let scoresMap = new Map(data.scores.map(p => [p.name, p]));
-            const target = scoresMap.get(player);
+            const currentData = await fetchAllData();
+            let scoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+            const target = scoresMap.get(authenticatedUser.name);
             
             const last = target.lastBonusTime ? new Date(target.lastBonusTime).getTime() : 0;
-            if (Date.now() - last < interval) return;
+            if ((Date.now() - last) < interval) return;
 
-            const newScore = parseFloat((target.score + amount).toFixed(1));
+            const newScore = target.score + amount;
             const nowIso = new Date().toISOString();
+            scoresMap.set(authenticatedUser.name, { ...target, score: parseFloat(newScore.toFixed(1)), lastBonusTime: nowIso });
             
-            scoresMap.set(player, { ...target, score: newScore, lastBonusTime: nowIso });
-            
-            const response = await updateAllData({ ...data, scores: Array.from(scoresMap.values()) });
+            const response = await updateAllData({ ...currentData, scores: Array.from(scoresMap.values()) });
             if (response.status === 'success') {
                 authenticatedUser.score = newScore;
                 authenticatedUser.lastBonusTime = nowIso;
                 CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
                 updateMemberBonusDisplay();
-                showMessage(PRO_BONUS_MESSAGE, '✅ ボーナスを獲得しました！', 'success');
             }
         } catch (e) { console.error(e); }
     });
 }
 
-// --- ギフトコード ---
+// --- プレゼントコード ---
 function initializeGiftCodeFeature() {
     if (APPLY_GIFT_CODE_FORM) APPLY_GIFT_CODE_FORM.addEventListener('submit', handleApplyGiftCode);
 }
@@ -216,42 +200,39 @@ async function handleApplyGiftCode(e) {
     const code = GIFT_CODE_INPUT.value.trim().toUpperCase();
     if (!code) return;
 
-    showMessage(APPLY_GIFT_CODE_MESSAGE, '検証中...', 'info');
     try {
-        const data = await fetchAllData();
-        let scoresMap = new Map(data.scores.map(p => [p.name, p]));
-        let codes = data.gift_codes || [];
-        const idx = codes.findIndex(c => c.code === code);
+        const currentData = await fetchAllData();
+        let allCodes = currentData.gift_codes || [];
+        const idx = allCodes.findIndex(c => c.code === code);
+        
+        if (idx === -1) { showMessage(APPLY_GIFT_CODE_MESSAGE, '❌ 無効なコード', 'error'); return; }
+        const gc = allCodes[idx];
+        if (gc.maxUses > 0 && gc.currentUses >= gc.maxUses) return;
 
-        if (idx === -1) { showMessage(APPLY_GIFT_CODE_MESSAGE, '❌ 無効なコードです', 'error'); return; }
-        const gc = codes[idx];
-        if (gc.maxUses > 0 && gc.currentUses >= gc.maxUses) { showMessage(APPLY_GIFT_CODE_MESSAGE, '❌ 利用上限に達しています', 'error'); return; }
-
+        let scoresMap = new Map(currentData.scores.map(p => [p.name, p]));
         const target = scoresMap.get(authenticatedUser.name);
         const newScore = parseFloat((target.score + gc.points).toFixed(1));
-        scoresMap.set(authenticatedUser.name, { ...target, score: newScore });
         
-        gc.currentUses++;
-        if (gc.maxUses > 0 && gc.currentUses >= gc.maxUses) codes.splice(idx, 1);
-        else codes[idx] = gc;
+        scoresMap.set(authenticatedUser.name, { ...target, score: newScore });
+        gc.currentUses += 1;
+        if (gc.maxUses > 0 && gc.currentUses >= gc.maxUses) allCodes.splice(idx, 1);
 
-        const response = await updateAllData({ ...data, scores: Array.from(scoresMap.values()), gift_codes: codes });
+        const response = await updateAllData({ ...currentData, scores: Array.from(scoresMap.values()), gift_codes: allCodes });
         if (response.status === 'success') {
             authenticatedUser.score = newScore;
             CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
             GIFT_CODE_INPUT.value = '';
-            showMessage(APPLY_GIFT_CODE_MESSAGE, `✅ ${gc.points} P 獲得しました！`, 'success');
+            showMessage(APPLY_GIFT_CODE_MESSAGE, '✅ 適用完了', 'success');
         }
     } catch (e) { console.error(e); }
 }
 
 // --- 送金 ---
 async function loadTransferReceiverList() {
-    const data = await fetchAllData();
-    let options = '<option value="" disabled selected>送金先を選択</option>';
-    data.scores.forEach(p => {
-        if (p.name !== authenticatedUser.name) options += `<option value="${p.name}">${p.name}</option>`;
-    });
+    if (!RECEIVER_PLAYER_SELECT_MYPAGE) return;
+    const allData = await fetchAllData(); 
+    let options = '<option value="" disabled selected>選択</option>';
+    allData.scores.forEach(p => { if (p.name !== authenticatedUser.name) options += `<option value="${p.name}">${p.name}</option>`; });
     RECEIVER_PLAYER_SELECT_MYPAGE.innerHTML = options;
 }
 
@@ -260,209 +241,218 @@ if (TRANSFER_FORM_MYPAGE) {
         e.preventDefault();
         const receiver = RECEIVER_PLAYER_SELECT_MYPAGE.value;
         const amount = parseFloat(document.getElementById('transfer-amount-mypage').value);
-        if (!receiver || isNaN(amount) || amount <= 0) return;
+        if (!receiver || isNaN(amount) || amount <= 0 || authenticatedUser.score < amount) return;
 
         try {
-            const data = await fetchAllData();
-            let scoresMap = new Map(data.scores.map(p => [p.name, p]));
-            const sender = scoresMap.get(authenticatedUser.name);
-            const recv = scoresMap.get(receiver);
-
-            if (sender.score < amount) { showMessage(document.getElementById('transfer-message-mypage'), '❌ 残高不足', 'error'); return; }
-
-            const newSenderScore = parseFloat((sender.score - amount).toFixed(1));
-            const newRecvScore = parseFloat((recv.score + amount).toFixed(1));
+            const currentData = await fetchAllData();
+            let scoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+            const sPlayer = scoresMap.get(authenticatedUser.name);
+            const rPlayer = scoresMap.get(receiver);
             
-            scoresMap.set(authenticatedUser.name, { ...sender, score: newSenderScore });
-            scoresMap.set(receiver, { ...recv, score: newRecvScore });
-
-            const response = await updateAllData({ ...data, scores: Array.from(scoresMap.values()) });
+            const newS = parseFloat((sPlayer.score - amount).toFixed(1));
+            const newR = parseFloat((rPlayer.score + amount).toFixed(1));
+            
+            scoresMap.set(authenticatedUser.name, { ...sPlayer, score: newS });
+            scoresMap.set(receiver, { ...rPlayer, score: newR });
+            
+            const response = await updateAllData({ ...currentData, scores: Array.from(scoresMap.values()) });
             if (response.status === 'success') {
-                authenticatedUser.score = newSenderScore;
-                CURRENT_SCORE_ELEMENT.textContent = newSenderScore.toFixed(1);
+                authenticatedUser.score = newS;
+                CURRENT_SCORE_ELEMENT.textContent = newS.toFixed(1);
                 TRANSFER_FORM_MYPAGE.reset();
-                showMessage(document.getElementById('transfer-message-mypage'), `✅ ${receiver} へ送金しました`, 'success');
             }
         } catch (e) { console.error(e); }
     });
 }
 
-// --- スポーツくじ ---
+// --- スポーツくじ投票 ---
 function initializeWagerInputs() {
+    if (!WAGER_INPUTS_CONTAINER) return;
     WAGER_INPUTS_CONTAINER.innerHTML = '';
-    addWagerRow();
+    addWagerRow(); 
 }
 
 function addWagerRow() {
-    const div = document.createElement('div');
-    div.className = 'form-group wager-row';
-    div.style.marginBottom = '10px';
-    div.innerHTML = `
-        <div style="display: flex; gap: 5px;">
-            <input type="text" class="wager-item-input flex-1" placeholder="かけるもの" required>
-            <input type="number" class="wager-amount-input" style="width: 80px;" placeholder="P" min="1" required>
-            <button type="button" class="remove-row secondary-button" style="width: auto;">×</button>
-        </div>
-    `;
-    div.querySelector('.remove-row').onclick = () => { if(WAGER_INPUTS_CONTAINER.children.length > 1) div.remove(); };
-    WAGER_INPUTS_CONTAINER.appendChild(div);
+    const row = document.createElement('div');
+    row.className = 'form-group wager-row';
+    row.innerHTML = `<div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <input type="text" class="wager-item-input" placeholder="内容" required>
+        <input type="number" class="wager-amount-input" placeholder="P" min="1" required>
+        <button type="button" class="remove-wager-row-button">×</button>
+    </div>`;
+    row.querySelector('.remove-wager-row-button').addEventListener('click', () => {
+        if (WAGER_INPUTS_CONTAINER.children.length > 1) row.remove();
+    });
+    WAGER_INPUTS_CONTAINER.appendChild(row);
 }
 
-ADD_WAGER_ROW_BUTTON.onclick = addWagerRow;
+if (ADD_WAGER_ROW_BUTTON) ADD_WAGER_ROW_BUTTON.addEventListener('click', addWagerRow);
 
 async function loadBettingDataAndHistory() {
     const data = await fetchAllData();
-    const bets = data.sports_bets || [];
-    let options = '<option value="" disabled selected>くじを選択</option>';
-    bets.filter(b => b.status === 'OPEN').forEach(b => {
-        options += `<option value="${b.betId}">${b.matchName}</option>`;
-    });
-    TARGET_BET_SELECT.innerHTML = options;
-    renderWagerHistory(bets);
+    updateWagerForm(data.sports_bets || []);
+    renderWagerHistory(data.sports_bets || []);
+}
+
+function updateWagerForm(bets) {
+    if (!TARGET_BET_SELECT) return;
+    const open = bets.filter(b => b.status === 'OPEN' && new Date(b.deadline) > new Date());
+    let opt = '<option value="" disabled selected>選択</option>';
+    open.forEach(b => opt += `<option value="${b.betId}">${b.matchName}</option>`);
+    TARGET_BET_SELECT.innerHTML = opt;
 }
 
 function renderWagerHistory(bets) {
-    const myWagers = bets.flatMap(b => b.wagers.filter(w => w.player === authenticatedUser.name).map(w => ({...w, matchName: b.matchName, status: b.status})));
-    WAGER_HISTORY_LIST.innerHTML = myWagers.length ? myWagers.slice(-5).reverse().map(w => `<li>${w.matchName}: ${w.item} (${w.amount}P) - ${w.status}</li>`).join('') : '<li>履歴なし</li>';
+    if (!WAGER_HISTORY_LIST) return;
+    const myWagers = bets.flatMap(b => b.wagers.filter(w => w.player === authenticatedUser.name).map(w => ({ ...w, betStatus: b.status, matchName: b.matchName })));
+    myWagers.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    WAGER_HISTORY_LIST.innerHTML = myWagers.slice(0, 5).map(w => `<li>${w.matchName}: ${w.amount}P -> ${w.item} (${w.betStatus})</li>`).join('');
 }
 
-WAGER_FORM.onsubmit = async (e) => {
-    e.preventDefault();
-    const betId = parseInt(TARGET_BET_SELECT.value);
-    const rows = WAGER_INPUTS_CONTAINER.querySelectorAll('.wager-row');
-    let total = 0;
-    const newWagers = Array.from(rows).map(r => {
-        const amt = parseFloat(r.querySelector('.wager-amount-input').value);
-        total += amt;
-        return { item: r.querySelector('.wager-item-input').value, amount: amt, player: authenticatedUser.name, timestamp: new Date().toISOString(), isWin: null, appliedOdds: null };
+if (WAGER_FORM) {
+    WAGER_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const betId = parseInt(TARGET_BET_SELECT.value);
+        const wagers = [];
+        let total = 0;
+        WAGER_INPUTS_CONTAINER.querySelectorAll('.wager-row').forEach(r => {
+            const item = r.querySelector('.wager-item-input').value.trim();
+            const amt = parseFloat(r.querySelector('.wager-amount-input').value);
+            if (item && amt >= 1) {
+                wagers.push({ item, amount: amt, player: authenticatedUser.name, timestamp: new Date().toISOString(), isWin: null, appliedOdds: null });
+                total += amt;
+            }
+        });
+
+        if (!betId || total > authenticatedUser.score) return;
+
+        try {
+            const currentData = await fetchAllData();
+            let scoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+            const target = scoresMap.get(authenticatedUser.name);
+            const betIdx = currentData.sports_bets.findIndex(b => b.betId === betId);
+            
+            const newScore = parseFloat((target.score - total).toFixed(1));
+            scoresMap.set(authenticatedUser.name, { ...target, score: newScore });
+            currentData.sports_bets[betIdx].wagers.push(...wagers);
+            
+            const response = await updateAllData({ ...currentData, scores: Array.from(scoresMap.values()) });
+            if (response.status === 'success') {
+                authenticatedUser.score = newScore;
+                CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
+                WAGER_FORM.reset();
+                loadBettingDataAndHistory();
+            }
+        } catch (e) { console.error(e); }
     });
-
-    if (authenticatedUser.score < total) { showMessage(document.getElementById('wager-message'), '❌ 残高不足', 'error'); return; }
-
-    try {
-        const data = await fetchAllData();
-        const bIdx = data.sports_bets.findIndex(b => b.betId === betId);
-        if (bIdx === -1 || data.sports_bets[bIdx].status !== 'OPEN') return;
-        
-        let scoresMap = new Map(data.scores.map(p => [p.name, p]));
-        const target = scoresMap.get(authenticatedUser.name);
-        const newScore = parseFloat((target.score - total).toFixed(1));
-        
-        scoresMap.set(authenticatedUser.name, { ...target, score: newScore });
-        data.sports_bets[bIdx].wagers.push(...newWagers);
-
-        const response = await updateAllData({ ...data, scores: Array.from(scoresMap.values()) });
-        if (response.status === 'success') {
-            authenticatedUser.score = newScore;
-            CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
-            WAGER_FORM.reset();
-            initializeWagerInputs();
-            loadBettingDataAndHistory();
-            showMessage(document.getElementById('wager-message'), '✅ 投票を登録しました', 'success');
-        }
-    } catch (e) { console.error(e); }
-};
+}
 
 // --- 宝くじ ---
 async function loadLotteryData() {
     const data = await fetchAllData();
-    const lotteries = data.lotteries || [];
-    availableLotteries = lotteries.filter(l => l.status === 'OPEN');
-    let options = '<option value="" disabled selected>宝くじを選択</option>';
-    availableLotteries.forEach(l => {
-        options += `<option value="${l.lotteryId}">${l.name} (${l.ticketPrice}P)</option>`;
-    });
-    LOTTERY_SELECT.innerHTML = options;
-    renderLotteryResults(lotteries);
+    availableLotteries = (data.lotteries || []).filter(l => l.status === 'OPEN' && new Date(l.purchaseDeadline) > new Date());
+    let opt = '<option value="" disabled selected>選択</option>';
+    availableLotteries.forEach(l => opt += `<option value="${l.lotteryId}">${l.name}</option>`);
+    if (LOTTERY_SELECT) LOTTERY_SELECT.innerHTML = opt;
+    renderLotteryResults(data.lotteries || []);
 }
 
 function initializeLotteryPurchaseForm() {
+    if (!LOTTERY_SELECT) return;
     const update = () => {
         const l = availableLotteries.find(x => x.lotteryId === parseInt(LOTTERY_SELECT.value));
-        const count = parseInt(LOTTERY_TICKET_COUNT.value) || 0;
-        if (l) {
-            const price = l.ticketPrice * count * (authenticatedUser.status === 'luxury' ? 0.8 : 1.0);
+        const count = parseInt(LOTTERY_TICKET_COUNT.value);
+        if (l && count > 0) {
+            const price = (l.ticketPrice * count) * (authenticatedUser.status === 'luxury' ? 0.8 : 1.0);
             LOTTERY_TOTAL_PRICE_DISPLAY.textContent = `合計: ${price.toFixed(1)} P`;
         }
     };
-    LOTTERY_SELECT.onchange = update;
-    LOTTERY_TICKET_COUNT.oninput = update;
+    LOTTERY_SELECT.addEventListener('change', update);
+    LOTTERY_TICKET_COUNT.addEventListener('input', update);
 }
 
-LOTTERY_PURCHASE_FORM.onsubmit = async (e) => {
-    e.preventDefault();
-    const lId = parseInt(LOTTERY_SELECT.value);
-    const count = parseInt(LOTTERY_TICKET_COUNT.value);
-    const lottery = availableLotteries.find(x => x.lotteryId === lId);
-    const price = lottery.ticketPrice * count * (authenticatedUser.status === 'luxury' ? 0.8 : 1.0);
+if (LOTTERY_PURCHASE_FORM) {
+    LOTTERY_PURCHASE_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const lid = parseInt(LOTTERY_SELECT.value);
+        const count = parseInt(LOTTERY_TICKET_COUNT.value);
+        const lottery = availableLotteries.find(x => x.lotteryId === lid);
+        const finalPrice = (lottery.ticketPrice * count) * (authenticatedUser.status === 'luxury' ? 0.8 : 1.0);
 
-    if (authenticatedUser.score < price) return;
+        if (authenticatedUser.score < finalPrice) return;
 
-    try {
-        const data = await fetchAllData();
-        let scoresMap = new Map(data.scores.map(p => [p.name, p]));
-        const lIdx = data.lotteries.findIndex(x => x.lotteryId === lId);
-        
-        const newTickets = [];
-        for (let i = 0; i < count; i++) {
-            const res = performLotteryDraw(data.lotteries[lIdx].prizes);
-            newTickets.push({ ticketId: `t-${Date.now()}-${i}`, player: authenticatedUser.name, prizeRank: res.rank, prizeAmount: res.amount, count: 1, isClaimed: false });
-        }
+        try {
+            const data = await fetchAllData();
+            let scoresMap = new Map(data.scores.map(p => [p.name, p]));
+            const target = scoresMap.get(authenticatedUser.name);
+            const lIdx = data.lotteries.findIndex(x => x.lotteryId === lid);
 
-        const target = scoresMap.get(authenticatedUser.name);
-        const newScore = parseFloat((target.score - price).toFixed(1));
-        scoresMap.set(authenticatedUser.name, { ...target, score: newScore });
-        data.lotteries[lIdx].tickets.push(...newTickets);
+            const newTickets = [];
+            for (let i = 0; i < count; i++) {
+                const res = performLotteryDraw(data.lotteries[lIdx].prizes);
+                newTickets.push({ ticketId: `t-${Date.now()}-${i}`, player: authenticatedUser.name, prizeRank: res.prizeRank, prizeAmount: res.prizeAmount, count: 1, isClaimed: false });
+            }
 
-        const response = await updateAllData({ ...data, scores: Array.from(scoresMap.values()) });
-        if (response.status === 'success') {
-            authenticatedUser.score = newScore;
-            CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
-            loadLotteryData();
-            showMessage(LOTTERY_PURCHASE_MESSAGE, '✅ 購入完了！', 'success');
-        }
-    } catch (e) { console.error(e); }
-};
+            const newScore = parseFloat((target.score - finalPrice).toFixed(1));
+            scoresMap.set(authenticatedUser.name, { ...target, score: newScore });
+            data.lotteries[lIdx].tickets.push(...newTickets);
+
+            const response = await updateAllData({ ...data, scores: Array.from(scoresMap.values()) });
+            if (response.status === 'success') {
+                authenticatedUser.score = newScore;
+                CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
+                loadLotteryData();
+            }
+        } catch (e) { console.error(e); }
+    });
+}
 
 function performLotteryDraw(prizes) {
-    const rand = Math.random();
-    let cur = 0;
+    const r = Math.random();
+    let cum = 0;
     for (const p of prizes) {
-        cur += p.probability;
-        if (rand < cur) return { rank: p.rank, amount: p.amount };
+        cum += p.probability;
+        if (r < cum) return { prizeRank: p.rank, prizeAmount: p.amount };
     }
-    return { rank: null, amount: 0 };
+    return { prizeRank: null, prizeAmount: 0 };
 }
 
-function renderLotteryResults(allLotteries) {
-    const my = allLotteries.filter(l => l.tickets.some(t => t.player === authenticatedUser.name));
-    LOTTERY_RESULTS_CONTAINER.innerHTML = my.length ? my.map(l => {
-        const unclaimed = l.tickets.filter(t => t.player === authenticatedUser.name && !t.isClaimed).length;
-        return `<div class="bet-card"><h4>${l.name}</h4><p>未確認: ${unclaimed}枚</p>${unclaimed > 0 ? `<button onclick="checkResult(${l.lotteryId})">結果確認</button>` : '確認済み'}</div>`;
-    }).join('') : '<p>履歴なし</p>';
+function renderLotteryResults(lotteries) {
+    if (!LOTTERY_RESULTS_CONTAINER) return;
+    const my = lotteries.filter(l => l.tickets.some(t => t.player === authenticatedUser.name));
+    LOTTERY_RESULTS_CONTAINER.innerHTML = my.map(l => {
+        const mine = l.tickets.filter(t => t.player === authenticatedUser.name);
+        const unclaimed = mine.filter(t => !t.isClaimed).length;
+        return `<div>${l.name} (${mine.length}枚) ${unclaimed > 0 ? `<button onclick="handleCheckLotteryResult(${l.lotteryId})">確認</button>` : '確認済'}</div>`;
+    }).join('');
 }
 
-window.checkResult = async (lId) => {
+async function handleCheckLotteryResult(lid) {
     try {
         const data = await fetchAllData();
-        const lIdx = data.lotteries.findIndex(x => x.lotteryId === lId);
-        const targetTickets = data.lotteries[lIdx].tickets.filter(t => t.player === authenticatedUser.name && !t.isClaimed);
-        let win = 0;
-        targetTickets.forEach(t => { win += t.prizeAmount; t.isClaimed = true; });
-
         let scoresMap = new Map(data.scores.map(p => [p.name, p]));
-        const user = scoresMap.get(authenticatedUser.name);
-        const newScore = parseFloat((user.score + win).toFixed(1));
-        scoresMap.set(authenticatedUser.name, { ...user, score: newScore });
+        const lIdx = data.lotteries.findIndex(x => x.lotteryId === lid);
+        const tickets = data.lotteries[lIdx].tickets;
+        
+        let win = 0;
+        tickets.forEach(t => {
+            if (t.player === authenticatedUser.name && !t.isClaimed) {
+                win += t.prizeAmount;
+                t.isClaimed = true;
+            }
+        });
+
+        const target = scoresMap.get(authenticatedUser.name);
+        const newScore = parseFloat((target.score + win).toFixed(1));
+        scoresMap.set(authenticatedUser.name, { ...target, score: newScore });
 
         const response = await updateAllData({ ...data, scores: Array.from(scoresMap.values()) });
         if (response.status === 'success') {
             authenticatedUser.score = newScore;
             CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
             loadLotteryData();
-            alert(`結果: ${win.toFixed(1)} P 獲得しました！`);
         }
     } catch (e) { console.error(e); }
-};
+}
 
 window.onload = autoLogin;
