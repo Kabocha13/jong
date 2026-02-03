@@ -5,10 +5,9 @@ const LAST_UPDATE_ELEMENT = document.getElementById('last-update');
 const SPORTS_BETS_CONTAINER = document.getElementById('sports-bets-container');
 const LOTTERY_LIST_CONTAINER = document.getElementById('lottery-list-container'); 
 
-const EXCLUDED_PLAYERS = ['3mahjong']; // 三麻用のダミー名やその他の除外したい名前を追加可能
+const EXCLUDED_PLAYERS = ['3mahjong']; 
 
 let previousScores = new Map(JSON.parse(localStorage.getItem('previousScores') || '[]'));
-
 
 /**
  * データの取得とランキングの描画を行うメイン関数
@@ -23,27 +22,23 @@ async function renderScores() {
     SPORTS_BETS_CONTAINER.innerHTML = '<p>くじデータを読み込み中...</p>';
     LOTTERY_LIST_CONTAINER.innerHTML = '<p>宝くじデータを読み込み中...</p>'; 
 
-    // 1. データ取得
-    const allData = await fetchAllData(); // 全データ取得
+    const allData = await fetchAllData();
     const rawScores = allData.scores;
     const sportsBets = allData.sports_bets || []; 
     const lotteries = allData.lotteries || []; 
     
     if (rawScores.length === 0) {
-        SCORES_CONTAINER.innerHTML = '<p class=\"error\">データが見つからないか、JSONBinとの通信に失敗しました。</p>';
+        SCORES_CONTAINER.innerHTML = '<p class="error">データが見つかりません。JSONBinの初期データを確認してください。</p>';
         return;
     }
 
-    // 2. 除外プレイヤーのフィルタリング
     const displayScores = rawScores.filter(player => 
         !EXCLUDED_PLAYERS.includes(player.name)
     );
 
-    // 3. ランキング処理
     const sortedScores = displayScores.sort((a, b) => b.score - a.score);
     
-    let html = '<ul class=\"ranking-list\">';
-    
+    let html = '<ul class="ranking-list">';
     const currentScoresMap = new Map();
 
     sortedScores.forEach((player, index) => {
@@ -77,19 +72,16 @@ async function renderScores() {
     html += '</ul>';
     SCORES_CONTAINER.innerHTML = html;
 
-    // 5. くじタイルの描画
     renderSportsBets(sportsBets, displayScores);
-    
-    // 6. 宝くじの描画
     renderLotteries(lotteries);
     
-    // 8. 最終更新日時の表示
     LAST_UPDATE_ELEMENT.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
-    
-    // 9. 現在のスコアをローカルストレージに保存
     localStorage.setItem('previousScores', JSON.stringify(Array.from(currentScoresMap.entries())));
 }
 
+/**
+ * 開催中の宝くじを描画する関数
+ */
 function renderLotteries(lotteries) {
     if (!LOTTERY_LIST_CONTAINER) return; 
 
@@ -108,7 +100,6 @@ function renderLotteries(lotteries) {
     openLotteries.forEach(l => {
         const deadline = new Date(l.purchaseDeadline);
         const announceDate = new Date(l.resultAnnounceDate);
-
         const formattedDeadline = deadline.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' }) + ' ' + 
                                   deadline.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
         const formattedAnnounce = announceDate.toLocaleDateString('ja-JP', { month: '2-digit', day: '2-digit' });
@@ -118,7 +109,7 @@ function renderLotteries(lotteries) {
         prizesTable += '<tbody>';
         
         let totalProbability = 0;
-        l.prizes.sort((a, b) => a.rank - b.rank); 
+        l.prizes.sort((a, b) => a.rank - b.rank);
 
         l.prizes.forEach(p => {
             prizesTable += `
@@ -132,7 +123,6 @@ function renderLotteries(lotteries) {
         });
         
         const lossProbability = Math.max(0, 1.0 - totalProbability);
-        
         prizesTable += `
             <tr style="background-color: #f8d7da;">
                 <td>ハズレ</td>
@@ -140,7 +130,6 @@ function renderLotteries(lotteries) {
                 <td>${(lossProbability * 100).toFixed(3)} %</td>
             </tr>
         `;
-        
         prizesTable += '</tbody></table>';
 
         const totalTickets = l.tickets.reduce((sum, t) => sum + (t.count || 1), 0);
@@ -166,6 +155,9 @@ function renderLotteries(lotteries) {
     LOTTERY_LIST_CONTAINER.innerHTML = html;
 }
 
+/**
+ * スポーツくじのタイルを描画する関数
+ */
 function renderSportsBets(sportsBets, displayScores) {
     if (!SPORTS_BETS_CONTAINER) return;
 
@@ -177,7 +169,6 @@ function renderSportsBets(sportsBets, displayScores) {
     }
 
     const playerNames = displayScores.map(p => p.name);
-
     let html = '<div class="bet-grid">';
     
     activeBets.forEach(bet => {
@@ -192,7 +183,7 @@ function renderSportsBets(sportsBets, displayScores) {
                 const itemDisplay = wager.item.length > 30 ? wager.item.substring(0, 30) + '...' : wager.item;
                 myWagerInfo += `<li>${itemDisplay} に ${wager.amount} P</li>`;
             });
-            myWagerInfo += 'ul>';
+            myWagerInfo += '</ul>';
         } else {
             myWagerInfo = `<p class="my-wager-text">まだ投票されていません。</p>`;
         }
