@@ -7,6 +7,7 @@ const UPDATE_URL = "/.netlify/functions/update-data";
 const PVP_FETCH_URL = "/.netlify/functions/pvp-fetch";
 const PVP_ACTION_URL = "/.netlify/functions/pvp-action";
 
+
 // -----------------------------------------------------------------
 // データ取得 (GET)
 // -----------------------------------------------------------------
@@ -17,7 +18,7 @@ function delay(ms) {
 
 /**
  * Netlify Functionを経由して、最新の全データを取得する関数
- * @returns {Promise<object>} 全データ (scores, sports_bets, lotteries)
+ * @returns {Promise<object>} 全データ (scores, sports_bets, lotteries, etc.)
  */
 async function fetchAllData() {
     const MAX_RETRIES = 3;
@@ -65,9 +66,9 @@ async function fetchScores() {
     return data.scores;
 }
 
+
 /**
  * Netlify Functionを経由して、新しい全データを上書き保存する関数 (PUT)
- * @param {object} newData - scores, sports_bets, lotteries を含む新しい全データ
  */
 async function updateAllData(newData) {
     if (newData.history) {
@@ -114,9 +115,8 @@ async function updateAllData(newData) {
     return { status: "error", message: `データ書き込み失敗: 最大リトライ回数を超えました`, totalChange: 0 };
 }
 
-// -----------------------------------------------------------------
-// PVPアクション関数
-// -----------------------------------------------------------------
+
+// --- PVPアクション関数 ---
 
 async function sendPvpAction(actionData) {
     const MAX_RETRIES = 3;
