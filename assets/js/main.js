@@ -9,6 +9,7 @@ const EXCLUDED_PLAYERS = ['3mahjong'];
 
 let previousScores = new Map(JSON.parse(localStorage.getItem('previousScores') || '[]'));
 
+
 /**
  * データの取得とランキングの描画を行うメイン関数
  */
@@ -22,20 +23,23 @@ async function renderScores() {
     SPORTS_BETS_CONTAINER.innerHTML = '<p>くじデータを読み込み中...</p>';
     LOTTERY_LIST_CONTAINER.innerHTML = '<p>宝くじデータを読み込み中...</p>'; 
 
+    // 1. データ取得
     const allData = await fetchAllData();
     const rawScores = allData.scores;
     const sportsBets = allData.sports_bets || []; 
     const lotteries = allData.lotteries || []; 
     
     if (rawScores.length === 0) {
-        SCORES_CONTAINER.innerHTML = '<p class="error">データが見つかりません。JSONBinの初期データを確認してください。</p>';
+        SCORES_CONTAINER.innerHTML = '<p class="error">データ取得に失敗しました。管理者に確認してください。</p>';
         return;
     }
 
+    // 2. 除外プレイヤーのフィルタリング
     const displayScores = rawScores.filter(player => 
         !EXCLUDED_PLAYERS.includes(player.name)
     );
 
+    // 3. ランキング処理
     const sortedScores = displayScores.sort((a, b) => b.score - a.score);
     
     let html = '<ul class="ranking-list">';
@@ -51,7 +55,7 @@ async function renderScores() {
         
         if (player.status === 'luxury') {
             memberMark = '<span class="luxury-mark" title="ラグジュアリー会員">💎</span>';
-            nameClass += ' luxury-name'; 
+            nameClass += ' luxury-name';
         } else if (player.status === 'premium') {
             memberMark = '<span class="premium-mark" title="プレミアム会員">👑</span>';
         } else if (player.status === 'pro') {
@@ -72,10 +76,16 @@ async function renderScores() {
     html += '</ul>';
     SCORES_CONTAINER.innerHTML = html;
 
+    // 5. くじタイルの描画
     renderSportsBets(sportsBets, displayScores);
-    renderLotteries(lotteries);
     
+    // 6. 宝くじの描画
+    renderLotteries(lotteries);
+
+    // 8. 最終更新日時の表示
     LAST_UPDATE_ELEMENT.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    
+    // 9. 現在のスコアを保存
     localStorage.setItem('previousScores', JSON.stringify(Array.from(currentScoresMap.entries())));
 }
 
