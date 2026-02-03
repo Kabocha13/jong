@@ -22,7 +22,7 @@ function delay(ms) {
 
 /**
  * Netlify Functionを経由して、最新の全データを取得する関数
- * @returns {Promise<object>} 全データ (scores, sports_bets, speedstorm_records, lotteries)
+ * @returns {Promise<object>} 全データ (scores, sports_bets, lotteries)
  */
 async function fetchAllData() {
     const MAX_RETRIES = 3;
@@ -63,13 +63,13 @@ async function fetchAllData() {
             } else {
                 console.error("ポイントデータ取得中にエラー:", error);
                 // 最終的に失敗した場合、空の初期データを返す
-                return { scores: [], history: [], sports_bets: [], speedstorm_records: [], lotteries: [], electric_chair_games: [] };
+                return { scores: [], history: [], sports_bets: [], lotteries: [], electric_chair_games: [] };
             }
         }
     }
      // 最終リトライ後も失敗した場合
      console.error("ポイントデータ取得に失敗しました。最大リトライ回数を超えました。");
-     return { scores: [], history: [], sports_bets: [], speedstorm_records: [], lotteries: [], electric_chair_games: [] };
+     return { scores: [], history: [], sports_bets: [], lotteries: [], electric_chair_games: [] };
 }
 
 /**
@@ -85,7 +85,7 @@ async function fetchScores() {
 
 /**
  * Netlify Functionを経由して、新しい全データを上書き保存する関数 (PUT)
- * @param {object} newData - scores, sports_bets, speedstorm_records, lotteries を含む新しい全データ
+ * @param {object} newData - scores, sports_bets, lotteries を含む新しい全データ
  * @returns {Promise<object>} APIからの応答
  */
 async function updateAllData(newData) {
@@ -94,21 +94,16 @@ async function updateAllData(newData) {
         delete newData.history;
     }
     
-    // lotteriesの有無チェックとマージのロジックはサーバーレス関数側に移すか、呼び出し元が完全なデータを渡すことを前提とする
-    // ここでは呼び出し元が完全なデータを渡すことを前提とする
-
     const MAX_RETRIES = 3;
     let attempt = 0;
     let delayMs = 1000;
 
     while (attempt < MAX_RETRIES) {
         try {
-            // ★ 修正: Netlify Functionを呼び出す
             const response = await fetch(UPDATE_URL, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    // APIキーはサーバーレス関数側で設定するため、ヘッダーから削除
                 },
                 body: JSON.stringify(newData)
             });
@@ -118,12 +113,10 @@ async function updateAllData(newData) {
             }
 
             if (!response.ok) {
-                 // Netlify Functionからのエラーメッセージを受け取る
                 const errorData = await response.json();
                 throw new Error(`データ書き込みエラー: ${response.status} ${errorData.message || response.statusText}`);
             }
 
-            // 関数からの応答をそのまま返す
             const data = await response.json();
             return data;
         } catch (error) {
@@ -141,9 +134,6 @@ async function updateAllData(newData) {
     console.error("ポイントデータ書き込みに失敗しました。最大リトライ回数を超えました。");
     return { status: "error", message: `データ書き込み失敗: 最大リトライ回数を超えました`, totalChange: 0 };
 }
-
-
-// ★★★ 新規追加: PVPアクション関数 ★★★
 
 /**
  * Netlify Functionを経由して、PVPゲームのアクションを実行する関数 (POST)
@@ -172,11 +162,9 @@ async function sendPvpAction(actionData) {
             const data = await response.json();
 
             if (!response.ok) {
-                 // 関数からのエラーメッセージを受け取る
                 throw new Error(data.message || response.statusText);
             }
 
-            // 成功応答を返す
             return data;
         } catch (error) {
              if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
@@ -206,7 +194,6 @@ async function fetchPvpData(playerName) {
 
     while (attempt < MAX_RETRIES) {
         try {
-            // プレイヤー名をクエリパラメータとして付与
             const response = await fetch(`${PVP_FETCH_URL}?player=${encodeURIComponent(playerName)}`, {
                 method: 'GET',
             });
@@ -231,7 +218,6 @@ async function fetchPvpData(playerName) {
                 delayMs *= 2; // 指数バックオフ
             } else {
                 console.error("PVPデータ取得中にエラー:", error);
-                // 認証情報取得失敗時に備え、allScoresも空で返す
                 return { currentGames: [], availableGames: [], allScores: [] };
             }
         }
@@ -240,18 +226,7 @@ async function fetchPvpData(playerName) {
      return { currentGames: [], availableGames: [], allScores: [] };
 }
 
-// -----------------------------------------------------------------
-// 共通ヘルパー関数
-// -----------------------------------------------------------------
-
-/**
- * HTML要素にメッセージを表示するヘルパー関数
- * @param {HTMLElement} element - メッセージを表示する要素
- * @param {string} message - 表示するテキスト
- * @param {('success'|'error'|'info')} type - メッセージのタイプ
- */
 function showMessage(element, message, type) {
-    // ★ 修正: 'info' タイプに対応
     element.textContent = message;
     element.className = 'message';
     if (type === 'success') {
@@ -264,14 +239,11 @@ function showMessage(element, message, type) {
     
     element.classList.remove('hidden');
     
-    // 5秒後にメッセージを非表示にする (既存の3秒から延長)
     setTimeout(() => {
-        if (element) { // 要素がまだ存在するか確認
+        if (element) {
             element.classList.add('hidden');
         }
     }, 5000);
 }
 
-// 共通パスワードを定義 (master.jsとmahjong.jsで使用)
-// ★ 修正: ハードコードされたパスワードを削除し、マスターユーザー名に置き換える
 const MASTER_USERNAME = "Kabocha";
