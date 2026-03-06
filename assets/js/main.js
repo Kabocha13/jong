@@ -98,9 +98,6 @@ async function renderScores() {
     
     // 6. ★★★ 新規追加: 宝くじの描画
     renderLotteries(lotteries);
-    
-    // 7. ★ 新規追加: レース記録の描画
-    renderRaceRecords(raceRecords);
 
     // 8. 最終更新日時の表示
     LAST_UPDATE_ELEMENT.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
@@ -195,54 +192,6 @@ function renderLotteries(lotteries) {
     
     html += '</div>';
     LOTTERY_LIST_CONTAINER.innerHTML = html;
-}
-
-/**
- * ★ 新規追加: スピードストーム レース記録を描画する関数
- * @param {Array<Object>} raceRecords - speedstorm_recordsデータ
- */
-function renderRaceRecords(raceRecords) {
-    if (!RACE_RECORDS_LIST) return; // ★ 修正: nullチェックを追加
-    
-    let html = '<li>記録条件:ローカルフリー　ベリーハード　CPU7　ラップ1　超高速</li>';
-
-    if (raceRecords.length === 0) {
-        html += '<li><p class="info-text" style="color: #6c757d; margin-top: 10px;">まだ記録が登録されていません。</p></li>';
-    } else {
-        // コースをカテゴリ（テーマ）ごとにグループ化して表示
-        const groupedRecords = raceRecords.reduce((groups, record) => {
-            // 例: "メインホール (キャッスル)" -> "キャッスル" をグループキーとして抽出
-            const match = record.courseName.match(/\((.+?)\)/);
-            const groupKey = match ? match[1] : 'その他';
-            
-            if (!groups[groupKey]) {
-                groups[groupKey] = [];
-            }
-            groups[groupKey].push(record);
-            return groups;
-        }, {});
-
-        // グループごとにHTMLを生成
-        Object.entries(groupedRecords).forEach(([groupName, records]) => {
-            html += `<li><strong style="display: block; margin-top: 10px; border-bottom: 1px dashed #ccc; padding-bottom: 3px;">------${groupName}------</strong></li>`;
-            
-            records.forEach(record => {
-                const timeDisplay = record.bestTime;
-                // コース名から (グループ名) の部分を除去して表示
-                const cleanCourseName = record.courseName.replace(/\s*\(.+?\)\s*$/, '');
-
-                html += `
-                    <li style="display: flex; justify-content: space-between; padding-left: 20px;">
-                        <span>${cleanCourseName}:</span>
-                        <span style="font-weight: bold; color: #dc3545;">${timeDisplay}</span>
-                        <span style="font-size: 0.8em; color: #6c757d;">by ${record.holder}</span>
-                    </li>
-                `;
-            });
-        });
-    }
-
-    RACE_RECORDS_LIST.innerHTML = html;
 }
 
 /**
