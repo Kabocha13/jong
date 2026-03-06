@@ -37,6 +37,9 @@ async function renderScores() {
     const lotteries = allData.lotteries || []; 
     
     if (rawScores.length === 0) {
+        SCORES_CONTAINER.innerHTML = '<p class="error">データが見つからないか、JSONBinとの通信に失敗しました。JSONBinの初期データを確認してください。</p>';
+        return;
+    }
 
     // 2. 除外プレイヤーのフィルタリング
     const displayScores = rawScores.filter(player => 
