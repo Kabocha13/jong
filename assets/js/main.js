@@ -4,8 +4,6 @@ const SCORES_CONTAINER = document.getElementById('scores-container');
 // 削除: const TITLES_CONTAINER = document.getElementById('titles-container');
 const LAST_UPDATE_ELEMENT = document.getElementById('last-update');
 const SPORTS_BETS_CONTAINER = document.getElementById('sports-bets-container');
-// ★ 新規追加要素
-const RACE_RECORDS_LIST = document.getElementById('race-records-list'); 
 // ★★★ 新規追加: 宝くじコンテナ要素
 const LOTTERY_LIST_CONTAINER = document.getElementById('lottery-list-container'); 
 
@@ -19,7 +17,7 @@ let previousScores = new Map(JSON.parse(localStorage.getItem('previousScores') |
  */
 async function renderScores() {
     // ★ 修正: 致命的な要素がない場合の早期リターンを追加 (LOTTERY_LIST_CONTAINERのチェックを追加)
-    if (!SCORES_CONTAINER || !SPORTS_BETS_CONTAINER || !RACE_RECORDS_LIST || !LAST_UPDATE_ELEMENT || !LOTTERY_LIST_CONTAINER) {
+    if (!SCORES_CONTAINER || !SPORTS_BETS_CONTAINER || !LAST_UPDATE_ELEMENT || !LOTTERY_LIST_CONTAINER) {
         console.error("致命的なHTML要素の一部が見つかりませんでした。レンダリングを停止します。");
         // エラーを避けるため、後続の処理を停止
         return; 
@@ -29,21 +27,16 @@ async function renderScores() {
     SPORTS_BETS_CONTAINER.innerHTML = '<p>くじデータを読み込み中...</p>';
     // ★ ロードメッセージを設定
     LOTTERY_LIST_CONTAINER.innerHTML = '<p>宝くじデータを読み込み中...</p>'; 
-    RACE_RECORDS_LIST.innerHTML = '<li>記録条件:ローカルフリー　ベリーハード　CPU7　ラップ1　超高速</li><p>記録を読み込み中...</p>'; 
     // 削除: TITLES_CONTAINERの初期化を削除
 
     // 1. データ取得
     const allData = await fetchAllData(); // 全データ取得
     const rawScores = allData.scores;
     const sportsBets = allData.sports_bets || []; 
-    const raceRecords = allData.speedstorm_records || []; // ★ レース記録を取得
     // ★★★ 新規追加: 宝くじデータを取得
     const lotteries = allData.lotteries || []; 
     
     if (rawScores.length === 0) {
-        SCORES_CONTAINER.innerHTML = '<p class=\"error\">データが見つからないか、JSONBinとの通信に失敗しました。JSONBinの初期データを確認してください。</p>';
-        return;
-    }
 
     // 2. 除外プレイヤーのフィルタリング
     const displayScores = rawScores.filter(player => 
@@ -98,8 +91,8 @@ async function renderScores() {
     
     // 6. ★★★ 新規追加: 宝くじの描画
     renderLotteries(lotteries);
-
-    // 8. 最終更新日時の表示
+    
+    // 7. 最終更新日時の表示
     LAST_UPDATE_ELEMENT.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
     
     // 9. 現在のスコアをローカルストレージに保存
