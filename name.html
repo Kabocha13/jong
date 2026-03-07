@@ -490,14 +490,63 @@ document.addEventListener('mouseleave', () => {
   targetRX = 8; targetRY = -8;
 });
 
-// Gyroscope
-if (window.DeviceOrientationEvent) {
+// ===== GYROSCOPE (iOS Safari + Android Chrome) =====
+let gyroActive = false;
+
+function startGyro() {
   window.addEventListener('deviceorientation', (e) => {
-    if (e.gamma !== null) {
-      targetRY = e.gamma * 0.6;
-      targetRX = (-e.beta + 45) * 0.4;
+    if (e.gamma === null && e.beta === null) return;
+    gyroActive = true;
+    // gamma: left/right tilt (-90 to 90) → rotateY
+    // beta:  front/back tilt (0~180 natural hold) → rotateX
+    const gamma = Math.max(-40, Math.min(40, e.gamma || 0));
+    const beta  = Math.max(10, Math.min(80, e.beta  || 45));
+    targetRY = gamma * 0.5;
+    targetRX = -(beta - 45) * 0.45;
+  }, true);
+}
+
+// iOS 13+ requires explicit permission via user gesture
+if (typeof DeviceOrientationEvent !== 'undefined' &&
+    typeof DeviceOrientationEvent.requestPermission === 'function') {
+  // Show tap-to-enable button
+  const btn = document.createElement('button');
+  btn.id = 'gyro-btn';
+  btn.textContent = '傾けて光を動かす ▶';
+  Object.assign(btn.style, {
+    position: 'fixed', bottom: '32px', left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'rgba(255,210,80,0.12)',
+    border: '1px solid rgba(255,210,80,0.35)',
+    color: 'rgba(255,220,120,0.85)',
+    fontFamily: "'Montserrat', sans-serif",
+    fontSize: '11px', fontWeight: '200',
+    letterSpacing: '0.2em',
+    padding: '10px 22px',
+    borderRadius: '30px',
+    cursor: 'pointer',
+    backdropFilter: 'blur(8px)',
+    zIndex: '200',
+    transition: 'opacity 0.4s ease',
+  });
+  document.body.appendChild(btn);
+
+  btn.addEventListener('click', async () => {
+    try {
+      const permission = await DeviceOrientationEvent.requestPermission();
+      if (permission === 'granted') {
+        startGyro();
+        btn.style.opacity = '0';
+        setTimeout(() => btn.remove(), 500);
+      }
+    } catch (err) {
+      console.warn('Gyro permission denied:', err);
+      btn.textContent = '許可されませんでした';
     }
   });
+} else if (window.DeviceOrientationEvent) {
+  // Android Chrome — no permission needed
+  startGyro();
 }
 
 // ===== STAR DOTS =====
