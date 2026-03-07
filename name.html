@@ -86,9 +86,9 @@
     top: -50%;
     left: -50%;
     background: radial-gradient(ellipse at 50% 50%,
-      rgba(255,255,255,0.55) 0%,
-      rgba(255,255,255,0.12) 25%,
-      transparent 55%
+      rgba(255,255,255,0.75) 0%,
+      rgba(255,255,255,0.25) 20%,
+      transparent 50%
     );
     pointer-events: none;
     z-index: 20;
@@ -465,13 +465,13 @@ let animId;
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 function animate() {
-  currentRX = lerp(currentRX, targetRX, 0.08);
-  currentRY = lerp(currentRY, targetRY, 0.08);
+  currentRX = lerp(currentRX, targetRX, 0.14);
+  currentRY = lerp(currentRY, targetRY, 0.14);
   card.style.transform = `rotateX(${currentRX}deg) rotateY(${currentRY}deg)`;
 
-  const nx = (currentRY + 20) / 40;
-  const ny = (currentRX + 20) / 40;
-  specular.style.transform = `translate(${(nx - 0.5) * 60}%, ${(ny - 0.5) * 60}%)`;
+  const nx = (currentRY + 50) / 100;
+  const ny = (currentRX + 40) / 80;
+  specular.style.transform = `translate(${(nx - 0.5) * 120}%, ${(ny - 0.5) * 120}%)`;
 
   animId = requestAnimationFrame(animate);
 }
@@ -499,10 +499,10 @@ function startGyro() {
     gyroActive = true;
     // gamma: left/right tilt (-90 to 90) → rotateY
     // beta:  front/back tilt (0~180 natural hold) → rotateX
-    const gamma = Math.max(-40, Math.min(40, e.gamma || 0));
-    const beta  = Math.max(10, Math.min(80, e.beta  || 45));
-    targetRY = gamma * 0.5;
-    targetRX = -(beta - 45) * 0.45;
+    const gamma = Math.max(-50, Math.min(50, e.gamma || 0));
+    const beta  = Math.max(0, Math.min(90, e.beta  || 45));
+    targetRY = gamma * 1.0;
+    targetRX = -(beta - 45) * 0.8;
   }, true);
 }
 
