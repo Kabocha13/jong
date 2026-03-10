@@ -68,6 +68,14 @@ exports.handler = async (event) => {
         if (!stockData.holdings[player]) stockData.holdings[player] = {};
         const holdings = stockData.holdings[player];
 
+        // holdingsの各銘柄をオブジェクト形式に正規化 (後方互換: 数値の場合はマイグレート)
+        if (typeof holdings[stockId] === 'number') {
+            holdings[stockId] = { qty: holdings[stockId], totalCost: 0 };
+        }
+        if (!holdings[stockId]) {
+            holdings[stockId] = { qty: 0, totalCost: 0 };
+        }
+
         const currentPrice = stock.currentPrice;
         let responseMessage = '';
 
@@ -89,13 +97,14 @@ exports.handler = async (event) => {
             // ポイント減算
             playerData.score = parseFloat((playerData.score - totalCost).toFixed(1));
 
-            // 保有株増加
-            holdings[stockId] = (holdings[stockId] || 0) + qty;
+            // 保有株増加・取得コスト加算
+            holdings[stockId].qty       += qty;
+            holdings[stockId].totalCost  = parseFloat((holdings[stockId].totalCost + totalCost).toFixed(1));
 
             responseMessage = `✅ ${stockId} を ${qty}株 購入しました（${totalCost.toFixed(1)} P）`;
 
         } else if (action === 'sell') {
-            const owned = holdings[stockId] || 0;
+            const owned = holdings[stockId].qty;
             if (owned < qty) {
                 return {
                     statusCode: 400,
@@ -110,9 +119,13 @@ exports.handler = async (event) => {
             // ポイント加算
             playerData.score = parseFloat((playerData.score + totalRevenue).toFixed(1));
 
-            // 保有株減少
-            holdings[stockId] = owned - qty;
-            if (holdings[stockId] <= 0) delete holdings[stockId];
+            // 保有株減少・取得コストを按分で減らす
+            const prevQty   = holdings[stockId].qty;
+            const newQty    = prevQty - qty;
+            const costRatio = newQty / prevQty;
+            holdings[stockId].qty       = newQty;
+            holdings[stockId].totalCost = parseFloat((holdings[stockId].totalCost * costRatio).toFixed(1));
+            if (holdings[stockId].qty <= 0) delete holdings[stockId];
 
             responseMessage = `✅ ${stockId} を ${qty}株 売却しました（+${totalRevenue.toFixed(1)} P）`;
 

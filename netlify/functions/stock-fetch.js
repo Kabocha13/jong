@@ -16,13 +16,14 @@ const STOCK_DEFINITIONS = {
         emoji: '🀄',
         description: '老舗・安定・伝統。長期保有向きの安定銘柄。',
         basePrice: 50.0,
-        volatility: 'low',       // 低: ±3%, 稀に±8%
-        trendStrength: 0.1,      // トレンド継続性 (低)
-        bigEventChance: 0.05,    // 大変動イベント確率
-        bigEventRange: 0.08,
-        normalRange: 0.03,
+        volatility: 'low',
+        trendStrength: 0.1,       // トレンド継続性 (低)
+        positiveBias: 0.00002,    // +0.002%/分の上昇バイアス → 長期保有で緩やかに増加
+        bigEventChance: 0.06,     // 6%で大変動
+        bigEventRange: 0.10,      // 大変動 ±10%
+        normalRange: 0.05,        // 通常変動 ±5%
         minPrice: 10.0,
-        maxPrice: 100.0,
+        maxPrice: 120.0,
     },
     PINZU: {
         id: 'PINZU',
@@ -31,10 +32,11 @@ const STOCK_DEFINITIONS = {
         description: 'テクノロジー・新興・ハイリスク。トレンドに乗れば急騰、乗り遅れれば急落。',
         basePrice: 20.0,
         volatility: 'high',
-        trendStrength: 0.4,      // トレンド継続性 (高) → 上昇中はさらに上がりやすい
-        bigEventChance: 0.08,
-        bigEventRange: 0.20,
-        normalRange: 0.15,
+        trendStrength: 0.45,      // トレンド継続性 (高) → 上昇中はさらに上がりやすい
+        positiveBias: 0,
+        bigEventChance: 0.10,     // 10%で大変動
+        bigEventRange: 0.25,      // 大変動 ±25%
+        normalRange: 0.18,        // 通常変動 ±18%
         minPrice: 1.0,
         maxPrice: 200.0,
     },
@@ -45,10 +47,11 @@ const STOCK_DEFINITIONS = {
         description: 'ギャンブル・波乱・博打。予測不能な大暴騰/大暴落が起きる。',
         basePrice: 10.0,
         volatility: 'extreme',
-        trendStrength: 0.0,      // トレンドなし (完全ランダム)
-        bigEventChance: 0.15,    // 15%で±50%の大イベント
-        bigEventRange: 0.50,
-        normalRange: 0.20,
+        trendStrength: 0.0,       // トレンドなし (完全ランダム)
+        positiveBias: 0,
+        bigEventChance: 0.18,     // 18%で大変動
+        bigEventRange: 0.55,      // 大変動 ±55%
+        normalRange: 0.25,        // 通常変動 ±25%
         minPrice: 1.0,
         maxPrice: 150.0,
     }
@@ -71,6 +74,11 @@ function calcNextPrice(stock, def) {
     } else {
         // 通常変動
         changeRate = (Math.random() * 2 - 1) * def.normalRange;
+    }
+
+    // 正バイアス: 定義値があれば上方向に底上げ (MANZUの長期上昇傾向)
+    if (def.positiveBias) {
+        changeRate += def.positiveBias;
     }
 
     // トレンド補正: 直近の方向性を維持しやすくする

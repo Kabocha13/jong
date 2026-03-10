@@ -324,7 +324,11 @@ function buildMiniChart(history, stockId) {
 function renderHoldings() {
     if (!HOLDINGS_CONTAINER) return;
 
-    const ids = Object.keys(currentHoldings).filter(id => currentHoldings[id] > 0);
+    // 新旧両構造に対応: {qty, totalCost} または数値
+    const ids = Object.keys(currentHoldings).filter(id => {
+        const h = currentHoldings[id];
+        return typeof h === 'object' ? h.qty > 0 : h > 0;
+    });
 
     if (ids.length === 0) {
         HOLDINGS_CONTAINER.innerHTML = '<p class="info-text">保有株はありません。</p>';
@@ -332,27 +336,50 @@ function renderHoldings() {
     }
 
     let totalValue = 0;
-    let html = '<table class="holdings-table"><thead><tr><th>銘柄</th><th>保有数</th><th>現在値</th><th>評価額</th></tr></thead><tbody>';
+    let html = `<table class="holdings-table">
+        <thead><tr><th>銘柄</th><th>保有数</th><th>平均取得単価</th><th>現在値</th><th>評価額</th><th>損益</th></tr></thead>
+        <tbody>`;
 
     ids.forEach(id => {
-        const qty   = currentHoldings[id];
-        const def   = stockDefinitions[id];
-        const stock = currentStocks[id];
+        const holding   = currentHoldings[id];
+        const qty       = typeof holding === 'object' ? holding.qty       : holding;
+        const totalCost = typeof holding === 'object' ? holding.totalCost : 0;
+        const def       = stockDefinitions[id];
+        const stock     = currentStocks[id];
         if (!def || !stock) return;
 
-        const value = stock.currentPrice * qty;
-        totalValue += value;
+        const currentValue = parseFloat((stock.currentPrice * qty).toFixed(1));
+        totalValue += currentValue;
+
+        // 平均取得単価
+        const avgPrice = (totalCost > 0 && qty > 0)
+            ? parseFloat((totalCost / qty).toFixed(1))
+            : null;
+
+        // 損益
+        const pnl        = totalCost > 0 ? parseFloat((currentValue - totalCost).toFixed(1)) : null;
+        const pnlSign    = pnl >= 0 ? '+' : '';
+        const pnlColor   = pnl >= 0 ? '#1a7a4a' : '#c0392b';
+        const pnlDisplay = pnl !== null
+            ? `<span style="color:${pnlColor}; font-weight:bold;">${pnlSign}${pnl.toFixed(1)} P</span>`
+            : '<span style="color:#aaa;">--</span>';
+
+        const avgDisplay = avgPrice !== null
+            ? `${avgPrice.toFixed(1)} P`
+            : '<span style="color:#aaa;">--</span>';
 
         html += `<tr>
             <td>${def.emoji} ${def.name}</td>
             <td style="text-align:right;">${qty} 株</td>
+            <td style="text-align:right; color:#6a7888;">${avgDisplay}</td>
             <td style="text-align:right;">${stock.currentPrice.toFixed(1)} P</td>
-            <td style="text-align:right; font-weight:bold; color:var(--color-indigo);">${value.toFixed(1)} P</td>
+            <td style="text-align:right; font-weight:bold; color:var(--color-indigo);">${currentValue.toFixed(1)} P</td>
+            <td style="text-align:right;">${pnlDisplay}</td>
         </tr>`;
     });
 
     html += `</tbody><tfoot><tr>
-        <td colspan="3" style="text-align:right; font-family:var(--font-display); letter-spacing:1px; font-size:0.85em;">合計評価額</td>
+        <td colspan="5" style="text-align:right; font-family:var(--font-display); letter-spacing:1px; font-size:0.85em;">合計評価額</td>
         <td style="text-align:right; font-family:var(--font-display); font-weight:700; color:var(--color-gold); font-size:1.1em;">${totalValue.toFixed(1)} P</td>
     </tr></tfoot></table>`;
 
@@ -377,11 +404,18 @@ async function handleTrade(action, stockId) {
     const stock = currentStocks[stockId];
     if (!stock) return;
 
-    // ポイント確認 (買いのみ)
+    // ポイント確認 (買いのみ) / 保有数確認 (売りのみ)
     if (action === 'buy') {
         const cost = stock.currentPrice * qty;
         if (authenticatedUser.score < cost) {
             showMessage(msgEl, `❌ 残高不足 (必要: ${cost.toFixed(1)} P / 残高: ${authenticatedUser.score.toFixed(1)} P)`, 'error');
+            return;
+        }
+    } else if (action === 'sell') {
+        const holding = currentHoldings[stockId];
+        const owned   = holding ? (typeof holding === 'object' ? holding.qty : holding) : 0;
+        if (owned < qty) {
+            showMessage(msgEl, `❌ 保有株数不足 (保有: ${owned}株 / 売却希望: ${qty}株)`, 'error');
             return;
         }
     }
