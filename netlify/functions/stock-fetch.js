@@ -54,8 +54,8 @@ const STOCK_DEFINITIONS = {
     }
 };
 
-const PRICE_HISTORY_MAX = 48; // 最大保持履歴数
-const UPDATE_INTERVAL_MS = 60 * 60 * 1000; // 1時間 (ms)
+const PRICE_HISTORY_MAX = 44;          // 最大保持履歴数 (5人・10KB制限内)
+const UPDATE_INTERVAL_MS = 60 * 1000;  // 1分 (ms)
 
 // ============================================================
 // 株価変動ロジック
@@ -106,7 +106,7 @@ function updateStockPrices(stockData) {
         if (ticks <= 0) continue;
 
         updated = true;
-        const maxTicks = Math.min(ticks, 24); // 最大24時間分まとめて処理
+        const maxTicks = Math.min(ticks, PRICE_HISTORY_MAX); // 最大44分分まとめて処理
 
         for (let i = 0; i < maxTicks; i++) {
             const newPrice = calcNextPrice(stock, def);

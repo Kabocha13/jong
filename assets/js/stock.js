@@ -452,15 +452,14 @@ function startCountdown(msRemaining) {
                     if (data) applyStockData(data);
                 });
             }
-            remaining = 60 * 60 * 1000; // リセット
+            remaining = 60 * 1000; // 1分でリセット
             return;
         }
 
-        const h = Math.floor(remaining / 3600000);
-        const m = Math.floor((remaining % 3600000) / 60000);
+        const m = Math.floor(remaining / 60000);
         const s = Math.floor((remaining % 60000) / 1000);
         NEXT_UPDATE_COUNTDOWN.textContent =
-            `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
         remaining -= 1000;
     };
 
