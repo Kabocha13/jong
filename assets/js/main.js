@@ -33,8 +33,8 @@ async function renderScores() {
     const allData = await fetchAllData(); // 全データ取得
     const rawScores = allData.scores;
     const sportsBets = allData.sports_bets || []; 
-    // ★★★ 新規追加: 宝くじデータを取得
-    const lotteries = allData.lotteries || []; 
+    const lotteries = allData.lotteries || [];
+    const products = allData.product || [];
     
     if (rawScores.length === 0) {
         SCORES_CONTAINER.innerHTML = '<p class="error">データが見つからないか、JSONBinとの通信に失敗しました。JSONBinの初期データを確認してください。</p>';
@@ -92,8 +92,11 @@ async function renderScores() {
     // 5. くじタイルの描画
     renderSportsBets(sportsBets, displayScores);
     
-    // 6. ★★★ 新規追加: 宝くじの描画
+    // 6. 宝くじの描画
     renderLotteries(lotteries);
+
+    // 7. 交換商品の描画
+    renderProducts(products);
     
     // 7. 最終更新日時の表示
     LAST_UPDATE_ELEMENT.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
@@ -270,5 +273,29 @@ function renderSportsBets(sportsBets, displayScores) {
 
 // 初期ロードとボタンイベント
 window.onload = renderScores;
+
+/**
+ * 交換商品リストを描画する関数
+ * @param {Array<Object>} products - product データ [{name, money}, ...]
+ */
+function renderProducts(products) {
+    const container = document.getElementById('product-list-container');
+    if (!container) return;
+
+    if (!products || products.length === 0) {
+        container.innerHTML = '<p class="info-text">交換商品データがありません。</p>';
+        return;
+    }
+
+    let html = '<ul class="product-list">';
+    products.forEach(p => {
+        html += `<li class="product-item">
+            <span class="product-name">${p.name}</span>
+            <span class="product-price">${p.money}</span>
+        </li>`;
+    });
+    html += '</ul>';
+    container.innerHTML = html;
+}
 
 document.getElementById('refresh-button').addEventListener('click', renderScores);

@@ -36,7 +36,8 @@ exports.handler = async (event) => {
         // クライアント側のcommon.jsの処理を簡略化するため、ここで初期化を行う
         if (!record.speedstorm_records) record.speedstorm_records = [];
         if (!record.lotteries) record.lotteries = [];
-        if (!record.gift_codes) record.gift_codes = []; // ★ 新規追加: プレゼントコードの初期化
+        if (!record.gift_codes) record.gift_codes = [];
+        if (!record.product) record.product = [];
 
         if (record.scores) {
             record.scores = record.scores.map(player => ({

@@ -263,8 +263,8 @@ function renderStocks() {
 // ミニチャート (SVG折れ線)
 // ============================================================
 function buildMiniChart(history, stockId) {
-    const W = 600, H = 80;
-    const PAD_X = 10, PAD_Y = 8;
+    const W = 600, H = 140;
+    const PAD_X = 10, PAD_Y = 10;
 
     if (history.length < 2) {
         return `<svg class="stock-chart" viewBox="0 0 ${W} ${H}">
@@ -275,10 +275,16 @@ function buildMiniChart(history, stockId) {
     const prices = history.map(h => h.price);
     const minP = Math.min(...prices);
     const maxP = Math.max(...prices);
-    const range = maxP - minP || 1;
+
+    // 変動幅を誇張: 実際のレンジを中心に上下25%広げて表示
+    const center = (maxP + minP) / 2;
+    const rawRange = maxP - minP || 1;
+    const exaggeratedRange = rawRange * 1.5; // 1.5倍に誇張
+    const dispMin = center - exaggeratedRange / 2;
+    const dispMax = center + exaggeratedRange / 2;
 
     const toX = (i) => PAD_X + (i / (prices.length - 1)) * (W - PAD_X * 2);
-    const toY = (p) => PAD_Y + (1 - (p - minP) / range) * (H - PAD_Y * 2);
+    const toY = (p) => PAD_Y + (1 - (p - dispMin) / (dispMax - dispMin)) * (H - PAD_Y * 2);
 
     // グラデーション: 上昇=緑、下降=赤
     const lastChange = prices[prices.length - 1] - prices[prices.length - 2];
@@ -576,7 +582,7 @@ function startCountdown(msRemaining) {
 
         .stock-chart {
             width: 100%;
-            height: 80px;
+            height: 140px;
             display: block;
         }
 

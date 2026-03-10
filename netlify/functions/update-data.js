@@ -13,6 +13,20 @@ exports.handler = async (event) => {
     const newData = JSON.parse(event.body);
 
     try {
+        // 現在のBinデータを取得して、保護フィールド(product)を保持する
+        const currentRes = await fetch(JSONBIN_URL, {
+            method: 'GET',
+            headers: { 'X-Master-Key': API_KEY }
+        });
+        if (currentRes.ok) {
+            const currentJson = await currentRes.json();
+            const currentRecord = currentJson.record || {};
+            // productはクライアント側からの上書きを許可せず、常にBin上の値を使用
+            if (currentRecord.product) {
+                newData.product = currentRecord.product;
+            }
+        }
+
         const response = await fetch(JSONBIN_URL, {
             method: 'PUT',
             headers: {
