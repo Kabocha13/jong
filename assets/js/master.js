@@ -477,7 +477,6 @@ if (TRANSFER_FORM) {
             // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
             const newData = {
                 scores: newScores,
-                // 修正: historyは保存しない
                 sports_bets: currentData.sports_bets, 
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
@@ -1080,7 +1079,6 @@ if (document.getElementById('adjustment-form')) {
             // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
             const newData = {
                 scores: newScores,
-                // 修正: historyは保存しない
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持

@@ -63,13 +63,13 @@ async function fetchAllData() {
             } else {
                 console.error("ポイントデータ取得中にエラー:", error);
                 // 最終的に失敗した場合、空の初期データを返す
-                return { scores: [], history: [], sports_bets: [], speedstorm_records: [], lotteries: [], electric_chair_games: [] };
+                return { scores: [], sports_bets: [], speedstorm_records: [], lotteries: [], electric_chair_games: [] };
             }
         }
     }
      // 最終リトライ後も失敗した場合
      console.error("ポイントデータ取得に失敗しました。最大リトライ回数を超えました。");
-     return { scores: [], history: [], sports_bets: [], speedstorm_records: [], lotteries: [], electric_chair_games: [] };
+     return { scores: [], sports_bets: [], speedstorm_records: [], lotteries: [], electric_chair_games: [] };
 }
 
 /**
@@ -89,13 +89,6 @@ async function fetchScores() {
  * @returns {Promise<object>} APIからの応答
  */
 async function updateAllData(newData) {
-    // historyは保存しないため、念のため削除
-    if (newData.history) {
-        delete newData.history;
-    }
-    
-    // lotteriesの有無チェックとマージのロジックはサーバーレス関数側に移すか、呼び出し元が完全なデータを渡すことを前提とする
-    // ここでは呼び出し元が完全なデータを渡すことを前提とする
 
     const MAX_RETRIES = 3;
     let attempt = 0;
