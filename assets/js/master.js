@@ -1110,7 +1110,7 @@ if (DAILY_TAX_BUTTON) {
     DAILY_TAX_BUTTON.addEventListener('click', async () => {
         // 削除: TOTAL_TAX_AMOUNT を定数から削除
         // const TOTAL_TAX_AMOUNT = 100.0; // 削除
-        const TAX_RATE = 0.05; // 徴収率 5%
+        const TAX_RATE = 0.08; // 徴収率 8%
         const EXCLUDED_PLAYER_NAMES = ['3mahjong']; 
         const messageEl = DAILY_TAX_MESSAGE;
     
