@@ -91,7 +91,16 @@ function calcNextPrice(stock, def) {
 
     let newPrice = stock.currentPrice * (1 + changeRate);
     newPrice = Math.max(def.minPrice, Math.min(def.maxPrice, newPrice));
-    return parseFloat(newPrice.toFixed(1));
+    newPrice = parseFloat(newPrice.toFixed(1));
+
+    // 最低変動保証: 変動が0.1P未満なら強制的に±0.1P動かす
+    if (Math.abs(newPrice - stock.currentPrice) < 0.1) {
+        const sign = changeRate >= 0 ? 1 : -1;
+        newPrice = parseFloat((stock.currentPrice + sign * 0.1).toFixed(1));
+        newPrice = Math.max(def.minPrice, Math.min(def.maxPrice, newPrice));
+    }
+
+    return newPrice;
 }
 
 // ============================================================
