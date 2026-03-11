@@ -343,7 +343,7 @@ function renderHoldings() {
 
     let totalValue = 0;
     let html = `<table class="holdings-table">
-        <thead><tr><th>銘柄</th><th>保有数</th><th>平均取得単価</th><th>現在値</th><th>評価額</th><th>損益</th></tr></thead>
+        <thead><tr><th>銘柄</th><th>保有数</th><th>平均取得単価</th><th>現在値</th><th>評価額</th><th>損益</th><th>操作</th></tr></thead>
         <tbody>`;
 
     ids.forEach(id => {
@@ -375,21 +375,68 @@ function renderHoldings() {
             : '<span style="color:#aaa;">--</span>';
 
         html += `<tr>
-            <td>${def.emoji} ${def.name}</td>
-            <td style="text-align:right;">${qty} 株</td>
-            <td style="text-align:right; color:#6a7888;">${avgDisplay}</td>
-            <td style="text-align:right;">${stock.currentPrice.toFixed(1)} P</td>
-            <td style="text-align:right; font-weight:bold; color:var(--color-indigo);">${currentValue.toFixed(1)} P</td>
-            <td style="text-align:right;">${pnlDisplay}</td>
+            <td data-label="銘柄">${def.emoji} ${def.name}</td>
+            <td data-label="保有数" style="text-align:right;">${qty} 株</td>
+            <td data-label="平均取得単価" style="text-align:right; color:#6a7888;">${avgDisplay}</td>
+            <td data-label="現在値" style="text-align:right;">${stock.currentPrice.toFixed(1)} P</td>
+            <td data-label="評価額" style="text-align:right; font-weight:bold; color:var(--color-indigo);">${currentValue.toFixed(1)} P</td>
+            <td data-label="損益" style="text-align:right;">${pnlDisplay}</td>
+            <td data-label="操作" style="text-align:center;">
+                <button type="button" class="btn-sell-all action-button"
+                    data-stock="${id}" data-qty="${qty}"
+                    style="background:linear-gradient(135deg,#7a1a1a,#4a0d0d); border-color:#e05555; padding:5px 10px; font-size:0.75em; margin:0; width:auto; white-space:nowrap;">
+                    🔴 全売却
+                </button>
+                <p id="sell-all-message-${id}" class="hidden" style="font-size:0.75em; margin:4px 0 0;"></p>
+            </td>
         </tr>`;
     });
 
     html += `</tbody><tfoot><tr>
-        <td colspan="5" style="text-align:right; font-family:var(--font-display); letter-spacing:1px; font-size:0.85em;">合計評価額</td>
+        <td colspan="6" style="text-align:right; font-family:var(--font-display); letter-spacing:1px; font-size:0.85em;">合計評価額</td>
         <td style="text-align:right; font-family:var(--font-display); font-weight:700; color:var(--color-gold); font-size:1.1em;">${totalValue.toFixed(1)} P</td>
     </tr></tfoot></table>`;
 
     HOLDINGS_CONTAINER.innerHTML = html;
+
+    // 全売却ボタンのイベント
+    HOLDINGS_CONTAINER.querySelectorAll('.btn-sell-all').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const stockId = btn.dataset.stock;
+            const qty = parseInt(btn.dataset.qty);
+            const def = stockDefinitions[stockId];
+            if (!def) return;
+            if (!window.confirm(`${def.emoji} ${def.name} を ${qty}株 全売却しますか？`)) return;
+            btn.disabled = true;
+            const msgEl = document.getElementById(`sell-all-message-${stockId}`);
+            showMessage(msgEl, '処理中...', 'info');
+            try {
+                const res = await fetch(STOCK_ACTION_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'sell',
+                        player: authenticatedUser.name,
+                        stockId,
+                        quantity: qty
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok || data.status !== 'success') {
+                    showMessage(msgEl, `❌ ${data.message || 'エラーが発生しました。'}`, 'error');
+                    btn.disabled = false;
+                    return;
+                }
+                authenticatedUser.score = data.newScore;
+                currentHoldings = data.newHoldings || {};
+                renderUserBar();
+                renderHoldings();
+            } catch (err) {
+                showMessage(msgEl, `❌ 通信エラー: ${err.message}`, 'error');
+                btn.disabled = false;
+            }
+        });
+    });
 }
 
 // ============================================================
@@ -663,6 +710,129 @@ function startCountdown(msRemaining) {
             background: linear-gradient(to right, #fffbf0, #fff);
             border-top: 2px solid var(--color-gold);
             padding: 10px 12px;
+        }
+
+        /* === スマホ対応 (768px以下) === */
+        @media (max-width: 768px) {
+
+            /* 株式カード */
+            .stock-card {
+                padding: 14px 14px;
+            }
+
+            .stock-header {
+                gap: 10px;
+            }
+
+            .stock-emoji {
+                font-size: 1.6em;
+            }
+
+            .stock-title-block h3 {
+                font-size: 0.92em;
+            }
+
+            .stock-price {
+                font-size: 1.15em;
+            }
+
+            .price-change {
+                font-size: 0.75em;
+            }
+
+            /* チャート */
+            .stock-chart {
+                height: 100px;
+            }
+
+            /* 売買フォーム */
+            .trade-row {
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .trade-cost-display {
+                text-align: left;
+                min-width: unset;
+            }
+
+            .trade-buttons {
+                gap: 8px;
+            }
+
+            .trade-buttons .action-button {
+                padding: 10px 8px;
+                font-size: 0.78em;
+            }
+
+            /* 保有株テーブル: スマホではカード形式 */
+            .holdings-table thead {
+                display: none;
+            }
+
+            .holdings-table,
+            .holdings-table tbody,
+            .holdings-table tr,
+            .holdings-table td,
+            .holdings-table tfoot {
+                display: block;
+                width: 100%;
+            }
+
+            .holdings-table tr {
+                background: #fff;
+                border: 1px solid rgba(201,168,76,0.3);
+                border-radius: 4px;
+                margin-bottom: 10px;
+                padding: 10px 12px;
+                position: relative;
+            }
+
+            .holdings-table td {
+                padding: 4px 0;
+                border-bottom: none;
+                text-align: left !important;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 0.9em;
+            }
+
+            .holdings-table td::before {
+                content: attr(data-label);
+                font-family: var(--font-display);
+                font-size: 0.72em;
+                letter-spacing: 1px;
+                color: #8090a8;
+                flex-shrink: 0;
+                margin-right: 8px;
+            }
+
+            .holdings-table tfoot tr {
+                background: linear-gradient(to right, #fffbf0, #fff);
+                border-top: 2px solid var(--color-gold);
+                border-radius: 4px;
+            }
+
+            .holdings-table tfoot td {
+                justify-content: space-between;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stock-header {
+                flex-wrap: wrap;
+            }
+
+            .stock-price-block {
+                width: 100%;
+                text-align: left;
+                margin-top: 2px;
+            }
+
+            .stock-price {
+                font-size: 1.1em;
+            }
         }
     `;
     document.head.appendChild(style);
