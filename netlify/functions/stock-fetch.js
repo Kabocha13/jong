@@ -15,45 +15,45 @@ const STOCK_DEFINITIONS = {
         name: 'MANZU Corp.',
         emoji: '🀄',
         description: '老舗・安定・伝統。長期保有向きの安定銘柄。',
-        basePrice: 50.0,
+        basePrice: 200.0,
         volatility: 'low',
         trendStrength: 0.1,       // トレンド継続性 (低)
-        positiveBias: 0.00002,    // +0.002%/分の上昇バイアス → 長期保有で緩やかに増加
+        positiveBias: 0.0002,    // +0.02%/分の上昇バイアス → 長期保有で緩やかに増加
         bigEventChance: 0.06,     // 6%で大変動
         bigEventRange: 0.10,      // 大変動 ±10%
-        normalRange: 0.05,        // 通常変動 ±5%
-        minPrice: 10.0,
-        maxPrice: 120.0,
+        normalRange: 0.1,        // 通常変動 ±10%
+        minPrice: 0,
+        maxPrice: 999999999,
     },
     PINZU: {
         id: 'PINZU',
         name: 'PINZU Electric',
         emoji: '⚡',
         description: 'テクノロジー・新興・ハイリスク。トレンドに乗れば急騰、乗り遅れれば急落。',
-        basePrice: 20.0,
+        basePrice: 100.0,
         volatility: 'high',
         trendStrength: 0.45,      // トレンド継続性 (高) → 上昇中はさらに上がりやすい
         positiveBias: 0,
         bigEventChance: 0.10,     // 10%で大変動
         bigEventRange: 0.25,      // 大変動 ±25%
         normalRange: 0.18,        // 通常変動 ±18%
-        minPrice: 1.0,
-        maxPrice: 200.0,
+        minPrice: 0,
+        maxPrice: 999999999,
     },
     SOUZU: {
         id: 'SOUZU',
         name: 'SOUZU Casino',
         emoji: '🎲',
         description: 'ギャンブル・波乱・博打。予測不能な大暴騰/大暴落が起きる。',
-        basePrice: 10.0,
+        basePrice: 50.0,
         volatility: 'extreme',
         trendStrength: 0.0,       // トレンドなし (完全ランダム)
         positiveBias: 0,
-        bigEventChance: 0.18,     // 18%で大変動
-        bigEventRange: 0.55,      // 大変動 ±55%
+        bigEventChance: 0.2,     // 20%で大変動
+        bigEventRange: 0.5,      // 大変動 ±50%
         normalRange: 0.25,        // 通常変動 ±25%
-        minPrice: 1.0,
-        maxPrice: 150.0,
+        minPrice: 0,
+        maxPrice: 999999999,
     }
 };
 
