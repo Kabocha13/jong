@@ -299,3 +299,12 @@ function renderProducts(products) {
 }
 
 document.getElementById('refresh-button').addEventListener('click', renderScores);
+
+// 食堂リアルタイムカメラ (30秒ごとに更新)
+function refreshCafeteriaCamera() {
+    const img = document.getElementById('tsudanuma');
+    if (img) {
+        img.src = `/i_catch/dining/tsudanuma.jpg?${new Date().getTime()}`;
+    }
+}
+setInterval(refreshCafeteriaCamera, 30000);
