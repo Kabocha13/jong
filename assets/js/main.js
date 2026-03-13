@@ -300,11 +300,20 @@ function renderProducts(products) {
 
 document.getElementById('refresh-button').addEventListener('click', renderScores);
 
-// 食堂リアルタイムカメラ (30秒ごとに更新)
+// 食堂リアルタイムカメラ
+function getCameraTimestamp() {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
 function refreshCafeteriaCamera() {
     const img = document.getElementById('tsudanuma');
     if (img) {
-        img.src = `/i_catch/dining/tsudanuma.jpg?${new Date().getTime()}`;
+        img.src = `https://www.cit-s.com/i_catch/dining/tsudanuma.jpg?${getCameraTimestamp()}`;
     }
 }
-setInterval(refreshCafeteriaCamera, 30000);
+
+// 初回タイムスタンプ付きで設定
+refreshCafeteriaCamera();
+setInterval(refreshCafeteriaCamera, 60000);
