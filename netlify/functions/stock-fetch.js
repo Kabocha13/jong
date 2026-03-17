@@ -137,7 +137,7 @@ function updateStockPrices(stockData) {
             stock.currentPrice = newPrice;
         }
 
-        stock.lastUpdated = new Date(lastUpdate + maxTicks * UPDATE_INTERVAL_MS).toISOString();
+        stock.lastUpdated = new Date(now).toISOString(); // 現在時刻にセットして再フェッチのループを防ぐ
     }
 
     return updated;
