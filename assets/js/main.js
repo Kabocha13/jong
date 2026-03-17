@@ -307,10 +307,23 @@ function getCameraTimestamp() {
     return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
+function isCameraTime() {
+    const h = new Date().getHours();
+    return h >= 10 && h < 14;
+}
+
 function refreshCafeteriaCamera() {
     const img = document.getElementById('tsudanuma');
-    if (img) {
+    const msg = document.getElementById('camera-closed-msg');
+    if (!img) return;
+
+    if (isCameraTime()) {
         img.src = `https://www.cit-s.com/i_catch/dining/tsudanuma.jpg?${getCameraTimestamp()}`;
+        img.style.display = 'block';
+        if (msg) msg.style.display = 'none';
+    } else {
+        img.style.display = 'none';
+        if (msg) msg.style.display = 'block';
     }
 }
 
