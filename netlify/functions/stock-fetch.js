@@ -123,7 +123,8 @@ function updateStockPrices(stockData) {
         if (ticks <= 0) continue;
 
         updated = true;
-        const maxTicks = Math.min(ticks, PRICE_HISTORY_MAX); // 最大44分分まとめて処理
+        const logCount = stock.priceHistory.length || 1;
+        const maxTicks = Math.min(ticks, logCount); // ログに残っている件数分だけ更新
 
         for (let i = 0; i < maxTicks; i++) {
             const newPrice = calcNextPrice(stock, def);
