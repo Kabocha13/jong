@@ -6,8 +6,9 @@ const MAIN_BIN_ID   = process.env.JSONBIN_BIN_ID;
 const STOCK_BIN_URL = `https://api.jsonbin.io/v3/b/${STOCK_BIN_ID}`;
 const MAIN_BIN_URL  = `https://api.jsonbin.io/v3/b/${MAIN_BIN_ID}`;
 
-// 売買手数料率 (0 = 手数料なし)
-const TRANSACTION_FEE_RATE = 0.0;
+// 売買手数料率
+const TRANSACTION_FEE_RATE = 0.03; // 3%
+const MAX_QTY_PER_TRADE    = 100;  // 1回の取引上限
 
 exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -33,6 +34,9 @@ exports.handler = async (event) => {
     const qty = parseInt(quantity);
     if (isNaN(qty) || qty <= 0) {
         return { statusCode: 400, body: JSON.stringify({ message: 'quantity must be a positive integer.' }) };
+    }
+    if (qty > MAX_QTY_PER_TRADE) {
+        return { statusCode: 400, body: JSON.stringify({ message: `1回の取引は最大${MAX_QTY_PER_TRADE}株までです。` }) };
     }
 
     try {

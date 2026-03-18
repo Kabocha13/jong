@@ -22,8 +22,8 @@ const STOCK_DEFINITIONS = {
         bigEventChance: 0.06,     // 6%で大変動
         bigEventRange: 0.10,      // 大変動 ±10%
         normalRange: 0.1,        // 通常変動 ±10%
-        minPrice: 0,
-        maxPrice: 999999999,
+        minPrice: 20,
+        maxPrice: 4000,
     },
     PINZU: {
         id: 'PINZU',
@@ -37,8 +37,8 @@ const STOCK_DEFINITIONS = {
         bigEventChance: 0.10,     // 10%で大変動
         bigEventRange: 0.25,      // 大変動 ±25%
         normalRange: 0.18,        // 通常変動 ±18%
-        minPrice: 0,
-        maxPrice: 999999999,
+        minPrice: 10,
+        maxPrice: 3000,
     },
     SOUZU: {
         id: 'SOUZU',
@@ -52,8 +52,8 @@ const STOCK_DEFINITIONS = {
         bigEventChance: 0.2,     // 20%で大変動
         bigEventRange: 0.5,      // 大変動 ±50%
         normalRange: 0.25,        // 通常変動 ±25%
-        minPrice: 0,
-        maxPrice: 999999999,
+        minPrice: 5,
+        maxPrice: 2500,
     }
 };
 
