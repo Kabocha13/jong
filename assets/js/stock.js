@@ -5,6 +5,8 @@
 // ============================================================
 const STOCK_FETCH_URL  = '/.netlify/functions/stock-fetch';
 const STOCK_ACTION_URL = '/.netlify/functions/stock-action';
+const TRANSACTION_FEE_RATE = 0.03; // バックエンドと同じ値
+const MAX_QTY_PER_TRADE    = 100;  // バックエンドと同じ値
 
 // ============================================================
 // 状態変数
@@ -212,7 +214,7 @@ function renderStocks() {
                 <div class="trade-row">
                     <div class="form-group" style="flex:1; margin-bottom:0;">
                         <label for="qty-${id}">数量 (株):</label>
-                        <input type="number" id="qty-${id}" min="1" value="1" step="1">
+                        <input type="number" id="qty-${id}" min="1" max="${MAX_QTY_PER_TRADE}" value="1" step="1">
                     </div>
                     <div class="trade-cost-display">
                         <span class="trade-cost-label">合計</span>
@@ -246,7 +248,8 @@ function renderStocks() {
         if (qtyInput && costEl && stock) {
             const updateCost = () => {
                 const q = parseInt(qtyInput.value) || 0;
-                costEl.textContent = q > 0 ? `${(stock.currentPrice * q).toFixed(1)} P` : '-- P';
+                const buyCost = stock.currentPrice * q * (1 + TRANSACTION_FEE_RATE);
+                costEl.textContent = q > 0 ? `${buyCost.toFixed(1)} P (手数料込)` : '-- P';
             };
             qtyInput.addEventListener('input', updateCost);
             updateCost();
@@ -459,7 +462,7 @@ async function handleTrade(action, stockId) {
 
     // ポイント確認 (買いのみ) / 保有数確認 (売りのみ)
     if (action === 'buy') {
-        const cost = stock.currentPrice * qty;
+        const cost = stock.currentPrice * qty * (1 + TRANSACTION_FEE_RATE);
         if (authenticatedUser.score < cost) {
             showMessage(msgEl, `❌ 残高不足 (必要: ${cost.toFixed(1)} P / 残高: ${authenticatedUser.score.toFixed(1)} P)`, 'error');
             return;
@@ -511,7 +514,8 @@ async function handleTrade(action, stockId) {
         const costEl = document.getElementById(`cost-${stockId}`);
         if (costEl) {
             const newQty = parseInt(qtyInput.value) || 0;
-            costEl.textContent = newQty > 0 ? `${(stock.currentPrice * newQty).toFixed(1)} P` : '-- P';
+            const updatedCost = stock.currentPrice * newQty * (1 + TRANSACTION_FEE_RATE);
+            costEl.textContent = newQty > 0 ? `${updatedCost.toFixed(1)} P (手数料込)` : '-- P';
         }
 
     } catch (err) {
