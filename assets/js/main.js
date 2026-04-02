@@ -307,9 +307,11 @@ function getCameraTimestamp() {
     return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-function isCameraTime() {
-    const h = new Date().getHours();
-    return h >= 10 && h < 14;
+function isCameraActive() {
+    const d = new Date();
+    const day = d.getDay(); // 0=日, 6=土
+    const hour = d.getHours();
+    return day >= 1 && day <= 5 && hour >= 10 && hour < 14;
 }
 
 function refreshCafeteriaCamera() {
@@ -317,7 +319,7 @@ function refreshCafeteriaCamera() {
     const msg = document.getElementById('camera-closed-msg');
     if (!img) return;
 
-    if (isCameraTime()) {
+    if (isCameraActive()) {
         img.src = `https://www.cit-s.com/i_catch/dining/tsudanuma.jpg?${getCameraTimestamp()}`;
         img.style.display = 'block';
         if (msg) msg.style.display = 'none';
