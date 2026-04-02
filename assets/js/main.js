@@ -316,12 +316,16 @@ function isCameraActive() {
 
 function refreshCafeteriaCamera() {
     const img = document.getElementById('tsudanuma');
+    const msg = document.getElementById('camera-closed-msg');
     if (!img) return;
+
     if (isCameraActive()) {
         img.src = `https://www.cit-s.com/i_catch/dining/tsudanuma.jpg?${getCameraTimestamp()}`;
         img.style.display = 'block';
+        if (msg) msg.style.display = 'none';
     } else {
         img.style.display = 'none';
+        if (msg) msg.style.display = 'block';
     }
 }
 
