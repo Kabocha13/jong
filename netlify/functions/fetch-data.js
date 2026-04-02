@@ -38,6 +38,7 @@ exports.handler = async (event) => {
         if (!record.lotteries) record.lotteries = [];
         if (!record.gift_codes) record.gift_codes = [];
         if (!record.product) record.product = [];
+        if (!record.exercise_reports) record.exercise_reports = [];
 
         if (record.scores) {
             record.scores = record.scores.map(player => ({

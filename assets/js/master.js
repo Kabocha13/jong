@@ -94,11 +94,12 @@ async function attemptMasterLogin(username, password, isAuto = false) {
             MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
 
             // ツール類の初期化
-            loadPlayerList(); 
-            loadTransferPlayerLists(); 
-            initializeSportsMasterTools(); 
-            loadMahjongForm(); 
+            loadPlayerList();
+            loadTransferPlayerLists();
+            initializeSportsMasterTools();
+            loadMahjongForm();
             initializeLotteryForm();
+            loadExerciseReports();
             
             if (!isAuto) {
                  showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
@@ -1450,4 +1451,54 @@ if (CREATE_LOTTERY_FORM) {
             submitButton.disabled = false;
         }
     });
+}
+
+// ============================================================
+// 運動申請 承認
+// ============================================================
+
+async function loadExerciseReports() {
+    const container = document.getElementById('exercise-reports-container');
+    if (!container) return;
+
+    try {
+        const currentData = await fetchAllData();
+        const pending = (currentData.exercise_reports || []).filter(r => r.status === 'pending');
+
+        if (pending.length === 0) {
+            container.innerHTML = '<p>未承認の申請はありません。</p>';
+            return;
+        }
+
+        container.innerHTML = pending.map(r => {
+            const date    = new Date(r.submittedAt).toLocaleDateString('ja-JP');
+            const warning = r.suspicious ? ' <span style="color:#dc3545;font-weight:bold;">⚠️ ペースが速すぎます（要確認）</span>' : '';
+            return `
+                <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <strong>${r.player}</strong>　${date}<br>
+                    距離: ${r.distance}km　ペース: ${r.pace}　獲得予定: <strong>${r.points}P</strong>${warning}<br>
+                    <img src="${r.imageUrl}" style="max-width:100%;margin:8px 0;border-radius:4px;display:block;">
+                    <button onclick="handleExerciseAction('${r.id}','approve')" style="background-color:#28a745;color:white;border:none;padding:6px 14px;border-radius:4px;margin-right:8px;cursor:pointer;">承認 (+${r.points}P)</button>
+                    <button onclick="handleExerciseAction('${r.id}','reject')"  style="background-color:#dc3545;color:white;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;">却下</button>
+                </div>`;
+        }).join('');
+    } catch (err) {
+        container.innerHTML = '<p>申請の読み込みに失敗しました。</p>';
+    }
+}
+
+async function handleExerciseAction(reportId, action) {
+    const messageEl = document.getElementById('exercise-action-message');
+    try {
+        const res = await fetch('/.netlify/functions/exercise-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reportId, action })
+        });
+        const data = await res.json();
+        showMessage(messageEl, data.message, data.status === 'success' ? 'success' : 'error');
+        await loadExerciseReports();
+    } catch (err) {
+        showMessage(messageEl, `❌ エラー: ${err.message}`, 'error');
+    }
 }
