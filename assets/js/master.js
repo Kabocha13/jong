@@ -100,6 +100,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
             loadMahjongForm();
             initializeLotteryForm();
             loadExerciseReports();
+            loadSpecialThemeStatus();
             
             if (!isAuto) {
                  showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
@@ -1486,6 +1487,69 @@ async function loadExerciseReports() {
         container.innerHTML = '<p>申請の読み込みに失敗しました。</p>';
     }
 }
+
+// ============================================================
+// スペシャルテーマ設定
+// ============================================================
+
+async function loadSpecialThemeStatus() {
+    const el = document.getElementById('special-theme-current');
+    if (!el) return;
+    const currentData = await fetchAllData();
+    const theme = currentData.special_theme;
+    if (theme && theme.startDate) {
+        el.innerHTML = `<p style="color:#27ae60;">✅ 現在の設定: <strong>${theme.label || '(ラベルなし)'}</strong>　${theme.startDate} 〜 ${theme.endDate}</p>`;
+        document.getElementById('theme-label').value  = theme.label    || '';
+        document.getElementById('theme-start').value  = theme.startDate;
+        document.getElementById('theme-end').value    = theme.endDate;
+    } else {
+        el.innerHTML = '<p style="color:#888;">現在スペシャルテーマは設定されていません。</p>';
+    }
+}
+
+async function saveSpecialTheme(themeData) {
+    const messageEl = document.getElementById('special-theme-message');
+    try {
+        const currentData = await fetchAllData();
+        const newData = {
+            scores:               currentData.scores,
+            sports_bets:          currentData.sports_bets          || [],
+            speedstorm_records:   currentData.speedstorm_records    || [],
+            lotteries:            currentData.lotteries             || [],
+            gift_codes:           currentData.gift_codes            || [],
+            electric_chair_games: currentData.electric_chair_games  || [],
+            exercise_reports:     currentData.exercise_reports      || [],
+            career_posts:         currentData.career_posts          || [],
+            special_theme:        themeData,
+        };
+        const res = await updateAllData(newData);
+        if (res.status === 'success') {
+            showMessage(messageEl, themeData ? `✅ テーマを設定しました。` : '✅ テーマを解除しました。', 'success');
+            await loadSpecialThemeStatus();
+        } else {
+            showMessage(messageEl, `❌ エラー: ${res.message}`, 'error');
+        }
+    } catch (err) {
+        showMessage(messageEl, `❌ サーバーエラー: ${err.message}`, 'error');
+    }
+}
+
+document.getElementById('special-theme-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const label = document.getElementById('theme-label').value.trim();
+    const start = document.getElementById('theme-start').value;
+    const end   = document.getElementById('theme-end').value;
+    if (start > end) {
+        showMessage(document.getElementById('special-theme-message'), '❌ 終了日は開始日以降にしてください。', 'error');
+        return;
+    }
+    await saveSpecialTheme({ label, startDate: start, endDate: end });
+});
+
+document.getElementById('clear-theme-button').addEventListener('click', async () => {
+    if (!window.confirm('スペシャルテーマを解除しますか？')) return;
+    await saveSpecialTheme(null);
+});
 
 async function handleExerciseAction(reportId, action) {
     const messageEl = document.getElementById('exercise-action-message');
