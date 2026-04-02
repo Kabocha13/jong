@@ -25,9 +25,12 @@ exports.handler = async (event) => {
             if (currentRecord.product) {
                 newData.product = currentRecord.product;
             }
-            // exercise_reportsはexercise-submit/exercise-actionで管理するため常に保持
+            // exercise_reports / career_posts は専用関数で管理するため常に保持
             if (currentRecord.exercise_reports && !newData.exercise_reports) {
                 newData.exercise_reports = currentRecord.exercise_reports;
+            }
+            if (currentRecord.career_posts && !newData.career_posts) {
+                newData.career_posts = currentRecord.career_posts;
             }
         }
 
