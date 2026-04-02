@@ -1,0 +1,282 @@
+/* assets/css/special.css — 1周年記念テーマ (黒×金) */
+
+/* ============================================================
+   CSS変数の上書き
+   ============================================================ */
+html.special-theme {
+    --color-indigo:       #080808;
+    --color-indigo-mid:   #1c1800;
+    --color-indigo-light: #2e2600;
+    --color-gold:         #d4af37;
+    --color-gold-light:   #f0d060;
+    --color-gold-pale:    #fff3c0;
+    --color-cream:        #0e0e0a;
+    --color-text:         #e8d5a0;
+    --color-light:        #f5e6b8;
+
+    --color-error:        #e05040;
+    --color-success:      #3ab870;
+    --color-info:         #4a90d9;
+
+    --deco-line:       1px solid var(--color-gold);
+    --deco-line-thick: 2px solid var(--color-gold);
+}
+
+/* ============================================================
+   記念バナー
+   ============================================================ */
+html.special-theme body::before {
+    content: '✦  1st  Anniversary  ✦';
+    display: block;
+    text-align: center;
+    background: linear-gradient(90deg, #080808 0%, #2a2000 40%, #2a2000 60%, #080808 100%);
+    border-bottom: 1px solid var(--color-gold);
+    color: var(--color-gold-light);
+    padding: 7px 0;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 6px;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    animation: gold-shimmer 5s linear infinite;
+    background-size: 200% auto;
+}
+
+/* ============================================================
+   背景・基本
+   ============================================================ */
+html.special-theme body {
+    background-color: #080808;
+    background-image:
+        repeating-linear-gradient(
+            45deg,
+            transparent, transparent 38px,
+            rgba(212, 175, 55, 0.09) 38px,
+            rgba(212, 175, 55, 0.09) 40px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            transparent, transparent 38px,
+            rgba(212, 175, 55, 0.09) 38px,
+            rgba(212, 175, 55, 0.09) 40px
+        );
+    color: var(--color-text);
+}
+
+/* ============================================================
+   メインコンテンツ
+   ============================================================ */
+html.special-theme main {
+    background-color: #0e0e0a;
+    box-shadow:
+        0 0 0 1px var(--color-gold),
+        0 0 0 4px #080808,
+        0 0 0 5px var(--color-gold),
+        0 20px 60px rgba(0, 0, 0, 0.7);
+}
+
+html.special-theme main > h2,
+html.special-theme main > h2:first-child {
+    color: var(--color-gold-pale);
+}
+
+/* ============================================================
+   ツールボックス・情報ボックス
+   ============================================================ */
+html.special-theme .tool-box,
+html.special-theme .info-box {
+    background-color: #141410;
+    border-color: rgba(212, 175, 55, 0.3);
+    border-top-color: var(--color-gold);
+}
+
+html.special-theme .tool-box:hover {
+    box-shadow: 0 6px 24px rgba(212, 175, 55, 0.1);
+}
+
+html.special-theme .tool-box h2,
+html.special-theme .tool-box h3,
+html.special-theme .tool-box h4,
+html.special-theme .info-box h3.icon-title {
+    color: var(--color-gold-pale);
+    border-bottom-color: rgba(212, 175, 55, 0.35);
+}
+
+html.special-theme .tool-box p,
+html.special-theme .tool-box li,
+html.special-theme .info-box p,
+html.special-theme .info-box li {
+    color: #c8b888;
+}
+
+/* ============================================================
+   ランキング
+   ============================================================ */
+html.special-theme .ranking-item {
+    background-color: #141410;
+    border-color: rgba(212, 175, 55, 0.2);
+    border-left-color: rgba(212, 175, 55, 0.25);
+}
+
+html.special-theme .ranking-item:hover {
+    background-color: #1c1c14;
+    border-left-color: var(--color-gold);
+    box-shadow: 2px 4px 12px rgba(212, 175, 55, 0.08);
+}
+
+html.special-theme .rank-1 {
+    background: linear-gradient(to right, #1e1a00, #141410);
+    border-left-color: var(--color-gold);
+    box-shadow: 0 3px 12px rgba(212, 175, 55, 0.2);
+}
+
+html.special-theme .rank-2 { border-left-color: #606878; }
+html.special-theme .rank-3 { border-left-color: #987050; }
+
+html.special-theme .player-name { color: #d8c898; }
+html.special-theme .player-score { color: var(--color-gold-light); }
+
+html.special-theme .ranking-item:has(.luxury-name) {
+    background: linear-gradient(to right, #1e1a00, #141410);
+    border-top-color: rgba(212, 175, 55, 0.4);
+}
+
+/* ============================================================
+   入力要素
+   ============================================================ */
+html.special-theme input[type="text"],
+html.special-theme input[type="password"],
+html.special-theme input[type="number"],
+html.special-theme input[type="datetime-local"],
+html.special-theme input[type="file"],
+html.special-theme select,
+html.special-theme textarea {
+    background-color: #1a1a12;
+    color: #e8d5a0;
+    border-color: rgba(212, 175, 55, 0.3);
+    border-bottom-color: var(--color-gold);
+}
+
+html.special-theme input:focus,
+html.special-theme select:focus,
+html.special-theme textarea:focus {
+    background-color: #222218;
+    border-color: var(--color-gold-light);
+    border-bottom-color: var(--color-gold-light);
+    box-shadow: 0 3px 10px rgba(212, 175, 55, 0.15);
+}
+
+html.special-theme label {
+    color: var(--color-gold-pale);
+}
+
+/* ============================================================
+   くじ・賭けタイル
+   ============================================================ */
+html.special-theme .bet-tile,
+html.special-theme .bet-card {
+    background-color: #141410;
+    border-color: rgba(212, 175, 55, 0.25);
+    border-left-color: var(--color-gold);
+}
+
+html.special-theme .bet-tile h4 {
+    color: var(--color-gold-pale);
+    border-bottom-color: rgba(212, 175, 55, 0.2);
+}
+
+html.special-theme .bet-deadline { color: #907868; }
+
+html.special-theme .my-wager-text {
+    color: #d8c898;
+    background: linear-gradient(to right, rgba(212,175,55,0.1), transparent);
+    border-left-color: var(--color-gold);
+}
+
+/* ============================================================
+   宝くじ当選表
+   ============================================================ */
+html.special-theme .lottery-prize-table th {
+    background-color: #1c1800;
+    color: var(--color-gold-pale);
+}
+
+html.special-theme .lottery-prize-table td {
+    border-bottom-color: rgba(212, 175, 55, 0.1);
+    color: #c8b888;
+}
+
+html.special-theme .lottery-prize-table tr:last-child td {
+    background-color: rgba(212, 175, 55, 0.04);
+    color: #706050;
+}
+
+/* ============================================================
+   メッセージ
+   ============================================================ */
+html.special-theme .message.success {
+    background-color: #0a1a0f;
+    color: #3ab870;
+}
+
+html.special-theme .message.error {
+    background-color: #1a0a0a;
+    color: #e05040;
+}
+
+html.special-theme .message.info {
+    background-color: #0a0f1a;
+    color: #4a90d9;
+}
+
+/* ============================================================
+   認証セクション見出し
+   ============================================================ */
+html.special-theme #auth-section h2 {
+    color: var(--color-gold-pale);
+    border-bottom-color: rgba(212, 175, 55, 0.3);
+}
+
+/* ============================================================
+   instruction・info-text
+   ============================================================ */
+html.special-theme .instruction { color: #907868; }
+html.special-theme .info-text   { color: #706050; }
+html.special-theme .update-info { color: #706050; }
+
+/* ============================================================
+   交換商品
+   ============================================================ */
+html.special-theme .product-item { border-bottom-color: rgba(212, 175, 55, 0.1); }
+html.special-theme .product-item:hover { background-color: #1a1a10; }
+html.special-theme .product-name { color: #c8b888; }
+
+/* ============================================================
+   セカンダリボタン
+   ============================================================ */
+html.special-theme .secondary-button {
+    color: var(--color-gold-pale) !important;
+    border-color: var(--color-gold) !important;
+}
+
+html.special-theme .secondary-button:hover {
+    background: var(--color-gold) !important;
+    color: #080808 !important;
+}
+
+/* ============================================================
+   テーブル汎用
+   ============================================================ */
+html.special-theme table th {
+    background-color: #1c1800;
+    color: var(--color-gold-pale);
+}
+
+html.special-theme table td {
+    color: #c8b888;
+    border-bottom-color: rgba(212, 175, 55, 0.1);
+}
+
+html.special-theme table tr:hover td {
+    background-color: #1a1a10;
+}
