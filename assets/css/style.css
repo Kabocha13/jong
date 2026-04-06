@@ -652,10 +652,25 @@ label {
 .cafeteria-layout {
     display: flex;
     gap: 16px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+}
+.cafeteria-layout::-webkit-scrollbar {
+    height: 4px;
+}
+.cafeteria-layout::-webkit-scrollbar-track {
+    background: rgba(201, 168, 76, 0.1);
+    border-radius: 2px;
+}
+.cafeteria-layout::-webkit-scrollbar-thumb {
+    background: rgba(201, 168, 76, 0.5);
+    border-radius: 2px;
 }
 .cafeteria-panel {
-    flex: 1;
-    min-width: 0;
+    flex: 0 0 80%;
+    scroll-snap-align: start;
 }
 .cafeteria-label {
     font-size: 0.78em;
@@ -663,11 +678,6 @@ label {
     text-align: center;
     margin: 0 0 6px;
     letter-spacing: 1px;
-}
-@media (max-width: 480px) {
-    .cafeteria-layout {
-        flex-direction: column;
-    }
 }
 .mb-20 { margin-bottom: 20px; }
 .p-0   { padding: 0; }
