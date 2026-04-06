@@ -185,7 +185,7 @@ html.special-theme .bet-tile h4 {
     border-bottom-color: rgba(212, 175, 55, 0.2);
 }
 
-html.special-theme .bet-deadline { color: #907868; }
+html.special-theme .bet-deadline { color: #b89870; }
 
 html.special-theme .my-wager-text {
     color: #d8c898;
@@ -240,9 +240,9 @@ html.special-theme #auth-section h2 {
 /* ============================================================
    instruction・info-text
    ============================================================ */
-html.special-theme .instruction { color: #907868; }
-html.special-theme .info-text   { color: #706050; }
-html.special-theme .update-info { color: #706050; }
+html.special-theme .instruction { color: #b89870; }
+html.special-theme .info-text   { color: #a08060; }
+html.special-theme .update-info { color: #a08060; }
 
 /* ============================================================
    交換商品
@@ -291,4 +291,11 @@ html.special-theme .ranking-panel h2 {
 
 html.special-theme .career-link {
     color: var(--color-gold-light);
+}
+
+/* ============================================================
+   天気表示
+   ============================================================ */
+html.special-theme .weather-day {
+    color: var(--color-gold-pale);
 }
