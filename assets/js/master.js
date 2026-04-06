@@ -94,11 +94,13 @@ async function attemptMasterLogin(username, password, isAuto = false) {
             MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
 
             // ツール類の初期化
-            loadPlayerList(); 
-            loadTransferPlayerLists(); 
-            initializeSportsMasterTools(); 
-            loadMahjongForm(); 
+            loadPlayerList();
+            loadTransferPlayerLists();
+            initializeSportsMasterTools();
+            loadMahjongForm();
             initializeLotteryForm();
+            loadExerciseReports();
+            loadSpecialThemeStatus();
             
             if (!isAuto) {
                  showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
@@ -1450,4 +1452,117 @@ if (CREATE_LOTTERY_FORM) {
             submitButton.disabled = false;
         }
     });
+}
+
+// ============================================================
+// 運動申請 承認
+// ============================================================
+
+async function loadExerciseReports() {
+    const container = document.getElementById('exercise-reports-container');
+    if (!container) return;
+
+    try {
+        const currentData = await fetchAllData();
+        const pending = (currentData.exercise_reports || []).filter(r => r.status === 'pending');
+
+        if (pending.length === 0) {
+            container.innerHTML = '<p>未承認の申請はありません。</p>';
+            return;
+        }
+
+        container.innerHTML = pending.map(r => {
+            const date    = new Date(r.submittedAt).toLocaleDateString('ja-JP');
+            const warning = r.suspicious ? ' <span style="color:#dc3545;font-weight:bold;">⚠️ ペースが速すぎます（要確認）</span>' : '';
+            return `
+                <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px;">
+                    <strong>${r.player}</strong>　${date}<br>
+                    距離: ${r.distance}km　ペース: ${r.pace}　獲得予定: <strong>${r.points}P</strong>${warning}<br>
+                    <img src="${r.imageUrl}" style="max-width:100%;margin:8px 0;border-radius:4px;display:block;">
+                    <button onclick="handleExerciseAction('${r.id}','approve')" style="background-color:#28a745;color:white;border:none;padding:6px 14px;border-radius:4px;margin-right:8px;cursor:pointer;">承認 (+${r.points}P)</button>
+                    <button onclick="handleExerciseAction('${r.id}','reject')"  style="background-color:#dc3545;color:white;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;">却下</button>
+                </div>`;
+        }).join('');
+    } catch (err) {
+        container.innerHTML = '<p>申請の読み込みに失敗しました。</p>';
+    }
+}
+
+// ============================================================
+// スペシャルテーマ設定
+// ============================================================
+
+async function loadSpecialThemeStatus() {
+    const el = document.getElementById('special-theme-current');
+    if (!el) return;
+    const currentData = await fetchAllData();
+    const theme = currentData.special_theme;
+    if (theme && theme.startDate) {
+        el.innerHTML = `<p style="color:#27ae60;">✅ 現在の設定: <strong>${theme.label || '(ラベルなし)'}</strong>　${theme.startDate} 〜 ${theme.endDate}</p>`;
+        document.getElementById('theme-label').value  = theme.label    || '';
+        document.getElementById('theme-start').value  = theme.startDate;
+        document.getElementById('theme-end').value    = theme.endDate;
+    } else {
+        el.innerHTML = '<p style="color:#888;">現在スペシャルテーマは設定されていません。</p>';
+    }
+}
+
+async function saveSpecialTheme(themeData) {
+    const messageEl = document.getElementById('special-theme-message');
+    try {
+        const currentData = await fetchAllData();
+        const newData = {
+            scores:               currentData.scores,
+            sports_bets:          currentData.sports_bets          || [],
+            speedstorm_records:   currentData.speedstorm_records    || [],
+            lotteries:            currentData.lotteries             || [],
+            gift_codes:           currentData.gift_codes            || [],
+            electric_chair_games: currentData.electric_chair_games  || [],
+            exercise_reports:     currentData.exercise_reports      || [],
+            career_posts:         currentData.career_posts          || [],
+            special_theme:        themeData,
+        };
+        const res = await updateAllData(newData);
+        if (res.status === 'success') {
+            showMessage(messageEl, themeData ? `✅ テーマを設定しました。` : '✅ テーマを解除しました。', 'success');
+            await loadSpecialThemeStatus();
+        } else {
+            showMessage(messageEl, `❌ エラー: ${res.message}`, 'error');
+        }
+    } catch (err) {
+        showMessage(messageEl, `❌ サーバーエラー: ${err.message}`, 'error');
+    }
+}
+
+document.getElementById('special-theme-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const label = document.getElementById('theme-label').value.trim();
+    const start = document.getElementById('theme-start').value;
+    const end   = document.getElementById('theme-end').value;
+    if (start > end) {
+        showMessage(document.getElementById('special-theme-message'), '❌ 終了日は開始日以降にしてください。', 'error');
+        return;
+    }
+    await saveSpecialTheme({ label, startDate: start, endDate: end });
+});
+
+document.getElementById('clear-theme-button').addEventListener('click', async () => {
+    if (!window.confirm('スペシャルテーマを解除しますか？')) return;
+    await saveSpecialTheme(null);
+});
+
+async function handleExerciseAction(reportId, action) {
+    const messageEl = document.getElementById('exercise-action-message');
+    try {
+        const res = await fetch('/.netlify/functions/exercise-action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reportId, action })
+        });
+        const data = await res.json();
+        showMessage(messageEl, data.message, data.status === 'success' ? 'success' : 'error');
+        await loadExerciseReports();
+    } catch (err) {
+        showMessage(messageEl, `❌ エラー: ${err.message}`, 'error');
+    }
 }
