@@ -7,106 +7,90 @@ const SPORTS_BETS_CONTAINER = document.getElementById('sports-bets-container');
 // ★★★ 新規追加: 宝くじコンテナ要素
 const LOTTERY_LIST_CONTAINER = document.getElementById('lottery-list-container'); 
 
-const EXCLUDED_PLAYERS = ['3mahjong']; // 三麻用のダミー名やその他の除外したい名前を追加可能
-
-let previousScores = new Map(JSON.parse(localStorage.getItem('previousScores') || '[]'));
-
+const EXCLUDED_PLAYERS = ['3mahjong'];
+const LS_DATA_KEY = 'cachedHomeData';
 
 /**
- * データの取得とランキングの描画を行うメイン関数
+ * データを受け取って全セクションを描画する
  */
-async function renderScores() {
-    // ★ 修正: 致命的な要素がない場合の早期リターンを追加 (LOTTERY_LIST_CONTAINERのチェックを追加)
-    if (!SCORES_CONTAINER || !SPORTS_BETS_CONTAINER || !LAST_UPDATE_ELEMENT || !LOTTERY_LIST_CONTAINER) {
-        console.error("致命的なHTML要素の一部が見つかりませんでした。レンダリングを停止します。");
-        // エラーを避けるため、後続の処理を停止
-        return; 
-    }
+function renderWithData(allData, isStale = false) {
+    if (!SCORES_CONTAINER || !SPORTS_BETS_CONTAINER || !LAST_UPDATE_ELEMENT || !LOTTERY_LIST_CONTAINER) return;
 
-    SCORES_CONTAINER.innerHTML = '<p>データを読み込み中...</p>';
-    SPORTS_BETS_CONTAINER.innerHTML = '<p>くじデータを読み込み中...</p>';
-    // ★ ロードメッセージを設定
-    LOTTERY_LIST_CONTAINER.innerHTML = '<p>宝くじデータを読み込み中...</p>'; 
-    // 削除: TITLES_CONTAINERの初期化を削除
-
-    // 1. データ取得
-    const allData = await fetchAllData(); // 全データ取得
-    const rawScores = allData.scores;
+    const rawScores = allData.scores || [];
     const sportsBets = allData.sports_bets || [];
     const lotteries = allData.lotteries || [];
     const products = allData.product || [];
     const careerPosts = allData.career_posts || [];
-    
+
     if (rawScores.length === 0) {
-        SCORES_CONTAINER.innerHTML = '<p class="error">データが見つからないか、JSONBinとの通信に失敗しました。JSONBinの初期データを確認してください。</p>';
+        SCORES_CONTAINER.innerHTML = '<p class="error">データが見つかりませんでした。</p>';
         return;
     }
 
-    // 2. 除外プレイヤーのフィルタリング
-    const displayScores = rawScores.filter(player => 
-        !EXCLUDED_PLAYERS.includes(player.name)
-    );
+    const displayScores = rawScores.filter(p => !EXCLUDED_PLAYERS.includes(p.name));
+    const sortedScores = [...displayScores].sort((a, b) => b.score - a.score);
 
-    // 3. ランキング処理
-    const sortedScores = displayScores.sort((a, b) => b.score - a.score);
-    
-    let html = '<ul class=\"ranking-list\">';
-    
-    const currentScoresMap = new Map();
-
+    let html = '<ul class="ranking-list">';
     sortedScores.forEach((player, index) => {
         const rank = index + 1;
-        const rankClass = rank === 1 ? 'rank-1' : (rank === 2 ? 'rank-2' : (rank === 3 ? 'rank-3' : ''));
-        const scoreDisplay = player.score.toFixed(1);
-        
-        // ★★★ 修正: statusフィールドに基づいてマークと名前クラスを動的に決定 (Luxury対応) ★★★
-        let memberMark = '';
-        let nameClass = 'player-name';
-        
+        const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+        let memberMark = '', nameClass = 'player-name';
         if (player.status === 'luxury') {
             memberMark = '<span class="luxury-mark" title="ラグジュアリー会員">💎</span>';
-            nameClass += ' luxury-name'; // 高級感のあるフォントを適用
+            nameClass += ' luxury-name';
         } else if (player.status === 'premium') {
             memberMark = '<span class="premium-mark" title="プレミアム会員">👑</span>';
         } else if (player.status === 'pro') {
             memberMark = '<span class="pro-mark" title="プロ会員">⭐</span>';
         }
-
-        currentScoresMap.set(player.name, player.score);
-        
-        // HTML生成
         html += `
             <li class="ranking-item ${rankClass}">
                 <span class="rank-num">#${rank}</span>
                 <span class="${nameClass}">${player.name} ${memberMark}</span>
-                <span class="player-score">${scoreDisplay} P</span>
-            </li>
-        `;
+                <span class="player-score">${player.score.toFixed(1)} P</span>
+            </li>`;
     });
-    
     html += '</ul>';
     SCORES_CONTAINER.innerHTML = html;
 
-    // 4. タイトルホルダーの描画 (削除されたためスキップ)
-    // renderTitles(sortedScores);
-    
-    // 5. くじタイルの描画
     renderSportsBets(sportsBets, displayScores);
-    
-    // 6. 宝くじの描画
     renderLotteries(lotteries);
-
-    // 7. 交換商品の描画
     renderProducts(products);
-
-    // 8. 就活ランキングの描画
     renderHomeCareer(careerPosts);
-    
-    // 7. 最終更新日時の表示
-    LAST_UPDATE_ELEMENT.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
-    
-    // 9. 現在のスコアをローカルストレージに保存
-    localStorage.setItem('previousScores', JSON.stringify(Array.from(currentScoresMap.entries())));
+
+    const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    LAST_UPDATE_ELEMENT.textContent = isStale ? `キャッシュ表示 (更新中...)` : `最終更新: ${timeStr}`;
+}
+
+/**
+ * キャッシュから即時描画 → バックグラウンドで最新取得して更新
+ */
+async function renderScores() {
+    if (!SCORES_CONTAINER || !SPORTS_BETS_CONTAINER || !LAST_UPDATE_ELEMENT || !LOTTERY_LIST_CONTAINER) return;
+
+    // 1. キャッシュがあれば即座に描画 (ローディング表示なし)
+    const cached = localStorage.getItem(LS_DATA_KEY);
+    if (cached) {
+        try {
+            renderWithData(JSON.parse(cached), true);
+        } catch (e) {
+            SCORES_CONTAINER.innerHTML = '<p>データを読み込み中...</p>';
+        }
+    } else {
+        SCORES_CONTAINER.innerHTML = '<p>データを読み込み中...</p>';
+        SPORTS_BETS_CONTAINER.innerHTML = '<p>くじデータを読み込み中...</p>';
+        LOTTERY_LIST_CONTAINER.innerHTML = '<p>宝くじデータを読み込み中...</p>';
+    }
+
+    // 2. 最新データを取得して更新
+    const allData = await fetchAllData();
+    if (!allData.scores || allData.scores.length === 0) {
+        if (!cached) SCORES_CONTAINER.innerHTML = '<p class="error">データ取得に失敗しました。</p>';
+        return;
+    }
+
+    renderWithData(allData, false);
+    localStorage.setItem(LS_DATA_KEY, JSON.stringify(allData));
 }
 
 /**
