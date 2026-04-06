@@ -839,8 +839,7 @@ label {
     align-items: center;
     gap: 3px;
     font-size: 0.72em;
-    color: var(--color-gold-pale);
-    opacity: 0.85;
+    color: var(--color-indigo);
 }
 
 .weather-day .w-icon {
