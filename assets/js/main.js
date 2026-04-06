@@ -172,7 +172,7 @@ function renderLotteries(lotteries) {
         const totalTickets = l.tickets.reduce((sum, t) => sum + (t.count || 1), 0);
 
         html += `
-            <div class="bet-tile status-open">
+            <div class="bet-tile lottery-tile status-open">
                 <h4>🎟️ ${l.name} (#${l.lotteryId})</h4>
                 <div class="odds-info-display">
                     <p class="bet-deadline">価格: <strong>${l.ticketPrice.toFixed(1)} P /枚</strong></p>
