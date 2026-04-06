@@ -370,3 +370,53 @@ function refreshCafeteriaCamera() {
 // 初回タイムスタンプ付きで設定
 refreshCafeteriaCamera();
 setInterval(refreshCafeteriaCamera, 60000);
+
+// 出席登録ボタン
+(function () {
+    // 曜日(1=月〜5=金) → 授業スケジュール
+    const ATTENDANCE_SCHEDULE = {
+        1: [ // 月曜
+            { start: '08:30', end: '10:00', room: 635 },
+            { start: '10:30', end: '12:00', room: 635 },
+            { start: '13:30', end: '15:00', room: 635 },
+        ],
+        2: [ // 火曜
+            { start: '08:30', end: '10:00', room: 635 },
+        ],
+        3: [ // 水曜
+            { start: '08:30', end: '10:00', room: 431 },
+            { start: '10:30', end: '12:00', room: 431 },
+        ],
+        4: [ // 木曜
+            { start: '08:30', end: '10:00', room: 643 },
+            { start: '10:30', end: '12:00', room: 632 },
+        ],
+        5: [ // 金曜
+            { start: '09:30', end: '11:00', room: 632 },
+            { start: '12:30', end: '14:00', room: 711 },
+        ],
+    };
+
+    function toMinutes(hhmm) {
+        const [h, m] = hhmm.split(':').map(Number);
+        return h * 60 + m;
+    }
+
+    function renderAttendanceButton() {
+        const bar = document.getElementById('attendance-bar');
+        if (!bar) return;
+        const now = new Date();
+        const dow = now.getDay(); // 0=日, 1=月...6=土
+        const current = now.getHours() * 60 + now.getMinutes();
+        const slots = ATTENDANCE_SCHEDULE[dow] || [];
+        const slot = slots.find(s => current >= toMinutes(s.start) && current <= toMinutes(s.end));
+        if (slot) {
+            bar.innerHTML = `<a href="https://attendance.is.it-chiba.ac.jp/attendance/class_room/${slot.room}" target="_blank" class="attendance-button">📋 出席登録</a>`;
+        } else {
+            bar.innerHTML = '';
+        }
+    }
+
+    renderAttendanceButton();
+    setInterval(renderAttendanceButton, 60000);
+}());
