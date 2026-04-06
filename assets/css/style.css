@@ -823,7 +823,33 @@ label {
 .attendance-bar {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
     margin-bottom: 8px;
+}
+
+#weather-bar {
+    display: flex;
+    gap: 6px;
+    margin-right: auto;
+}
+
+.weather-day {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.72em;
+    color: var(--color-gold-pale);
+    opacity: 0.85;
+}
+
+.weather-day .w-icon {
+    font-size: 1.1em;
+}
+
+.weather-day .w-temp {
+    font-size: 0.9em;
+    letter-spacing: 0.5px;
 }
 
 .attendance-button {

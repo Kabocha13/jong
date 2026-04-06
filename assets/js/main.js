@@ -458,6 +458,47 @@ function refreshCafeteriaCamera() {
 refreshCafeteriaCamera();
 setInterval(refreshCafeteriaCamera, 60000);
 
+// 天気予報（今日・明日）
+(function () {
+    const WMO_ICON = {
+        0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+        45: '🌫️', 48: '🌫️',
+        51: '🌦️', 53: '🌦️', 55: '🌧️',
+        61: '🌧️', 63: '🌧️', 65: '🌧️',
+        71: '🌨️', 73: '🌨️', 75: '🌨️',
+        80: '🌦️', 81: '🌧️', 82: '⛈️',
+        95: '⛈️', 96: '⛈️', 99: '⛈️',
+    };
+
+    function wmoIcon(code) {
+        return WMO_ICON[code] ?? '🌡️';
+    }
+
+    async function renderWeather() {
+        const bar = document.getElementById('weather-bar');
+        if (!bar) return;
+        try {
+            const res = await fetch(
+                'https://api.open-meteo.com/v1/forecast?latitude=35.68&longitude=140.02' +
+                '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
+                '&timezone=Asia%2FTokyo&forecast_days=2'
+            );
+            const data = await res.json();
+            const { weather_code, temperature_2m_max, temperature_2m_min } = data.daily;
+            bar.innerHTML = [0, 1].map(i => {
+                const icon = wmoIcon(weather_code[i]);
+                const hi = Math.round(temperature_2m_max[i]);
+                const lo = Math.round(temperature_2m_min[i]);
+                return `<span class="weather-day"><span class="w-icon">${icon}</span><span class="w-temp">${hi}°/${lo}°</span></span>`;
+            }).join('');
+        } catch {
+            bar.innerHTML = '';
+        }
+    }
+
+    renderWeather();
+}());
+
 // 出席登録ボタン
 (function () {
     // 曜日(1=月〜5=金) → 授業スケジュール
