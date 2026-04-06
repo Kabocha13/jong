@@ -461,6 +461,9 @@ button[type="submit"]:hover,
     flex: 0 0 80%;
     scroll-snap-align: start;
 }
+.lottery-tile {
+    flex: 0 0 92%;
+}
 
 .bet-tile h4 {
     font-family: var(--font-display);
