@@ -280,3 +280,15 @@ html.special-theme table td {
 html.special-theme table tr:hover td {
     background-color: #1a1a10;
 }
+
+/* ============================================================
+   就活ランキング (ホーム)
+   ============================================================ */
+html.special-theme .ranking-panel h2 {
+    color: var(--color-gold-pale);
+    border-bottom-color: var(--color-gold);
+}
+
+html.special-theme .career-link {
+    color: var(--color-gold-light);
+}

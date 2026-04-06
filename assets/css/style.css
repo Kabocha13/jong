@@ -848,3 +848,91 @@ label {
     box-shadow: 0 4px 14px rgba(13, 27, 75, 0.3), 0 0 0 1px var(--color-gold-light);
     transform: translateY(-1px);
 }
+
+/* --- ランキング横スクロールレイアウト --- */
+.ranking-scroll-wrapper {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 8px;
+}
+
+.ranking-panel {
+    min-width: 280px;
+    flex: 1;
+    scroll-snap-align: start;
+}
+
+.ranking-panel h2 {
+    font-family: var(--font-display);
+    font-size: 1.05em;
+    font-weight: 600;
+    letter-spacing: 4px;
+    color: var(--color-indigo);
+    text-align: center;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--color-gold);
+}
+
+/* --- 就活ランキング表 --- */
+.career-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88em;
+}
+
+.career-table thead tr {
+    background-color: var(--color-indigo);
+    color: var(--color-gold-pale);
+}
+
+.career-table th {
+    font-family: var(--font-display);
+    padding: 7px 8px;
+    letter-spacing: 1px;
+    font-size: 0.78em;
+    font-weight: 600;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.career-table th:nth-child(2) { text-align: left; }
+
+.career-table td {
+    padding: 7px 8px;
+    border-bottom: 1px solid rgba(201, 168, 76, 0.15);
+    text-align: center;
+    color: var(--color-text);
+}
+
+.career-table td:nth-child(2) {
+    text-align: left;
+    font-weight: 500;
+}
+
+.career-table tr:hover td {
+    background-color: #fffdf5;
+}
+
+.career-offers {
+    color: #c0392b;
+    font-weight: 700;
+    font-family: var(--font-display);
+}
+
+.career-link {
+    font-family: var(--font-display);
+    font-size: 0.78em;
+    letter-spacing: 2px;
+    color: var(--color-gold);
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+.career-link:hover {
+    color: var(--color-indigo);
+}

@@ -32,9 +32,10 @@ async function renderScores() {
     // 1. データ取得
     const allData = await fetchAllData(); // 全データ取得
     const rawScores = allData.scores;
-    const sportsBets = allData.sports_bets || []; 
+    const sportsBets = allData.sports_bets || [];
     const lotteries = allData.lotteries || [];
     const products = allData.product || [];
+    const careerPosts = allData.career_posts || [];
     
     if (rawScores.length === 0) {
         SCORES_CONTAINER.innerHTML = '<p class="error">データが見つからないか、JSONBinとの通信に失敗しました。JSONBinの初期データを確認してください。</p>';
@@ -97,6 +98,9 @@ async function renderScores() {
 
     // 7. 交換商品の描画
     renderProducts(products);
+
+    // 8. 就活ランキングの描画
+    renderHomeCareer(careerPosts);
     
     // 7. 最終更新日時の表示
     LAST_UPDATE_ELEMENT.textContent = `最終更新: ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
@@ -299,6 +303,66 @@ function renderProducts(products) {
 }
 
 document.getElementById('refresh-button').addEventListener('click', renderScores);
+
+/**
+ * ホーム画面の就活ランキングを描画する関数
+ * @param {Array<Object>} posts - career_posts データ
+ */
+function renderHomeCareer(posts) {
+    const container = document.getElementById('home-career-container');
+    if (!container) return;
+
+    if (!posts || posts.length === 0) {
+        container.innerHTML = '<p class="info-text">まだ就活データがありません。</p>';
+        return;
+    }
+
+    const stats = {};
+    for (const post of posts) {
+        if (!stats[post.player]) {
+            stats[post.player] = { offers: 0, finalPassed: 0, interviews: 0, docPassed: 0 };
+        }
+        if (post.type === 'offer')                          stats[post.player].offers++;
+        else if (post.type === 'pass_interview_final')      stats[post.player].finalPassed++;
+        else if (post.type.startsWith('pass_interview_'))   stats[post.player].interviews++;
+        else if (post.type === 'pass_doc')                  stats[post.player].docPassed++;
+    }
+
+    const players = Object.entries(stats).sort((a, b) => {
+        const s = (p) => p[1].offers * 1000 + p[1].finalPassed * 100 + p[1].interviews * 10 + p[1].docPassed;
+        return s(b) - s(a);
+    });
+
+    const medals = ['🥇', '🥈', '🥉'];
+    let html = `
+        <table class="career-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>名前</th>
+                    <th>内定</th>
+                    <th>最終</th>
+                    <th>面接</th>
+                    <th>書類</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${players.map(([name, s], i) => `
+                <tr>
+                    <td>${medals[i] || i + 1}</td>
+                    <td>${name}</td>
+                    <td>${s.offers > 0 ? `<span class="career-offers">${s.offers}</span>` : '—'}</td>
+                    <td>${s.finalPassed || '—'}</td>
+                    <td>${s.interviews || '—'}</td>
+                    <td>${s.docPassed || '—'}</td>
+                </tr>`).join('')}
+            </tbody>
+        </table>
+        <p style="text-align:right; margin-top:10px;"><a href="career.html" class="career-link">詳細・投稿 →</a></p>
+    `;
+
+    container.innerHTML = html;
+}
 
 // 食堂メニュー
 function loadCafeteriaMenu() {

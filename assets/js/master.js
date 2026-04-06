@@ -88,6 +88,12 @@ async function attemptMasterLogin(username, password, isAuto = false) {
             // ★ 認証成功ロジック
             isAuthenticatedAsMaster = true;
 
+            // 認証情報をキャッシュ
+            if (!isAuto) {
+                localStorage.setItem('authUsername', username);
+                localStorage.setItem('authPassword', password);
+            }
+
             // UIの切り替え
             document.getElementById('auth-section').classList.add('hidden');
             ADMIN_TOOLS.classList.remove('hidden');
@@ -133,7 +139,8 @@ function handleMasterLogout() {
     
     // 1. 状態をリセット
     isAuthenticatedAsMaster = false;
-    // masterページはlocalStorageを使用しないため、削除の必要なし
+    localStorage.removeItem('authUsername');
+    localStorage.removeItem('authPassword');
 
     // 2. 状態をリセットし、UIを切り替える
     document.getElementById('auth-section').classList.remove('hidden');
@@ -147,10 +154,14 @@ function handleMasterLogout() {
 }
 
 /**
- * ページロード時の自動ログイン処理 (master画面では自動ログインを廃止)
+ * ページロード時の自動ログイン処理
  */
-async function autoLogin() { 
-    // master画面ではキャッシュによる自動ログインを廃止するため、何もしない
+async function autoLogin() {
+    const username = localStorage.getItem('authUsername');
+    const password = localStorage.getItem('authPassword');
+    if (username && password) {
+        await attemptMasterLogin(username, password, true);
+    }
 }
 
 
