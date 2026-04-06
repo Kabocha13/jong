@@ -432,8 +432,23 @@ button[type="submit"]:hover,
 
 /* --- スポーツくじ・宝くじタイル --- */
 .bet-grid {
-    display: grid;
+    display: flex;
     gap: 14px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+}
+.bet-grid::-webkit-scrollbar {
+    height: 4px;
+}
+.bet-grid::-webkit-scrollbar-track {
+    background: rgba(201, 168, 76, 0.1);
+    border-radius: 2px;
+}
+.bet-grid::-webkit-scrollbar-thumb {
+    background: rgba(201, 168, 76, 0.5);
+    border-radius: 2px;
 }
 
 .bet-tile, .bet-card {
@@ -443,6 +458,8 @@ button[type="submit"]:hover,
     background-color: #fff;
     padding: 16px 18px;
     margin-bottom: 0;
+    flex: 0 0 80%;
+    scroll-snap-align: start;
 }
 
 .bet-tile h4 {
