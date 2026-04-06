@@ -43,9 +43,6 @@ exports.handler = async (event) => {
             };
         }
 
-        report.status = action === 'approve' ? 'approved' : 'rejected';
-        report.resolvedAt = new Date().toISOString();
-
         if (action === 'approve') {
             const player = record.scores.find(s => s.name === report.player);
             if (!player) {
@@ -56,6 +53,9 @@ exports.handler = async (event) => {
             }
             player.score = parseFloat((player.score + report.points).toFixed(1));
         }
+
+        // 承認・却下後はレポートを削除してJSONのサイズを抑える
+        record.exercise_reports = record.exercise_reports.filter(r => r.id !== reportId);
 
         const updateRes = await fetch(JSONBIN_URL, {
             method: 'PUT',
