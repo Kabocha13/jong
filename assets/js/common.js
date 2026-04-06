@@ -50,7 +50,13 @@ async function fetchAllData() {
             
             // 関数側で既にデータ構造の調整が行われているため、そのまま record として扱う
             const record = await response.json();
-            
+
+            // スペシャルテーマをキャッシュして適用
+            if (record.special_theme !== undefined) {
+                localStorage.setItem('specialTheme', JSON.stringify(record.special_theme || null));
+                applySpecialTheme(record.special_theme);
+            }
+
             return record;
         
         } catch (error) {
@@ -268,3 +274,40 @@ function showMessage(element, message, type) {
 // 共通パスワードを定義 (master.jsとmahjong.jsで使用)
 // ★ 修正: ハードコードされたパスワードを削除し、マスターユーザー名に置き換える
 const MASTER_USERNAME = "Kabocha";
+
+// -----------------------------------------------------------------
+// スペシャルテーマ適用
+// -----------------------------------------------------------------
+
+/**
+ * special_theme データを元に special.css を動的に読み込む
+ * @param {object|null} themeData - { startDate, endDate, label } または null
+ */
+function applySpecialTheme(themeData) {
+    if (!themeData || !themeData.startDate || !themeData.endDate) return;
+    const now   = new Date();
+    const start = new Date(themeData.startDate + 'T00:00:00');
+    const end   = new Date(themeData.endDate   + 'T23:59:59');
+    if (now >= start && now <= end) {
+        if (!document.getElementById('special-theme-css')) {
+            const link = document.createElement('link');
+            link.id   = 'special-theme-css';
+            link.rel  = 'stylesheet';
+            link.href = 'assets/css/special.css';
+            document.head.appendChild(link);
+        }
+        document.documentElement.classList.add('special-theme');
+    } else {
+        document.documentElement.classList.remove('special-theme');
+        const existing = document.getElementById('special-theme-css');
+        if (existing) existing.remove();
+    }
+}
+
+// ページ読み込み時にキャッシュから即時適用（フラッシュ防止）
+(function () {
+    try {
+        const cached = localStorage.getItem('specialTheme');
+        if (cached) applySpecialTheme(JSON.parse(cached));
+    } catch (e) { /* キャッシュ破損時は無視 */ }
+})();

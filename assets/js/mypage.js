@@ -168,10 +168,12 @@ async function initializeMyPageContent() {
     
     await loadLotteryData();
     initializeLotteryPurchaseForm();
-    
+
     initializeGiftCodeFeature();
 
     controlTargetContinueFormDisplay();
+
+    initExercise();
 }
 
 
@@ -1328,3 +1330,92 @@ async function handleCheckLotteryResult(e) {
 
 
 window.onload = autoLogin;
+
+// ============================================================
+// 運動申請
+// ============================================================
+
+function initExercise() {
+    const form = document.getElementById('exercise-form');
+    if (!form) return;
+
+    loadExerciseHistory();
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const messageEl = document.getElementById('exercise-message');
+        const distance  = parseFloat(document.getElementById('exercise-distance').value);
+        const pace      = document.getElementById('exercise-pace').value.trim();
+        const imageFile = document.getElementById('exercise-image').files[0];
+
+        if (!imageFile) {
+            showMessage(messageEl, '❌ スクリーンショットを選択してください。', 'error');
+            return;
+        }
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        showMessage(messageEl, '⏳ アップロード中...', 'info');
+
+        try {
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload  = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(imageFile);
+            });
+
+            const res = await fetch('/.netlify/functions/exercise-submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    player: authenticatedUser.name,
+                    distance,
+                    pace,
+                    imageBase64: base64
+                })
+            });
+
+            const data = await res.json();
+            if (data.status === 'success') {
+                showMessage(messageEl, `✅ 申請を送信しました。承認後 ${data.points}P が付与されます。`, 'success');
+                form.reset();
+                await loadExerciseHistory();
+            } else {
+                showMessage(messageEl, `❌ ${data.message}`, 'error');
+            }
+        } catch (err) {
+            showMessage(messageEl, `❌ サーバーエラー: ${err.message}`, 'error');
+        } finally {
+            submitBtn.disabled = false;
+        }
+    });
+}
+
+async function loadExerciseHistory() {
+    const listEl = document.getElementById('exercise-history-list');
+    if (!listEl || !authenticatedUser) return;
+
+    try {
+        const currentData = await fetchAllData();
+        const reports = (currentData.exercise_reports || [])
+            .filter(r => r.player === authenticatedUser.name)
+            .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+            .slice(0, 5);
+
+        if (reports.length === 0) {
+            listEl.innerHTML = '<li>申請履歴はありません。</li>';
+            return;
+        }
+
+        listEl.innerHTML = reports.map(r => {
+            const date       = new Date(r.submittedAt).toLocaleDateString('ja-JP');
+            const statusIcon = r.status === 'approved' ? '✅' : r.status === 'rejected' ? '❌' : '⏳';
+            const statusText = r.status === 'approved' ? `承認済 (+${r.points}P)` :
+                               r.status === 'rejected' ? '却下' : '審査中';
+            return `<li>${statusIcon} ${date}　${r.distance}km　ペース: ${r.pace}　— ${statusText}</li>`;
+        }).join('');
+    } catch (err) {
+        listEl.innerHTML = '<li>履歴の読み込みに失敗しました。</li>';
+    }
+}

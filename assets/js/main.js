@@ -172,7 +172,7 @@ function renderLotteries(lotteries) {
         const totalTickets = l.tickets.reduce((sum, t) => sum + (t.count || 1), 0);
 
         html += `
-            <div class="bet-tile status-open">
+            <div class="bet-tile lottery-tile status-open">
                 <h4>🎟️ ${l.name} (#${l.lotteryId})</h4>
                 <div class="odds-info-display">
                     <p class="bet-deadline">価格: <strong>${l.ticketPrice.toFixed(1)} P /枚</strong></p>
@@ -300,6 +300,44 @@ function renderProducts(products) {
 
 document.getElementById('refresh-button').addEventListener('click', renderScores);
 
+// 食堂メニュー
+function loadCafeteriaMenu() {
+    const img = document.getElementById('tsudanuma-menu');
+    if (!img) return;
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const nm = month === 12 ? 1 : month + 1;
+    const ny = month === 12 ? year + 1 : year;
+
+    // 今月1〜5週目 → 翌月1週目 の順に試し、最初に見つかった画像を表示
+    const candidates = [
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_1.png`,
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_2.png`,
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_3.png`,
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_4.png`,
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_5.png`,
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${ny}${pad(nm)}_1.png`,
+    ];
+
+    function tryNext(i) {
+        if (i >= candidates.length) {
+            img.style.display = 'none';
+            return;
+        }
+        const probe = new Image();
+        probe.onload = function () { img.src = candidates[i]; };
+        probe.onerror = function () { tryNext(i + 1); };
+        probe.src = candidates[i];
+    }
+
+    tryNext(0);
+}
+
+loadCafeteriaMenu();
+
 // 食堂リアルタイムカメラ
 function getCameraTimestamp() {
     const d = new Date();
@@ -307,10 +345,25 @@ function getCameraTimestamp() {
     return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
+function isCameraActive() {
+    const d = new Date();
+    const day = d.getDay(); // 0=日, 6=土
+    const hour = d.getHours();
+    return day >= 1 && day <= 5 && hour >= 10 && hour < 14;
+}
+
 function refreshCafeteriaCamera() {
     const img = document.getElementById('tsudanuma');
-    if (img) {
+    const msg = document.getElementById('camera-closed-msg');
+    if (!img) return;
+
+    if (isCameraActive()) {
         img.src = `https://www.cit-s.com/i_catch/dining/tsudanuma.jpg?${getCameraTimestamp()}`;
+        img.style.display = 'block';
+        if (msg) msg.style.display = 'none';
+    } else {
+        img.style.display = 'none';
+        if (msg) msg.style.display = 'block';
     }
 }
 

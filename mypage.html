@@ -105,6 +105,31 @@
             </div>
 
             <div class="tool-box">
+                <h3>🏃 運動申請</h3>
+                <p class="instruction">ASICSアプリのスクリーンショットを添付してください。<br>距離100mにつき1P付与（マスター承認後）</p>
+                <form id="exercise-form">
+                    <div class="form-group">
+                        <label for="exercise-distance">距離 (km):</label>
+                        <input type="number" id="exercise-distance" step="0.01" min="0.1" required placeholder="例: 5.2">
+                    </div>
+                    <div class="form-group">
+                        <label for="exercise-pace">ペース (分/km):</label>
+                        <input type="text" id="exercise-pace" required placeholder="例: 6'30&quot;">
+                    </div>
+                    <div class="form-group">
+                        <label for="exercise-image">スクリーンショット:</label>
+                        <input type="file" id="exercise-image" accept="image/*" required>
+                    </div>
+                    <button type="submit" class="action-button w-auto" style="background-color: #20c997;">申請する</button>
+                </form>
+                <p id="exercise-message" class="hidden"></p>
+                <div class="mt-20">
+                    <h4>申請履歴 (最新5件)</h4>
+                    <ul id="exercise-history-list"><li>ロード中...</li></ul>
+                </div>
+            </div>
+
+            <div class="tool-box">
                 <h3>💸 ポイント送金</h3>
                 <p class="instruction">送金元: <strong id="authenticated-user-transfer"></strong></p>
                 <form id="transfer-form-mypage">
@@ -123,7 +148,7 @@
         <nav class="footer-nav">
             <a href="index.html"  class="input-link">ランキング</a>
             <a href="mypage.html" class="input-link">マイページ</a>
-            <a href="stock.html"  class="input-link">株式</a>
+            <a href="career.html" class="input-link">就活</a>
             <a href="master.html" class="input-link">マスター</a>
         </nav>
     </footer>

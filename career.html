@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>就活</title>
+    <link rel="icon" type="image/png" href="assets/icon.png">
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>就活</h1>
+    </header>
+
+    <main id="main-content">
+        <section id="auth-section">
+            <h2>認証</h2>
+            <form id="auth-form">
+                <div class="form-group">
+                    <label for="username">ユーザー名:</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">パスワード:</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit">ログイン</button>
+            </form>
+            <p id="auth-message" class="hidden"></p>
+        </section>
+
+        <section id="career-content" class="hidden">
+            <div class="tool-box flex-between">
+                <div>
+                    <h3>ようこそ、<span id="authenticated-user-name"></span>様！</h3>
+                    <p>現在のポイント残高: <strong id="current-score" class="text-large" style="color: var(--color-accent);"></strong> P</p>
+                </div>
+                <button type="button" id="logout-button" class="action-button secondary-button mt-10">ログアウト</button>
+            </div>
+
+            <!-- 投稿フォーム -->
+            <div class="tool-box">
+                <h3>📝 就活報告</h3>
+                <form id="career-post-form">
+                    <div class="form-group">
+                        <label for="post-type">種別:</label>
+                        <select id="post-type" required>
+                            <option value="" disabled selected>選択してください</option>
+                            <option value="pass_doc">📄 書類通過 (+2P)</option>
+                            <option value="pass_interview_1">💬 1次面接通過 (+3P)</option>
+                            <option value="pass_interview_2">💬 2次面接通過 (+3P)</option>
+                            <option value="pass_interview_3">💬 3次面接通過 (+3P)</option>
+                            <option value="pass_interview_final">💬 最終面接通過 (+3P)</option>
+                            <option value="offer">🎉 内定 (+10P・全員に10P)</option>
+                            <option value="info">💡 情報共有 (投げ銭のみ)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="post-company">企業名:</label>
+                        <input type="text" id="post-company" required placeholder="例: 株式会社〇〇">
+                    </div>
+                    <div class="form-group">
+                        <label for="post-content">メモ (任意):</label>
+                        <input type="text" id="post-content" placeholder="例: 面接でこんな質問が出た など">
+                    </div>
+                    <button type="submit" class="action-button w-auto" style="background-color: #4a90d9;">投稿する</button>
+                </form>
+                <p id="post-message" class="hidden"></p>
+            </div>
+
+            <!-- ランキング -->
+            <div class="tool-box">
+                <h3>🏆 就活ランキング</h3>
+                <div id="career-ranking-container"><p>ロード中...</p></div>
+            </div>
+
+            <!-- タイムライン -->
+            <div class="tool-box">
+                <h3>📰 タイムライン</h3>
+                <div id="career-timeline-container"><p>ロード中...</p></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <nav class="footer-nav">
+            <a href="index.html"  class="input-link">ランキング</a>
+            <a href="mypage.html" class="input-link">マイページ</a>
+            <a href="career.html" class="input-link">就活</a>
+            <a href="master.html" class="input-link">マスター</a>
+        </nav>
+    </footer>
+
+    <script src="assets/js/common.js"></script>
+    <script src="assets/js/career.js"></script>
+</body>
+</html>
