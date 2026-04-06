@@ -27,11 +27,20 @@
         <button id="refresh-button">🔄 ランキング更新</button>
 
         <div class="info-box mt-20">
-            <h3 class="icon-title">📷 津田沼 学生食堂 (リアルタイム)</h3>
-            <img alt="津田沼 学生食堂" id="tsudanuma" class="p-realcatch-image"
-                 src="https://www.cit-s.com/i_catch/dining/tsudanuma.jpg"
-                 style="width:100%; border-radius:2px; display:block;">
-            <p id="camera-closed-msg" style="display:none; text-align:center; color:#888; padding:8px 0;">📷 カメラは10:00〜14:00の間のみ表示されます</p>
+            <h3 class="icon-title">📷 学生食堂情報</h3>
+            <div class="cafeteria-layout">
+                <div class="cafeteria-panel">
+                    <p class="cafeteria-label">リアルタイムカメラ (津田沼)</p>
+                    <img alt="津田沼 学生食堂" id="tsudanuma" class="p-realcatch-image"
+                         src="https://www.cit-s.com/i_catch/dining/tsudanuma.jpg"
+                         style="width:100%; border-radius:2px; display:block;">
+                </div>
+                <div class="cafeteria-panel">
+                    <p class="cafeteria-label">今週のメニュー</p>
+                    <img alt="津田沼 学生食堂メニュー" id="tsudanuma-menu"
+                         style="width:100%; border-radius:2px; display:block;">
+                </div>
+            </div>
         </div>
 
         <div class="info-box mt-20">

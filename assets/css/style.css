@@ -647,6 +647,28 @@ label {
 
 .mt-10 { margin-top: 10px; }
 .mt-20 { margin-top: 20px; }
+
+/* --- 学生食堂情報 --- */
+.cafeteria-layout {
+    display: flex;
+    gap: 16px;
+}
+.cafeteria-panel {
+    flex: 1;
+    min-width: 0;
+}
+.cafeteria-label {
+    font-size: 0.78em;
+    color: var(--color-indigo);
+    text-align: center;
+    margin: 0 0 6px;
+    letter-spacing: 1px;
+}
+@media (max-width: 480px) {
+    .cafeteria-layout {
+        flex-direction: column;
+    }
+}
 .mb-20 { margin-bottom: 20px; }
 .p-0   { padding: 0; }
 .border-none { border: none; }
