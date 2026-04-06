@@ -120,11 +120,11 @@ header::after {
 header h1 {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 2.4em;
+    font-size: 1.8em;
     letter-spacing: 6px;
     margin: 0;
     display: inline-block;
-    padding: 12px 40px;
+    padding: 10px 24px;
     border-top: var(--deco-line-thick);
     border-bottom: var(--deco-line-thick);
     position: relative;
@@ -837,17 +837,17 @@ label {
 .weather-day {
     display: flex;
     align-items: center;
-    gap: 3px;
-    font-size: 0.72em;
+    gap: 4px;
+    font-size: 0.95em;
     color: var(--color-indigo);
 }
 
 .weather-day .w-icon {
-    font-size: 1.1em;
+    font-size: 1.3em;
 }
 
 .weather-day .w-temp {
-    font-size: 0.9em;
+    font-size: 0.95em;
     letter-spacing: 0.5px;
 }
 
