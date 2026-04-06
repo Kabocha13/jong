@@ -57,7 +57,7 @@ exports.handler = async (event) => {
         }
 
         const distanceNum = parseFloat(distance);
-        const points = parseFloat((distanceNum * 1.0).toFixed(1));
+        const points = parseFloat((distanceNum * 10).toFixed(1));
 
         const report = {
             id: `ex_${Date.now()}`,
