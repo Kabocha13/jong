@@ -300,6 +300,35 @@ function renderProducts(products) {
 
 document.getElementById('refresh-button').addEventListener('click', renderScores);
 
+// 食堂メニュー
+function getCafeteriaMenuUrl(date) {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    const week = Math.ceil(date.getDate() / 7);
+    const pad = n => String(n).padStart(2, '0');
+    return { url: `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_${week}.png`, week };
+}
+
+function loadCafeteriaMenu() {
+    const img = document.getElementById('tsudanuma-menu');
+    if (!img) return;
+    const now = new Date();
+    const { url, week } = getCafeteriaMenuUrl(now);
+    img.onerror = function () {
+        if (week === 5) {
+            const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            const { url: fallbackUrl } = getCafeteriaMenuUrl(nextMonth);
+            img.onerror = null;
+            img.src = fallbackUrl;
+        } else {
+            img.style.display = 'none';
+        }
+    };
+    img.src = url;
+}
+
+loadCafeteriaMenu();
+
 // 食堂リアルタイムカメラ
 function getCameraTimestamp() {
     const d = new Date();
