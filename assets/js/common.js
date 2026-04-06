@@ -20,11 +20,46 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// 短時間キャッシュ (同一ページ内の連続呼び出しをまとめる)
+let _fetchCache = null;
+let _fetchCacheTime = 0;
+let _fetchInFlight = null;
+const FETCH_CACHE_TTL = 10000; // 10秒間キャッシュ
+
 /**
  * Netlify Functionを経由して、最新の全データを取得する関数
  * @returns {Promise<object>} 全データ (scores, sports_bets, speedstorm_records, lotteries)
  */
 async function fetchAllData() {
+    // キャッシュが有効なら即返す
+    if (_fetchCache && (Date.now() - _fetchCacheTime) < FETCH_CACHE_TTL) {
+        return _fetchCache;
+    }
+    // 同時リクエスト中なら同じPromiseを返す (重複リクエスト防止)
+    if (_fetchInFlight) {
+        return _fetchInFlight;
+    }
+    _fetchInFlight = _fetchAllDataRaw().then(data => {
+        _fetchCache = data;
+        _fetchCacheTime = Date.now();
+        _fetchInFlight = null;
+        return data;
+    }).catch(err => {
+        _fetchInFlight = null;
+        throw err;
+    });
+    return _fetchInFlight;
+}
+
+/**
+ * キャッシュを破棄して強制的に最新データを取得する
+ */
+function invalidateFetchCache() {
+    _fetchCache = null;
+    _fetchCacheTime = 0;
+}
+
+async function _fetchAllDataRaw() {
     const MAX_RETRIES = 3;
     let attempt = 0;
     let delayMs = 1000;
@@ -95,6 +130,8 @@ async function fetchScores() {
  * @returns {Promise<object>} APIからの応答
  */
 async function updateAllData(newData) {
+    // 書き込み前にキャッシュを破棄して次回fetchで最新を取得させる
+    invalidateFetchCache();
 
     const MAX_RETRIES = 3;
     let attempt = 0;
