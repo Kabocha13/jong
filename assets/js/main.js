@@ -422,31 +422,32 @@ setInterval(refreshCafeteriaCamera, 60000);
 
 // 天気予報（今日・明日）
 (function () {
-    const WMO_ICON = {
-        0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
-        45: '🌫️', 48: '🌫️',
-        51: '🌦️', 53: '🌦️', 55: '🌧️',
-        61: '🌧️', 63: '🌧️', 65: '🌧️',
-        71: '🌨️', 73: '🌨️', 75: '🌨️',
-        80: '🌦️', 81: '🌧️', 82: '⛈️',
-        95: '⛈️', 96: '⛈️', 99: '⛈️',
+    // wttr.in の天気コード → 絵文字
+    const WTTR_ICON = {
+        113: '☀️', 116: '🌤️', 119: '⛅', 122: '☁️',
+        143: '🌫️', 248: '🌫️', 260: '🌫️',
+        176: '🌦️', 263: '🌦️', 266: '🌦️', 293: '🌦️', 296: '🌦️', 353: '🌦️',
+        179: '🌨️', 227: '🌨️', 320: '🌨️', 323: '🌨️', 326: '🌨️', 368: '🌨️',
+        182: '🌧️', 185: '🌧️', 281: '🌧️', 284: '🌧️', 299: '🌧️', 302: '🌧️',
+        305: '🌧️', 308: '🌧️', 311: '🌧️', 314: '🌧️', 317: '🌧️', 356: '🌧️',
+        359: '🌧️', 362: '🌧️', 365: '🌧️', 374: '🌧️', 377: '🌧️',
+        230: '❄️', 329: '❄️', 332: '❄️', 335: '❄️', 338: '❄️', 350: '❄️', 371: '❄️',
+        200: '⛈️', 386: '⛈️', 389: '⛈️', 392: '⛈️', 395: '⛈️',
     };
-
-    function wmoIcon(code) {
-        return WMO_ICON[code] ?? '🌡️';
-    }
 
     async function renderWeather() {
         const bar = document.getElementById('weather-bar');
         if (!bar) return;
         try {
-            const res = await fetch('/.netlify/functions/weather');
+            // wttr.in は CORS ヘッダーを返すのでクライアントから直接取得可能
+            const res = await fetch('https://wttr.in/35.68,140.02?format=j1');
             const data = await res.json();
-            const { weather_code, temperature_2m_max, temperature_2m_min } = data.daily;
             bar.innerHTML = [0, 1].map(i => {
-                const icon = wmoIcon(weather_code[i]);
-                const hi = Math.round(temperature_2m_max[i]);
-                const lo = Math.round(temperature_2m_min[i]);
+                const day = data.weather[i];
+                const code = parseInt(day.hourly[4].weatherCode); // 正午のコード
+                const icon = WTTR_ICON[code] ?? '🌡️';
+                const hi = Math.round(parseFloat(day.maxtempC));
+                const lo = Math.round(parseFloat(day.mintempC));
                 return `<span class="weather-day"><span class="w-icon">${icon}</span><span class="w-temp">${hi}°/${lo}°</span></span>`;
             }).join('');
         } catch {
