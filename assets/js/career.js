@@ -4,16 +4,14 @@
 // 定数
 // ============================================================
 const POST_TYPES = {
-    pass_doc:              { label: '📄 書類通過',      points: 2 },
-    pass_interview_1:      { label: '💬 1次面接通過',   points: 3 },
-    pass_interview_2:      { label: '💬 2次面接通過',   points: 3 },
-    pass_interview_3:      { label: '💬 3次面接通過',   points: 3 },
-    pass_interview_final:  { label: '💬 最終面接通過',  points: 3 },
-    offer:                 { label: '🎉 内定',          points: 10 },
-    info:                  { label: '💡 情報共有',      points: 0  },
+    pass_doc:              { label: '📄 書類通過',      points: 20 },
+    pass_interview_1:      { label: '💬 1次面接通過',   points: 30 },
+    pass_interview_2:      { label: '💬 2次面接通過',   points: 30 },
+    pass_interview_3:      { label: '💬 3次面接通過',   points: 30 },
+    pass_interview_final:  { label: '💬 最終面接通過',  points: 30 },
+    offer:                 { label: '🎉 内定',          points: 100 },
 };
-const OFFER_BONUS     = 10;  // 内定時に全員へ配布するボーナスP
-const TIP_AMOUNT      = 1;   // 投げ銭額
+const OFFER_BONUS     = 100;  // 内定時に全員へ配布するボーナスP
 
 // ============================================================
 // 状態
@@ -86,7 +84,6 @@ document.getElementById('career-post-form').addEventListener('submit', async (e)
     const messageEl  = document.getElementById('post-message');
     const type       = document.getElementById('post-type').value;
     const company    = document.getElementById('post-company').value.trim();
-    const content    = document.getElementById('post-content').value.trim();
     const submitBtn  = e.target.querySelector('button[type="submit"]');
 
     if (!type || !company) {
@@ -104,11 +101,8 @@ document.getElementById('career-post-form').addEventListener('submit', async (e)
             player:     authenticatedUser.name,
             type,
             company,
-            content,
             postedAt:   new Date().toISOString(),
             points:     postDef.points,
-            tips:       0,
-            tippedBy:   [],
         };
 
         // スコアをMapで管理
@@ -167,68 +161,6 @@ document.getElementById('career-post-form').addEventListener('submit', async (e)
 });
 
 // ============================================================
-// 投げ銭
-// ============================================================
-async function tipPost(postId) {
-    const messageEl = document.getElementById('post-message');
-    try {
-        const currentData = await fetchAllData();
-        const posts       = currentData.career_posts || [];
-        const post        = posts.find(p => p.id === postId);
-
-        if (!post) {
-            showMessage(messageEl, '❌ 投稿が見つかりません。', 'error');
-            return;
-        }
-        if (post.player === authenticatedUser.name) {
-            showMessage(messageEl, '❌ 自分の投稿には投げ銭できません。', 'error');
-            return;
-        }
-        if (post.tippedBy.includes(authenticatedUser.name)) {
-            showMessage(messageEl, '❌ すでに投げ銭済みです。', 'error');
-            return;
-        }
-
-        const scoreMap = new Map(currentData.scores.map(s => [s.name, { ...s }]));
-        const tipper   = scoreMap.get(authenticatedUser.name);
-        const receiver = scoreMap.get(post.player);
-
-        if (!tipper || tipper.score < TIP_AMOUNT) {
-            showMessage(messageEl, '❌ ポイントが不足しています。', 'error');
-            return;
-        }
-
-        tipper.score   = parseFloat((tipper.score   - TIP_AMOUNT).toFixed(1));
-        receiver.score = parseFloat((receiver.score + TIP_AMOUNT).toFixed(1));
-        post.tips      = parseFloat(((post.tips || 0) + TIP_AMOUNT).toFixed(1));
-        post.tippedBy  = [...post.tippedBy, authenticatedUser.name];
-
-        const newData = {
-            scores:               Array.from(scoreMap.values()),
-            sports_bets:          currentData.sports_bets          || [],
-            speedstorm_records:   currentData.speedstorm_records    || [],
-            lotteries:            currentData.lotteries             || [],
-            gift_codes:           currentData.gift_codes            || [],
-            electric_chair_games: currentData.electric_chair_games  || [],
-            exercise_reports:     currentData.exercise_reports      || [],
-            career_posts:         posts,
-        };
-
-        const res = await updateAllData(newData);
-        if (res.status === 'success') {
-            authenticatedUser.score = tipper.score;
-            document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
-            showMessage(messageEl, `✅ ${post.player} さんに ${TIP_AMOUNT}P 投げ銭しました！`, 'success');
-            await renderAll();
-        } else {
-            showMessage(messageEl, `❌ エラー: ${res.message}`, 'error');
-        }
-    } catch (err) {
-        showMessage(messageEl, `❌ サーバーエラー: ${err.message}`, 'error');
-    }
-}
-
-// ============================================================
 // レンダリング
 // ============================================================
 async function renderAll() {
@@ -246,17 +178,8 @@ function renderTimeline(posts) {
 
     const sorted = [...posts].sort((a, b) => new Date(b.postedAt) - new Date(a.postedAt));
     container.innerHTML = sorted.map(post => {
-        const def       = POST_TYPES[post.type] || { label: post.type };
-        const date      = new Date(post.postedAt).toLocaleDateString('ja-JP');
-        const memo      = post.content ? `<p style="margin:4px 0 0;color:#555;font-size:0.9em;">${escapeHtml(post.content)}</p>` : '';
-        const tipCount  = post.tips || 0;
-        const alreadyTipped = (post.tippedBy || []).includes(authenticatedUser.name);
-        const isSelf    = post.player === authenticatedUser.name;
-        const tipBtn    = (!isSelf && !alreadyTipped)
-            ? `<button onclick="tipPost('${post.id}')" style="background:none;border:1px solid #ccc;border-radius:4px;padding:2px 10px;cursor:pointer;font-size:0.85em;">💰 投げ銭</button>`
-            : `<span style="color:#aaa;font-size:0.85em;">${alreadyTipped ? '💰 投げ銭済' : ''}</span>`;
-        const tipsText  = tipCount > 0 ? `<span style="color:#f39c12;font-size:0.85em;">💰 ${tipCount}P</span>` : '';
-
+        const def  = POST_TYPES[post.type] || { label: post.type };
+        const date = new Date(post.postedAt).toLocaleDateString('ja-JP');
         return `
         <div style="border-left:4px solid ${typeColor(post.type)};padding:10px 14px;margin-bottom:12px;background:#fafafa;border-radius:0 6px 6px 0;">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
@@ -264,11 +187,6 @@ function renderTimeline(posts) {
                 <span style="color:#888;font-size:0.85em;">${date}</span>
             </div>
             <p style="margin:4px 0 0;font-size:1em;">🏢 ${escapeHtml(post.company)}</p>
-            ${memo}
-            <div style="margin-top:8px;display:flex;align-items:center;gap:10px;">
-                ${tipBtn}
-                ${tipsText}
-            </div>
         </div>`;
     }).join('');
 }
