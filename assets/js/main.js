@@ -288,44 +288,6 @@ function renderProducts(products) {
 
 document.getElementById('refresh-button').addEventListener('click', renderScores);
 
-// 授業スケジュール (0=日, 1=月, 2=火, 3=水, 4=木, 5=金, 6=土)
-const CLASS_SCHEDULE = {
-    1: [{hour: 9, room: 635}, {hour: 11, room: 635}, {hour: 14, room: 635}],
-    2: [{hour: 9, room: 635}],
-    3: [{hour: 9, room: 431}, {hour: 11, room: 431}],
-    4: [{hour: 9, room: 643}, {hour: 11, room: 632}],
-    5: [{hour: 10, room: 632}, {hour: 13, room: 710}],
-};
-
-function updateAttendanceButton() {
-    const bar = document.getElementById('attendance-bar');
-    if (!bar) return;
-
-    const now = new Date();
-    const day = now.getDay();
-    const currentMin = now.getHours() * 60 + now.getMinutes();
-
-    const todayClasses = CLASS_SCHEDULE[day] || [];
-    let activeClass = null;
-
-    for (const cls of todayClasses) {
-        const startMin = cls.hour * 60;
-        if (currentMin >= startMin - 30 && currentMin < startMin + 60) {
-            activeClass = cls;
-            break;
-        }
-    }
-
-    if (!activeClass) {
-        bar.innerHTML = '';
-        return;
-    }
-
-    bar.innerHTML = `<a href="https://attendance.is.it-chiba.ac.jp/attendance/class_room/${activeClass.room}" target="_blank" class="attendance-button">📋 出席登録</a>`;
-}
-
-updateAttendanceButton();
-setInterval(updateAttendanceButton, 60000);
 
 /**
  * ホーム画面の就活ランキングを描画する関数
@@ -492,11 +454,12 @@ setInterval(refreshCafeteriaCamera, 60000);
                 return `<span class="weather-day"><span class="w-icon">${icon}</span><span class="w-temp">${hi}°/${lo}°</span></span>`;
             }).join('');
         } catch {
-            bar.innerHTML = '';
+            // keep existing content on error; do not clear
         }
     }
 
     renderWeather();
+    setInterval(renderWeather, 3600000); // 1時間ごとに更新
 }());
 
 // 出席登録ボタン
