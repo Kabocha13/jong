@@ -84,7 +84,6 @@ document.getElementById('career-post-form').addEventListener('submit', async (e)
     const messageEl  = document.getElementById('post-message');
     const type       = document.getElementById('post-type').value;
     const company    = document.getElementById('post-company').value.trim();
-    const content    = document.getElementById('post-content').value.trim();
     const submitBtn  = e.target.querySelector('button[type="submit"]');
 
     if (!type || !company) {
@@ -102,7 +101,6 @@ document.getElementById('career-post-form').addEventListener('submit', async (e)
             player:     authenticatedUser.name,
             type,
             company,
-            content,
             postedAt:   new Date().toISOString(),
             points:     postDef.points,
         };
@@ -182,8 +180,6 @@ function renderTimeline(posts) {
     container.innerHTML = sorted.map(post => {
         const def  = POST_TYPES[post.type] || { label: post.type };
         const date = new Date(post.postedAt).toLocaleDateString('ja-JP');
-        const memo = post.content ? `<p style="margin:4px 0 0;color:#555;font-size:0.9em;">${escapeHtml(post.content)}</p>` : '';
-
         return `
         <div style="border-left:4px solid ${typeColor(post.type)};padding:10px 14px;margin-bottom:12px;background:#fafafa;border-radius:0 6px 6px 0;">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
@@ -191,7 +187,6 @@ function renderTimeline(posts) {
                 <span style="color:#888;font-size:0.85em;">${date}</span>
             </div>
             <p style="margin:4px 0 0;font-size:1em;">🏢 ${escapeHtml(post.company)}</p>
-            ${memo}
         </div>`;
     }).join('');
 }
