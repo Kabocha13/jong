@@ -4,14 +4,14 @@
 // 定数
 // ============================================================
 const POST_TYPES = {
-    pass_doc:              { label: '📄 書類通過',      points: 2 },
-    pass_interview_1:      { label: '💬 1次面接通過',   points: 3 },
-    pass_interview_2:      { label: '💬 2次面接通過',   points: 3 },
-    pass_interview_3:      { label: '💬 3次面接通過',   points: 3 },
-    pass_interview_final:  { label: '💬 最終面接通過',  points: 3 },
-    offer:                 { label: '🎉 内定',          points: 10 },
+    pass_doc:              { label: '📄 書類通過',      points: 20 },
+    pass_interview_1:      { label: '💬 1次面接通過',   points: 30 },
+    pass_interview_2:      { label: '💬 2次面接通過',   points: 30 },
+    pass_interview_3:      { label: '💬 3次面接通過',   points: 30 },
+    pass_interview_final:  { label: '💬 最終面接通過',  points: 30 },
+    offer:                 { label: '🎉 内定',          points: 100 },
 };
-const OFFER_BONUS     = 10;  // 内定時に全員へ配布するボーナスP
+const OFFER_BONUS     = 100;  // 内定時に全員へ配布するボーナスP
 
 // ============================================================
 // 状態
