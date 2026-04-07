@@ -288,44 +288,6 @@ function renderProducts(products) {
 
 document.getElementById('refresh-button').addEventListener('click', renderScores);
 
-// 授業スケジュール (0=日, 1=月, 2=火, 3=水, 4=木, 5=金, 6=土)
-const CLASS_SCHEDULE = {
-    1: [{hour: 9, room: 635}, {hour: 11, room: 635}, {hour: 14, room: 635}],
-    2: [{hour: 9, room: 635}],
-    3: [{hour: 9, room: 431}, {hour: 11, room: 431}],
-    4: [{hour: 9, room: 643}, {hour: 11, room: 632}],
-    5: [{hour: 10, room: 632}, {hour: 13, room: 710}],
-};
-
-function updateAttendanceButton() {
-    const bar = document.getElementById('attendance-bar');
-    if (!bar) return;
-
-    const now = new Date();
-    const day = now.getDay();
-    const currentMin = now.getHours() * 60 + now.getMinutes();
-
-    const todayClasses = CLASS_SCHEDULE[day] || [];
-    let activeClass = null;
-
-    for (const cls of todayClasses) {
-        const startMin = cls.hour * 60;
-        if (currentMin >= startMin - 30 && currentMin < startMin + 60) {
-            activeClass = cls;
-            break;
-        }
-    }
-
-    if (!activeClass) {
-        bar.innerHTML = '';
-        return;
-    }
-
-    bar.innerHTML = `<a href="https://attendance.is.it-chiba.ac.jp/attendance/class_room/${activeClass.room}" target="_blank" class="attendance-button">📋 出席登録</a>`;
-}
-
-updateAttendanceButton();
-setInterval(updateAttendanceButton, 60000);
 
 /**
  * ホーム画面の就活ランキングを描画する関数
@@ -460,43 +422,41 @@ setInterval(refreshCafeteriaCamera, 60000);
 
 // 天気予報（今日・明日）
 (function () {
-    const WMO_ICON = {
-        0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
-        45: '🌫️', 48: '🌫️',
-        51: '🌦️', 53: '🌦️', 55: '🌧️',
-        61: '🌧️', 63: '🌧️', 65: '🌧️',
-        71: '🌨️', 73: '🌨️', 75: '🌨️',
-        80: '🌦️', 81: '🌧️', 82: '⛈️',
-        95: '⛈️', 96: '⛈️', 99: '⛈️',
+    // wttr.in の天気コード → 絵文字
+    const WTTR_ICON = {
+        113: '☀️', 116: '🌤️', 119: '⛅', 122: '☁️',
+        143: '🌫️', 248: '🌫️', 260: '🌫️',
+        176: '🌦️', 263: '🌦️', 266: '🌦️', 293: '🌦️', 296: '🌦️', 353: '🌦️',
+        179: '🌨️', 227: '🌨️', 320: '🌨️', 323: '🌨️', 326: '🌨️', 368: '🌨️',
+        182: '🌧️', 185: '🌧️', 281: '🌧️', 284: '🌧️', 299: '🌧️', 302: '🌧️',
+        305: '🌧️', 308: '🌧️', 311: '🌧️', 314: '🌧️', 317: '🌧️', 356: '🌧️',
+        359: '🌧️', 362: '🌧️', 365: '🌧️', 374: '🌧️', 377: '🌧️',
+        230: '❄️', 329: '❄️', 332: '❄️', 335: '❄️', 338: '❄️', 350: '❄️', 371: '❄️',
+        200: '⛈️', 386: '⛈️', 389: '⛈️', 392: '⛈️', 395: '⛈️',
     };
-
-    function wmoIcon(code) {
-        return WMO_ICON[code] ?? '🌡️';
-    }
 
     async function renderWeather() {
         const bar = document.getElementById('weather-bar');
         if (!bar) return;
         try {
-            const res = await fetch(
-                'https://api.open-meteo.com/v1/forecast?latitude=35.68&longitude=140.02' +
-                '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
-                '&timezone=Asia%2FTokyo&forecast_days=2'
-            );
+            // wttr.in は CORS ヘッダーを返すのでクライアントから直接取得可能
+            const res = await fetch('https://wttr.in/35.68,140.02?format=j1');
             const data = await res.json();
-            const { weather_code, temperature_2m_max, temperature_2m_min } = data.daily;
             bar.innerHTML = [0, 1].map(i => {
-                const icon = wmoIcon(weather_code[i]);
-                const hi = Math.round(temperature_2m_max[i]);
-                const lo = Math.round(temperature_2m_min[i]);
+                const day = data.weather[i];
+                const code = parseInt(day.hourly[4].weatherCode); // 正午のコード
+                const icon = WTTR_ICON[code] ?? '🌡️';
+                const hi = Math.round(parseFloat(day.maxtempC));
+                const lo = Math.round(parseFloat(day.mintempC));
                 return `<span class="weather-day"><span class="w-icon">${icon}</span><span class="w-temp">${hi}°/${lo}°</span></span>`;
             }).join('');
         } catch {
-            bar.innerHTML = '';
+            // keep existing content on error; do not clear
         }
     }
 
     renderWeather();
+    setInterval(renderWeather, 3600000); // 1時間ごとに更新
 }());
 
 // 出席登録ボタン
@@ -506,7 +466,7 @@ setInterval(refreshCafeteriaCamera, 60000);
         1: [ // 月曜
             { start: '08:30', end: '10:00', room: 635 },
             { start: '10:30', end: '12:00', room: 635 },
-            { start: '13:30', end: '15:00', room: 635 },
+            { start: '13:30', end: '15:00', room: '010201' },
         ],
         2: [ // 火曜
             { start: '08:30', end: '10:00', room: 635 },
@@ -521,7 +481,7 @@ setInterval(refreshCafeteriaCamera, 60000);
         ],
         5: [ // 金曜
             { start: '09:30', end: '11:00', room: 632 },
-            { start: '12:30', end: '14:00', room: 711 },
+            { start: '12:30', end: '14:00', room: '070104' },
         ],
     };
 
