@@ -466,7 +466,7 @@ setInterval(refreshCafeteriaCamera, 60000);
         1: [ // 月曜
             { start: '08:30', end: '10:00', room: 635 },
             { start: '10:30', end: '12:00', room: 635 },
-            { start: '13:30', end: '15:00', room: 635 },
+            { start: '13:30', end: '15:00', room: '010201' },
         ],
         2: [ // 火曜
             { start: '08:30', end: '10:00', room: 635 },
@@ -481,7 +481,7 @@ setInterval(refreshCafeteriaCamera, 60000);
         ],
         5: [ // 金曜
             { start: '09:30', end: '11:00', room: 632 },
-            { start: '12:30', end: '14:00', room: 711 },
+            { start: '12:30', end: '14:00', room: '070104' },
         ],
     };
 
