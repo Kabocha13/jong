@@ -440,11 +440,7 @@ setInterval(refreshCafeteriaCamera, 60000);
         const bar = document.getElementById('weather-bar');
         if (!bar) return;
         try {
-            const res = await fetch(
-                'https://api.open-meteo.com/v1/forecast?latitude=35.68&longitude=140.02' +
-                '&daily=weather_code,temperature_2m_max,temperature_2m_min' +
-                '&timezone=Asia%2FTokyo&forecast_days=2'
-            );
+            const res = await fetch('/.netlify/functions/weather');
             const data = await res.json();
             const { weather_code, temperature_2m_max, temperature_2m_min } = data.daily;
             bar.innerHTML = [0, 1].map(i => {
