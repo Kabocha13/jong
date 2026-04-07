@@ -19,7 +19,6 @@ function renderWithData(allData, isStale = false) {
     const rawScores = allData.scores || [];
     const sportsBets = allData.sports_bets || [];
     const lotteries = allData.lotteries || [];
-    const products = allData.product || [];
     const careerPosts = allData.career_posts || [];
 
     if (rawScores.length === 0) {
@@ -55,7 +54,6 @@ function renderWithData(allData, isStale = false) {
 
     renderSportsBets(sportsBets, displayScores);
     renderLotteries(lotteries);
-    renderProducts(products);
     renderHomeCareer(careerPosts);
 
     const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -261,30 +259,6 @@ function renderSportsBets(sportsBets, displayScores) {
 
 // 初期ロードとボタンイベント
 window.onload = renderScores;
-
-/**
- * 交換商品リストを描画する関数
- * @param {Array<Object>} products - product データ [{name, money}, ...]
- */
-function renderProducts(products) {
-    const container = document.getElementById('product-list-container');
-    if (!container) return;
-
-    if (!products || products.length === 0) {
-        container.innerHTML = '<p class="info-text">交換商品データがありません。</p>';
-        return;
-    }
-
-    let html = '<ul class="product-list">';
-    products.forEach(p => {
-        html += `<li class="product-item">
-            <span class="product-name">${p.name}</span>
-            <span class="product-price">${p.money}</span>
-        </li>`;
-    });
-    html += '</ul>';
-    container.innerHTML = html;
-}
 
 document.getElementById('refresh-button').addEventListener('click', renderScores);
 

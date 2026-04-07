@@ -245,13 +245,6 @@ html.special-theme .info-text   { color: #a08060; }
 html.special-theme .update-info { color: #a08060; }
 
 /* ============================================================
-   交換商品
-   ============================================================ */
-html.special-theme .product-item { border-bottom-color: rgba(212, 175, 55, 0.1); }
-html.special-theme .product-item:hover { background-color: #1a1a10; }
-html.special-theme .product-name { color: #c8b888; }
-
-/* ============================================================
    セカンダリボタン
    ============================================================ */
 html.special-theme .secondary-button {

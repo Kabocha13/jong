@@ -37,7 +37,6 @@ exports.handler = async (event) => {
         if (!record.speedstorm_records) record.speedstorm_records = [];
         if (!record.lotteries) record.lotteries = [];
         if (!record.gift_codes) record.gift_codes = [];
-        if (!record.product) record.product = [];
         if (!record.exercise_reports) record.exercise_reports = [];
         if (!record.career_posts) record.career_posts = [];
         if (record.special_theme === undefined) record.special_theme = null;
