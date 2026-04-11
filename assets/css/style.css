@@ -427,7 +427,6 @@ button[type="submit"]:hover,
 }
 
 .luxury-mark { -webkit-text-fill-color: var(--color-gold); color: var(--color-gold); }
-.premium-mark { -webkit-text-fill-color: #a8c0d8; color: #a8c0d8; }
 .pro-mark { -webkit-text-fill-color: var(--color-gold); color: var(--color-gold); opacity: 0.75; }
 
 /* --- スポーツくじ・宝くじタイル --- */

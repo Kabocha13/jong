@@ -37,8 +37,6 @@ function renderWithData(allData, isStale = false) {
         if (player.status === 'luxury') {
             memberMark = '<span class="luxury-mark" title="ラグジュアリー会員">💎</span>';
             nameClass += ' luxury-name';
-        } else if (player.status === 'premium') {
-            memberMark = '<span class="premium-mark" title="プレミアム会員">👑</span>';
         } else if (player.status === 'pro') {
             memberMark = '<span class="pro-mark" title="プロ会員">⭐</span>';
         }

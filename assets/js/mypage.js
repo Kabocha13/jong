@@ -197,9 +197,8 @@ function controlTargetContinueFormDisplay() {
 // -----------------------------------------------------------------
 
 function initializeMemberBonusFeature() {
-    const isMember = authenticatedUser && 
-                     (authenticatedUser.status === 'pro' || 
-                      authenticatedUser.status === 'premium' ||
+    const isMember = authenticatedUser &&
+                     (authenticatedUser.status === 'pro' ||
                       authenticatedUser.status === 'luxury');
     
     if (isMember) {
@@ -227,13 +226,8 @@ function updateMemberBonusDisplay() {
     if (MEMBER_STATUS === 'luxury') {
         BONUS_AMOUNT = 10.0;
         MEMBER_TYPE = 'Luxury';
-        REFRESH_INTERVAL = 3600000; 
+        REFRESH_INTERVAL = 3600000;
         REFRESH_TEXT = '1時間ごと';
-    } else if (MEMBER_STATUS === 'premium') {
-        BONUS_AMOUNT = 15.0; 
-        MEMBER_TYPE = 'Premium';
-        REFRESH_INTERVAL = 86400000; 
-        REFRESH_TEXT = '24時間ごと';
     } else if (MEMBER_STATUS === 'pro') {
         BONUS_AMOUNT = 10.0;
         MEMBER_TYPE = 'Pro';
@@ -294,9 +288,6 @@ if (PRO_BONUS_BUTTON) {
         if (MEMBER_STATUS === 'luxury') {
             BONUS_AMOUNT = 10.0;
             REFRESH_INTERVAL = 3600000;
-        } else if (MEMBER_STATUS === 'premium') {
-            BONUS_AMOUNT = 15.0; 
-            REFRESH_INTERVAL = 86400000;
         } else if (MEMBER_STATUS === 'pro') {
             BONUS_AMOUNT = 10.0;
             REFRESH_INTERVAL = 86400000;
