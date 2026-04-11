@@ -203,6 +203,21 @@ function initializeMemberBonusFeature() {
     updateMemberBonusDisplay();
 }
 
+function triggerBonusAnimation(type, floatText) {
+    if (!PRO_BONUS_TOOL) return;
+    const animClass = type === 'success' ? 'bonus-animate-success' : 'bonus-animate-penalty';
+    PRO_BONUS_TOOL.classList.remove('bonus-animate-success', 'bonus-animate-penalty');
+    void PRO_BONUS_TOOL.offsetWidth; // reflow で再トリガー
+    PRO_BONUS_TOOL.classList.add(animClass);
+
+    const floatEl = document.createElement('span');
+    floatEl.className = 'bonus-float-text';
+    floatEl.textContent = floatText;
+    floatEl.style.color = type === 'success' ? '#38c172' : '#e74c3c';
+    PRO_BONUS_TOOL.appendChild(floatEl);
+    floatEl.addEventListener('animationend', () => floatEl.remove());
+}
+
 function getTodayJST() {
     const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000);
     return nowJST.toISOString().slice(0, 10);
@@ -239,7 +254,17 @@ function updateMemberBonusDisplay() {
         PRO_BONUS_INSTRUCTION.innerHTML = `${memberType}会員: ボタンを押すたびに <strong>+${bonusAmount.toFixed(1)} P</strong>（1日何回でも押せます）`;
     }
     if (PRO_BONUS_PROBABILITY) {
-        PRO_BONUS_PROBABILITY.innerHTML = `ペナルティ確率: <strong>${total.toFixed(0)}%</strong>（日次: ${daily.toFixed(0)}% + 蓄積: ${accumulated.toFixed(0)}%）`;
+        let probColor;
+        if (total === 0) {
+            probColor = '#888';
+        } else if (total <= 30) {
+            probColor = 'var(--color-gold)';
+        } else if (total <= 60) {
+            probColor = '#e67e22';
+        } else {
+            probColor = 'var(--color-error)';
+        }
+        PRO_BONUS_PROBABILITY.innerHTML = `ペナルティ確率: <strong style="color:${probColor}">${total.toFixed(0)}%</strong>（日次: ${daily.toFixed(0)}% + 蓄積: ${accumulated.toFixed(0)}%）`;
     }
     if (PRO_BONUS_BUTTON) {
         PRO_BONUS_BUTTON.disabled = false;
@@ -342,6 +367,12 @@ if (PRO_BONUS_BUTTON) {
                     resultMsg += ` ⚠️ ペナルティ発生！ -50 P`;
                 }
                 showMessage(messageEl, resultMsg, penaltyOccurred ? 'error' : 'success');
+
+                if (penaltyOccurred) {
+                    triggerBonusAnimation('penalty', `-50 P`);
+                } else {
+                    triggerBonusAnimation('success', `+${bonusAmount.toFixed(1)} P`);
+                }
 
                 authenticatedUser.score = newScore;
                 authenticatedUser.lastBonusDate = todayJST;
