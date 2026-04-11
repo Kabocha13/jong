@@ -22,7 +22,8 @@ const LOGOUT_BUTTON = document.getElementById('logout-button');
 const PRO_BONUS_TOOL = document.getElementById('pro-bonus-tool');
 const PRO_BONUS_BUTTON = document.getElementById('pro-bonus-button');
 const PRO_BONUS_MESSAGE = document.getElementById('pro-bonus-message');
-const PRO_BONUS_INSTRUCTION = document.getElementById('pro-bonus-instruction'); 
+const PRO_BONUS_INSTRUCTION = document.getElementById('pro-bonus-instruction');
+const PRO_BONUS_PROBABILITY = document.getElementById('pro-bonus-probability');
 
 const TRANSFER_FORM_MYPAGE = document.getElementById('transfer-form-mypage');
 const RECEIVER_PLAYER_SELECT_MYPAGE = document.getElementById('receiver-player-mypage');
@@ -197,84 +198,78 @@ function controlTargetContinueFormDisplay() {
 // -----------------------------------------------------------------
 
 function initializeMemberBonusFeature() {
-    const isMember = authenticatedUser && 
-                     (authenticatedUser.status === 'pro' || 
-                      authenticatedUser.status === 'premium' ||
-                      authenticatedUser.status === 'luxury');
-    
-    if (isMember) {
-        if (PRO_BONUS_TOOL) {
-            PRO_BONUS_TOOL.classList.remove('hidden');
-        }
-        updateMemberBonusDisplay(); 
-    } else {
-         if (PRO_BONUS_TOOL) {
-            PRO_BONUS_TOOL.classList.add('hidden');
-        }
-    }
+    if (!authenticatedUser) return;
+    if (PRO_BONUS_TOOL) PRO_BONUS_TOOL.classList.remove('hidden');
+    updateMemberBonusDisplay();
+}
+
+function triggerBonusAnimation(type, floatText) {
+    if (!PRO_BONUS_TOOL) return;
+    const animClass = type === 'success' ? 'bonus-animate-success' : 'bonus-animate-penalty';
+    PRO_BONUS_TOOL.classList.remove('bonus-animate-success', 'bonus-animate-penalty');
+    void PRO_BONUS_TOOL.offsetWidth; // reflow で再トリガー
+    PRO_BONUS_TOOL.classList.add(animClass);
+
+    const floatEl = document.createElement('span');
+    floatEl.className = 'bonus-float-text';
+    floatEl.textContent = floatText;
+    floatEl.style.color = type === 'success' ? '#38c172' : '#e74c3c';
+    PRO_BONUS_TOOL.appendChild(floatEl);
+    floatEl.addEventListener('animationend', () => floatEl.remove());
+}
+
+function getTodayJST() {
+    const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    return nowJST.toISOString().slice(0, 10);
 }
 
 function updateMemberBonusDisplay() {
     if (!authenticatedUser) return;
 
-    const MEMBER_STATUS = authenticatedUser.status || 'none';
-    
-    let BONUS_AMOUNT;
-    let MEMBER_TYPE;
-    let REFRESH_INTERVAL; 
-    let REFRESH_TEXT;     
-
-    if (MEMBER_STATUS === 'luxury') {
-        BONUS_AMOUNT = 10.0;
-        MEMBER_TYPE = 'Luxury';
-        REFRESH_INTERVAL = 3600000; 
-        REFRESH_TEXT = '1時間ごと';
-    } else if (MEMBER_STATUS === 'premium') {
-        BONUS_AMOUNT = 15.0; 
-        MEMBER_TYPE = 'Premium';
-        REFRESH_INTERVAL = 86400000; 
-        REFRESH_TEXT = '24時間ごと';
-    } else if (MEMBER_STATUS === 'pro') {
-        BONUS_AMOUNT = 10.0;
-        MEMBER_TYPE = 'Pro';
-        REFRESH_INTERVAL = 86400000; 
-        REFRESH_TEXT = '24時間ごと';
+    const status = authenticatedUser.status || 'none';
+    let bonusAmount, memberType;
+    if (status === 'luxury') {
+        bonusAmount = 15.0;
+        memberType = 'Luxury';
+    } else if (status === 'pro') {
+        bonusAmount = 10.0;
+        memberType = 'Pro';
     } else {
-        if (PRO_BONUS_TOOL) PRO_BONUS_TOOL.classList.add('hidden');
-        return;
+        bonusAmount = 1.0;
+        memberType = '一般';
     }
 
-    const now = Date.now();
-    const lastBonusTime = authenticatedUser.lastBonusTime ? new Date(authenticatedUser.lastBonusTime).getTime() : 0;
-    
-    const isReady = (now - lastBonusTime) >= REFRESH_INTERVAL;
-    
-    if (PRO_BONUS_BUTTON) {
-        if (isReady) {
-            PRO_BONUS_BUTTON.disabled = false;
-            PRO_BONUS_BUTTON.textContent = `ボーナス (+${BONUS_AMOUNT.toFixed(1)} P) を受け取る`; 
-        } else {
-            PRO_BONUS_BUTTON.disabled = true;
-            const timeRemaining = lastBonusTime + REFRESH_INTERVAL - now;
-            
-            let displayTime;
-            if (REFRESH_INTERVAL === 3600000) {
-                const minutes = Math.ceil(timeRemaining / 60000);
-                displayTime = `${minutes}分`;
-            } else {
-                const hours = Math.floor(timeRemaining / 3600000);
-                const minutes = Math.ceil((timeRemaining % 3600000) / 60000);
-                displayTime = `${hours}時間 ${minutes}分`;
-            }
-            
-            PRO_BONUS_BUTTON.textContent = `獲得済み (次の獲得まで: ${displayTime})`;
-        }
+    // 日付変更時は表示上のリセット・減衰を反映（実DB更新はボタン押下時）
+    const todayJST = getTodayJST();
+    const lastDate = authenticatedUser.lastBonusDate || '';
+    let daily = authenticatedUser.dailyProbability || 0;
+    let accumulated = authenticatedUser.accumulatedProbability || 0;
+    if (lastDate !== todayJST) {
+        daily = 0;
+        accumulated = Math.max(0, accumulated - 5);
     }
-    
+    const total = daily + accumulated;
+
     if (PRO_BONUS_INSTRUCTION) {
-        PRO_BONUS_INSTRUCTION.innerHTML = `${MEMBER_TYPE}会員特典: ${REFRESH_TEXT}に <strong>${BONUS_AMOUNT.toFixed(1)} P</strong> を獲得できます。`; 
+        PRO_BONUS_INSTRUCTION.innerHTML = `${memberType}会員: ボタンを押すたびに <strong>+${bonusAmount.toFixed(1)} P</strong>（1日何回でも押せます）`;
     }
-    
+    if (PRO_BONUS_PROBABILITY) {
+        let probColor;
+        if (total === 0) {
+            probColor = '#888';
+        } else if (total <= 30) {
+            probColor = 'var(--color-gold)';
+        } else if (total <= 60) {
+            probColor = '#e67e22';
+        } else {
+            probColor = 'var(--color-error)';
+        }
+        PRO_BONUS_PROBABILITY.innerHTML = `ペナルティ確率: <strong style="color:${probColor}">${total.toFixed(0)}%</strong>（日次: ${daily.toFixed(0)}% + 蓄積: ${accumulated.toFixed(0)}%）`;
+    }
+    if (PRO_BONUS_BUTTON) {
+        PRO_BONUS_BUTTON.disabled = false;
+        PRO_BONUS_BUTTON.textContent = `ボーナス (+${bonusAmount.toFixed(1)} P) を受け取る`;
+    }
     if (PRO_BONUS_MESSAGE) {
         PRO_BONUS_MESSAGE.classList.add('hidden');
     }
@@ -287,68 +282,75 @@ if (PRO_BONUS_BUTTON) {
             return;
         }
 
-        const MEMBER_STATUS = authenticatedUser.status || 'none';
-        let BONUS_AMOUNT;
-        let REFRESH_INTERVAL;
-
-        if (MEMBER_STATUS === 'luxury') {
-            BONUS_AMOUNT = 10.0;
-            REFRESH_INTERVAL = 3600000;
-        } else if (MEMBER_STATUS === 'premium') {
-            BONUS_AMOUNT = 15.0; 
-            REFRESH_INTERVAL = 86400000;
-        } else if (MEMBER_STATUS === 'pro') {
-            BONUS_AMOUNT = 10.0;
-            REFRESH_INTERVAL = 86400000;
+        const status = authenticatedUser.status || 'none';
+        let bonusAmount;
+        if (status === 'luxury') {
+            bonusAmount = 15.0;
+        } else if (status === 'pro') {
+            bonusAmount = 10.0;
         } else {
-            showMessage(PRO_BONUS_MESSAGE, '❌ 会員特典の対象外です。', 'error');
-            return;
+            bonusAmount = 1.0;
         }
 
         const player = authenticatedUser.name;
         const messageEl = PRO_BONUS_MESSAGE;
-        const now = new Date().toISOString();
-        
-        if (PRO_BONUS_BUTTON && PRO_BONUS_BUTTON.disabled) {
-            showMessage(messageEl, '⚠️ まだ時間が経過していません。', 'error');
-            return;
-        }
-        
-        if (PRO_BONUS_BUTTON) {
-            PRO_BONUS_BUTTON.disabled = true;
-        }
+
+        if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = true;
         showMessage(messageEl, 'ポイントを付与中...', 'info');
-    
+
         try {
             const currentData = await fetchAllData();
             let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
-            
             const targetPlayer = currentScoresMap.get(player);
-            
+
             if (!targetPlayer) {
                 showMessage(messageEl, `❌ プレイヤー ${player} が見つかりません。`, 'error');
                 if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
                 return;
             }
-    
-            const lastTime = targetPlayer.lastBonusTime ? new Date(targetPlayer.lastBonusTime).getTime() : 0;
-            if ((Date.now() - lastTime) < REFRESH_INTERVAL) {
-                showMessage(messageEl, '❌ まだ時間が経過していません。', 'error');
-                 if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = true;
-                 updateMemberBonusDisplay();
-                return;
+
+            const todayJST = getTodayJST();
+            const lastDate = targetPlayer.lastBonusDate || '';
+
+            // 日付変更時は0時リセット処理
+            let daily = targetPlayer.dailyProbability || 0;
+            let accumulated = targetPlayer.accumulatedProbability || 0;
+            let pressCount = targetPlayer.dailyPressCount || 0;
+            if (lastDate !== todayJST) {
+                daily = 0;
+                accumulated = Math.max(0, accumulated - 5);
+                pressCount = 0;
             }
-    
-            const newScore = targetPlayer.score + BONUS_AMOUNT;
-            
-            currentScoresMap.set(player, { 
-                ...targetPlayer, 
+
+            // ボーナス付与
+            let newScore = targetPlayer.score + bonusAmount;
+
+            // ペナルティ判定（合計確率）
+            const totalProbability = daily + accumulated;
+            const penaltyOccurred = Math.random() * 100 < totalProbability;
+            if (penaltyOccurred) {
+                newScore -= 50;
+                accumulated = Math.max(0, accumulated - 5);
+            }
+
+            // 確率更新
+            daily += 5;
+            if (pressCount >= 1) {
+                accumulated += 10;
+            }
+            pressCount++;
+
+            currentScoresMap.set(player, {
+                ...targetPlayer,
                 score: parseFloat(newScore.toFixed(1)),
-                lastBonusTime: now 
+                lastBonusDate: todayJST,
+                dailyProbability: daily,
+                accumulatedProbability: accumulated,
+                dailyPressCount: pressCount,
+                lastBonusTime: new Date().toISOString()
             });
-            
+
             const newScores = Array.from(currentScoresMap.values());
-    
             const newData = {
                 scores: newScores,
                 sports_bets: currentData.sports_bets,
@@ -356,23 +358,36 @@ if (PRO_BONUS_BUTTON) {
                 lotteries: currentData.lotteries || [],
                 gift_codes: currentData.gift_codes || []
             };
-    
+
             const response = await updateAllData(newData);
-    
+
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ ${MEMBER_STATUS.toUpperCase()}ボーナスとして ${BONUS_AMOUNT.toFixed(1)} P を獲得しました！`, 'success');
-                
+                let resultMsg = `✅ ボーナス +${bonusAmount.toFixed(1)} P を獲得しました！`;
+                if (penaltyOccurred) {
+                    resultMsg += ` ⚠️ ペナルティ発生！ -50 P`;
+                }
+                showMessage(messageEl, resultMsg, penaltyOccurred ? 'error' : 'success');
+
+                if (penaltyOccurred) {
+                    triggerBonusAnimation('penalty', `-50 P`);
+                } else {
+                    triggerBonusAnimation('success', `+${bonusAmount.toFixed(1)} P`);
+                }
+
                 authenticatedUser.score = newScore;
-                authenticatedUser.lastBonusTime = now;
+                authenticatedUser.lastBonusDate = todayJST;
+                authenticatedUser.dailyProbability = daily;
+                authenticatedUser.accumulatedProbability = accumulated;
+                authenticatedUser.dailyPressCount = pressCount;
+                authenticatedUser.lastBonusTime = new Date().toISOString();
                 CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
-                
-                updateMemberBonusDisplay(); 
-                
+
+                updateMemberBonusDisplay();
             } else {
                 showMessage(messageEl, `❌ ボーナス付与エラー: ${response.message}`, 'error');
                 if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
             }
-    
+
         } catch (error) {
             console.error(error);
             showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');

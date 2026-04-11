@@ -49,6 +49,57 @@
     100% { left: 120%; }
 }
 
+@keyframes bonus-success-flash {
+    0%   { box-shadow: 0 0 0 rgba(56, 193, 114, 0); }
+    25%  { box-shadow: 0 0 40px rgba(56, 193, 114, 0.7); background-color: rgba(56, 193, 114, 0.12); }
+    100% { box-shadow: 0 0 0 rgba(56, 193, 114, 0); }
+}
+
+@keyframes bonus-penalty-shake {
+    0%, 100% { transform: translateX(0); }
+    15%       { transform: translateX(-9px); }
+    30%       { transform: translateX(9px); }
+    45%       { transform: translateX(-6px); }
+    60%       { transform: translateX(6px); }
+    75%       { transform: translateX(-3px); }
+    90%       { transform: translateX(3px); }
+}
+
+@keyframes bonus-penalty-flash {
+    0%   { box-shadow: 0 0 0 rgba(192, 57, 43, 0); }
+    20%  { box-shadow: 0 0 50px rgba(192, 57, 43, 0.8); background-color: rgba(192, 57, 43, 0.15); }
+    100% { box-shadow: 0 0 0 rgba(192, 57, 43, 0); }
+}
+
+@keyframes float-up-fade {
+    0%   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    60%  { opacity: 1; transform: translateX(-50%) translateY(-45px) scale(1.15); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-75px) scale(0.9); }
+}
+
+#pro-bonus-tool { position: relative; }
+
+.bonus-animate-success {
+    animation: bonus-success-flash 0.9s ease-out;
+}
+
+.bonus-animate-penalty {
+    animation: bonus-penalty-shake 0.5s ease-out, bonus-penalty-flash 0.9s ease-out;
+}
+
+.bonus-float-text {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    pointer-events: none;
+    font-size: 1.5em;
+    font-weight: bold;
+    font-family: var(--font-display);
+    z-index: 100;
+    white-space: nowrap;
+    animation: float-up-fade 1.3s ease-out forwards;
+}
+
 /* --- 基本スタイル --- */
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -427,7 +478,6 @@ button[type="submit"]:hover,
 }
 
 .luxury-mark { -webkit-text-fill-color: var(--color-gold); color: var(--color-gold); }
-.premium-mark { -webkit-text-fill-color: #a8c0d8; color: #a8c0d8; }
 .pro-mark { -webkit-text-fill-color: var(--color-gold); color: var(--color-gold); opacity: 0.75; }
 
 /* --- スポーツくじ・宝くじタイル --- */
