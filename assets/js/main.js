@@ -333,14 +333,14 @@ function loadCafeteriaMenu() {
     const nm = month === 12 ? 1 : month + 1;
     const ny = month === 12 ? year + 1 : year;
 
-    // 今月1〜5週目 → 翌月1週目 の順に試し、最初に見つかった画像を表示
+    // 翌月1週目 → 今月5〜1週目 の順に試し、最初に見つかった画像を表示
     const candidates = [
-        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_1.png`,
-        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_2.png`,
-        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_3.png`,
-        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_4.png`,
-        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_5.png`,
         `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${ny}${pad(nm)}_1.png`,
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_5.png`,
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_4.png`,
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_3.png`,
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_2.png`,
+        `https://www.cit-s.com/wp/wp-content/themes/cit/menu/td_${year}${pad(month)}_1.png`,
     ];
 
     function tryNext(i) {
