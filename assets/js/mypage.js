@@ -229,10 +229,10 @@ function updateMemberBonusDisplay() {
     const status = authenticatedUser.status || 'none';
     let bonusAmount, memberType;
     if (status === 'luxury') {
-        bonusAmount = 15.0;
+        bonusAmount = 30.0;
         memberType = 'Luxury';
     } else if (status === 'pro') {
-        bonusAmount = 10.0;
+        bonusAmount = 20.0;
         memberType = 'Pro';
     } else {
         bonusAmount = 1.0;
@@ -285,9 +285,9 @@ if (PRO_BONUS_BUTTON) {
         const status = authenticatedUser.status || 'none';
         let bonusAmount;
         if (status === 'luxury') {
-            bonusAmount = 15.0;
+            bonusAmount = 30.0;
         } else if (status === 'pro') {
-            bonusAmount = 10.0;
+            bonusAmount = 20.0;
         } else {
             bonusAmount = 1.0;
         }
@@ -330,7 +330,15 @@ if (PRO_BONUS_BUTTON) {
             const penaltyOccurred = Math.random() * 100 < totalProbability;
             if (penaltyOccurred) {
                 newScore -= 50;
-                accumulated = Math.max(0, accumulated - 5);
+                const accumReduction = status === 'luxury' ? 10 : 5;
+                accumulated = Math.max(0, accumulated - accumReduction);
+                if (status === 'luxury') daily += 5;
+            }
+
+            // 特別ボーナス判定（全会員共通 1%）
+            const specialBonusOccurred = Math.random() * 100 < 1;
+            if (specialBonusOccurred) {
+                newScore += 100;
             }
 
             // 確率更新
@@ -363,6 +371,9 @@ if (PRO_BONUS_BUTTON) {
 
             if (response.status === 'success') {
                 let resultMsg = `✅ ボーナス +${bonusAmount.toFixed(1)} P を獲得しました！`;
+                if (specialBonusOccurred) {
+                    resultMsg += ` 🎉 特別ボーナス！ +100 P`;
+                }
                 if (penaltyOccurred) {
                     resultMsg += ` ⚠️ ペナルティ発生！ -50 P`;
                 }
@@ -370,6 +381,8 @@ if (PRO_BONUS_BUTTON) {
 
                 if (penaltyOccurred) {
                     triggerBonusAnimation('penalty', `-50 P`);
+                } else if (specialBonusOccurred) {
+                    triggerBonusAnimation('success', `+100 P`);
                 } else {
                     triggerBonusAnimation('success', `+${bonusAmount.toFixed(1)} P`);
                 }
