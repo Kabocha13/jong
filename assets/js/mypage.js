@@ -332,6 +332,7 @@ if (PRO_BONUS_BUTTON) {
                 newScore -= 50;
                 const accumReduction = status === 'luxury' ? 10 : 5;
                 accumulated = Math.max(0, accumulated - accumReduction);
+                if (status === 'luxury') daily += 5;
             }
 
             // 確率更新
