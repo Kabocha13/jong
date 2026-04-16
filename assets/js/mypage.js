@@ -335,6 +335,12 @@ if (PRO_BONUS_BUTTON) {
                 if (status === 'luxury') daily += 5;
             }
 
+            // 特別ボーナス判定（全会員共通 1%）
+            const specialBonusOccurred = Math.random() * 100 < 1;
+            if (specialBonusOccurred) {
+                newScore += 100;
+            }
+
             // 確率更新
             daily += 5;
             if (pressCount >= 1) {
@@ -365,6 +371,9 @@ if (PRO_BONUS_BUTTON) {
 
             if (response.status === 'success') {
                 let resultMsg = `✅ ボーナス +${bonusAmount.toFixed(1)} P を獲得しました！`;
+                if (specialBonusOccurred) {
+                    resultMsg += ` 🎉 特別ボーナス！ +100 P`;
+                }
                 if (penaltyOccurred) {
                     resultMsg += ` ⚠️ ペナルティ発生！ -50 P`;
                 }
@@ -372,6 +381,8 @@ if (PRO_BONUS_BUTTON) {
 
                 if (penaltyOccurred) {
                     triggerBonusAnimation('penalty', `-50 P`);
+                } else if (specialBonusOccurred) {
+                    triggerBonusAnimation('success', `+100 P`);
                 } else {
                     triggerBonusAnimation('success', `+${bonusAmount.toFixed(1)} P`);
                 }
