@@ -359,39 +359,6 @@ function loadCafeteriaMenu() {
 
 loadCafeteriaMenu();
 
-// 食堂リアルタイムカメラ
-function getCameraTimestamp() {
-    const d = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-}
-
-function isCameraActive() {
-    const d = new Date();
-    const day = d.getDay(); // 0=日, 6=土
-    const hour = d.getHours();
-    return day >= 1 && day <= 5 && hour >= 10 && hour < 14;
-}
-
-function refreshCafeteriaCamera() {
-    const img = document.getElementById('tsudanuma');
-    const msg = document.getElementById('camera-closed-msg');
-    if (!img) return;
-
-    if (isCameraActive()) {
-        img.src = `https://www.cit-s.com/i_catch/dining/tsudanuma.jpg?${getCameraTimestamp()}`;
-        img.style.display = 'block';
-        if (msg) msg.style.display = 'none';
-    } else {
-        img.style.display = 'none';
-        if (msg) msg.style.display = 'block';
-    }
-}
-
-// 初回タイムスタンプ付きで設定
-refreshCafeteriaCamera();
-setInterval(refreshCafeteriaCamera, 60000);
-
 // 天気予報（今日・明日）
 (function () {
     // wttr.in の天気コード → 絵文字
