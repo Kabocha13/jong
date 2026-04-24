@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ja" class="special-theme">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q-Jong 1st Anniversary</title>
+    <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
+    <link rel="icon" type="image/png" href="assets/icon.png">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/special.css">
+    <style>
+        /* ============================================================
+           Anniversary Poster — Standalone Styles
+           ============================================================ */
+
+        @keyframes sparkle {
+            0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+            50%       { opacity: 1; transform: scale(1) rotate(180deg); }
+        }
+
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(40px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes glow-pulse {
+            0%, 100% { text-shadow: 0 0 20px rgba(212,175,55,0.4), 0 0 40px rgba(212,175,55,0.2); }
+            50%       { text-shadow: 0 0 40px rgba(212,175,55,0.8), 0 0 80px rgba(212,175,55,0.4), 0 0 120px rgba(212,175,55,0.2); }
+        }
+
+        @keyframes border-glow {
+            0%, 100% { box-shadow: 0 0 0 1px #d4af37, 0 0 0 4px #080808, 0 0 0 5px #d4af37, 0 0 30px rgba(212,175,55,0.2); }
+            50%       { box-shadow: 0 0 0 1px #f0d060, 0 0 0 4px #080808, 0 0 0 5px #f0d060, 0 0 60px rgba(212,175,55,0.5); }
+        }
+
+        @keyframes confetti-fall {
+            0%   { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 0;
+        }
+
+        /* ヘッダー非表示 */
+        header { display: none; }
+
+        /* フッターナビ非表示 */
+        footer { display: none; }
+
+        main {
+            flex: 1;
+            margin: 24px auto;
+            padding: 0;
+            background: none;
+            box-shadow: none;
+            animation: none;
+            max-width: 700px;
+            width: 100%;
+        }
+
+        /* ============================================================
+           ポスター本体
+           ============================================================ */
+        .poster {
+            background: #080808;
+            border-radius: 2px;
+            padding: 48px 40px 40px;
+            position: relative;
+            overflow: hidden;
+            animation: border-glow 4s ease-in-out infinite;
+        }
+
+        /* 四隅コーナー装飾 */
+        .poster::before,
+        .poster::after {
+            content: '';
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            border-color: #d4af37;
+            border-style: solid;
+            pointer-events: none;
+        }
+        .poster::before { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
+        .poster::after  { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; }
+
+        .poster-inner-corner-tl,
+        .poster-inner-corner-br {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            border-color: #d4af37;
+            border-style: solid;
+            pointer-events: none;
+        }
+        .poster-inner-corner-tl { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
+        .poster-inner-corner-br { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; }
+
+        /* 背景幾何学模様 */
+        .poster-bg {
+            position: absolute;
+            inset: 0;
+            background-image:
+                repeating-linear-gradient(
+                    45deg,
+                    transparent, transparent 38px,
+                    rgba(212,175,55,0.04) 38px,
+                    rgba(212,175,55,0.04) 40px
+                ),
+                repeating-linear-gradient(
+                    -45deg,
+                    transparent, transparent 38px,
+                    rgba(212,175,55,0.04) 38px,
+                    rgba(212,175,55,0.04) 40px
+                );
+            pointer-events: none;
+        }
+
+        /* ラジアルグロー */
+        .poster-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(ellipse at center, rgba(212,175,55,0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        /* ============================================================
+           ヘッダーセクション
+           ============================================================ */
+        .poster-header {
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            animation: rise 0.8s ease-out forwards;
+        }
+
+        .anniversary-label {
+            font-family: 'Cinzel', serif;
+            font-size: 0.7em;
+            letter-spacing: 8px;
+            color: #d4af37;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .anniversary-number {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(5em, 18vw, 9em);
+            font-weight: 900;
+            line-height: 0.85;
+            display: block;
+            background: linear-gradient(
+                180deg,
+                #f0d060 0%,
+                #d4af37 40%,
+                #a07820 70%,
+                #d4af37 100%
+            );
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: glow-pulse 3s ease-in-out infinite;
+            letter-spacing: -2px;
+        }
+
+        .anniversary-st {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(1.4em, 4vw, 2em);
+            font-weight: 700;
+            color: #d4af37;
+            vertical-align: super;
+            -webkit-text-fill-color: #d4af37;
+        }
+
+        .anniversary-title {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(1.1em, 4vw, 1.8em);
+            font-weight: 700;
+            letter-spacing: 6px;
+            color: #fff3c0;
+            text-transform: uppercase;
+            margin-top: 8px;
+            display: block;
+        }
+
+        .app-name {
+            font-family: 'Cinzel', serif;
+            font-size: clamp(1.8em, 6vw, 3em);
+            font-weight: 900;
+            letter-spacing: 8px;
+            margin-bottom: 4px;
+            display: block;
+            background: linear-gradient(
+                90deg,
+                #fff3c0 0%,
+                #f0d060 30%,
+                #ffffff 50%,
+                #f0d060 70%,
+                #fff3c0 100%
+            );
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gold-shimmer 5s linear infinite;
+        }
+
+        /* 仕切り線 */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 24px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(to right, transparent, #d4af37, transparent);
+        }
+
+        .divider-diamond {
+            color: #d4af37;
+            font-size: 0.9em;
+            letter-spacing: 4px;
+        }
+
+        /* ============================================================
+           日付・サブコピー
+           ============================================================ */
+        .poster-date {
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            animation: rise 0.9s ease-out 0.1s both forwards;
+        }
+
+        .date-text {
+            font-family: 'Cinzel', serif;
+            font-size: 0.8em;
+            letter-spacing: 5px;
+            color: #b89860;
+            text-transform: uppercase;
+        }
+
+        /* ============================================================
+           マイルストーンセクション
+           ============================================================ */
+        .milestones {
+            margin-top: 32px;
+            position: relative;
+            z-index: 1;
+            animation: rise 1s ease-out 0.2s both forwards;
+        }
+
+        .milestones-title {
+            font-family: 'Cinzel', serif;
+            font-size: 0.72em;
+            letter-spacing: 5px;
+            color: #d4af37;
+            text-transform: uppercase;
+            text-align: center;
+            margin-bottom: 18px;
+        }
+
+        .milestone-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .milestone-item {
+            background: linear-gradient(135deg, #141410 0%, #0e0e0a 100%);
+            border: 1px solid rgba(212,175,55,0.2);
+            border-left: 3px solid #d4af37;
+            padding: 12px 14px;
+            border-radius: 1px;
+            transition: all 0.25s ease;
+        }
+
+        .milestone-item:hover {
+            border-left-color: #f0d060;
+            background: linear-gradient(135deg, #1e1a00 0%, #141410 100%);
+            box-shadow: 0 4px 16px rgba(212,175,55,0.1);
+            transform: translateX(3px);
+        }
+
+        .milestone-version {
+            font-family: 'Cinzel', serif;
+            font-size: 0.68em;
+            color: #d4af37;
+            letter-spacing: 2px;
+            font-weight: 700;
+        }
+
+        .milestone-text {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 0.9em;
+            color: #c8b888;
+            margin-top: 3px;
+            line-height: 1.4;
+        }
+
+        /* ============================================================
+           スタッツバー
+           ============================================================ */
+        .stats-bar {
+            margin-top: 28px;
+            display: flex;
+            gap: 0;
+            border: 1px solid rgba(212,175,55,0.3);
+            border-radius: 1px;
+            overflow: hidden;
+            position: relative;
+            z-index: 1;
+            animation: rise 1s ease-out 0.3s both forwards;
+        }
+
+        .stat-item {
+            flex: 1;
+            padding: 16px 8px;
+            text-align: center;
+            background: #141410;
+            border-right: 1px solid rgba(212,175,55,0.2);
+            transition: background 0.25s ease;
+        }
+
+        .stat-item:last-child { border-right: none; }
+
+        .stat-item:hover { background: #1e1a00; }
+
+        .stat-number {
+            font-family: 'Cinzel', serif;
+            font-size: 1.6em;
+            font-weight: 900;
+            color: #d4af37;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-family: 'Cinzel', serif;
+            font-size: 0.6em;
+            letter-spacing: 2px;
+            color: #b89860;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        /* ============================================================
+           フッターコピー
+           ============================================================ */
+        .poster-footer {
+            margin-top: 28px;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            animation: rise 1s ease-out 0.4s both forwards;
+        }
+
+        .tagline {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.05em;
+            font-style: italic;
+            color: #c8b888;
+            letter-spacing: 1px;
+            line-height: 1.6;
+        }
+
+        .tagline span {
+            font-family: 'Cinzel', serif;
+            font-style: normal;
+            font-size: 0.85em;
+            color: #d4af37;
+            -webkit-text-fill-color: #d4af37;
+            letter-spacing: 3px;
+        }
+
+        /* ============================================================
+           パーティクル（装飾スパークル）
+           ============================================================ */
+        .sparkle {
+            position: absolute;
+            color: #d4af37;
+            font-size: 1em;
+            pointer-events: none;
+            animation: sparkle 3s ease-in-out infinite;
+        }
+
+        /* ============================================================
+           ホームに戻るボタン
+           ============================================================ */
+        .home-link-wrapper {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 24px;
+        }
+
+        .home-link {
+            font-family: 'Cinzel', serif;
+            font-size: 0.72em;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: #b89860;
+            text-decoration: none;
+            border: 1px solid rgba(212,175,55,0.3);
+            padding: 10px 24px;
+            border-radius: 1px;
+            transition: all 0.25s ease;
+            display: inline-block;
+        }
+
+        .home-link:hover {
+            color: #d4af37;
+            border-color: #d4af37;
+            box-shadow: 0 0 16px rgba(212,175,55,0.2);
+        }
+    </style>
+</head>
+<body>
+    <header></header>
+    <main>
+        <div class="poster">
+            <div class="poster-bg"></div>
+            <div class="poster-glow"></div>
+
+            <!-- コーナー装飾 -->
+            <div class="poster-inner-corner-tl"></div>
+            <div class="poster-inner-corner-br"></div>
+
+            <!-- スパークル装飾 -->
+            <span class="sparkle" style="top:10%;left:8%;animation-delay:0s;">✦</span>
+            <span class="sparkle" style="top:10%;right:8%;animation-delay:1s;">✦</span>
+            <span class="sparkle" style="top:60%;left:4%;animation-delay:1.5s;font-size:0.7em;">◆</span>
+            <span class="sparkle" style="top:60%;right:4%;animation-delay:0.5s;font-size:0.7em;">◆</span>
+            <span class="sparkle" style="bottom:12%;left:12%;animation-delay:2s;font-size:0.6em;">✦</span>
+            <span class="sparkle" style="bottom:12%;right:12%;animation-delay:2.5s;font-size:0.6em;">✦</span>
+
+            <!-- ヘッダー -->
+            <div class="poster-header">
+                <span class="anniversary-label">◆ Q-Jong Official ◆</span>
+                <span class="app-name">Q-Jong</span>
+                <span class="anniversary-number">1<span class="anniversary-st">st</span></span>
+                <span class="anniversary-title">Anniversary</span>
+            </div>
+
+            <!-- 仕切り線 -->
+            <div class="divider">
+                <span class="divider-diamond">◆ ◇ ◆</span>
+            </div>
+
+            <!-- 日付 -->
+            <div class="poster-date">
+                <span class="date-text">April 2025 — April 2026</span>
+            </div>
+
+            <!-- スタッツ -->
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-number">22</div>
+                    <div class="stat-label">Versions</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">10+</div>
+                    <div class="stat-label">Features</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">365</div>
+                    <div class="stat-label">Days</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">∞</div>
+                    <div class="stat-label">Memories</div>
+                </div>
+            </div>
+
+            <!-- マイルストーン -->
+            <div class="milestones">
+                <p class="milestones-title">◆ Milestones ◆</p>
+                <div class="milestone-grid">
+                    <div class="milestone-item">
+                        <div class="milestone-version">Ver 1.1</div>
+                        <div class="milestone-text">麻雀得点管理<br>アプリリリース</div>
+                    </div>
+                    <div class="milestone-item">
+                        <div class="milestone-version">Ver 3.1</div>
+                        <div class="milestone-text">タイトルホルダー<br>実装</div>
+                    </div>
+                    <div class="milestone-item">
+                        <div class="milestone-version">Ver 7.1</div>
+                        <div class="milestone-text">マイページ<br>開設</div>
+                    </div>
+                    <div class="milestone-item">
+                        <div class="milestone-version">Ver 9.1</div>
+                        <div class="milestone-text">月額制 Pro<br>プランリリース</div>
+                    </div>
+                    <div class="milestone-item">
+                        <div class="milestone-version">Ver 10.1</div>
+                        <div class="milestone-text">テキサスホールデム<br>新規対応</div>
+                    </div>
+                    <div class="milestone-item">
+                        <div class="milestone-version">Ver 13.1</div>
+                        <div class="milestone-text">PVPモード<br>実装</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 仕切り線 -->
+            <div class="divider" style="margin-top:28px;">
+                <span class="divider-diamond">◇ ◆ ◇</span>
+            </div>
+
+            <!-- フッターコピー -->
+            <div class="poster-footer">
+                <p class="tagline">
+                    一年間、ありがとう。<br>
+                    <span>Q-Jong</span> とともに歩んだすべての日々に感謝を。
+                </p>
+            </div>
+        </div>
+
+        <div class="home-link-wrapper">
+            <a href="index.html" class="home-link">◆ ホームに戻る ◆</a>
+        </div>
+    </main>
+    <footer></footer>
+</body>
+</html>
