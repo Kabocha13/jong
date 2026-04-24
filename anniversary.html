@@ -276,17 +276,33 @@
             margin-bottom: 18px;
         }
 
+        .milestone-phase {
+            margin-bottom: 20px;
+        }
+
+        .milestone-phase-label {
+            font-family: 'Cinzel', serif;
+            font-size: 0.62em;
+            letter-spacing: 4px;
+            color: #a07820;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            padding-left: 4px;
+            border-left: 2px solid #a07820;
+            padding-bottom: 2px;
+        }
+
         .milestone-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            gap: 8px;
         }
 
         .milestone-item {
             background: linear-gradient(135deg, #141410 0%, #0e0e0a 100%);
             border: 1px solid rgba(212,175,55,0.2);
             border-left: 3px solid #d4af37;
-            padding: 12px 14px;
+            padding: 10px 12px;
             border-radius: 1px;
             transition: all 0.25s ease;
         }
@@ -298,9 +314,13 @@
             transform: translateX(3px);
         }
 
+        .milestone-item.full-width {
+            grid-column: 1 / -1;
+        }
+
         .milestone-version {
             font-family: 'Cinzel', serif;
-            font-size: 0.68em;
+            font-size: 0.66em;
             color: #d4af37;
             letter-spacing: 2px;
             font-weight: 700;
@@ -308,9 +328,9 @@
 
         .milestone-text {
             font-family: 'Cormorant Garamond', serif;
-            font-size: 0.9em;
+            font-size: 0.88em;
             color: #c8b888;
-            margin-top: 3px;
+            margin-top: 2px;
             line-height: 1.4;
         }
 
@@ -473,8 +493,8 @@
                     <div class="stat-label">Versions</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-number">10+</div>
-                    <div class="stat-label">Features</div>
+                    <div class="stat-number">47+</div>
+                    <div class="stat-label">Updates</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-number">365</div>
@@ -489,30 +509,143 @@
             <!-- マイルストーン -->
             <div class="milestones">
                 <p class="milestones-title">◆ Milestones ◆</p>
-                <div class="milestone-grid">
-                    <div class="milestone-item">
-                        <div class="milestone-version">Ver 1.1</div>
-                        <div class="milestone-text">麻雀得点管理<br>アプリリリース</div>
+
+                <!-- Phase 1 -->
+                <div class="milestone-phase">
+                    <div class="milestone-phase-label">Phase I — 誕生と基盤</div>
+                    <div class="milestone-grid">
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 1.1</div>
+                            <div class="milestone-text">麻雀得点管理<br>アプリリリース</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 1.2</div>
+                            <div class="milestone-text">三人麻雀<br>に対応</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 2.1</div>
+                            <div class="milestone-text">管理者画面<br>の作成</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 3.1</div>
+                            <div class="milestone-text">タイトルホルダー<br>実装</div>
+                        </div>
                     </div>
-                    <div class="milestone-item">
-                        <div class="milestone-version">Ver 3.1</div>
-                        <div class="milestone-text">タイトルホルダー<br>実装</div>
+                </div>
+
+                <!-- Phase 2 -->
+                <div class="milestone-phase">
+                    <div class="milestone-phase-label">Phase II — 機能拡張</div>
+                    <div class="milestone-grid">
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 4.1</div>
+                            <div class="milestone-text">スポーツくじ<br>の実装</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 5.1</div>
+                            <div class="milestone-text">商品との<br>交換が可能に</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 6.1</div>
+                            <div class="milestone-text">スピードストーム<br>対応開始</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 7.1</div>
+                            <div class="milestone-text">マイページ<br>開設</div>
+                        </div>
                     </div>
-                    <div class="milestone-item">
-                        <div class="milestone-version">Ver 7.1</div>
-                        <div class="milestone-text">マイページ<br>開設</div>
+                </div>
+
+                <!-- Phase 3 -->
+                <div class="milestone-phase">
+                    <div class="milestone-phase-label">Phase III — プロ化と新ゲーム</div>
+                    <div class="milestone-grid">
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 9.1</div>
+                            <div class="milestone-text">月額制 Pro<br>プランリリース</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 10.1</div>
+                            <div class="milestone-text">テキサスホールデム<br>新規対応</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 10.2</div>
+                            <div class="milestone-text">ログイン機能<br>強化</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 11.0</div>
+                            <div class="milestone-text">宝くじ機能<br>実装</div>
+                        </div>
                     </div>
-                    <div class="milestone-item">
-                        <div class="milestone-version">Ver 9.1</div>
-                        <div class="milestone-text">月額制 Pro<br>プランリリース</div>
+                </div>
+
+                <!-- Phase 4 -->
+                <div class="milestone-phase">
+                    <div class="milestone-phase-label">Phase IV — 多様化と季節イベント</div>
+                    <div class="milestone-grid">
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 12.0</div>
+                            <div class="milestone-text">月額制プラン<br>の追加</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 12.1</div>
+                            <div class="milestone-text">クリスマス<br>仕様に変更</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 13.1</div>
+                            <div class="milestone-text">PVPモード<br>実装</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 13.2</div>
+                            <div class="milestone-text">プレゼントコード<br>機能追加</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 13.3</div>
+                            <div class="milestone-text">目標継続<br>機能実装</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 14.1</div>
+                            <div class="milestone-text">年末カウント<br>ダウン仕様</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 15.1</div>
+                            <div class="milestone-text">お正月<br>仕様に変更</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 17.1</div>
+                            <div class="milestone-text">バレンタイン<br>仕様に変更</div>
+                        </div>
                     </div>
-                    <div class="milestone-item">
-                        <div class="milestone-version">Ver 10.1</div>
-                        <div class="milestone-text">テキサスホールデム<br>新規対応</div>
-                    </div>
-                    <div class="milestone-item">
-                        <div class="milestone-version">Ver 13.1</div>
-                        <div class="milestone-text">PVPモード<br>実装</div>
+                </div>
+
+                <!-- Phase 5 -->
+                <div class="milestone-phase">
+                    <div class="milestone-phase-label">Phase V — 成長と進化</div>
+                    <div class="milestone-grid">
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 18.1</div>
+                            <div class="milestone-text">運動報告<br>機能の追加</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 19.1</div>
+                            <div class="milestone-text">就活機能<br>を追加</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 20.1</div>
+                            <div class="milestone-text">1周年記念<br>デザインに変更</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 20.3</div>
+                            <div class="milestone-text">出席機能<br>追加</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 21.0</div>
+                            <div class="milestone-text">プレミアム会員<br>の削除</div>
+                        </div>
+                        <div class="milestone-item">
+                            <div class="milestone-version">Ver 22.0</div>
+                            <div class="milestone-text">ログボ機能強化<br>（ゲーム形式）</div>
+                        </div>
                     </div>
                 </div>
             </div>
