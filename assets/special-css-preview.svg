@@ -1,0 +1,239 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <defs>
+    <!-- Diamond crosshatch pattern (background) -->
+    <pattern id="crosshatch" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="40" x2="40" y2="0" stroke="rgba(212,175,55,0.09)" stroke-width="1.5"/>
+      <line x1="0" y1="0" x2="40" y2="40" stroke="rgba(212,175,55,0.09)" stroke-width="1.5"/>
+    </pattern>
+
+    <!-- Gold shimmer gradient -->
+    <linearGradient id="bannerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#080808"/>
+      <stop offset="40%"  stop-color="#2a2000"/>
+      <stop offset="60%"  stop-color="#2a2000"/>
+      <stop offset="100%" stop-color="#080808"/>
+    </linearGradient>
+
+    <!-- Main panel gradient -->
+    <linearGradient id="mainGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#141410"/>
+      <stop offset="100%" stop-color="#0e0e0a"/>
+    </linearGradient>
+
+    <!-- Rank-1 gradient -->
+    <linearGradient id="rank1Grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#1e1a00"/>
+      <stop offset="100%" stop-color="#141410"/>
+    </linearGradient>
+
+    <!-- Wager text gradient -->
+    <linearGradient id="wagerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="rgba(212,175,55,0.1)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </linearGradient>
+
+    <!-- Double gold frame -->
+    <filter id="glow">
+      <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#d4af37" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- ========== Body background ========== -->
+  <rect width="800" height="600" fill="#080808"/>
+  <rect width="800" height="600" fill="url(#crosshatch)"/>
+
+  <!-- ========== Anniversary banner ========== -->
+  <rect x="0" y="0" width="800" height="34" fill="url(#bannerGrad)"/>
+  <line x1="0" y1="34" x2="800" y2="34" stroke="#d4af37" stroke-width="1"/>
+  <text x="400" y="22" text-anchor="middle" font-family="Georgia, serif"
+        font-size="13" font-weight="600" fill="#f0d060" letter-spacing="6">
+    ✦  1st  Anniversary  ✦
+  </text>
+
+  <!-- ========== Main content panel ========== -->
+  <rect x="60" y="54" width="680" height="526"
+        rx="4" fill="url(#mainGrad)"
+        stroke="#d4af37" stroke-width="1"
+        filter="url(#glow)"/>
+  <!-- double-frame inner ring -->
+  <rect x="64" y="58" width="672" height="518"
+        rx="3" fill="none"
+        stroke="#d4af37" stroke-width="1" opacity="0.5"/>
+
+  <!-- ========== Page title ========== -->
+  <text x="400" y="92" text-anchor="middle" font-family="Georgia, serif"
+        font-size="20" font-weight="700" fill="#fff3c0">
+    Special Theme Preview
+  </text>
+  <line x1="80" y1="100" x2="720" y2="100" stroke="#d4af37" stroke-width="1" opacity="0.4"/>
+
+  <!-- ============================
+       LEFT COLUMN
+       ============================ -->
+
+  <!-- --- Tool box --- -->
+  <rect x="80" y="112" width="300" height="130"
+        rx="3" fill="#141410"
+        stroke="rgba(212,175,55,0.3)" stroke-width="1"/>
+  <line x1="80" y1="112" x2="380" y2="112" stroke="#d4af37" stroke-width="2"/>
+  <text x="96" y="134" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff3c0">
+    ツールボックス
+  </text>
+  <line x1="96" y1="140" x2="364" y2="140" stroke="rgba(212,175,55,0.35)" stroke-width="1"/>
+  <text x="96" y="160" font-family="sans-serif" font-size="11" fill="#c8b888">• 麻雀スコア計算</text>
+  <text x="96" y="178" font-family="sans-serif" font-size="11" fill="#c8b888">• 点数移動ツール</text>
+  <text x="96" y="196" font-family="sans-serif" font-size="11" fill="#c8b888">• 役一覧表</text>
+  <text x="96" y="225" font-family="sans-serif" font-size="9" fill="#a08060" font-style="italic">
+    ツールボックスは金色のトップボーダーで区切られます
+  </text>
+
+  <!-- --- Input elements --- -->
+  <rect x="80" y="258" width="300" height="110"
+        rx="3" fill="#141410"
+        stroke="rgba(212,175,55,0.3)" stroke-width="1"/>
+  <line x1="80" y1="258" x2="380" y2="258" stroke="#d4af37" stroke-width="2"/>
+  <text x="96" y="280" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff3c0">
+    入力フォーム
+  </text>
+  <text x="96" y="300" font-family="sans-serif" font-size="10" fill="#fff3c0">名前</text>
+  <rect x="96" y="306" width="248" height="26"
+        rx="2" fill="#1a1a12"
+        stroke="#d4af37" stroke-width="1" stroke-dasharray="0"/>
+  <line x1="96" y1="332" x2="344" y2="332" stroke="#d4af37" stroke-width="1.5"/>
+  <text x="104" y="323" font-family="monospace" font-size="11" fill="#e8d5a0">Player_01</text>
+  <!-- focused input -->
+  <text x="96" y="350" font-family="sans-serif" font-size="10" fill="#fff3c0">スコア</text>
+  <rect x="96" y="354" width="150" height="26"
+        rx="2" fill="#222218"
+        stroke="#f0d060" stroke-width="1.5"/>
+  <line x1="96" y1="380" x2="246" y2="380" stroke="#f0d060" stroke-width="2"/>
+  <text x="104" y="371" font-family="monospace" font-size="11" fill="#e8d5a0">25000</text>
+
+  <!-- --- Messages --- -->
+  <rect x="80" y="384" width="300" height="34" rx="3" fill="#0a1a0f"/>
+  <text x="96" y="406" font-family="sans-serif" font-size="12" fill="#3ab870">✓ 保存しました</text>
+  <rect x="80" y="424" width="300" height="34" rx="3" fill="#1a0a0a"/>
+  <text x="96" y="446" font-family="sans-serif" font-size="12" fill="#e05040">✕ エラーが発生しました</text>
+  <rect x="80" y="464" width="300" height="34" rx="3" fill="#0a0f1a"/>
+  <text x="96" y="486" font-family="sans-serif" font-size="12" fill="#4a90d9">ℹ 情報メッセージ</text>
+
+  <!-- Secondary button -->
+  <rect x="80" y="508" width="140" height="36" rx="4"
+        fill="transparent" stroke="#d4af37" stroke-width="1.5"/>
+  <text x="150" y="531" text-anchor="middle" font-family="sans-serif"
+        font-size="12" fill="#fff3c0">セカンダリ</text>
+
+  <!-- ============================
+       RIGHT COLUMN — Ranking
+       ============================ -->
+  <text x="420" y="132" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff3c0">
+    ランキング
+  </text>
+  <line x1="420" y1="138" x2="720" y2="138" stroke="#d4af37" stroke-width="1.5"/>
+
+  <!-- Rank 1 -->
+  <rect x="420" y="148" width="296" height="52"
+        rx="2" fill="url(#rank1Grad)"
+        stroke="rgba(212,175,55,0.3)" stroke-width="1"/>
+  <line x1="420" y1="148" x2="420" y2="200" stroke="#d4af37" stroke-width="3"/>
+  <text x="434" y="168" font-family="sans-serif" font-size="11" fill="#d4af37">🥇 1位</text>
+  <text x="434" y="188" font-family="sans-serif" font-size="13" font-weight="700" fill="#d8c898">
+    雀士 太郎
+  </text>
+  <text x="682" y="180" text-anchor="end" font-family="monospace" font-size="14"
+        font-weight="700" fill="#f0d060">48,200</text>
+
+  <!-- Rank 2 -->
+  <rect x="420" y="206" width="296" height="48"
+        rx="2" fill="#141410"
+        stroke="rgba(212,175,55,0.2)" stroke-width="1"/>
+  <line x1="420" y1="206" x2="420" y2="254" stroke="#606878" stroke-width="3"/>
+  <text x="434" y="224" font-family="sans-serif" font-size="11" fill="#8090a0">🥈 2位</text>
+  <text x="434" y="244" font-family="sans-serif" font-size="13" font-weight="700" fill="#d8c898">
+    桜花 美咲
+  </text>
+  <text x="682" y="236" text-anchor="end" font-family="monospace" font-size="14" fill="#f0d060">
+    41,500
+  </text>
+
+  <!-- Rank 3 -->
+  <rect x="420" y="260" width="296" height="48"
+        rx="2" fill="#141410"
+        stroke="rgba(212,175,55,0.2)" stroke-width="1"/>
+  <line x1="420" y1="260" x2="420" y2="308" stroke="#987050" stroke-width="3"/>
+  <text x="434" y="278" font-family="sans-serif" font-size="11" fill="#987050">🥉 3位</text>
+  <text x="434" y="298" font-family="sans-serif" font-size="13" font-weight="700" fill="#d8c898">
+    翔 一郎
+  </text>
+  <text x="682" y="290" text-anchor="end" font-family="monospace" font-size="14" fill="#f0d060">
+    38,800
+  </text>
+
+  <!-- ============================
+       Bet / くじタイル
+       ============================ -->
+  <text x="420" y="332" font-family="sans-serif" font-size="13" font-weight="700" fill="#fff3c0">
+    賭け・くじ
+  </text>
+  <line x1="420" y1="338" x2="720" y2="338" stroke="#d4af37" stroke-width="1.5"/>
+
+  <rect x="420" y="348" width="136" height="82"
+        rx="3" fill="#141410"
+        stroke="rgba(212,175,55,0.25)" stroke-width="1"/>
+  <line x1="420" y1="348" x2="420" y2="430" stroke="#d4af37" stroke-width="3"/>
+  <text x="434" y="368" font-family="sans-serif" font-size="11" font-weight="700" fill="#fff3c0">
+    今月の賭け
+  </text>
+  <line x1="434" y1="372" x2="546" y2="372" stroke="rgba(212,175,55,0.2)" stroke-width="1"/>
+  <text x="434" y="390" font-family="sans-serif" font-size="10" fill="#c8b888">残り 3日</text>
+  <rect x="434" y="400" width="102" height="22"
+        rx="2" fill="url(#wagerGrad)"/>
+  <line x1="434" y1="400" x2="434" y2="422" stroke="#d4af37" stroke-width="2"/>
+  <text x="444" y="415" font-family="sans-serif" font-size="10" fill="#d8c898">あなた: 500pt</text>
+  <text x="434" y="440" font-family="sans-serif" font-size="9" fill="#b89870">締切: 2026/04/30</text>
+
+  <!-- Lottery table -->
+  <rect x="572" y="348" width="144" height="82" rx="3" fill="#141410"
+        stroke="rgba(212,175,55,0.25)" stroke-width="1"/>
+  <rect x="572" y="348" width="144" height="24" rx="3" fill="#1c1800"/>
+  <text x="644" y="364" text-anchor="middle" font-family="sans-serif"
+        font-size="10" font-weight="700" fill="#fff3c0">宝くじ当選表</text>
+  <line x1="572" y1="372" x2="716" y2="372" stroke="rgba(212,175,55,0.1)" stroke-width="1"/>
+  <text x="582" y="386" font-family="sans-serif" font-size="10" fill="#c8b888">1等</text>
+  <text x="706" y="386" text-anchor="end" font-family="monospace" font-size="10" fill="#c8b888">10,000pt</text>
+  <line x1="572" y1="390" x2="716" y2="390" stroke="rgba(212,175,55,0.1)" stroke-width="1"/>
+  <text x="582" y="402" font-family="sans-serif" font-size="10" fill="#c8b888">2等</text>
+  <text x="706" y="402" text-anchor="end" font-family="monospace" font-size="10" fill="#c8b888">3,000pt</text>
+  <line x1="572" y1="406" x2="716" y2="406" stroke="rgba(212,175,55,0.1)" stroke-width="1"/>
+  <text x="582" y="418" font-family="sans-serif" font-size="10" fill="#706050">ハズレ</text>
+  <text x="706" y="418" text-anchor="end" font-family="monospace" font-size="10" fill="#706050">0pt</text>
+
+  <!-- ============================
+       Color palette strip
+       ============================ -->
+  <text x="420" y="450" font-family="sans-serif" font-size="11" fill="#a08060">
+    カラーパレット
+  </text>
+  <!-- swatches -->
+  <rect x="420" y="456" width="32" height="32" rx="3" fill="#080808" stroke="#d4af37" stroke-width="1"/>
+  <rect x="458" y="456" width="32" height="32" rx="3" fill="#1c1800"/>
+  <rect x="496" y="456" width="32" height="32" rx="3" fill="#d4af37"/>
+  <rect x="534" y="456" width="32" height="32" rx="3" fill="#f0d060"/>
+  <rect x="572" y="456" width="32" height="32" rx="3" fill="#fff3c0"/>
+  <rect x="610" y="456" width="32" height="32" rx="3" fill="#e8d5a0"/>
+  <text x="436" y="502" text-anchor="middle" font-family="monospace" font-size="8" fill="#808080">#080808</text>
+  <text x="474" y="502" text-anchor="middle" font-family="monospace" font-size="8" fill="#808080">#1c1800</text>
+  <text x="512" y="502" text-anchor="middle" font-family="monospace" font-size="8" fill="#808080">#d4af37</text>
+  <text x="550" y="502" text-anchor="middle" font-family="monospace" font-size="8" fill="#808080">#f0d060</text>
+  <text x="588" y="502" text-anchor="middle" font-family="monospace" font-size="8" fill="#808080">#fff3c0</text>
+  <text x="626" y="502" text-anchor="middle" font-family="monospace" font-size="8" fill="#808080">#e8d5a0</text>
+
+  <!-- ============================
+       Footer label
+       ============================ -->
+  <line x1="80" y1="548" x2="720" y2="548" stroke="rgba(212,175,55,0.25)" stroke-width="1"/>
+  <text x="400" y="568" text-anchor="middle" font-family="sans-serif"
+        font-size="10" fill="#706050">
+    special.css — 1周年記念テーマ（黒×金）
+  </text>
+</svg>
