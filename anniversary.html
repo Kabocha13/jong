@@ -447,6 +447,97 @@
             border-color: #d4af37;
             box-shadow: 0 0 16px rgba(212,175,55,0.2);
         }
+
+        /* ============================================================
+           フリップカウントアップ
+           ============================================================ */
+        @keyframes fc-fold-top {
+            from { transform: rotateX(0deg); }
+            to   { transform: rotateX(-90deg); }
+        }
+        @keyframes fc-fold-bot {
+            from { transform: rotateX(-90deg); }
+            to   { transform: rotateX(0deg); }
+        }
+        .flip-clock {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 22px 0;
+            position: relative;
+            z-index: 1;
+            animation: rise 0.9s ease-out 0.15s both forwards;
+        }
+        .flip-unit {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        .flip-card {
+            position: relative;
+            width: 72px;
+            height: 68px;
+            perspective: 280px;
+        }
+        .flip-card.fc-sm { width: 54px; }
+        .fc-half {
+            position: absolute;
+            left: 0; right: 0;
+            height: 50%;
+            overflow: hidden;
+            background: #141410;
+            border: 1px solid rgba(212,175,55,0.3);
+            box-sizing: border-box;
+        }
+        .fc-top {
+            top: 0;
+            border-radius: 3px 3px 0 0;
+            border-bottom: 1px solid rgba(0,0,0,0.9);
+            transform-origin: center bottom;
+        }
+        .fc-bot {
+            bottom: 0;
+            border-radius: 0 0 3px 3px;
+            border-top: none;
+            transform-origin: center top;
+        }
+        .fc-num {
+            position: absolute;
+            left: 0; right: 0;
+            height: 200%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Cinzel', serif;
+            font-weight: 900;
+            font-size: 1.9em;
+            color: #d4af37;
+            user-select: none;
+        }
+        .fc-top .fc-num { top: 0; }
+        .fc-bot .fc-num { bottom: 0; }
+        .fc-static-top, .fc-static-bot { z-index: 1; }
+        .fc-fold-top, .fc-fold-bot     { z-index: 2; }
+        .fc-fold-top.flipping { animation: fc-fold-top 0.22s ease-in  forwards; }
+        .fc-fold-bot.flipping { animation: fc-fold-bot 0.22s ease-out forwards; }
+        .fc-sep {
+            font-family: 'Cinzel', serif;
+            font-size: 1.9em;
+            font-weight: 900;
+            color: rgba(212,175,55,0.55);
+            align-self: center;
+            margin-bottom: 22px;
+            line-height: 1;
+        }
+        .fc-label {
+            font-family: 'Cinzel', serif;
+            font-size: 0.56em;
+            letter-spacing: 2px;
+            color: #b89860;
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
@@ -484,6 +575,49 @@
             <!-- 日付 -->
             <div class="poster-date">
                 <span class="date-text">April 2025 — April 2026</span>
+            </div>
+
+            <!-- フリップカウントアップ -->
+            <div class="flip-clock">
+                <div class="flip-unit">
+                    <div class="flip-card" id="fc-d" data-val="---">
+                        <div class="fc-half fc-top fc-static-top"><div class="fc-num">---</div></div>
+                        <div class="fc-half fc-bot fc-static-bot"><div class="fc-num">---</div></div>
+                        <div class="fc-half fc-top fc-fold-top"><div class="fc-num">---</div></div>
+                        <div class="fc-half fc-bot fc-fold-bot"><div class="fc-num">---</div></div>
+                    </div>
+                    <div class="fc-label">Days</div>
+                </div>
+                <div class="fc-sep">:</div>
+                <div class="flip-unit">
+                    <div class="flip-card fc-sm" id="fc-h" data-val="--">
+                        <div class="fc-half fc-top fc-static-top"><div class="fc-num">--</div></div>
+                        <div class="fc-half fc-bot fc-static-bot"><div class="fc-num">--</div></div>
+                        <div class="fc-half fc-top fc-fold-top"><div class="fc-num">--</div></div>
+                        <div class="fc-half fc-bot fc-fold-bot"><div class="fc-num">--</div></div>
+                    </div>
+                    <div class="fc-label">Hours</div>
+                </div>
+                <div class="fc-sep">:</div>
+                <div class="flip-unit">
+                    <div class="flip-card fc-sm" id="fc-m" data-val="--">
+                        <div class="fc-half fc-top fc-static-top"><div class="fc-num">--</div></div>
+                        <div class="fc-half fc-bot fc-static-bot"><div class="fc-num">--</div></div>
+                        <div class="fc-half fc-top fc-fold-top"><div class="fc-num">--</div></div>
+                        <div class="fc-half fc-bot fc-fold-bot"><div class="fc-num">--</div></div>
+                    </div>
+                    <div class="fc-label">Mins</div>
+                </div>
+                <div class="fc-sep">:</div>
+                <div class="flip-unit">
+                    <div class="flip-card fc-sm" id="fc-s" data-val="--">
+                        <div class="fc-half fc-top fc-static-top"><div class="fc-num">--</div></div>
+                        <div class="fc-half fc-bot fc-static-bot"><div class="fc-num">--</div></div>
+                        <div class="fc-half fc-top fc-fold-top"><div class="fc-num">--</div></div>
+                        <div class="fc-half fc-bot fc-fold-bot"><div class="fc-num">--</div></div>
+                    </div>
+                    <div class="fc-label">Secs</div>
+                </div>
             </div>
 
             <!-- スタッツ -->
@@ -669,5 +803,67 @@
         </div>
     </main>
     <footer></footer>
+    <script>
+    (function () {
+        var START = new Date('2025-04-25T00:00:00');
+
+        function pad(n, w) {
+            return String(Math.max(0, Math.floor(n))).padStart(w, '0');
+        }
+
+        function flip(id, newVal) {
+            var card = document.getElementById(id);
+            if (!card || card.dataset.val === newVal) return;
+
+            var stTop  = card.querySelector('.fc-static-top .fc-num');
+            var fdTop  = card.querySelector('.fc-fold-top');
+            var fdBot  = card.querySelector('.fc-fold-bot');
+            var fdBotN = fdBot.querySelector('.fc-num');
+
+            // 新しい値をstatic-top（fold-topの裏）にセット
+            stTop.textContent = newVal;
+
+            // アニメーションリセット
+            fdTop.classList.remove('flipping');
+            fdBot.classList.remove('flipping');
+            void fdTop.offsetWidth;
+
+            // 上半分をめくる
+            fdTop.classList.add('flipping');
+
+            // 上半分完了後、下半分をめくる
+            setTimeout(function () {
+                fdBotN.textContent = newVal;
+                fdBot.classList.add('flipping');
+            }, 220);
+
+            // 全完了後、全要素を新しい値に同期
+            setTimeout(function () {
+                card.querySelectorAll('.fc-num').forEach(function (el) {
+                    el.textContent = newVal;
+                });
+                fdTop.classList.remove('flipping');
+                fdBot.classList.remove('flipping');
+                card.dataset.val = newVal;
+            }, 550);
+        }
+
+        function tick() {
+            var now  = new Date();
+            var diff = Math.floor(Math.max(0, now - START) / 1000);
+            var d = Math.floor(diff / 86400);
+            var h = Math.floor((diff % 86400) / 3600);
+            var m = Math.floor((diff % 3600) / 60);
+            var s = diff % 60;
+            flip('fc-d', pad(d, 3));
+            flip('fc-h', pad(h, 2));
+            flip('fc-m', pad(m, 2));
+            flip('fc-s', pad(s, 2));
+        }
+
+        tick();
+        setInterval(tick, 1000);
+    }());
+    </script>
 </body>
 </html>
