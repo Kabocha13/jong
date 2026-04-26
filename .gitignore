@@ -3,6 +3,7 @@ node_modules/
 .firebase/
 jsonbin-backup.json
 *-backup.json
+assets/js/firebase-config.js
 
 # Firebase service account keys must stay local.
 *serviceAccount*.json
