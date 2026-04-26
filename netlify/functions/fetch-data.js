@@ -39,6 +39,7 @@ exports.handler = async (event) => {
         if (!record.gift_codes) record.gift_codes = [];
         if (!record.exercise_reports) record.exercise_reports = [];
         if (!record.career_posts) record.career_posts = [];
+        if (!record.territory_battle) record.territory_battle = null;
         if (record.special_theme === undefined) record.special_theme = null;
 
         if (record.scores) {

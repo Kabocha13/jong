@@ -46,6 +46,7 @@ const TARGET_CONTINUE_TOOL = document.getElementById('target-continue-tool');
 let authenticatedUser = null; 
 // 宝くじのデータを一時的に保持 (価格計算用)
 let availableLotteries = [];
+let latestAllData = null;
 
 // -----------------------------------------------------------------
 // ★★★ 認証とログイン状態の管理 ★★★
@@ -60,6 +61,7 @@ async function attemptLogin(username, password, isAuto = false) {
     }
     
     const allData = await fetchAllData();
+    latestAllData = allData;
     const scores = allData.scores;
 
     // ユーザー名とパスワードで照合
@@ -248,7 +250,8 @@ function updateMemberBonusDisplay() {
         daily = 0;
         accumulated = Math.max(0, accumulated - 5);
     }
-    const total = daily + accumulated;
+    const territoryReduction = getPlayerTerritoryStats(authenticatedUser.name, latestAllData && latestAllData.territory_battle).reduction;
+    const total = Math.max(0, daily + accumulated - territoryReduction);
 
     if (PRO_BONUS_INSTRUCTION) {
         PRO_BONUS_INSTRUCTION.innerHTML = `${memberType}会員: ボタンを押すたびに <strong>+${bonusAmount.toFixed(1)} P</strong>（1日何回でも押せます）`;
@@ -264,7 +267,7 @@ function updateMemberBonusDisplay() {
         } else {
             probColor = 'var(--color-error)';
         }
-        PRO_BONUS_PROBABILITY.innerHTML = `ペナルティ確率: <strong style="color:${probColor}">${total.toFixed(0)}%</strong>（日次: ${daily.toFixed(0)}% + 蓄積: ${accumulated.toFixed(0)}%）`;
+        PRO_BONUS_PROBABILITY.innerHTML = `ペナルティ確率: <strong style="color:${probColor}">${total.toFixed(0)}%</strong>（日次: ${daily.toFixed(0)}% + 蓄積: ${accumulated.toFixed(0)}% - 陣地: ${territoryReduction.toFixed(1)}%）`;
     }
     if (PRO_BONUS_BUTTON) {
         PRO_BONUS_BUTTON.disabled = false;
@@ -300,6 +303,7 @@ if (PRO_BONUS_BUTTON) {
 
         try {
             const currentData = await fetchAllData();
+            latestAllData = currentData;
             let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
             const targetPlayer = currentScoresMap.get(player);
 
@@ -326,7 +330,8 @@ if (PRO_BONUS_BUTTON) {
             let newScore = targetPlayer.score + bonusAmount;
 
             // ペナルティ判定（合計確率）
-            const totalProbability = daily + accumulated;
+            const territoryReduction = getPlayerTerritoryStats(player, currentData.territory_battle).reduction;
+            const totalProbability = Math.max(0, daily + accumulated - territoryReduction);
             const penaltyOccurred = Math.random() * 100 < totalProbability;
             if (penaltyOccurred) {
                 newScore -= 50;
@@ -364,7 +369,8 @@ if (PRO_BONUS_BUTTON) {
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [],
-                gift_codes: currentData.gift_codes || []
+                gift_codes: currentData.gift_codes || [],
+                territory_battle: currentData.territory_battle || null
             };
 
             const response = await updateAllData(newData);
@@ -394,6 +400,7 @@ if (PRO_BONUS_BUTTON) {
                 authenticatedUser.dailyPressCount = pressCount;
                 authenticatedUser.lastBonusTime = new Date().toISOString();
                 CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
+                latestAllData = newData;
 
                 updateMemberBonusDisplay();
             } else {

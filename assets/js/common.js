@@ -7,9 +7,33 @@
 const FETCH_URL = "/.netlify/functions/fetch-data";
 const UPDATE_URL = "/.netlify/functions/update-data";
 
-const PVP_FETCH_URL = "/.netlify/functions/pvp-fetch";
-const PVP_ACTION_URL = "/.netlify/functions/pvp-action";
+const TOKYO_WARDS = [
+    { id: 'chiyoda', name: '千代田区', area: 11.66, neighbors: ['chuo', 'minato', 'shinjuku', 'bunkyo', 'taito'] },
+    { id: 'chuo', name: '中央区', area: 10.21, neighbors: ['chiyoda', 'minato', 'taito', 'koto'] },
+    { id: 'minato', name: '港区', area: 20.37, neighbors: ['chiyoda', 'chuo', 'shinjuku', 'shibuya', 'shinagawa'] },
+    { id: 'shinjuku', name: '新宿区', area: 18.22, neighbors: ['chiyoda', 'minato', 'shibuya', 'nakano', 'toshima', 'bunkyo'] },
+    { id: 'bunkyo', name: '文京区', area: 11.29, neighbors: ['chiyoda', 'shinjuku', 'toshima', 'kita', 'arakawa', 'taito'] },
+    { id: 'taito', name: '台東区', area: 10.11, neighbors: ['chiyoda', 'chuo', 'bunkyo', 'arakawa', 'sumida'] },
+    { id: 'sumida', name: '墨田区', area: 13.77, neighbors: ['taito', 'arakawa', 'koto', 'edogawa', 'katsushika', 'adachi'] },
+    { id: 'koto', name: '江東区', area: 40.16, neighbors: ['chuo', 'sumida', 'edogawa', 'shinagawa'] },
+    { id: 'shinagawa', name: '品川区', area: 22.84, neighbors: ['minato', 'meguro', 'ota', 'koto'] },
+    { id: 'meguro', name: '目黒区', area: 14.67, neighbors: ['shibuya', 'shinagawa', 'ota', 'setagaya'] },
+    { id: 'ota', name: '大田区', area: 60.66, neighbors: ['shinagawa', 'meguro', 'setagaya'] },
+    { id: 'setagaya', name: '世田谷区', area: 58.05, neighbors: ['ota', 'meguro', 'shibuya', 'suginami'] },
+    { id: 'shibuya', name: '渋谷区', area: 15.11, neighbors: ['minato', 'shinjuku', 'nakano', 'suginami', 'setagaya', 'meguro'] },
+    { id: 'nakano', name: '中野区', area: 15.59, neighbors: ['shinjuku', 'shibuya', 'suginami', 'nerima', 'toshima'] },
+    { id: 'suginami', name: '杉並区', area: 34.06, neighbors: ['nakano', 'shibuya', 'setagaya', 'nerima'] },
+    { id: 'toshima', name: '豊島区', area: 13.01, neighbors: ['shinjuku', 'nakano', 'nerima', 'itabashi', 'kita', 'bunkyo'] },
+    { id: 'kita', name: '北区', area: 20.61, neighbors: ['itabashi', 'toshima', 'bunkyo', 'arakawa', 'adachi'] },
+    { id: 'arakawa', name: '荒川区', area: 10.16, neighbors: ['kita', 'bunkyo', 'taito', 'sumida', 'adachi'] },
+    { id: 'itabashi', name: '板橋区', area: 32.22, neighbors: ['nerima', 'toshima', 'kita'] },
+    { id: 'nerima', name: '練馬区', area: 48.08, neighbors: ['suginami', 'nakano', 'toshima', 'itabashi'] },
+    { id: 'adachi', name: '足立区', area: 53.25, neighbors: ['kita', 'arakawa', 'sumida', 'katsushika'] },
+    { id: 'katsushika', name: '葛飾区', area: 34.80, neighbors: ['adachi', 'sumida', 'edogawa'] },
+    { id: 'edogawa', name: '江戸川区', area: 49.90, neighbors: ['koto', 'sumida', 'katsushika'] }
+];
 
+const TERRITORY_AVERAGE_WARD_AREA = TOKYO_WARDS.reduce((sum, ward) => sum + ward.area, 0) / TOKYO_WARDS.length;
 
 // -----------------------------------------------------------------
 // データ取得 (GET)
@@ -104,13 +128,13 @@ async function _fetchAllDataRaw() {
             } else {
                 console.error("ポイントデータ取得中にエラー:", error);
                 // 最終的に失敗した場合、空の初期データを返す
-                return { scores: [], sports_bets: [], speedstorm_records: [], lotteries: [], electric_chair_games: [] };
+                return { scores: [], sports_bets: [], speedstorm_records: [], lotteries: [], territory_battle: createDefaultTerritoryBattle() };
             }
         }
     }
      // 最終リトライ後も失敗した場合
      console.error("ポイントデータ取得に失敗しました。最大リトライ回数を超えました。");
-     return { scores: [], sports_bets: [], speedstorm_records: [], lotteries: [], electric_chair_games: [] };
+     return { scores: [], sports_bets: [], speedstorm_records: [], lotteries: [], territory_battle: createDefaultTerritoryBattle() };
 }
 
 /**
@@ -178,103 +202,68 @@ async function updateAllData(newData) {
     return { status: "error", message: `データ書き込み失敗: 最大リトライ回数を超えました`, totalChange: 0 };
 }
 
+// -----------------------------------------------------------------
+// 東京23区 陣取り合戦
+// -----------------------------------------------------------------
 
-// ★★★ 新規追加: PVPアクション関数 ★★★
-
-/**
- * Netlify Functionを経由して、PVPゲームのアクションを実行する関数 (POST)
- * @param {object} actionData - action, gameId, roomCode, actionToken, player, input などの情報
- * @returns {Promise<object>} APIからの応答 (status, message, actionToken, gameData, shockResult)
- */
-async function sendPvpAction(actionData) {
-    const MAX_RETRIES = 3;
-    let attempt = 0;
-    let delayMs = 1000;
-
-    while (attempt < MAX_RETRIES) {
-        try {
-            const response = await fetch(PVP_ACTION_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(actionData)
-            });
-            
-            if (response.status === 429) {
-                throw new Error('429 Too Many Requests on POST');
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                 // 関数からのエラーメッセージを受け取る
-                throw new Error(data.message || response.statusText);
-            }
-
-            // 成功応答を返す
-            return data;
-        } catch (error) {
-             if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
-                attempt++;
-                console.warn(`PVPアクションリトライ (${attempt}/${MAX_RETRIES})。待機: ${delayMs}ms`);
-                await delay(delayMs);
-                delayMs *= 2; // 指数バックオフ
-            } else {
-                console.error("PVPアクション中にエラー:", error);
-                return { status: "error", message: `PVPアクション失敗: ${error.message}` };
-            }
-        }
-    }
-    console.error("PVPアクションに失敗しました。最大リトライ回数を超えました。");
-    return { status: "error", message: `PVPアクション失敗: 最大リトライ回数を超えました` };
+function createDefaultTerritoryBattle() {
+    return {
+        seasonId: 'tokyo-23-1',
+        status: 'open',
+        updatedAt: new Date().toISOString(),
+        tiles: TOKYO_WARDS.map(ward => ({
+            id: ward.id,
+            name: ward.name,
+            area: ward.area,
+            owner: null,
+            defense: 0
+        })),
+        actions: []
+    };
 }
 
-/**
- * Netlify Functionを経由して、PVPゲームの状態を取得する関数 (GET)
- * @param {string} playerName - 自分のプレイヤー名
- * @returns {Promise<object>} PVPゲームの状態 (currentGames, availableGames)
- */
-async function fetchPvpData(playerName) {
-    const MAX_RETRIES = 3;
-    let attempt = 0;
-    let delayMs = 1000;
+function normalizeTerritoryBattle(battle) {
+    const normalized = battle && Array.isArray(battle.tiles) ? battle : createDefaultTerritoryBattle();
+    const tileMap = new Map(normalized.tiles.map(tile => [tile.id, tile]));
 
-    while (attempt < MAX_RETRIES) {
-        try {
-            // プレイヤー名をクエリパラメータとして付与
-            const response = await fetch(`${PVP_FETCH_URL}?player=${encodeURIComponent(playerName)}`, {
-                method: 'GET',
-            });
-            
-            if (response.status === 429) {
-                throw new Error('429 Too Many Requests on GET');
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(`PVPデータ取得エラー: ${response.status} ${errorData.error || response.statusText}`);
-            }
-            
-            const data = await response.json();
-            return data;
-        
-        } catch (error) {
-            if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
-                attempt++;
-                console.warn(`PVPデータ取得リトライ (${attempt}/${MAX_RETRIES})。待機: ${delayMs}ms`);
-                await delay(delayMs);
-                delayMs *= 2; // 指数バックオフ
-            } else {
-                console.error("PVPデータ取得中にエラー:", error);
-                // 認証情報取得失敗時に備え、allScoresも空で返す
-                return { currentGames: [], availableGames: [], allScores: [] };
-            }
-        }
-    }
-     console.error("PVPデータ取得に失敗しました。最大リトライ回数を超えました。");
-     return { currentGames: [], availableGames: [], allScores: [] };
+    return {
+        seasonId: normalized.seasonId || 'tokyo-23-1',
+        status: normalized.status || 'open',
+        updatedAt: normalized.updatedAt || new Date().toISOString(),
+        tiles: TOKYO_WARDS.map(ward => {
+            const existing = tileMap.get(ward.id) || {};
+            return {
+                id: ward.id,
+                name: ward.name,
+                area: ward.area,
+                owner: existing.owner || null,
+                defense: Math.max(0, parseFloat(existing.defense) || 0)
+            };
+        }),
+        actions: Array.isArray(normalized.actions) ? normalized.actions.slice(-30) : []
+    };
 }
+
+function getTerritoryTileMeta(tileId) {
+    return TOKYO_WARDS.find(ward => ward.id === tileId) || null;
+}
+
+function getPlayerTerritoryStats(playerName, battle) {
+    const normalized = normalizeTerritoryBattle(battle);
+    const ownedTiles = normalized.tiles.filter(tile => tile.owner === playerName);
+    const area = ownedTiles.reduce((sum, tile) => sum + tile.area, 0);
+    const reduction = area > 0
+        ? Math.min(10, Math.max(0.5, (area / TERRITORY_AVERAGE_WARD_AREA) * 3))
+        : 0;
+
+    return {
+        count: ownedTiles.length,
+        area: parseFloat(area.toFixed(2)),
+        reduction: parseFloat(reduction.toFixed(1)),
+        tiles: ownedTiles
+    };
+}
+
 
 // -----------------------------------------------------------------
 // 共通ヘルパー関数

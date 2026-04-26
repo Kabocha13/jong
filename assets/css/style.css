@@ -587,6 +587,242 @@ button[type="submit"]:hover,
     font-style: italic;
 }
 
+/* --- 東京23区 陣取り合戦 --- */
+.territory-section {
+    background:
+        linear-gradient(rgba(31, 19, 10, 0.92), rgba(31, 19, 10, 0.94)),
+        repeating-linear-gradient(90deg, #3d2413 0, #3d2413 12px, #2a180d 12px, #2a180d 24px);
+    border: 2px solid #b58a3a;
+    color: #f8edd0;
+    box-shadow: inset 0 0 0 1px rgba(255, 239, 190, 0.18), 0 8px 26px rgba(31, 19, 10, 0.22);
+}
+
+.territory-title {
+    margin: 0 0 14px 0;
+    color: #ffe3a1;
+    font-family: serif;
+    font-size: 1.18em;
+    font-weight: 800;
+    letter-spacing: 0;
+    border-bottom: 1px solid rgba(255, 227, 161, 0.34);
+    padding-bottom: 10px;
+}
+
+.territory-shell {
+    color: #f8edd0;
+}
+
+.territory-status {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.territory-status > div {
+    background: rgba(0, 0, 0, 0.24);
+    border: 1px solid rgba(255, 227, 161, 0.24);
+    padding: 10px 12px;
+}
+
+.territory-kicker,
+.territory-status small {
+    display: block;
+    color: #d9bd7b;
+    font-size: 0.8em;
+}
+
+.territory-status strong {
+    display: block;
+    color: #fff4ce;
+    font-size: 1.06em;
+    margin: 2px 0;
+    overflow-wrap: anywhere;
+}
+
+.territory-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 14px;
+}
+
+.territory-map {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.territory-tile {
+    min-height: 98px;
+    width: 100%;
+    background: #59402a;
+    color: #fff8dc;
+    border: 1px solid rgba(255, 227, 161, 0.35);
+    border-bottom: 3px solid rgba(0, 0, 0, 0.35);
+    border-radius: 2px;
+    padding: 8px;
+    text-align: left;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.14s ease, filter 0.14s ease;
+}
+
+.territory-tile:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+}
+
+.territory-ward,
+.territory-owner,
+.territory-defense {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.territory-ward {
+    font-family: serif;
+    font-size: 1.05em;
+    font-weight: 800;
+    color: #fff1bc;
+}
+
+.territory-owner {
+    margin-top: 6px;
+    color: #f7e6bd;
+    font-size: 0.82em;
+}
+
+.territory-defense {
+    color: #edd08d;
+    font-size: 0.78em;
+}
+
+.territory-action-badge {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    color: #1f130a;
+    background: #ffe3a1;
+    border-radius: 2px;
+    padding: 2px 5px;
+    font-size: 0.72em;
+    font-weight: 700;
+}
+
+.territory-tile.neutral { background: #4b4337; }
+.territory-tile.owner-1 { background: #8b2f24; }
+.territory-tile.owner-2 { background: #225c72; }
+.territory-tile.owner-3 { background: #6c5a1e; }
+.territory-tile.owner-4 { background: #3f6b35; }
+.territory-tile.owner-5 { background: #71416f; }
+.territory-tile.owner-6 { background: #8a5526; }
+.territory-tile.owner-7 { background: #3c4d88; }
+.territory-tile.owner-8 { background: #6e2f49; }
+
+.territory-command {
+    background: rgba(0, 0, 0, 0.26);
+    border: 1px solid rgba(255, 227, 161, 0.26);
+    padding: 12px;
+}
+
+.territory-command h4,
+.territory-ranking h4 {
+    color: #ffe3a1;
+    margin: 0 0 10px 0;
+    font-family: serif;
+    letter-spacing: 0;
+}
+
+.territory-command label {
+    color: #e7cf94;
+    font-size: 0.86em;
+    font-weight: 700;
+    margin-top: 8px;
+}
+
+.territory-command select,
+.territory-command input {
+    background: #fff8e6;
+    border: 1px solid #b58a3a;
+    border-bottom: 2px solid #8d6422;
+    color: #2a180d;
+    padding: 9px 10px;
+    margin-bottom: 8px;
+}
+
+.territory-submit {
+    width: 100%;
+    background: linear-gradient(#c79637, #875d1e);
+    color: #fff8dc;
+    border: 1px solid #e7c46d;
+    border-radius: 2px;
+    padding: 10px 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.territory-submit:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
+
+.territory-message {
+    margin: 10px 0;
+    padding: 8px 10px;
+    border-radius: 2px;
+    background: rgba(255, 248, 220, 0.1);
+}
+
+.territory-message.error { color: #ffd0c8; }
+.territory-message.success { color: #d8ffcf; }
+.territory-message.info { color: #fff1bc; }
+
+.territory-ranking {
+    margin-top: 16px;
+}
+
+.territory-ranking p {
+    color: #d9bd7b;
+    margin: 0;
+}
+
+.territory-rank-row {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 6px;
+    border-top: 1px solid rgba(255, 227, 161, 0.18);
+    padding: 8px 0;
+}
+
+.territory-rank-row strong,
+.territory-rank-row em {
+    overflow-wrap: anywhere;
+}
+
+.territory-rank-row em {
+    grid-column: 2;
+    color: #d9bd7b;
+    font-size: 0.82em;
+    font-style: normal;
+}
+
+@media (max-width: 760px) {
+    .territory-status,
+    .territory-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .territory-map {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .territory-command {
+        order: -1;
+    }
+}
+
 /* --- フッターナビ --- */
 footer {
     position: fixed;

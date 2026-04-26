@@ -28,6 +28,9 @@ exports.handler = async (event) => {
             if (currentRecord.career_posts && !newData.career_posts) {
                 newData.career_posts = currentRecord.career_posts;
             }
+            if (currentRecord.territory_battle && !newData.territory_battle) {
+                newData.territory_battle = currentRecord.territory_battle;
+            }
             // special_themeはmaster経由で明示的に送られた場合のみ上書き、それ以外は保持
             if (!('special_theme' in newData)) {
                 newData.special_theme = currentRecord.special_theme ?? null;

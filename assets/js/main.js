@@ -6,6 +6,7 @@ const LAST_UPDATE_ELEMENT = document.getElementById('last-update');
 const SPORTS_BETS_CONTAINER = document.getElementById('sports-bets-container');
 // ★★★ 新規追加: 宝くじコンテナ要素
 const LOTTERY_LIST_CONTAINER = document.getElementById('lottery-list-container'); 
+const TERRITORY_BATTLE_CONTAINER = document.getElementById('territory-battle-container');
 
 const EXCLUDED_PLAYERS = ['3mahjong'];
 const LS_DATA_KEY = 'cachedHomeData';
@@ -20,6 +21,7 @@ function renderWithData(allData, isStale = false) {
     const sportsBets = allData.sports_bets || [];
     const lotteries = allData.lotteries || [];
     const careerPosts = allData.career_posts || [];
+    const territoryBattle = normalizeTerritoryBattle(allData.territory_battle);
 
     if (rawScores.length === 0) {
         SCORES_CONTAINER.innerHTML = '<p class="error">データが見つかりませんでした。</p>';
@@ -52,6 +54,7 @@ function renderWithData(allData, isStale = false) {
 
     renderSportsBets(sportsBets, displayScores);
     renderLotteries(lotteries);
+    renderTerritoryBattle(territoryBattle, displayScores);
     renderHomeCareer(careerPosts);
 
     const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -87,6 +90,244 @@ async function renderScores() {
 
     renderWithData(allData, false);
     localStorage.setItem(LS_DATA_KEY, JSON.stringify(allData));
+}
+
+function escapeText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    }[char]));
+}
+
+function getOwnerClass(owner, players) {
+    if (!owner) return 'neutral';
+    const index = Math.max(0, players.findIndex(player => player.name === owner));
+    return `owner-${(index % 8) + 1}`;
+}
+
+function getTerritoryActionLabel(tile, playerName, battle) {
+    if (!playerName) return '';
+    const stats = getPlayerTerritoryStats(playerName, battle);
+    const ownedIds = stats.tiles.map(t => t.id);
+    if (tile.owner === playerName) return '強化';
+    if (ownedIds.length === 0 && !tile.owner) return '本拠';
+    const meta = getTerritoryTileMeta(tile.id);
+    const isAdjacent = meta && meta.neighbors.some(id => ownedIds.includes(id));
+    if (isAdjacent) return tile.owner ? '攻撃' : '占領';
+    return '';
+}
+
+function renderTerritoryBattle(battle, players) {
+    if (!TERRITORY_BATTLE_CONTAINER) return;
+
+    const normalized = normalizeTerritoryBattle(battle);
+    const loginName = localStorage.getItem('authUsername') || '';
+    const playerStats = loginName ? getPlayerTerritoryStats(loginName, normalized) : null;
+    const leaders = players
+        .map(player => ({
+            name: player.name,
+            ...getPlayerTerritoryStats(player.name, normalized)
+        }))
+        .filter(stat => stat.count > 0)
+        .sort((a, b) => b.area - a.area || b.count - a.count)
+        .slice(0, 5);
+
+    const totalOccupied = normalized.tiles.filter(tile => tile.owner).length;
+    const totalArea = normalized.tiles.reduce((sum, tile) => sum + (tile.owner ? tile.area : 0), 0);
+
+    let html = `
+        <div class="territory-shell">
+            <div class="territory-status">
+                <div>
+                    <span class="territory-kicker">戦況</span>
+                    <strong>${totalOccupied} / 23 区</strong>
+                    <small>${totalArea.toFixed(1)} km² 制圧</small>
+                </div>
+                <div>
+                    <span class="territory-kicker">自軍</span>
+                    <strong>${loginName ? escapeText(loginName) : '未ログイン'}</strong>
+                    <small>${playerStats ? `${playerStats.count}区 / ${playerStats.area.toFixed(1)}km² / -${playerStats.reduction.toFixed(1)}%` : 'マイページのログイン情報を使用'}</small>
+                </div>
+            </div>
+            <div class="territory-layout">
+                <div class="territory-map" aria-label="東京23区 陣取りマップ">
+                    ${normalized.tiles.map(tile => {
+                        const actionLabel = getTerritoryActionLabel(tile, loginName, normalized);
+                        return `
+                            <button type="button" class="territory-tile ${getOwnerClass(tile.owner, players)}" data-territory-id="${tile.id}">
+                                <span class="territory-ward">${tile.name.replace('区', '')}</span>
+                                <span class="territory-owner">${tile.owner ? escapeText(tile.owner) : '中立'}</span>
+                                <span class="territory-defense">${tile.defense.toFixed(1)} 防</span>
+                                ${actionLabel ? `<span class="territory-action-badge">${actionLabel}</span>` : ''}
+                            </button>
+                        `;
+                    }).join('')}
+                </div>
+                <div class="territory-command">
+                    <h4>軍議</h4>
+                    <form id="territory-action-form">
+                        <label for="territory-target">目標区</label>
+                        <select id="territory-target" required>
+                            <option value="" disabled selected>区を選択</option>
+                            ${normalized.tiles.map(tile => `<option value="${tile.id}">${tile.name} / ${tile.owner || '中立'} / 防衛 ${tile.defense.toFixed(1)}P</option>`).join('')}
+                        </select>
+                        <label for="territory-points">投入ポイント</label>
+                        <input type="number" id="territory-points" min="5" step="0.1" value="5" required>
+                        <button type="submit" class="territory-submit">出陣</button>
+                    </form>
+                    <p id="territory-message" class="territory-message hidden"></p>
+                    <div class="territory-ranking">
+                        <h4>勢力</h4>
+                        ${leaders.length === 0 ? '<p>まだどの区も制圧されていません。</p>' : leaders.map((leader, index) => `
+                            <div class="territory-rank-row">
+                                <span>${index + 1}</span>
+                                <strong>${escapeText(leader.name)}</strong>
+                                <em>${leader.area.toFixed(1)}km² / -${leader.reduction.toFixed(1)}%</em>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    TERRITORY_BATTLE_CONTAINER.innerHTML = html;
+    attachTerritoryHandlers();
+}
+
+function attachTerritoryHandlers() {
+    const form = document.getElementById('territory-action-form');
+    const select = document.getElementById('territory-target');
+    if (!form || !select) return;
+
+    TERRITORY_BATTLE_CONTAINER.querySelectorAll('.territory-tile').forEach(tileButton => {
+        tileButton.addEventListener('click', () => {
+            select.value = tileButton.dataset.territoryId;
+            select.focus();
+        });
+    });
+
+    form.addEventListener('submit', handleTerritoryAction);
+}
+
+async function handleTerritoryAction(e) {
+    e.preventDefault();
+
+    const messageEl = document.getElementById('territory-message');
+    const targetId = document.getElementById('territory-target').value;
+    const amount = parseFloat(document.getElementById('territory-points').value);
+    const username = localStorage.getItem('authUsername');
+    const password = localStorage.getItem('authPassword');
+    const submitButton = e.target.querySelector('button[type="submit"]');
+
+    if (!username || !password) {
+        showMessage(messageEl, 'マイページでログインしてから出陣してください。', 'error');
+        return;
+    }
+    if (!targetId || isNaN(amount) || amount < 5) {
+        showMessage(messageEl, '5P以上を投入してください。', 'error');
+        return;
+    }
+
+    submitButton.disabled = true;
+    showMessage(messageEl, '出陣中...', 'info');
+
+    try {
+        const currentData = await fetchAllData();
+        const scoresMap = new Map((currentData.scores || []).map(player => [player.name, player]));
+        const player = scoresMap.get(username);
+
+        if (!player || player.pass !== password) {
+            showMessage(messageEl, 'ログイン情報を確認できませんでした。', 'error');
+            return;
+        }
+        if ((player.score || 0) < amount) {
+            showMessage(messageEl, `ポイント残高が不足しています。現在 ${player.score.toFixed(1)}P`, 'error');
+            return;
+        }
+
+        const battle = normalizeTerritoryBattle(currentData.territory_battle);
+        const tile = battle.tiles.find(t => t.id === targetId);
+        if (!tile) {
+            showMessage(messageEl, '目標区が見つかりません。', 'error');
+            return;
+        }
+
+        const stats = getPlayerTerritoryStats(username, battle);
+        const ownedIds = stats.tiles.map(t => t.id);
+        const meta = getTerritoryTileMeta(targetId);
+        const isOwnTile = tile.owner === username;
+        const isFirstBase = ownedIds.length === 0 && !tile.owner;
+        const isAdjacent = meta && meta.neighbors.some(id => ownedIds.includes(id));
+
+        if (!isOwnTile && !isFirstBase && !isAdjacent) {
+            showMessage(messageEl, '隣接する区にのみ出陣できます。', 'error');
+            return;
+        }
+
+        const previousOwner = tile.owner;
+        let resultText = '';
+        if (isOwnTile) {
+            tile.defense = parseFloat((tile.defense + amount).toFixed(1));
+            resultText = `${tile.name}を強化しました。`;
+        } else if (amount > tile.defense) {
+            tile.owner = username;
+            tile.defense = parseFloat((amount * 0.7).toFixed(1));
+            resultText = previousOwner ? `${tile.name}を奪取しました。` : `${tile.name}を制圧しました。`;
+        } else {
+            tile.defense = parseFloat(Math.max(0, tile.defense - amount * 0.5).toFixed(1));
+            resultText = `${tile.name}の防衛力を削りました。`;
+        }
+
+        scoresMap.set(username, {
+            ...player,
+            score: parseFloat((player.score - amount).toFixed(1))
+        });
+
+        battle.updatedAt = new Date().toISOString();
+        battle.actions = [
+            ...(battle.actions || []),
+            {
+                at: battle.updatedAt,
+                player: username,
+                tileId: tile.id,
+                tileName: tile.name,
+                amount: parseFloat(amount.toFixed(1)),
+                previousOwner,
+                owner: tile.owner,
+                result: resultText
+            }
+        ].slice(-30);
+
+        const newData = {
+            scores: Array.from(scoresMap.values()),
+            sports_bets: currentData.sports_bets || [],
+            speedstorm_records: currentData.speedstorm_records || [],
+            lotteries: currentData.lotteries || [],
+            gift_codes: currentData.gift_codes || [],
+            exercise_reports: currentData.exercise_reports || [],
+            career_posts: currentData.career_posts || [],
+            territory_battle: battle
+        };
+
+        const response = await updateAllData(newData);
+        if (response.status === 'success') {
+            invalidateFetchCache();
+            localStorage.removeItem(LS_DATA_KEY);
+            showMessage(messageEl, `${resultText} ${amount.toFixed(1)}Pを消費しました。`, 'success');
+            await renderScores();
+        } else {
+            showMessage(messageEl, `出陣エラー: ${response.message}`, 'error');
+        }
+    } catch (error) {
+        console.error("陣取り処理中にエラー:", error);
+        showMessage(messageEl, `サーバーエラー: ${error.message}`, 'error');
+    } finally {
+        submitButton.disabled = false;
+    }
 }
 
 /**

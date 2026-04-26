@@ -129,7 +129,6 @@ document.getElementById('career-post-form').addEventListener('submit', async (e)
             speedstorm_records:   currentData.speedstorm_records    || [],
             lotteries:            currentData.lotteries             || [],
             gift_codes:           currentData.gift_codes            || [],
-            electric_chair_games: currentData.electric_chair_games  || [],
             exercise_reports:     currentData.exercise_reports      || [],
             career_posts:         newCareerPosts,
         };

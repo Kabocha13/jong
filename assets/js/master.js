@@ -349,8 +349,7 @@ if (MAHJONG_FORM) {
                 sports_bets: currentData.sports_bets || [],
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
-                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -487,14 +486,13 @@ if (TRANSFER_FORM) {
     
             const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
             
-            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: newScores,
                 sports_bets: currentData.sports_bets, 
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
-                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -575,14 +573,13 @@ if (CREATE_BET_FORM) {
             allBets.push(newBet);
             currentData.sports_bets = allBets;
             
-            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: currentData.scores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
-                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -628,14 +625,13 @@ async function handleCloseBet(e) {
             bet.status = 'CLOSED';
             currentData.sports_bets = allBets;
             
-            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: currentData.scores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
-                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
             
             const response = await updateAllData(newData);
@@ -963,14 +959,13 @@ async function handleSettleWagers(e) {
         currentData.sports_bets = allBets;
         currentData.scores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
         
-        // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+        // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
         const newData = {
             scores: currentData.scores,
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || [],
             lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-            gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
-            electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+            gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
         };
         
         const response = await updateAllData(newData);
@@ -1025,14 +1020,13 @@ async function handleFinalizeBet(e) {
         bet.status = 'SETTLED';
         currentData.sports_bets = allBets;
         
-        // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+        // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
         const newData = {
             scores: currentData.scores,
             sports_bets: currentData.sports_bets,
             speedstorm_records: currentData.speedstorm_records || [],
             lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-            gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
-            electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+            gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
         };
         
         const response = await updateAllData(newData);
@@ -1089,14 +1083,13 @@ if (document.getElementById('adjustment-form')) {
     
             const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
     
-            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: newScores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
-                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -1188,14 +1181,13 @@ if (DAILY_TAX_BUTTON) {
             
             const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
     
-            // ★★★ 修正: lotteries, gift_codes, electric_chair_games フィールドを保持 ★★★
+            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: newScores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
-                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
     
             const response = await updateAllData(newData);
@@ -1284,8 +1276,6 @@ if (CREATE_GIFT_CODE_FORM) {
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [],
                 gift_codes: currentData.gift_codes || [],
-                // ★★★ 修正箇所: PVPゲームデータ (electric_chair_games) を保持 ★★★
-                electric_chair_games: currentData.electric_chair_games || [],
             });
 
             if (response.status === 'success') {
@@ -1436,14 +1426,13 @@ if (CREATE_LOTTERY_FORM) {
             currentData.lotteries.push(newLottery);
             
             // 全データを更新
-            // ★★★ 修正: gift_codes, electric_chair_games フィールドを保持 ★★★
+            // ★★★ 修正: gift_codes フィールドを保持 ★★★
             const newData = {
                 scores: currentData.scores,
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries,
-                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
-                electric_chair_games: currentData.electric_chair_games || [] // ★ PVPデータも保持
+                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
             };
 
             const response = await updateAllData(newData);
@@ -1528,7 +1517,6 @@ async function saveSpecialTheme(themeData) {
             speedstorm_records:   currentData.speedstorm_records    || [],
             lotteries:            currentData.lotteries             || [],
             gift_codes:           currentData.gift_codes            || [],
-            electric_chair_games: currentData.electric_chair_games  || [],
             exercise_reports:     currentData.exercise_reports      || [],
             career_posts:         currentData.career_posts          || [],
             special_theme:        themeData,
