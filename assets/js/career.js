@@ -40,6 +40,7 @@ async function attemptLogin(username, password, isAuto = false) {
             if (!isAuto) showMessage(AUTH_MESSAGE, '❌ ユーザー名またはパスワードが違います。', 'error');
             return false;
         }
+        await qjongSignIn(username, password);
         authenticatedUser = { ...user };
         localStorage.setItem('authUsername', username);
         localStorage.setItem('authPassword', password);
@@ -59,6 +60,7 @@ async function attemptLogin(username, password, isAuto = false) {
 
 function handleLogout() {
     authenticatedUser = null;
+    qjongSignOut();
     localStorage.removeItem('authUsername');
     localStorage.removeItem('authPassword');
     CAREER_CONTENT.classList.add('hidden');

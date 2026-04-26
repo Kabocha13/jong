@@ -1,0 +1,57 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      ".git/**",
+      ".gitignore",
+      ".firebaserc",
+      "**/node_modules/**",
+      "functions/**",
+      "netlify/**",
+      "tools/**",
+      "package.json",
+      "package-lock.json",
+      "serviceAccountKey.json",
+      "*serviceAccount*.json",
+      "jsonbin-backup.json",
+      "firestore.rules",
+      "storage.rules",
+      "FIREBASE_MIGRATION.md",
+      "README.md"
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=300"
+          }
+        ]
+      },
+      {
+        "source": "**/*.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      }
+    ]
+  },
+  "firestore": [
+    {
+      "database": "q-jong",
+      "rules": "firestore.rules"
+    }
+  ],
+  "functions": {
+    "source": "functions"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}

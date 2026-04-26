@@ -1,0 +1,7 @@
+node_modules/
+*.log
+
+# Firebase service account keys must stay local.
+*serviceAccount*.json
+serviceAccountKey.json
+firebase-debug.log

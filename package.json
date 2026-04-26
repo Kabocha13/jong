@@ -1,0 +1,14 @@
+{
+  "name": "q-jong",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate:firebase": "node tools/migrate-jsonbin-to-firestore.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.35.1"
+  }
+}

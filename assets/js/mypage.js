@@ -68,6 +68,13 @@ async function attemptLogin(username, password, isAuto = false) {
     const user = scores.find(p => p.name === username && p.pass === password);
 
     if (user) {
+        try {
+            await qjongSignIn(username, password);
+        } catch (error) {
+            showMessage(AUTH_MESSAGE, `❌ Firebase認証エラー: ${error.message}`, 'error');
+            return false;
+        }
+
         authenticatedUser = user; 
         
         if (!authenticatedUser.status) {
@@ -125,6 +132,7 @@ function handleLogout() {
     
     localStorage.removeItem('authUsername');
     localStorage.removeItem('authPassword');
+    qjongSignOut();
 
     authenticatedUser = null;
     document.getElementById('auth-section').classList.remove('hidden');
@@ -1393,25 +1401,35 @@ function initExercise() {
         showMessage(messageEl, '⏳ アップロード中...', 'info');
 
         try {
-            const base64 = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload  = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(imageFile);
-            });
-
-            const res = await fetch('/.netlify/functions/exercise-submit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
+            let data;
+            if (isFirebaseConfigured()) {
+                data = await submitExerciseReportToFirebase({
                     player: authenticatedUser.name,
                     distance,
                     pace,
-                    imageBase64: base64
-                })
-            });
+                    imageFile
+                });
+            } else {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload  = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(imageFile);
+                });
 
-            const data = await res.json();
+                const res = await fetch('/.netlify/functions/exercise-submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        player: authenticatedUser.name,
+                        distance,
+                        pace,
+                        imageBase64: base64
+                    })
+                });
+                data = await res.json();
+            }
+
             if (data.status === 'success') {
                 showMessage(messageEl, `✅ 申請を送信しました。承認後 ${data.points}P が付与されます。`, 'success');
                 form.reset();

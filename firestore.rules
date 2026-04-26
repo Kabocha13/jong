@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 公開ページ表示用に読み取りは許可する。
+    // 書き込みは Cloud Functions が発行した Firebase Auth トークン必須。
+    match /{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

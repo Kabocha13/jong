@@ -85,6 +85,13 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         // ユーザーが見つかり、パスワードが一致するかどうかをチェック
         // masterUser.passには、mypage.jsと同様にユーザー登録時のパスワードが格納されている想定
         if (masterUser.pass === password) {
+            try {
+                await qjongSignIn(username, password);
+            } catch (error) {
+                showMessage(AUTH_MESSAGE, `❌ Firebase認証エラー: ${error.message}`, 'error');
+                return false;
+            }
+
             // ★ 認証成功ロジック
             isAuthenticatedAsMaster = true;
 
@@ -139,6 +146,7 @@ function handleMasterLogout() {
     
     // 1. 状態をリセット
     isAuthenticatedAsMaster = false;
+    qjongSignOut();
     localStorage.removeItem('authUsername');
     localStorage.removeItem('authPassword');
 
@@ -1553,12 +1561,17 @@ document.getElementById('clear-theme-button').addEventListener('click', async ()
 async function handleExerciseAction(reportId, action) {
     const messageEl = document.getElementById('exercise-action-message');
     try {
-        const res = await fetch('/.netlify/functions/exercise-action', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reportId, action })
-        });
-        const data = await res.json();
+        let data;
+        if (isFirebaseConfigured()) {
+            data = await handleExerciseActionInFirebase(reportId, action);
+        } else {
+            const res = await fetch('/.netlify/functions/exercise-action', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reportId, action })
+            });
+            data = await res.json();
+        }
         showMessage(messageEl, data.message, data.status === 'success' ? 'success' : 'error');
         await loadExerciseReports();
     } catch (err) {

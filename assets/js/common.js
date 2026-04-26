@@ -1,11 +1,288 @@
 // assets/js/common.js
 
-// ★★★ JSONBin.io の設定情報 (APIキーとBIN IDを削除し、関数エンドポイントに変更) ★★★
-
-// Netlify Functionのエンドポイントを定義
-// クライアント側ではAPIキーなしで、サーバーレス関数を呼び出す
+// Firebase が設定済みなら Firestore / Storage を使い、未設定の間は既存の
+// Netlify Functions にフォールバックする。
 const FETCH_URL = "/.netlify/functions/fetch-data";
 const UPDATE_URL = "/.netlify/functions/update-data";
+
+const FIREBASE_COLLECTIONS = {
+    scores: 'players',
+    sports_bets: 'sports_bets',
+    speedstorm_records: 'speedstorm_records',
+    lotteries: 'lotteries',
+    gift_codes: 'gift_codes',
+    exercise_reports: 'exercise_reports',
+    career_posts: 'career_posts'
+};
+let _firebaseFirestoreSettingsApplied = false;
+
+function isFirebaseConfigured() {
+    return Boolean(
+        window.firebase &&
+        window.QJONG_FIREBASE_CONFIG &&
+        window.QJONG_FIREBASE_CONFIG.apiKey &&
+        !String(window.QJONG_FIREBASE_CONFIG.apiKey).includes('YOUR_')
+    );
+}
+
+function getFirebaseApp() {
+    if (!isFirebaseConfigured()) return null;
+    if (!window.firebase.apps.length) {
+        window.firebase.initializeApp(window.QJONG_FIREBASE_CONFIG);
+        if (window.firebase.firestore && !_firebaseFirestoreSettingsApplied) {
+            window.firebase.firestore().settings({ ignoreUndefinedProperties: true });
+            _firebaseFirestoreSettingsApplied = true;
+        }
+    }
+    return window.firebase.app();
+}
+
+function getFirestoreDb() {
+    const app = getFirebaseApp();
+    if (!app) return null;
+    return createFirestoreRestDb(window.QJONG_FIREBASE_CONFIG);
+}
+
+function getFirebaseStorage() {
+    const app = getFirebaseApp();
+    return app && window.firebase.storage ? window.firebase.storage() : null;
+}
+
+function getFirebaseAuth() {
+    const app = getFirebaseApp();
+    return app && window.firebase.auth ? window.firebase.auth() : null;
+}
+
+function getFunctionsBaseUrl() {
+    const config = window.QJONG_FIREBASE_CONFIG || {};
+    const region = config.functionsRegion || 'asia-northeast1';
+    return `https://${region}-${config.projectId}.cloudfunctions.net`;
+}
+
+async function qjongSignIn(username, password) {
+    const auth = getFirebaseAuth();
+    if (!auth) return null;
+
+    if (auth.currentUser) {
+        const tokenResult = await auth.currentUser.getIdTokenResult();
+        if (tokenResult.claims.username === username) {
+            return auth.currentUser;
+        }
+    }
+
+    const response = await fetch(`${getFunctionsBaseUrl()}/qjongLogin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.token) {
+        throw new Error(data.message || 'Firebaseログインに失敗しました。');
+    }
+    const credential = await auth.signInWithCustomToken(data.token);
+    return credential.user;
+}
+
+async function qjongSignOut() {
+    const auth = getFirebaseAuth();
+    if (auth && auth.currentUser) {
+        await auth.signOut();
+    }
+}
+
+async function getFirebaseIdToken() {
+    const auth = getFirebaseAuth();
+    if (!auth || !auth.currentUser) return null;
+    return auth.currentUser.getIdToken();
+}
+
+function createEmptyData() {
+    return {
+        scores: [],
+        sports_bets: [],
+        speedstorm_records: [],
+        lotteries: [],
+        gift_codes: [],
+        exercise_reports: [],
+        career_posts: [],
+        territory_battle: createDefaultTerritoryBattle(),
+        special_theme: null
+    };
+}
+
+function normalizeFetchedRecord(record) {
+    const normalized = { ...createEmptyData(), ...(record || {}) };
+    normalized.scores = (normalized.scores || []).map(player => ({
+        ...player,
+        status: player.status || 'none'
+    }));
+    normalized.territory_battle = normalizeTerritoryBattle(normalized.territory_battle);
+    return normalized;
+}
+
+function toDocId(value) {
+    const raw = String(value ?? '').trim();
+    return encodeURIComponent(raw || `item_${Date.now()}_${Math.random().toString(36).slice(2)}`)
+        .replace(/\./g, '%2E')
+        .replace(/\//g, '%2F');
+}
+
+function getItemDocId(key, item, index) {
+    if (key === 'scores') return toDocId(item.name || `player_${index}`);
+    if (key === 'sports_bets') return toDocId(item.betId ?? item.id ?? `bet_${index}`);
+    if (key === 'lotteries') return toDocId(item.lotteryId ?? item.id ?? `lottery_${index}`);
+    if (key === 'gift_codes') return toDocId(item.code ?? item.name ?? item.id ?? `gift_${index}`);
+    if (key === 'exercise_reports') return toDocId(item.id ?? `exercise_${index}`);
+    if (key === 'career_posts') return toDocId(item.id ?? `career_${index}`);
+    if (key === 'speedstorm_records') return toDocId(item.id ?? item.player ?? `speedstorm_${index}`);
+    return toDocId(item.id ?? index);
+}
+
+function firestoreValueFromJson(value) {
+    if (value === undefined) return undefined;
+    if (value === null) return { nullValue: null };
+    if (typeof value === 'boolean') return { booleanValue: value };
+    if (typeof value === 'number') return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
+    if (typeof value === 'string') return { stringValue: value };
+    if (Array.isArray(value)) {
+        return { arrayValue: { values: value.map(firestoreValueFromJson).filter(Boolean) } };
+    }
+    if (typeof value === 'object') {
+        const fields = {};
+        Object.entries(value).forEach(([key, childValue]) => {
+            const converted = firestoreValueFromJson(childValue);
+            if (converted) fields[key] = converted;
+        });
+        return { mapValue: { fields } };
+    }
+    return { stringValue: String(value) };
+}
+
+function jsonFromFirestoreValue(value) {
+    if (!value || value.nullValue === null) return null;
+    if ('booleanValue' in value) return value.booleanValue;
+    if ('integerValue' in value) return Number(value.integerValue);
+    if ('doubleValue' in value) return value.doubleValue;
+    if ('stringValue' in value) return value.stringValue;
+    if ('timestampValue' in value) return value.timestampValue;
+    if ('arrayValue' in value) return (value.arrayValue.values || []).map(jsonFromFirestoreValue);
+    if ('mapValue' in value) {
+        const result = {};
+        Object.entries(value.mapValue.fields || {}).forEach(([key, childValue]) => {
+            result[key] = jsonFromFirestoreValue(childValue);
+        });
+        return result;
+    }
+    return null;
+}
+
+function firestoreFieldsFromJson(data) {
+    return firestoreValueFromJson(data || {}).mapValue.fields || {};
+}
+
+function jsonFromFirestoreDocument(document) {
+    const result = {};
+    Object.entries(document.fields || {}).forEach(([key, value]) => {
+        result[key] = jsonFromFirestoreValue(value);
+    });
+    return result;
+}
+
+function createFirestoreRestDb(config) {
+    const databaseId = config.databaseId || '(default)';
+    const baseUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${databaseId}/documents`;
+    const keyQuery = `key=${encodeURIComponent(config.apiKey)}`;
+
+    function docUrl(path) {
+        return `${baseUrl}/${path.split('/').map(encodeURIComponent).join('/')}?${keyQuery}`;
+    }
+
+    async function request(url, options = {}) {
+        const headers = new Headers(options.headers || {});
+        const token = await getFirebaseIdToken();
+        if (token) {
+            headers.set('Authorization', `Bearer ${token}`);
+        }
+        const response = await fetch(url, { ...options, headers });
+        if (response.status === 404) return null;
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Firestore REST Error ${response.status}: ${errorText}`);
+        }
+        return response.json();
+    }
+
+    function makeDoc(path) {
+        return {
+            path,
+            get id() {
+                return decodeURIComponent(path.split('/').pop());
+            },
+            async get() {
+                const document = await request(docUrl(path));
+                return {
+                    exists: Boolean(document),
+                    id: this.id,
+                    data: () => document ? jsonFromFirestoreDocument(document) : undefined,
+                    ref: this
+                };
+            },
+            async set(data) {
+                await request(docUrl(path), {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fields: firestoreFieldsFromJson(data) })
+                });
+            },
+            async update(data) {
+                await this.set(data);
+            },
+            async delete() {
+                await request(docUrl(path), { method: 'DELETE' });
+            }
+        };
+    }
+
+    function makeCollection(path) {
+        return {
+            path,
+            doc: id => makeDoc(`${path}/${id}`),
+            async get() {
+                const result = await request(`${baseUrl}/${path}?${keyQuery}`);
+                const docs = (result && result.documents ? result.documents : []).map(document => {
+                    const doc = makeDoc(document.name.split('/documents/')[1]);
+                    const data = jsonFromFirestoreDocument(document);
+                    return { id: doc.id, ref: doc, data: () => data };
+                });
+                return { docs };
+            }
+        };
+    }
+
+    return {
+        collection: makeCollection,
+        batch() {
+            const operations = [];
+            return {
+                set: (docRef, data) => operations.push(() => docRef.set(data)),
+                delete: docRef => operations.push(() => docRef.delete()),
+                commit: async () => {
+                    for (const operation of operations) {
+                        await operation();
+                    }
+                }
+            };
+        },
+        async runTransaction(updateFunction) {
+            const transaction = {
+                get: docRef => docRef.get(),
+                update: (docRef, data) => docRef.update(data),
+                delete: docRef => docRef.delete()
+            };
+            return updateFunction(transaction);
+        }
+    };
+}
 
 const TOKYO_WARDS = [
     { id: 'nerima', name: '練馬区', area: 48.08, row: 1, col: 1 },
@@ -84,6 +361,10 @@ function invalidateFetchCache() {
 }
 
 async function _fetchAllDataRaw() {
+    if (isFirebaseConfigured()) {
+        return fetchAllDataFromFirebase();
+    }
+
     const MAX_RETRIES = 3;
     let attempt = 0;
     let delayMs = 1000;
@@ -108,7 +389,7 @@ async function _fetchAllDataRaw() {
             }
             
             // 関数側で既にデータ構造の調整が行われているため、そのまま record として扱う
-            const record = await response.json();
+            const record = normalizeFetchedRecord(await response.json());
 
             // スペシャルテーマをキャッシュして適用
             if (record.special_theme !== undefined) {
@@ -128,13 +409,65 @@ async function _fetchAllDataRaw() {
             } else {
                 console.error("ポイントデータ取得中にエラー:", error);
                 // 最終的に失敗した場合、空の初期データを返す
-                return { scores: [], sports_bets: [], speedstorm_records: [], lotteries: [], territory_battle: createDefaultTerritoryBattle() };
+                return createEmptyData();
             }
         }
     }
      // 最終リトライ後も失敗した場合
      console.error("ポイントデータ取得に失敗しました。最大リトライ回数を超えました。");
-     return { scores: [], sports_bets: [], speedstorm_records: [], lotteries: [], territory_battle: createDefaultTerritoryBattle() };
+     return createEmptyData();
+}
+
+async function fetchCollection(db, key) {
+    const snapshot = await db.collection(FIREBASE_COLLECTIONS[key]).get();
+    return snapshot.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
+}
+
+async function fetchAllDataFromFirebase() {
+    const db = getFirestoreDb();
+    if (!db) return createEmptyData();
+
+    const [
+        scores,
+        sportsBets,
+        speedstormRecords,
+        lotteries,
+        giftCodes,
+        exerciseReports,
+        careerPosts,
+        settingsDoc,
+        territoryDoc
+    ] = await Promise.all([
+        fetchCollection(db, 'scores'),
+        fetchCollection(db, 'sports_bets'),
+        fetchCollection(db, 'speedstorm_records'),
+        fetchCollection(db, 'lotteries'),
+        fetchCollection(db, 'gift_codes'),
+        fetchCollection(db, 'exercise_reports'),
+        fetchCollection(db, 'career_posts'),
+        db.collection('settings').doc('app').get(),
+        db.collection('territory_battle').doc('current').get()
+    ]);
+
+    const settings = settingsDoc.exists ? settingsDoc.data() : {};
+    const record = normalizeFetchedRecord({
+        scores,
+        sports_bets: sportsBets,
+        speedstorm_records: speedstormRecords,
+        lotteries,
+        gift_codes: giftCodes,
+        exercise_reports: exerciseReports,
+        career_posts: careerPosts,
+        territory_battle: territoryDoc.exists ? territoryDoc.data() : null,
+        special_theme: settings.special_theme ?? null
+    });
+
+    if (record.special_theme !== undefined) {
+        localStorage.setItem('specialTheme', JSON.stringify(record.special_theme || null));
+        applySpecialTheme(record.special_theme);
+    }
+
+    return record;
 }
 
 /**
@@ -156,6 +489,10 @@ async function fetchScores() {
 async function updateAllData(newData) {
     // 書き込み前にキャッシュを破棄して次回fetchで最新を取得させる
     invalidateFetchCache();
+
+    if (isFirebaseConfigured()) {
+        return updateAllDataInFirebase(newData);
+    }
 
     const MAX_RETRIES = 3;
     let attempt = 0;
@@ -200,6 +537,128 @@ async function updateAllData(newData) {
     }
     console.error("ポイントデータ書き込みに失敗しました。最大リトライ回数を超えました。");
     return { status: "error", message: `データ書き込み失敗: 最大リトライ回数を超えました`, totalChange: 0 };
+}
+
+async function replaceCollection(db, batch, key, items) {
+    const collectionName = FIREBASE_COLLECTIONS[key];
+    const collectionRef = db.collection(collectionName);
+    const snapshot = await collectionRef.get();
+    const nextIds = new Set();
+
+    (items || []).forEach((item, index) => {
+        const docId = getItemDocId(key, item, index);
+        nextIds.add(docId);
+        const payload = { ...item };
+        delete payload._docId;
+        batch.set(collectionRef.doc(docId), payload);
+    });
+
+    snapshot.docs.forEach(doc => {
+        if (!nextIds.has(doc.id)) {
+            batch.delete(doc.ref);
+        }
+    });
+}
+
+async function updateAllDataInFirebase(newData) {
+    try {
+        const db = getFirestoreDb();
+        const currentData = _fetchCache || await fetchAllDataFromFirebase();
+        const mergedData = normalizeFetchedRecord({ ...currentData, ...(newData || {}) });
+        const batch = db.batch();
+
+        for (const key of Object.keys(FIREBASE_COLLECTIONS)) {
+            await replaceCollection(db, batch, key, mergedData[key] || []);
+        }
+
+        batch.set(db.collection('settings').doc('app'), {
+            special_theme: mergedData.special_theme ?? null,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+        batch.set(db.collection('territory_battle').doc('current'), {
+            ...normalizeTerritoryBattle(mergedData.territory_battle),
+            updatedAt: new Date().toISOString()
+        }, { merge: false });
+
+        await batch.commit();
+        _fetchCache = mergedData;
+        _fetchCacheTime = Date.now();
+        return { status: "success", message: "データをFirebaseに保存しました。", totalChange: 0 };
+    } catch (error) {
+        console.error("Firebase書き込み中にエラー:", error);
+        return { status: "error", message: `Firebase書き込み失敗: ${error.message}`, totalChange: 0 };
+    }
+}
+
+async function submitExerciseReportToFirebase({ player, distance, pace, imageFile }) {
+    const storage = getFirebaseStorage();
+    const db = getFirestoreDb();
+    if (!storage || !db) {
+        throw new Error('Firebase Storage が設定されていません。');
+    }
+
+    const distanceNum = parseFloat(distance);
+    const paceMatch = String(pace).match(/(\d+)'(\d+)/);
+    let suspicious = false;
+    if (paceMatch) {
+        const paceMin = parseInt(paceMatch[1], 10) + parseInt(paceMatch[2], 10) / 60;
+        suspicious = paceMin < 4.0;
+    }
+
+    const reportId = `ex_${Date.now()}`;
+    const extension = (imageFile.name.split('.').pop() || 'jpg').toLowerCase();
+    const imagePath = `exercise_reports/${reportId}.${extension}`;
+    const imageRef = storage.ref().child(imagePath);
+    await imageRef.put(imageFile, { contentType: imageFile.type || 'image/jpeg' });
+    const imageUrl = await imageRef.getDownloadURL();
+    const points = parseFloat((distanceNum * 10).toFixed(1));
+
+    const report = {
+        id: reportId,
+        player,
+        submittedAt: new Date().toISOString(),
+        distance: distanceNum,
+        pace,
+        imageUrl,
+        storagePath: imagePath,
+        status: 'pending',
+        points,
+        suspicious
+    };
+
+    await db.collection(FIREBASE_COLLECTIONS.exercise_reports).doc(reportId).set(report);
+    invalidateFetchCache();
+    return { status: 'success', message: '運動申請を送信しました。', points, suspicious };
+}
+
+async function handleExerciseActionInFirebase(reportId, action) {
+    const db = getFirestoreDb();
+    if (!db) throw new Error('Firebase が設定されていません。');
+    if (!['approve', 'reject'].includes(action)) throw new Error('不正な操作です。');
+
+    let message = '';
+    await db.runTransaction(async transaction => {
+        const reportRef = db.collection(FIREBASE_COLLECTIONS.exercise_reports).doc(toDocId(reportId));
+        const reportDoc = await transaction.get(reportRef);
+        if (!reportDoc.exists) throw new Error('申請が見つかりません。');
+
+        const report = reportDoc.data();
+        if (action === 'approve') {
+            const playerRef = db.collection(FIREBASE_COLLECTIONS.scores).doc(toDocId(report.player));
+            const playerDoc = await transaction.get(playerRef);
+            if (!playerDoc.exists) throw new Error('プレイヤーが見つかりません。');
+            const player = playerDoc.data();
+            const nextScore = parseFloat(((player.score || 0) + report.points).toFixed(1));
+            transaction.update(playerRef, { score: nextScore });
+            message = `✅ ${report.player} の申請を承認し、${report.points}P を付与しました。`;
+        } else {
+            message = `❌ ${report.player} の申請を却下しました。`;
+        }
+        transaction.delete(reportRef);
+    });
+
+    invalidateFetchCache();
+    return { status: 'success', message };
 }
 
 // -----------------------------------------------------------------

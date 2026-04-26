@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 初回移行用の暫定ルールです。
+    // 運動申請の画像保存確認後に、Auth 必須へ締めます。
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
