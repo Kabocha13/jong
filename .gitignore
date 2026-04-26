@@ -1,5 +1,8 @@
 node_modules/
 *.log
+.firebase/
+jsonbin-backup.json
+*-backup.json
 
 # Firebase service account keys must stay local.
 *serviceAccount*.json
