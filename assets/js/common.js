@@ -35,6 +35,10 @@ const TOKYO_WARDS = [
 
 const TERRITORY_AVERAGE_WARD_AREA = TOKYO_WARDS.reduce((sum, ward) => sum + ward.area, 0) / TOKYO_WARDS.length;
 
+function getNeutralTerritoryDefense(area) {
+    return parseFloat(Math.min(15, Math.max(5, area / TERRITORY_AVERAGE_WARD_AREA * 7)).toFixed(1));
+}
+
 // -----------------------------------------------------------------
 // データ取得 (GET)
 // -----------------------------------------------------------------
@@ -216,7 +220,7 @@ function createDefaultTerritoryBattle() {
             name: ward.name,
             area: ward.area,
             owner: null,
-            defense: 0
+            defense: getNeutralTerritoryDefense(ward.area)
         })),
         actions: []
     };
@@ -232,12 +236,16 @@ function normalizeTerritoryBattle(battle) {
         updatedAt: normalized.updatedAt || new Date().toISOString(),
         tiles: TOKYO_WARDS.map(ward => {
             const existing = tileMap.get(ward.id) || {};
+            const existingDefense = parseFloat(existing.defense);
+            const defense = existing.owner
+                ? Math.max(0, existingDefense || 0)
+                : Math.max(getNeutralTerritoryDefense(ward.area), existingDefense || 0);
             return {
                 id: ward.id,
                 name: ward.name,
                 area: ward.area,
                 owner: existing.owner || null,
-                defense: Math.max(0, parseFloat(existing.defense) || 0)
+                defense
             };
         }),
         actions: Array.isArray(normalized.actions) ? normalized.actions.slice(-30) : []
