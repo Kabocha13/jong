@@ -42,7 +42,7 @@ const APPLY_GIFT_CODE_MESSAGE = document.getElementById('apply-gift-code-message
 const TARGET_CONTINUE_TOOL = document.getElementById('target-continue-tool');
 
 
-// 認証されたユーザー情報 ({name: '...', score: ..., pass: '...', status: ..., lastBonusTime: ...})
+// 認証されたユーザー情報 ({name: '...', score: ..., status: ..., lastBonusTime: ...})
 let authenticatedUser = null; 
 // 宝くじのデータを一時的に保持 (価格計算用)
 let availableLotteries = [];
@@ -60,21 +60,19 @@ async function attemptLogin(username, password, isAuto = false) {
         showMessage(AUTH_MESSAGE, '認証中...', 'info');
     }
     
+    try {
+        await qjongSignIn(username, password);
+    } catch (error) {
+        showMessage(AUTH_MESSAGE, `❌ Firebase認証エラー: ${error.message}`, 'error');
+        return false;
+    }
+
     const allData = await fetchAllData();
     latestAllData = allData;
     const scores = allData.scores;
-
-    // ユーザー名とパスワードで照合
-    const user = scores.find(p => p.name === username && p.pass === password);
+    const user = scores.find(p => p.name === username);
 
     if (user) {
-        try {
-            await qjongSignIn(username, password);
-        } catch (error) {
-            showMessage(AUTH_MESSAGE, `❌ Firebase認証エラー: ${error.message}`, 'error');
-            return false;
-        }
-
         authenticatedUser = user; 
         
         if (!authenticatedUser.status) {
@@ -103,7 +101,7 @@ async function attemptLogin(username, password, isAuto = false) {
             localStorage.removeItem('authUsername');
             localStorage.removeItem('authPassword');
         } else {
-            showMessage(AUTH_MESSAGE, '❌ ユーザー名またはパスワードが間違っています。', 'error');
+            showMessage(AUTH_MESSAGE, '❌ ユーザーデータが見つかりません。', 'error');
         }
         return false;
     }
@@ -862,8 +860,8 @@ if (WAGER_FORM) {
             let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
             let targetPlayer = currentScoresMap.get(player);
             
-            if (!targetPlayer || typeof targetPlayer.pass === 'undefined' || typeof targetPlayer.status === 'undefined') {
-                 showMessage(messageEl, '❌ 認証ユーザーのデータにパスワード情報または会員ステータス情報が不足しています。', 'error');
+            if (!targetPlayer || typeof targetPlayer.status === 'undefined') {
+                 showMessage(messageEl, '❌ 認証ユーザーの会員ステータス情報が不足しています。', 'error');
                  return;
             }
 

@@ -63,13 +63,6 @@ async function qjongSignIn(username, password) {
     const auth = getFirebaseAuth();
     if (!auth) return null;
 
-    if (auth.currentUser) {
-        const tokenResult = await auth.currentUser.getIdTokenResult();
-        if (tokenResult.claims.username === username) {
-            return auth.currentUser;
-        }
-    }
-
     const response = await fetch(`${getFunctionsBaseUrl()}/qjongLogin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,7 +73,7 @@ async function qjongSignIn(username, password) {
         throw new Error(data.message || 'Firebaseログインに失敗しました。');
     }
     const credential = await auth.signInWithCustomToken(data.token);
-    return credential.user;
+    return { firebaseUser: credential.user, user: data.user || null };
 }
 
 async function qjongSignOut() {

@@ -244,11 +244,12 @@ async function handleTerritoryAction(e) {
     showMessage(messageEl, '出陣中...', 'info');
 
     try {
+        await qjongSignIn(username, password);
         const currentData = await fetchAllData();
         const scoresMap = new Map((currentData.scores || []).map(player => [player.name, player]));
         const player = scoresMap.get(username);
 
-        if (!player || player.pass !== password) {
+        if (!player) {
             showMessage(messageEl, 'ログイン情報を確認できませんでした。', 'error');
             return;
         }

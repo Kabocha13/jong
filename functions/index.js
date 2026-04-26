@@ -26,6 +26,16 @@ function authUidFromUsername(username) {
   return encodeURIComponent(username).replace(/%/g, '_').slice(0, 120);
 }
 
+async function getStoredPassword(playerDoc, player) {
+  const secretDoc = await db.collection('player_secrets').doc(playerDoc.id).get();
+  if (secretDoc.exists) {
+    return String(secretDoc.data().pass || '');
+  }
+
+  // 移行期間の後方互換。player_secrets 作成後は players.pass を削除する。
+  return String(player.pass || '');
+}
+
 export const qjongLogin = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
   setCors(req, res);
   if (req.method === 'OPTIONS') {
@@ -53,8 +63,10 @@ export const qjongLogin = onRequest({ region: 'asia-northeast1' }, async (req, r
       return;
     }
 
-    const player = snapshot.docs[0].data();
-    if (player.pass !== cleanPassword) {
+    const playerDoc = snapshot.docs[0];
+    const player = playerDoc.data();
+    const storedPassword = await getStoredPassword(playerDoc, player);
+    if (storedPassword !== cleanPassword) {
       res.status(401).json({ status: 'error', message: 'ユーザー名またはパスワードが違います。' });
       return;
     }

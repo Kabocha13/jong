@@ -68,8 +68,9 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         return false;
     }
 
-    // 2. JSONBinからユーザーデータを取得し、パスワードを照合
+    // 2. Cloud Functionでパスワードを照合
     try {
+        await qjongSignIn(username, password);
         const allData = await fetchAllData();
         const scores = allData.scores;
         
@@ -82,54 +83,39 @@ async function attemptMasterLogin(username, password, isAuto = false) {
             return false;
         }
 
-        // ユーザーが見つかり、パスワードが一致するかどうかをチェック
-        // masterUser.passには、mypage.jsと同様にユーザー登録時のパスワードが格納されている想定
-        if (masterUser.pass === password) {
-            try {
-                await qjongSignIn(username, password);
-            } catch (error) {
-                showMessage(AUTH_MESSAGE, `❌ Firebase認証エラー: ${error.message}`, 'error');
-                return false;
-            }
+        // ★ 認証成功ロジック
+        isAuthenticatedAsMaster = true;
 
-            // ★ 認証成功ロジック
-            isAuthenticatedAsMaster = true;
-
-            // 認証情報をキャッシュ
-            if (!isAuto) {
-                localStorage.setItem('authUsername', username);
-                localStorage.setItem('authPassword', password);
-            }
-
-            // UIの切り替え
-            document.getElementById('auth-section').classList.add('hidden');
-            ADMIN_TOOLS.classList.remove('hidden');
-            MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
-
-            // ツール類の初期化
-            loadPlayerList();
-            loadTransferPlayerLists();
-            initializeSportsMasterTools();
-            loadMahjongForm();
-            initializeLotteryForm();
-            loadExerciseReports();
-            loadSpecialThemeStatus();
-            
-            if (!isAuto) {
-                 showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
-            } else {
-                 AUTH_MESSAGE.classList.add('hidden'); // 自動ログイン時はメッセージを非表示
-            }
-
-            return true;
-        } else {
-            // パスワード不一致
-            showMessage(AUTH_MESSAGE, '❌ パスワードが間違っています。', 'error');
-            return false;
+        // 認証情報をキャッシュ
+        if (!isAuto) {
+            localStorage.setItem('authUsername', username);
+            localStorage.setItem('authPassword', password);
         }
+
+        // UIの切り替え
+        document.getElementById('auth-section').classList.add('hidden');
+        ADMIN_TOOLS.classList.remove('hidden');
+        MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
+
+        // ツール類の初期化
+        loadPlayerList();
+        loadTransferPlayerLists();
+        initializeSportsMasterTools();
+        loadMahjongForm();
+        initializeLotteryForm();
+        loadExerciseReports();
+        loadSpecialThemeStatus();
+        
+        if (!isAuto) {
+             showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
+        } else {
+             AUTH_MESSAGE.classList.add('hidden'); // 自動ログイン時はメッセージを非表示
+        }
+
+        return true;
     } catch (error) {
         console.error("マスター認証中にエラー:", error);
-        showMessage(AUTH_MESSAGE, `❌ サーバーエラーまたはデータ取得エラーが発生しました。`, 'error');
+        showMessage(AUTH_MESSAGE, `❌ Firebase認証エラー: ${error.message}`, 'error');
         return false;
     }
 }

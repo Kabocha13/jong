@@ -34,13 +34,13 @@ async function attemptLogin(username, password, isAuto = false) {
     if (!isAuto) showMessage(AUTH_MESSAGE, '認証中...', 'info');
 
     try {
+        await qjongSignIn(username, password);
         const allData = await fetchAllData();
-        const user = allData.scores.find(p => p.name === username && p.pass === password);
+        const user = allData.scores.find(p => p.name === username);
         if (!user) {
-            if (!isAuto) showMessage(AUTH_MESSAGE, '❌ ユーザー名またはパスワードが違います。', 'error');
+            if (!isAuto) showMessage(AUTH_MESSAGE, '❌ ユーザーデータが見つかりません。', 'error');
             return false;
         }
-        await qjongSignIn(username, password);
         authenticatedUser = { ...user };
         localStorage.setItem('authUsername', username);
         localStorage.setItem('authPassword', password);

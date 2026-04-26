@@ -2,9 +2,54 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    match /player_secrets/{playerId} {
+      allow read: if false;
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
+
     // 公開ページ表示用に読み取りは許可する。
     // 書き込みは Cloud Functions が発行した Firebase Auth トークン必須。
-    match /{document=**} {
+    match /players/{playerId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /sports_bets/{betId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /speedstorm_records/{recordId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /lotteries/{lotteryId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /gift_codes/{giftCodeId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /exercise_reports/{reportId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /career_posts/{postId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /territory_battle/{battleId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
