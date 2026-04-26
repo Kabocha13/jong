@@ -8,29 +8,25 @@ const FETCH_URL = "/.netlify/functions/fetch-data";
 const UPDATE_URL = "/.netlify/functions/update-data";
 
 const TOKYO_WARDS = [
-    { id: 'chiyoda', name: '千代田区', area: 11.66, neighbors: ['chuo', 'minato', 'shinjuku', 'bunkyo', 'taito'] },
-    { id: 'chuo', name: '中央区', area: 10.21, neighbors: ['chiyoda', 'minato', 'taito', 'koto'] },
-    { id: 'minato', name: '港区', area: 20.37, neighbors: ['chiyoda', 'chuo', 'shinjuku', 'shibuya', 'shinagawa'] },
-    { id: 'shinjuku', name: '新宿区', area: 18.22, neighbors: ['chiyoda', 'minato', 'shibuya', 'nakano', 'toshima', 'bunkyo'] },
-    { id: 'bunkyo', name: '文京区', area: 11.29, neighbors: ['chiyoda', 'shinjuku', 'toshima', 'kita', 'arakawa', 'taito'] },
-    { id: 'taito', name: '台東区', area: 10.11, neighbors: ['chiyoda', 'chuo', 'bunkyo', 'arakawa', 'sumida'] },
-    { id: 'sumida', name: '墨田区', area: 13.77, neighbors: ['taito', 'arakawa', 'koto', 'edogawa', 'katsushika', 'adachi'] },
-    { id: 'koto', name: '江東区', area: 40.16, neighbors: ['chuo', 'sumida', 'edogawa', 'shinagawa'] },
-    { id: 'shinagawa', name: '品川区', area: 22.84, neighbors: ['minato', 'meguro', 'ota', 'koto'] },
-    { id: 'meguro', name: '目黒区', area: 14.67, neighbors: ['shibuya', 'shinagawa', 'ota', 'setagaya'] },
-    { id: 'ota', name: '大田区', area: 60.66, neighbors: ['shinagawa', 'meguro', 'setagaya'] },
-    { id: 'setagaya', name: '世田谷区', area: 58.05, neighbors: ['ota', 'meguro', 'shibuya', 'suginami'] },
-    { id: 'shibuya', name: '渋谷区', area: 15.11, neighbors: ['minato', 'shinjuku', 'nakano', 'suginami', 'setagaya', 'meguro'] },
-    { id: 'nakano', name: '中野区', area: 15.59, neighbors: ['shinjuku', 'shibuya', 'suginami', 'nerima', 'toshima'] },
-    { id: 'suginami', name: '杉並区', area: 34.06, neighbors: ['nakano', 'shibuya', 'setagaya', 'nerima'] },
-    { id: 'toshima', name: '豊島区', area: 13.01, neighbors: ['shinjuku', 'nakano', 'nerima', 'itabashi', 'kita', 'bunkyo'] },
-    { id: 'kita', name: '北区', area: 20.61, neighbors: ['itabashi', 'toshima', 'bunkyo', 'arakawa', 'adachi'] },
-    { id: 'arakawa', name: '荒川区', area: 10.16, neighbors: ['kita', 'bunkyo', 'taito', 'sumida', 'adachi'] },
-    { id: 'itabashi', name: '板橋区', area: 32.22, neighbors: ['nerima', 'toshima', 'kita'] },
-    { id: 'nerima', name: '練馬区', area: 48.08, neighbors: ['suginami', 'nakano', 'toshima', 'itabashi'] },
-    { id: 'adachi', name: '足立区', area: 53.25, neighbors: ['kita', 'arakawa', 'sumida', 'katsushika'] },
-    { id: 'katsushika', name: '葛飾区', area: 34.80, neighbors: ['adachi', 'sumida', 'edogawa'] },
-    { id: 'edogawa', name: '江戸川区', area: 49.90, neighbors: ['koto', 'sumida', 'katsushika'] }
+    { id: 'nerima', name: '練馬区', area: 48.08, row: 1, col: 1 },
+    { id: 'toshima', name: '豊島区', area: 13.01, row: 1, col: 2 },
+    { id: 'bunkyo', name: '文京区', area: 11.29, row: 1, col: 3 },
+    { id: 'arakawa', name: '荒川区', area: 10.16, row: 1, col: 4 },
+    { id: 'adachi', name: '足立区', area: 53.25, row: 1, col: 5 },
+    { id: 'katsushika', name: '葛飾区', area: 34.80, row: 1, col: 6 },
+    { id: 'shinjuku', name: '新宿区', area: 18.22, row: 2, col: 2 },
+    { id: 'chiyoda', name: '千代田区', area: 11.66, row: 2, col: 3 },
+    { id: 'taito', name: '台東区', area: 10.11, row: 2, col: 4 },
+    { id: 'sumida', name: '墨田区', area: 13.77, row: 2, col: 5 },
+    { id: 'edogawa', name: '江戸川区', area: 49.90, row: 2, col: 6 },
+    { id: 'setagaya', name: '世田谷区', area: 58.05, row: 3, col: 1 },
+    { id: 'shibuya', name: '渋谷区', area: 15.11, row: 3, col: 2 },
+    { id: 'minato', name: '港区', area: 20.37, row: 3, col: 3 },
+    { id: 'chuo', name: '中央区', area: 10.21, row: 3, col: 4 },
+    { id: 'koto', name: '江東区', area: 40.16, row: 3, col: 5 },
+    { id: 'meguro', name: '目黒区', area: 14.67, row: 4, col: 1 },
+    { id: 'shinagawa', name: '品川区', area: 22.84, row: 4, col: 2 },
+    { id: 'ota', name: '大田区', area: 60.66, row: 5, col: 2 }
 ];
 
 const TERRITORY_AVERAGE_WARD_AREA = TOKYO_WARDS.reduce((sum, ward) => sum + ward.area, 0) / TOKYO_WARDS.length;
@@ -207,12 +203,12 @@ async function updateAllData(newData) {
 }
 
 // -----------------------------------------------------------------
-// 東京23区 陣取り合戦
+// 東京19区 陣取り合戦
 // -----------------------------------------------------------------
 
 function createDefaultTerritoryBattle() {
     return {
-        seasonId: 'tokyo-23-1',
+        seasonId: 'tokyo-19-1',
         status: 'open',
         updatedAt: new Date().toISOString(),
         tiles: TOKYO_WARDS.map(ward => ({
@@ -231,7 +227,7 @@ function normalizeTerritoryBattle(battle) {
     const tileMap = new Map(normalized.tiles.map(tile => [tile.id, tile]));
 
     return {
-        seasonId: normalized.seasonId || 'tokyo-23-1',
+        seasonId: normalized.seasonId || 'tokyo-19-1',
         status: normalized.status || 'open',
         updatedAt: normalized.updatedAt || new Date().toISOString(),
         tiles: TOKYO_WARDS.map(ward => {
@@ -254,6 +250,15 @@ function normalizeTerritoryBattle(battle) {
 
 function getTerritoryTileMeta(tileId) {
     return TOKYO_WARDS.find(ward => ward.id === tileId) || null;
+}
+
+function getGridAdjacentTerritoryIds(tileId) {
+    const target = getTerritoryTileMeta(tileId);
+    if (!target) return [];
+
+    return TOKYO_WARDS
+        .filter(ward => Math.abs(ward.row - target.row) + Math.abs(ward.col - target.col) === 1)
+        .map(ward => ward.id);
 }
 
 function getPlayerTerritoryStats(playerName, battle) {

@@ -114,8 +114,7 @@ function getTerritoryActionLabel(tile, playerName, battle) {
     const ownedIds = stats.tiles.map(t => t.id);
     if (tile.owner === playerName) return '強化';
     if (ownedIds.length === 0 && !tile.owner) return '本拠';
-    const meta = getTerritoryTileMeta(tile.id);
-    const isAdjacent = meta && meta.neighbors.some(id => ownedIds.includes(id));
+    const isAdjacent = getGridAdjacentTerritoryIds(tile.id).some(id => ownedIds.includes(id));
     if (isAdjacent) return tile.owner ? '攻撃' : '占領';
     return '';
 }
@@ -143,7 +142,7 @@ function renderTerritoryBattle(battle, players) {
             <div class="territory-status">
                 <div>
                     <span class="territory-kicker">戦況</span>
-                    <strong>${totalOccupied} / 23 区</strong>
+                    <strong>${totalOccupied} / ${normalized.tiles.length} 区</strong>
                     <small>${totalArea.toFixed(1)} km² 制圧</small>
                 </div>
                 <div>
@@ -153,11 +152,13 @@ function renderTerritoryBattle(battle, players) {
                 </div>
             </div>
             <div class="territory-layout">
-                <div class="territory-map" aria-label="東京23区 陣取りマップ">
+                <div class="territory-map" aria-label="東京19区 陣取りマップ">
                     ${normalized.tiles.map(tile => {
                         const actionLabel = getTerritoryActionLabel(tile, loginName, normalized);
+                        const meta = getTerritoryTileMeta(tile.id);
+                        const positionStyle = meta ? ` style="grid-row:${meta.row};grid-column:${meta.col};"` : '';
                         return `
-                            <button type="button" class="territory-tile ${getOwnerClass(tile.owner, players)}" data-territory-id="${tile.id}">
+                            <button type="button" class="territory-tile ${getOwnerClass(tile.owner, players)}" data-territory-id="${tile.id}"${positionStyle}>
                                 <span class="territory-ward">${tile.name.replace('区', '')}</span>
                                 <span class="territory-owner">${tile.owner ? escapeText(tile.owner) : '中立'}</span>
                                 <span class="territory-defense">${tile.defense.toFixed(1)} 防</span>
@@ -168,16 +169,23 @@ function renderTerritoryBattle(battle, players) {
                 </div>
                 <div class="territory-command">
                     <h4>軍議</h4>
-                    <form id="territory-action-form">
-                        <label for="territory-target">目標区</label>
-                        <select id="territory-target" required>
-                            <option value="" disabled selected>区を選択</option>
-                            ${normalized.tiles.map(tile => `<option value="${tile.id}">${tile.name} / ${tile.owner || '中立'} / 防衛 ${tile.defense.toFixed(1)}P</option>`).join('')}
-                        </select>
-                        <label for="territory-points">投入ポイント</label>
-                        <input type="number" id="territory-points" min="5" step="0.1" value="5" required>
-                        <button type="submit" class="territory-submit">出陣</button>
-                    </form>
+                    ${loginName ? `
+                        <form id="territory-action-form">
+                            <label for="territory-target">目標区</label>
+                            <select id="territory-target" required>
+                                <option value="" disabled selected>区を選択</option>
+                                ${normalized.tiles.map(tile => `<option value="${tile.id}">${tile.name} / ${tile.owner || '中立'} / 防衛 ${tile.defense.toFixed(1)}P</option>`).join('')}
+                            </select>
+                            <label for="territory-points">投入ポイント</label>
+                            <input type="number" id="territory-points" min="5" step="0.1" value="5" required>
+                            <button type="submit" class="territory-submit">出陣</button>
+                        </form>
+                    ` : `
+                        <div class="territory-login-prompt">
+                            <p>出陣するにはログインが必要です。</p>
+                            <a href="mypage.html" class="territory-login-button">ログイン</a>
+                        </div>
+                    `}
                     <p id="territory-message" class="territory-message hidden"></p>
                     <div class="territory-ranking">
                         <h4>勢力</h4>
@@ -258,10 +266,9 @@ async function handleTerritoryAction(e) {
 
         const stats = getPlayerTerritoryStats(username, battle);
         const ownedIds = stats.tiles.map(t => t.id);
-        const meta = getTerritoryTileMeta(targetId);
         const isOwnTile = tile.owner === username;
         const isFirstBase = ownedIds.length === 0 && !tile.owner;
-        const isAdjacent = meta && meta.neighbors.some(id => ownedIds.includes(id));
+        const isAdjacent = getGridAdjacentTerritoryIds(targetId).some(id => ownedIds.includes(id));
 
         if (!isOwnTile && !isFirstBase && !isAdjacent) {
             showMessage(messageEl, '隣接する区にのみ出陣できます。', 'error');

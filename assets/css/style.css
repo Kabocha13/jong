@@ -587,7 +587,7 @@ button[type="submit"]:hover,
     font-style: italic;
 }
 
-/* --- 東京23区 陣取り合戦 --- */
+/* --- 東京19区 陣取り合戦 --- */
 .territory-section {
     background:
         linear-gradient(rgba(31, 19, 10, 0.92), rgba(31, 19, 10, 0.94)),
@@ -648,8 +648,10 @@ button[type="submit"]:hover,
 
 .territory-map {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(82px, 1fr));
     gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
 }
 
 .territory-tile {
@@ -768,6 +770,33 @@ button[type="submit"]:hover,
     cursor: wait;
 }
 
+.territory-login-prompt {
+    border: 1px solid rgba(255, 227, 161, 0.24);
+    background: rgba(0, 0, 0, 0.18);
+    padding: 12px;
+}
+
+.territory-login-prompt p {
+    margin: 0 0 10px 0;
+    color: #e7cf94;
+}
+
+.territory-login-button {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+    background: linear-gradient(#c79637, #875d1e);
+    color: #fff8dc;
+    border: 1px solid #e7c46d;
+    border-radius: 2px;
+    padding: 10px 12px;
+    font-weight: 800;
+}
+
+.territory-login-button:hover {
+    filter: brightness(1.08);
+}
+
 .territory-message {
     margin: 10px 0;
     padding: 8px 10px;
@@ -815,7 +844,7 @@ button[type="submit"]:hover,
     }
 
     .territory-map {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(6, 82px);
     }
 
     .territory-command {
