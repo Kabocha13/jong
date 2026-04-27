@@ -407,8 +407,12 @@ function normalizeSpiQuestionStats(stats) {
     return Array.isArray(stats) ? stats : [];
 }
 
-function updateSpiQuestionStats(stats, question, isCorrect) {
-    const nextStats = normalizeSpiQuestionStats(stats).map(item => ({ ...item }));
+async function saveSpiQuestionAnswerStat(question, isCorrect) {
+    const existingStats = await fetchSpiQuestionStats().catch(error => {
+        console.warn('SPI集計の取得に失敗しました。ポイント付与は継続します。', error);
+        return [];
+    });
+    const nextStats = normalizeSpiQuestionStats(existingStats).map(item => ({ ...item }));
     const index = nextStats.findIndex(item => item.id === question.id);
     const current = index >= 0 ? nextStats[index] : {
         id: question.id,
@@ -429,12 +433,9 @@ function updateSpiQuestionStats(stats, question, isCorrect) {
         updatedAt: new Date().toISOString()
     };
 
-    if (index >= 0) {
-        nextStats[index] = updated;
-    } else {
-        nextStats.push(updated);
-    }
-    return nextStats;
+    await saveSpiQuestionStat(updated).catch(error => {
+        console.warn('SPI集計の保存に失敗しました。ポイント付与は完了しています。', error);
+    });
 }
 
 // ============================================================
@@ -528,11 +529,6 @@ SPI_ANSWER_FORM.addEventListener('submit', async (e) => {
             answeredQuestionIds: [...stats.answeredQuestionIds, currentSpiQuestion.id],
             lastAnsweredAt: new Date().toISOString()
         };
-        const nextQuestionStats = updateSpiQuestionStats(
-            currentData.spi_question_stats,
-            currentSpiQuestion,
-            isCorrect
-        );
 
         player.spiStats = nextStats;
         if (isCorrect) {
@@ -542,8 +538,7 @@ SPI_ANSWER_FORM.addEventListener('submit', async (e) => {
 
         const res = await updateAllData({
             ...currentData,
-            scores: Array.from(scoreMap.values()),
-            spi_question_stats: nextQuestionStats
+            scores: Array.from(scoreMap.values())
         });
 
         if (res.status !== 'success') {
@@ -552,6 +547,7 @@ SPI_ANSWER_FORM.addEventListener('submit', async (e) => {
         }
 
         authenticatedUser = { ...player };
+        await saveSpiQuestionAnswerStat(currentSpiQuestion, isCorrect);
         document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
         renderSpiStats(authenticatedUser);
 

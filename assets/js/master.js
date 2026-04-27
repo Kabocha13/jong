@@ -1621,8 +1621,7 @@ async function loadSpiAnalysis() {
     SPI_ANALYSIS_CONTAINER.innerHTML = '<p>読み込み中...</p>';
 
     try {
-        const currentData = await fetchAllData();
-        const stats = (currentData.spi_question_stats || [])
+        const stats = (await fetchSpiQuestionStats())
             .filter(item => Number(item.attempts || 0) > 0)
             .map(item => {
                 const attempts = Number(item.attempts || 0);
