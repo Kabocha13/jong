@@ -301,8 +301,21 @@ const TOKYO_WARDS = [
 
 const TERRITORY_AVERAGE_WARD_AREA = TOKYO_WARDS.reduce((sum, ward) => sum + ward.area, 0) / TOKYO_WARDS.length;
 
-function getNeutralTerritoryDefense(area) {
-    return parseFloat(Math.min(15, Math.max(5, area / TERRITORY_AVERAGE_WARD_AREA * 7)).toFixed(1));
+function getNeutralTerritoryDefense(area, multiplier = 1) {
+    return parseFloat((Math.min(15, Math.max(5, area / TERRITORY_AVERAGE_WARD_AREA * 7)) * multiplier).toFixed(1));
+}
+
+function getTerritorySeasonNumber(battle) {
+    const explicitSeason = parseInt(battle && battle.seasonNumber, 10);
+    if (Number.isFinite(explicitSeason) && explicitSeason > 0) return explicitSeason;
+
+    const seasonMatch = String((battle && battle.seasonId) || '').match(/-(\d+)$/);
+    const parsedSeason = seasonMatch ? parseInt(seasonMatch[1], 10) : 1;
+    return Number.isFinite(parsedSeason) && parsedSeason > 0 ? parsedSeason : 1;
+}
+
+function getTerritoryNeutralDefenseMultiplier(seasonNumber) {
+    return parseFloat(Math.pow(1.05, Math.max(0, seasonNumber - 1)).toFixed(4));
 }
 
 // -----------------------------------------------------------------
@@ -658,9 +671,13 @@ async function handleExerciseActionInFirebase(reportId, action) {
 // 東京19区 陣取り合戦
 // -----------------------------------------------------------------
 
-function createDefaultTerritoryBattle() {
+function createDefaultTerritoryBattle(seasonNumber = 1) {
+    const normalizedSeasonNumber = Math.max(1, parseInt(seasonNumber, 10) || 1);
+    const neutralDefenseMultiplier = getTerritoryNeutralDefenseMultiplier(normalizedSeasonNumber);
     return {
-        seasonId: 'tokyo-19-1',
+        seasonId: `tokyo-19-${normalizedSeasonNumber}`,
+        seasonNumber: normalizedSeasonNumber,
+        neutralDefenseMultiplier,
         status: 'open',
         updatedAt: new Date().toISOString(),
         tiles: TOKYO_WARDS.map(ward => ({
@@ -668,7 +685,7 @@ function createDefaultTerritoryBattle() {
             name: ward.name,
             area: ward.area,
             owner: null,
-            defense: getNeutralTerritoryDefense(ward.area)
+            defense: getNeutralTerritoryDefense(ward.area, neutralDefenseMultiplier)
         })),
         actions: []
     };
@@ -676,10 +693,17 @@ function createDefaultTerritoryBattle() {
 
 function normalizeTerritoryBattle(battle) {
     const normalized = battle && Array.isArray(battle.tiles) ? battle : createDefaultTerritoryBattle();
+    const seasonNumber = getTerritorySeasonNumber(normalized);
+    const existingMultiplier = parseFloat(normalized.neutralDefenseMultiplier);
+    const neutralDefenseMultiplier = Number.isFinite(existingMultiplier) && existingMultiplier > 0
+        ? existingMultiplier
+        : getTerritoryNeutralDefenseMultiplier(seasonNumber);
     const tileMap = new Map(normalized.tiles.map(tile => [tile.id, tile]));
 
     return {
-        seasonId: normalized.seasonId || 'tokyo-19-1',
+        seasonId: normalized.seasonId || `tokyo-19-${seasonNumber}`,
+        seasonNumber,
+        neutralDefenseMultiplier,
         status: normalized.status || 'open',
         updatedAt: normalized.updatedAt || new Date().toISOString(),
         tiles: TOKYO_WARDS.map(ward => {
@@ -688,7 +712,7 @@ function normalizeTerritoryBattle(battle) {
             const hasExistingDefense = Number.isFinite(existingDefense);
             const defense = hasExistingDefense
                 ? Math.max(0, existingDefense)
-                : getNeutralTerritoryDefense(ward.area);
+                : getNeutralTerritoryDefense(ward.area, neutralDefenseMultiplier);
             return {
                 id: ward.id,
                 name: ward.name,

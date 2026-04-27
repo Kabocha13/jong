@@ -25,6 +25,11 @@ const MAHJONG_SUBMIT_BUTTON = document.getElementById('mahjong-submit-button');
 const DAILY_TAX_BUTTON = document.getElementById('daily-tax-button');
 const DAILY_TAX_MESSAGE = document.getElementById('daily-tax-message');
 
+// ★ 陣取り合戦シーズン終了
+const TERRITORY_SEASON_END_BUTTON = document.getElementById('territory-season-end-button');
+const TERRITORY_SEASON_STATUS = document.getElementById('territory-season-status');
+const TERRITORY_SEASON_MESSAGE = document.getElementById('territory-season-message');
+
 // ★★★ 新規追加: 宝くじ機能 ★★★
 const CREATE_LOTTERY_FORM = document.getElementById('create-lottery-form');
 const CREATE_LOTTERY_MESSAGE = document.getElementById('create-lottery-message');
@@ -105,6 +110,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         initializeLotteryForm();
         loadExerciseReports();
         loadSpecialThemeStatus();
+        loadTerritorySeasonStatus();
         
         if (!isAuto) {
              showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
