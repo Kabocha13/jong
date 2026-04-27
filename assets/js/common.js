@@ -93,7 +93,6 @@ function createEmptyData() {
         gift_codes: [],
         exercise_reports: [],
         career_posts: [],
-        spi_question_stats: [],
         territory_battle: createDefaultTerritoryBattle(),
         special_theme: null,
         attendance_allowed_users: []
@@ -397,16 +396,18 @@ async function fetchCollection(db, key) {
 async function fetchSpiQuestionStats() {
     const db = getFirestoreDb();
     if (!db) return [];
-    const snapshot = await db.collection('spi_question_stats').get();
-    return snapshot.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
+    const snapshot = await db.collection('settings').get();
+    return snapshot.docs
+        .map(doc => ({ ...doc.data(), _docId: doc.id }))
+        .filter(item => item.kind === 'spi_question_stat');
 }
 
 async function saveSpiQuestionStat(stat) {
     const db = getFirestoreDb();
     if (!db || !stat || !stat.id) return;
-    const payload = { ...stat };
+    const payload = { ...stat, kind: 'spi_question_stat' };
     delete payload._docId;
-    await db.collection('spi_question_stats').doc(toDocId(stat.id)).set(payload);
+    await db.collection('settings').doc(toDocId(`spi_stat_${stat.id}`)).set(payload);
 }
 
 async function fetchAllDataFromFirebase() {
