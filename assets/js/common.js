@@ -685,9 +685,10 @@ function normalizeTerritoryBattle(battle) {
         tiles: TOKYO_WARDS.map(ward => {
             const existing = tileMap.get(ward.id) || {};
             const existingDefense = parseFloat(existing.defense);
-            const defense = existing.owner
-                ? Math.max(0, existingDefense || 0)
-                : Math.max(getNeutralTerritoryDefense(ward.area), existingDefense || 0);
+            const hasExistingDefense = Number.isFinite(existingDefense);
+            const defense = hasExistingDefense
+                ? Math.max(0, existingDefense)
+                : getNeutralTerritoryDefense(ward.area);
             return {
                 id: ward.id,
                 name: ward.name,

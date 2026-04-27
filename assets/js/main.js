@@ -281,7 +281,7 @@ async function handleTerritoryAction(e) {
         if (isOwnTile) {
             tile.defense = parseFloat((tile.defense + amount).toFixed(1));
             resultText = `${tile.name}を強化しました。`;
-        } else if (amount > tile.defense) {
+        } else if (amount >= tile.defense) {
             tile.owner = username;
             tile.defense = parseFloat((amount * 0.7).toFixed(1));
             resultText = previousOwner ? `${tile.name}を奪取しました。` : `${tile.name}を制圧しました。`;
