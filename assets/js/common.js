@@ -719,7 +719,7 @@ function getPlayerTerritoryStats(playerName, battle) {
     const ownedTiles = normalized.tiles.filter(tile => tile.owner === playerName);
     const area = ownedTiles.reduce((sum, tile) => sum + tile.area, 0);
     const reduction = area > 0
-        ? Math.min(10, Math.max(0.5, (area / TERRITORY_AVERAGE_WARD_AREA) * 3))
+        ? Math.max(0.5, (area / TERRITORY_AVERAGE_WARD_AREA) * 3)
         : 0;
 
     return {
