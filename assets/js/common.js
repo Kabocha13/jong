@@ -99,7 +99,8 @@ function createEmptyData() {
         exercise_reports: [],
         career_posts: [],
         territory_battle: createDefaultTerritoryBattle(),
-        special_theme: null
+        special_theme: null,
+        attendance_allowed_users: []
     };
 }
 
@@ -110,6 +111,9 @@ function normalizeFetchedRecord(record) {
         status: player.status || 'none'
     }));
     normalized.territory_battle = normalizeTerritoryBattle(normalized.territory_battle);
+    normalized.attendance_allowed_users = Array.isArray(normalized.attendance_allowed_users)
+        ? normalized.attendance_allowed_users.filter(Boolean)
+        : [];
     return normalized;
 }
 
@@ -465,7 +469,8 @@ async function fetchAllDataFromFirebase() {
         exercise_reports: exerciseReports,
         career_posts: careerPosts,
         territory_battle: territoryDoc.exists ? territoryDoc.data() : null,
-        special_theme: settings.special_theme ?? null
+        special_theme: settings.special_theme ?? null,
+        attendance_allowed_users: settings.attendance_allowed_users ?? []
     });
 
     if (record.special_theme !== undefined) {
@@ -579,6 +584,7 @@ async function updateAllDataInFirebase(newData) {
 
         batch.set(db.collection('settings').doc('app'), {
             special_theme: mergedData.special_theme ?? null,
+            attendance_allowed_users: mergedData.attendance_allowed_users || [],
             updatedAt: new Date().toISOString()
         }, { merge: true });
         batch.set(db.collection('territory_battle').doc('current'), {

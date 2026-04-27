@@ -30,6 +30,11 @@ const TERRITORY_SEASON_END_BUTTON = document.getElementById('territory-season-en
 const TERRITORY_SEASON_STATUS = document.getElementById('territory-season-status');
 const TERRITORY_SEASON_MESSAGE = document.getElementById('territory-season-message');
 
+// ★ 出席登録の表示設定
+const ATTENDANCE_ACCESS_LIST = document.getElementById('attendance-access-list');
+const ATTENDANCE_ACCESS_SAVE_BUTTON = document.getElementById('attendance-access-save-button');
+const ATTENDANCE_ACCESS_MESSAGE = document.getElementById('attendance-access-message');
+
 // ★★★ 新規追加: 宝くじ機能 ★★★
 const CREATE_LOTTERY_FORM = document.getElementById('create-lottery-form');
 const CREATE_LOTTERY_MESSAGE = document.getElementById('create-lottery-message');
@@ -110,6 +115,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         initializeLotteryForm();
         loadExerciseReports();
         loadSpecialThemeStatus();
+        loadAttendanceAccessStatus();
         loadTerritorySeasonStatus();
         
         if (!isAuto) {
@@ -1606,6 +1612,16 @@ async function loadExerciseReports() {
 // スペシャルテーマ設定
 // ============================================================
 
+function escapeAdminText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    }[char]));
+}
+
 async function loadSpecialThemeStatus() {
     const el = document.getElementById('special-theme-current');
     if (!el) return;
@@ -1663,6 +1679,75 @@ document.getElementById('clear-theme-button').addEventListener('click', async ()
     if (!window.confirm('スペシャルテーマを解除しますか？')) return;
     await saveSpecialTheme(null);
 });
+
+// ============================================================
+// 出席登録の表示設定
+// ============================================================
+
+async function loadAttendanceAccessStatus() {
+    if (!ATTENDANCE_ACCESS_LIST) return;
+
+    ATTENDANCE_ACCESS_LIST.innerHTML = '<p>読み込み中...</p>';
+    try {
+        const currentData = await fetchAllData();
+        const allowedUsers = Array.isArray(currentData.attendance_allowed_users)
+            ? currentData.attendance_allowed_users
+            : [];
+        const players = currentData.scores || [];
+
+        if (players.length === 0) {
+            ATTENDANCE_ACCESS_LIST.innerHTML = '<p>プレイヤーが見つかりません。</p>';
+            return;
+        }
+
+        ATTENDANCE_ACCESS_LIST.innerHTML = players.map(player => {
+            const name = player.name;
+            const checked = allowedUsers.includes(name) ? ' checked' : '';
+            return `
+                <label style="display:flex;align-items:center;gap:6px;margin:0;">
+                    <input type="checkbox" class="attendance-access-checkbox" value="${escapeAdminText(name)}"${checked}>
+                    <span>${escapeAdminText(name)}</span>
+                </label>
+            `;
+        }).join('');
+    } catch (error) {
+        ATTENDANCE_ACCESS_LIST.innerHTML = `<p>読み込みに失敗しました: ${escapeAdminText(error.message)}</p>`;
+    }
+}
+
+async function saveAttendanceAccessStatus() {
+    if (!ATTENDANCE_ACCESS_LIST || !ATTENDANCE_ACCESS_MESSAGE) return;
+
+    const allowedUsers = Array.from(ATTENDANCE_ACCESS_LIST.querySelectorAll('.attendance-access-checkbox:checked'))
+        .map(input => input.value);
+
+    if (ATTENDANCE_ACCESS_SAVE_BUTTON) ATTENDANCE_ACCESS_SAVE_BUTTON.disabled = true;
+    showMessage(ATTENDANCE_ACCESS_MESSAGE, '出席表示設定を保存中...', 'info');
+
+    try {
+        const currentData = await fetchAllData();
+        const response = await updateAllData({
+            ...currentData,
+            attendance_allowed_users: allowedUsers
+        });
+
+        if (response.status === 'success') {
+            invalidateFetchCache();
+            showMessage(ATTENDANCE_ACCESS_MESSAGE, `✅ ${allowedUsers.length}人に出席登録を表示します。`, 'success');
+            await loadAttendanceAccessStatus();
+        } else {
+            showMessage(ATTENDANCE_ACCESS_MESSAGE, `❌ 保存エラー: ${response.message}`, 'error');
+        }
+    } catch (error) {
+        showMessage(ATTENDANCE_ACCESS_MESSAGE, `❌ サーバーエラー: ${error.message}`, 'error');
+    } finally {
+        if (ATTENDANCE_ACCESS_SAVE_BUTTON) ATTENDANCE_ACCESS_SAVE_BUTTON.disabled = false;
+    }
+}
+
+if (ATTENDANCE_ACCESS_SAVE_BUTTON) {
+    ATTENDANCE_ACCESS_SAVE_BUTTON.addEventListener('click', saveAttendanceAccessStatus);
+}
 
 async function handleExerciseAction(reportId, action) {
     const messageEl = document.getElementById('exercise-action-message');

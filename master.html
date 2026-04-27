@@ -220,6 +220,16 @@
             </div>
 
             <div class="tool-box">
+                <h3>📋 出席登録の表示設定</h3>
+                <p class="instruction">出席登録ボタンを表示するユーザーを選択します。</p>
+                <div id="attendance-access-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:12px 0;"></div>
+                <button type="button" id="attendance-access-save-button" class="action-button w-auto" style="background-color:#4a90d9;">
+                    表示ユーザーを保存
+                </button>
+                <p id="attendance-access-message" class="hidden"></p>
+            </div>
+
+            <div class="tool-box">
                 <h3>💰 日次ポイント徴収 (11%)</h3>
                 <button type="button" id="daily-tax-button" class="action-button w-auto" style="background-color: #DAA520;">
                     日次ポイント徴収を実行

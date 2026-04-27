@@ -721,9 +721,32 @@ loadCafeteriaMenu();
         return h * 60 + m;
     }
 
-    function renderAttendanceButton() {
+    let attendanceAllowedUsers = null;
+
+    async function loadAttendanceAllowedUsers() {
+        if (attendanceAllowedUsers) return attendanceAllowedUsers;
+        try {
+            const allData = await fetchAllData();
+            attendanceAllowedUsers = Array.isArray(allData.attendance_allowed_users)
+                ? allData.attendance_allowed_users
+                : [];
+        } catch (error) {
+            console.error('出席表示設定の取得に失敗:', error);
+            attendanceAllowedUsers = [];
+        }
+        return attendanceAllowedUsers;
+    }
+
+    async function renderAttendanceButton() {
         const bar = document.getElementById('attendance-bar');
         if (!bar) return;
+        const loginName = localStorage.getItem('authUsername') || '';
+        const allowedUsers = await loadAttendanceAllowedUsers();
+        if (!loginName || !allowedUsers.includes(loginName)) {
+            bar.innerHTML = '';
+            return;
+        }
+
         const now = new Date();
         const dow = now.getDay(); // 0=日, 1=月...6=土
         const current = now.getHours() * 60 + now.getMinutes();
