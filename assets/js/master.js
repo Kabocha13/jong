@@ -1110,7 +1110,7 @@ if (DAILY_TAX_BUTTON) {
     DAILY_TAX_BUTTON.addEventListener('click', async () => {
         // 削除: TOTAL_TAX_AMOUNT を定数から削除
         // const TOTAL_TAX_AMOUNT = 100.0; // 削除
-        const TAX_RATE = 0.10; // 徴収率 10%
+        const TAX_RATE = 0.11; // 徴収率 11%
         const EXCLUDED_PLAYER_NAMES = ['3mahjong']; 
         const messageEl = DAILY_TAX_MESSAGE;
     
@@ -1134,7 +1134,7 @@ if (DAILY_TAX_BUTTON) {
             // 徴収対象プレイヤーの合計ポイントを計算 (ポイントがマイナスの場合は0として扱う)
             const totalTargetScore = targetPlayers.reduce((sum, player) => sum + Math.max(0, player.score), 0);
             
-            // ★ 新規: 徴収合計額を計算 (保有ポイントの合計の0.5割)
+            // ★ 新規: 徴収合計額を計算
             const CALCULATED_TAX_AMOUNT = parseFloat((totalTargetScore * TAX_RATE).toFixed(1)); 
 
             if (totalTargetScore <= 0 || CALCULATED_TAX_AMOUNT <= 0) {
@@ -1196,7 +1196,7 @@ if (DAILY_TAX_BUTTON) {
                         return sum + (originalPlayer.score - current.score);
                     }, 0);
     
-                showMessage(messageEl, `✅ 日次ポイント徴収を完了しました。合計徴収ポイント: ${finalTaxCollected.toFixed(1)} P (保有ポイント合計 ${totalTargetScore.toFixed(1)} P の約5%)`, 'success');
+                showMessage(messageEl, `✅ 日次ポイント徴収を完了しました。合計徴収ポイント: ${finalTaxCollected.toFixed(1)} P (保有ポイント合計 ${totalTargetScore.toFixed(1)} P の約${(TAX_RATE * 100).toFixed(0)}%)`, 'success');
                 
                 // UIを更新
                 loadPlayerList(); 

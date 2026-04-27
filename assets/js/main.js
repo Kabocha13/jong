@@ -119,6 +119,11 @@ function getTerritoryActionLabel(tile, playerName, battle) {
     return '';
 }
 
+function calculateTerritoryWinProbability(amount, defense) {
+    if (defense <= 0) return 1;
+    return Math.min(1, Math.max(0, amount / (amount + defense * (2 / 3))));
+}
+
 function renderTerritoryBattle(battle, players) {
     if (!TERRITORY_BATTLE_CONTAINER) return;
 
@@ -177,7 +182,7 @@ function renderTerritoryBattle(battle, players) {
                                 ${normalized.tiles.map(tile => `<option value="${tile.id}">${tile.name} / ${tile.owner || '中立'} / 防衛 ${tile.defense.toFixed(1)}P</option>`).join('')}
                             </select>
                             <label for="territory-points">投入ポイント</label>
-                            <input type="number" id="territory-points" min="5" step="0.1" value="5" required>
+                            <input type="number" id="territory-points" min="0.1" step="0.1" value="0.1" required>
                             <button type="submit" class="territory-submit">出陣</button>
                         </form>
                     ` : `
@@ -235,8 +240,8 @@ async function handleTerritoryAction(e) {
         showMessage(messageEl, 'マイページでログインしてから出陣してください。', 'error');
         return;
     }
-    if (!targetId || isNaN(amount) || amount < 5) {
-        showMessage(messageEl, '5P以上を投入してください。', 'error');
+    if (!targetId || isNaN(amount) || amount <= 0) {
+        showMessage(messageEl, '0より大きいポイントを投入してください。', 'error');
         return;
     }
 
@@ -281,13 +286,20 @@ async function handleTerritoryAction(e) {
         if (isOwnTile) {
             tile.defense = parseFloat((tile.defense + amount).toFixed(1));
             resultText = `${tile.name}を強化しました。`;
-        } else if (amount >= tile.defense) {
-            tile.owner = username;
-            tile.defense = parseFloat((amount * 0.7).toFixed(1));
-            resultText = previousOwner ? `${tile.name}を奪取しました。` : `${tile.name}を制圧しました。`;
         } else {
-            tile.defense = parseFloat(Math.max(0, tile.defense - amount * 0.5).toFixed(1));
-            resultText = `${tile.name}の防衛力を削りました。`;
+            const winProbability = calculateTerritoryWinProbability(amount, tile.defense);
+            const isWin = Math.random() < winProbability;
+            const probabilityText = `勝率${(winProbability * 100).toFixed(0)}%`;
+
+            if (isWin) {
+                tile.owner = username;
+                tile.defense = parseFloat((amount * 0.7).toFixed(1));
+                resultText = previousOwner ? `${tile.name}を奪取しました。` : `${tile.name}を制圧しました。`;
+            } else {
+                tile.defense = parseFloat(Math.max(0, tile.defense - amount * 0.5).toFixed(1));
+                resultText = `${tile.name}の攻略に失敗し、防衛力を削りました。`;
+            }
+            resultText += `（${probabilityText}）`;
         }
 
         scoresMap.set(username, {
