@@ -38,6 +38,25 @@
                 <button type="button" id="logout-button" class="action-button secondary-button mt-10">ログアウト</button>
             </div>
 
+            <!-- SPI問題集 -->
+            <div class="tool-box" id="spi-tool">
+                <div class="spi-header">
+                    <h3>SPI 問題集</h3>
+                    <div id="spi-progress" class="spi-progress">0 / 200</div>
+                </div>
+                <div id="spi-stats" class="spi-stats"></div>
+                <div id="spi-question-card" class="spi-question-card">
+                    <div class="spi-question-meta" id="spi-question-meta"></div>
+                    <p id="spi-question-text" class="spi-question-text">ロード中...</p>
+                    <form id="spi-answer-form">
+                        <div id="spi-choice-list" class="spi-choice-list"></div>
+                        <button type="submit" class="action-button">回答する</button>
+                    </form>
+                    <button type="button" id="spi-next-button" class="action-button secondary-button hidden">次の問題へ</button>
+                </div>
+                <p id="spi-message" class="hidden"></p>
+            </div>
+
             <!-- 投稿フォーム -->
             <div class="tool-box">
                 <h3>📝 就活報告</h3>

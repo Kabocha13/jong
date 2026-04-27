@@ -1244,3 +1244,119 @@ label {
 .career-link:hover {
     color: var(--color-indigo);
 }
+
+/* --- SPI問題集 --- */
+.spi-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.spi-header h3 {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.spi-progress {
+    flex: 0 0 auto;
+    min-width: 86px;
+    padding: 6px 10px;
+    border: 1px solid rgba(201, 168, 76, 0.55);
+    color: var(--color-indigo);
+    font-family: var(--font-display);
+    font-size: 0.78em;
+    text-align: center;
+    background-color: #fffdf5;
+}
+
+.spi-stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.spi-stat-item {
+    border: 1px solid rgba(201, 168, 76, 0.28);
+    background-color: #fffdf5;
+    padding: 10px 8px;
+    text-align: center;
+}
+
+.spi-stat-item span {
+    display: block;
+    color: #6b7280;
+    font-size: 0.78em;
+    line-height: 1.2;
+}
+
+.spi-stat-item strong {
+    display: block;
+    color: var(--color-indigo);
+    font-family: var(--font-display);
+    font-size: 1em;
+    margin-top: 4px;
+    line-height: 1.2;
+}
+
+.spi-question-card {
+    border: 1px solid rgba(13, 27, 75, 0.14);
+    background-color: #fafafa;
+    padding: 18px;
+}
+
+.spi-question-meta {
+    color: var(--color-gold);
+    font-family: var(--font-display);
+    font-size: 0.78em;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+}
+
+.spi-question-text {
+    margin: 0 0 14px;
+    color: var(--color-text);
+    font-size: 1.05em;
+    line-height: 1.7;
+}
+
+.spi-choice-list {
+    display: grid;
+    gap: 8px;
+}
+
+.spi-choice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid rgba(201, 168, 76, 0.28);
+    background-color: #fff;
+    cursor: pointer;
+}
+
+.spi-choice:hover {
+    background-color: #fffdf5;
+    border-color: var(--color-gold);
+}
+
+.spi-choice input {
+    flex: 0 0 auto;
+}
+
+.spi-choice span {
+    line-height: 1.4;
+}
+
+@media (max-width: 700px) {
+    .spi-header {
+        align-items: flex-start;
+    }
+
+    .spi-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
