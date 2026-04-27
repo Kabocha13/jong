@@ -3,7 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "migrate:firebase": "node tools/migrate-jsonbin-to-firestore.mjs",
     "migrate:player-secrets": "node tools/migrate-player-secrets.mjs"
   },
   "dependencies": {

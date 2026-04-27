@@ -1399,34 +1399,12 @@ function initExercise() {
         showMessage(messageEl, '⏳ アップロード中...', 'info');
 
         try {
-            let data;
-            if (isFirebaseConfigured()) {
-                data = await submitExerciseReportToFirebase({
-                    player: authenticatedUser.name,
-                    distance,
-                    pace,
-                    imageFile
-                });
-            } else {
-                const base64 = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload  = () => resolve(reader.result.split(',')[1]);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(imageFile);
-                });
-
-                const res = await fetch('/.netlify/functions/exercise-submit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        player: authenticatedUser.name,
-                        distance,
-                        pace,
-                        imageBase64: base64
-                    })
-                });
-                data = await res.json();
-            }
+            const data = await submitExerciseReportToFirebase({
+                player: authenticatedUser.name,
+                distance,
+                pace,
+                imageFile
+            });
 
             if (data.status === 'success') {
                 showMessage(messageEl, `✅ 申請を送信しました。承認後 ${data.points}P が付与されます。`, 'success');

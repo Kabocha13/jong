@@ -1,10 +1,5 @@
 // assets/js/common.js
 
-// Firebase が設定済みなら Firestore / Storage を使い、未設定の間は既存の
-// Netlify Functions にフォールバックする。
-const FETCH_URL = "/.netlify/functions/fetch-data";
-const UPDATE_URL = "/.netlify/functions/update-data";
-
 const FIREBASE_COLLECTIONS = {
     scores: 'players',
     sports_bets: 'sports_bets',
@@ -338,7 +333,7 @@ let _fetchInFlight = null;
 const FETCH_CACHE_TTL = 10000; // 10秒間キャッシュ
 
 /**
- * Netlify Functionを経由して、最新の全データを取得する関数
+ * Firebaseから最新の全データを取得する関数
  * @returns {Promise<object>} 全データ (scores, sports_bets, speedstorm_records, lotteries)
  */
 async function fetchAllData() {
@@ -371,61 +366,26 @@ function invalidateFetchCache() {
 }
 
 async function _fetchAllDataRaw() {
-    if (isFirebaseConfigured()) {
-        return fetchAllDataFromFirebase();
-    }
-
     const MAX_RETRIES = 3;
     let attempt = 0;
     let delayMs = 1000;
 
     while (attempt < MAX_RETRIES) {
         try {
-            // Netlify Functionを呼び出す
-            const response = await fetch(FETCH_URL, {
-                method: 'GET',
-                // APIキーはサーバーレス関数側で設定するため、ヘッダーから削除
-            });
-            
-            if (response.status === 429) {
-                // 429エラーの場合はリトライ
-                throw new Error('429 Too Many Requests');
-            }
-
-            if (!response.ok) {
-                // Netlify Functionからのエラーメッセージを受け取る
-                const errorData = await response.json();
-                throw new Error(`データ取得エラー: ${response.status} ${errorData.error || response.statusText}`);
-            }
-            
-            // 関数側で既にデータ構造の調整が行われているため、そのまま record として扱う
-            const record = normalizeFetchedRecord(await response.json());
-
-            // スペシャルテーマをキャッシュして適用
-            if (record.special_theme !== undefined) {
-                localStorage.setItem('specialTheme', JSON.stringify(record.special_theme || null));
-                applySpecialTheme(record.special_theme);
-            }
-
-            return record;
-        
+            return await fetchAllDataFromFirebase();
         } catch (error) {
-            // 429エラーか、その他のリトライすべきネットワークエラーの場合
-            if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
+            if (attempt < MAX_RETRIES - 1) {
                 attempt++;
                 console.warn(`データ取得リトライ (${attempt}/${MAX_RETRIES})。待機: ${delayMs}ms`);
                 await delay(delayMs);
-                delayMs *= 2; // 指数バックオフ
+                delayMs *= 2;
             } else {
-                console.error("ポイントデータ取得中にエラー:", error);
-                // 最終的に失敗した場合、空の初期データを返す
+                console.error("Firebaseデータ取得中にエラー:", error);
                 return createEmptyData();
             }
         }
     }
-     // 最終リトライ後も失敗した場合
-     console.error("ポイントデータ取得に失敗しました。最大リトライ回数を超えました。");
-     return createEmptyData();
+    return createEmptyData();
 }
 
 async function fetchCollection(db, key) {
@@ -493,61 +453,14 @@ async function fetchScores() {
 
 
 /**
- * Netlify Functionを経由して、新しい全データを上書き保存する関数 (PUT)
+ * Firebaseに新しい全データを上書き保存する関数
  * @param {object} newData - scores, sports_bets, speedstorm_records, lotteries を含む新しい全データ
  * @returns {Promise<object>} APIからの応答
  */
 async function updateAllData(newData) {
     // 書き込み前にキャッシュを破棄して次回fetchで最新を取得させる
     invalidateFetchCache();
-
-    if (isFirebaseConfigured()) {
-        return updateAllDataInFirebase(newData);
-    }
-
-    const MAX_RETRIES = 3;
-    let attempt = 0;
-    let delayMs = 1000;
-
-    while (attempt < MAX_RETRIES) {
-        try {
-            // ★ 修正: Netlify Functionを呼び出す
-            const response = await fetch(UPDATE_URL, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // APIキーはサーバーレス関数側で設定するため、ヘッダーから削除
-                },
-                body: JSON.stringify(newData)
-            });
-            
-            if (response.status === 429) {
-                throw new Error('429 Too Many Requests on PUT');
-            }
-
-            if (!response.ok) {
-                 // Netlify Functionからのエラーメッセージを受け取る
-                const errorData = await response.json();
-                throw new Error(`データ書き込みエラー: ${response.status} ${errorData.message || response.statusText}`);
-            }
-
-            // 関数からの応答をそのまま返す
-            const data = await response.json();
-            return data;
-        } catch (error) {
-             if (error.message.includes('429') || attempt < MAX_RETRIES - 1) {
-                attempt++;
-                console.warn(`データ書き込みリトライ (${attempt}/${MAX_RETRIES})。待機: ${delayMs}ms`);
-                await delay(delayMs);
-                delayMs *= 2; // 指数バックオフ
-            } else {
-                console.error("ポイントデータ書き込み中にエラー:", error);
-                return { status: "error", message: `データ書き込み失敗: ${error.message}`, totalChange: 0 };
-            }
-        }
-    }
-    console.error("ポイントデータ書き込みに失敗しました。最大リトライ回数を超えました。");
-    return { status: "error", message: `データ書き込み失敗: 最大リトライ回数を超えました`, totalChange: 0 };
+    return updateAllDataInFirebase(newData);
 }
 
 async function replaceCollection(db, batch, key, items) {

@@ -315,7 +315,7 @@ if (MAHJONG_FORM) {
         
         MAHJONG_SUBMIT_BUTTON.disabled = true;
         MAHJONG_SUBMIT_BUTTON.textContent = '送信中...';
-        showMessage(MAHJONG_MESSAGE_ELEMENT, '結果を計算し、JSONBinに送信中...', 'info');
+        showMessage(MAHJONG_MESSAGE_ELEMENT, '結果を計算し、Firebaseに送信中...', 'info');
     
         try {
             const currentData = await fetchAllData();
@@ -1752,17 +1752,7 @@ if (ATTENDANCE_ACCESS_SAVE_BUTTON) {
 async function handleExerciseAction(reportId, action) {
     const messageEl = document.getElementById('exercise-action-message');
     try {
-        let data;
-        if (isFirebaseConfigured()) {
-            data = await handleExerciseActionInFirebase(reportId, action);
-        } else {
-            const res = await fetch('/.netlify/functions/exercise-action', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reportId, action })
-            });
-            data = await res.json();
-        }
+        const data = await handleExerciseActionInFirebase(reportId, action);
         showMessage(messageEl, data.message, data.status === 'success' ? 'success' : 'error');
         await loadExerciseReports();
     } catch (err) {
