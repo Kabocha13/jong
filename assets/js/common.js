@@ -299,6 +299,8 @@ const TOKYO_WARDS = [
 ];
 
 const TERRITORY_AVERAGE_WARD_AREA = TOKYO_WARDS.reduce((sum, ward) => sum + ward.area, 0) / TOKYO_WARDS.length;
+const TERRITORY_DAILY_DEFENSE_GROWTH_RATE = 0.05;
+const TERRITORY_DAY_MS = 24 * 60 * 60 * 1000;
 
 function getNeutralTerritoryDefense(area, multiplier = 1) {
     return parseFloat((Math.min(15, Math.max(5, area / TERRITORY_AVERAGE_WARD_AREA * 7)) * multiplier).toFixed(1));
@@ -315,6 +317,12 @@ function getTerritorySeasonNumber(battle) {
 
 function getTerritoryNeutralDefenseMultiplier(seasonNumber) {
     return parseFloat(Math.pow(1.05, Math.max(0, seasonNumber - 1)).toFixed(4));
+}
+
+function addDaysIso(isoDate, days) {
+    const baseTime = Date.parse(isoDate);
+    if (!Number.isFinite(baseTime)) return new Date().toISOString();
+    return new Date(baseTime + days * TERRITORY_DAY_MS).toISOString();
 }
 
 // -----------------------------------------------------------------
@@ -621,10 +629,55 @@ function createDefaultTerritoryBattle(seasonNumber = 1) {
             name: ward.name,
             area: ward.area,
             owner: null,
+            ownerSince: null,
+            defenseGrowthAt: null,
             defense: getNeutralTerritoryDefense(ward.area, neutralDefenseMultiplier)
         })),
         actions: []
     };
+}
+
+function shuffleTerritoryItems(items) {
+    const shuffled = [...items];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+}
+
+function createTerritoryBattleWithInitialOwners(seasonNumber, players = []) {
+    const battle = createDefaultTerritoryBattle(seasonNumber);
+    const playerNames = shuffleTerritoryItems(
+        (players || [])
+            .map(player => String(player && player.name || '').trim())
+            .filter(Boolean)
+    ).slice(0, battle.tiles.length);
+    const shuffledTileIds = shuffleTerritoryItems(battle.tiles.map(tile => tile.id));
+    const assignedAt = new Date().toISOString();
+    const assignmentActions = [];
+
+    playerNames.forEach((playerName, index) => {
+        const tileId = shuffledTileIds[index];
+        const tile = battle.tiles.find(item => item.id === tileId);
+        if (!tile) return;
+        tile.owner = playerName;
+        tile.ownerSince = assignedAt;
+        tile.defenseGrowthAt = assignedAt;
+        assignmentActions.push({
+            at: assignedAt,
+            player: playerName,
+            tileId: tile.id,
+            tileName: tile.name,
+            amount: 0,
+            previousOwner: null,
+            owner: playerName,
+            result: `${playerName} の初期地点として ${tile.name} が割り当てられました。`
+        });
+    });
+
+    battle.actions = assignmentActions.slice(-30);
+    return battle;
 }
 
 function normalizeTerritoryBattle(battle) {
@@ -646,14 +699,27 @@ function normalizeTerritoryBattle(battle) {
             const existing = tileMap.get(ward.id) || {};
             const existingDefense = parseFloat(existing.defense);
             const hasExistingDefense = Number.isFinite(existingDefense);
-            const defense = hasExistingDefense
+            let defense = hasExistingDefense
                 ? Math.max(0, existingDefense)
                 : getNeutralTerritoryDefense(ward.area, neutralDefenseMultiplier);
+            const owner = existing.owner || null;
+            let ownerSince = owner ? (existing.ownerSince || normalized.updatedAt || new Date().toISOString()) : null;
+            let defenseGrowthAt = owner ? (existing.defenseGrowthAt || ownerSince) : null;
+            if (owner && defenseGrowthAt) {
+                const elapsedDays = Math.floor((Date.now() - Date.parse(defenseGrowthAt)) / TERRITORY_DAY_MS);
+                if (elapsedDays > 0) {
+                    defense = defense * Math.pow(1 + TERRITORY_DAILY_DEFENSE_GROWTH_RATE, elapsedDays);
+                    defense = parseFloat(defense.toFixed(1));
+                    defenseGrowthAt = addDaysIso(defenseGrowthAt, elapsedDays);
+                }
+            }
             return {
                 id: ward.id,
                 name: ward.name,
                 area: ward.area,
-                owner: existing.owner || null,
+                owner,
+                ownerSince,
+                defenseGrowthAt,
                 defense
             };
         }),

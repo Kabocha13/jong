@@ -183,7 +183,7 @@ function renderTerritoryBattle(battle, players) {
                             </select>
                             <label for="territory-points">投入ポイント</label>
                             <input type="number" id="territory-points" min="0.1" step="0.1" value="0.1" required>
-                            <p id="territory-odds-help" class="territory-odds-help">攻撃勝率: 投入P÷(投入P+防衛×2/3)。敗北時: 防衛-投入P×0.5</p>
+                            <p id="territory-odds-help" class="territory-odds-help">攻撃勝率: 投入P÷(投入P+防衛×2/3)。所有地は毎日 防衛+5%</p>
                             <button type="submit" class="territory-submit">出陣</button>
                         </form>
                     ` : `
@@ -225,7 +225,7 @@ function attachTerritoryHandlers() {
         const amount = parseFloat(amountInput.value);
         const defense = option ? parseFloat(option.dataset.defense) : NaN;
         if (!option || !option.value || isNaN(amount) || amount <= 0 || isNaN(defense)) {
-            oddsHelp.textContent = '攻撃勝率: 投入P÷(投入P+防衛×2/3)。敗北時: 防衛-投入P×0.5';
+            oddsHelp.textContent = '攻撃勝率: 投入P÷(投入P+防衛×2/3)。所有地は毎日 防衛+5%';
             return;
         }
 
@@ -311,6 +311,7 @@ async function handleTerritoryAction(e) {
         }
 
         const previousOwner = tile.owner;
+        const actionAt = new Date().toISOString();
         let resultText = '';
         if (isOwnTile) {
             tile.defense = parseFloat((tile.defense + amount).toFixed(1));
@@ -322,6 +323,8 @@ async function handleTerritoryAction(e) {
 
             if (isWin) {
                 tile.owner = username;
+                tile.ownerSince = actionAt;
+                tile.defenseGrowthAt = tile.ownerSince;
                 tile.defense = parseFloat((amount * 0.7).toFixed(1));
                 resultText = previousOwner ? `${tile.name}を奪取しました。` : `${tile.name}を制圧しました。`;
             } else {
@@ -336,7 +339,7 @@ async function handleTerritoryAction(e) {
             score: parseFloat((player.score - amount).toFixed(1))
         });
 
-        battle.updatedAt = new Date().toISOString();
+        battle.updatedAt = actionAt;
         battle.actions = [
             ...(battle.actions || []),
             {

@@ -1283,7 +1283,7 @@ async function handleTerritorySeasonEnd() {
             return;
         }
 
-        if (!window.confirm(`${winner} に1000Pを付与し、陣取り合戦を次シーズンへリセットします。よろしいですか？`)) {
+        if (!window.confirm(`${winner} に1000Pを付与し、次シーズンでは各プレイヤーにランダムな初期地点を1区ずつ割り当てます。よろしいですか？`)) {
             await loadTerritorySeasonStatus();
             return;
         }
@@ -1303,7 +1303,8 @@ async function handleTerritorySeasonEnd() {
 
         const currentSeasonNumber = getTerritorySeasonNumber(battle);
         const nextSeasonNumber = currentSeasonNumber + 1;
-        const nextBattle = createDefaultTerritoryBattle(nextSeasonNumber);
+        const nextBattle = createTerritoryBattleWithInitialOwners(nextSeasonNumber, Array.from(scoresMap.values()));
+        const initialOwnerCount = nextBattle.tiles.filter(tile => tile.owner).length;
         nextBattle.actions = [
             ...(battle.actions || []),
             {
@@ -1315,7 +1316,8 @@ async function handleTerritorySeasonEnd() {
                 previousOwner: winner,
                 owner: null,
                 result: `${winner} が全区制覇。1000Pを獲得し、第${nextSeasonNumber}シーズンへ移行しました。`
-            }
+            },
+            ...(nextBattle.actions || [])
         ].slice(-30);
 
         const response = await updateAllData({
@@ -1326,7 +1328,7 @@ async function handleTerritorySeasonEnd() {
 
         if (response.status === 'success') {
             invalidateFetchCache();
-            showMessage(TERRITORY_SEASON_MESSAGE, `✅ ${winner} に1000Pを付与し、第${nextSeasonNumber}シーズンを開始しました。`, 'success');
+            showMessage(TERRITORY_SEASON_MESSAGE, `✅ ${winner} に1000Pを付与し、第${nextSeasonNumber}シーズンを開始しました。初期地点を${initialOwnerCount}人に割り当てました。`, 'success');
             await loadPlayerList();
             await loadTransferPlayerLists();
             await loadTerritorySeasonStatus();
@@ -1643,45 +1645,17 @@ async function loadSpiAnalysis() {
         const totalAttempts = stats.reduce((sum, item) => sum + item.attempts, 0);
         const totalCorrect = stats.reduce((sum, item) => sum + item.correct, 0);
         const totalAccuracy = totalAttempts > 0 ? (totalCorrect / totalAttempts) * 100 : 0;
-        const domainSummary = ['非言語', '言語'].map(domain => {
-            const items = stats.filter(item => item.domain === domain);
-            const attempts = items.reduce((sum, item) => sum + item.attempts, 0);
-            const correct = items.reduce((sum, item) => sum + item.correct, 0);
-            const accuracy = attempts > 0 ? (correct / attempts) * 100 : 0;
-            return `${domain}: ${attempts}問回答 / 正答率 ${accuracy.toFixed(1)}%`;
-        }).join('　');
+        const domainRows = summarizeSpiItems(stats, 'domain');
+        const categoryRows = summarizeSpiItems(stats, 'category');
 
         SPI_ANALYSIS_CONTAINER.innerHTML = `
             <div class="spi-analysis-summary">
                 <strong>全体正答率 ${totalAccuracy.toFixed(1)}%</strong>
                 <span>${totalAttempts}問回答 / ${totalCorrect}問正解</span>
-                <span>${domainSummary}</span>
             </div>
             <div style="overflow-x:auto;">
-                <table class="career-table">
-                    <thead>
-                        <tr>
-                            <th>問題</th>
-                            <th>区分</th>
-                            <th>分野</th>
-                            <th>正答率</th>
-                            <th>正解/回答</th>
-                            <th>内容</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${stats.map(item => `
-                            <tr>
-                                <td>${escapeAdminText(item.id)}</td>
-                                <td>${escapeAdminText(item.domain || '-')}</td>
-                                <td>${escapeAdminText(item.category || '-')}</td>
-                                <td><strong>${item.accuracy.toFixed(1)}%</strong></td>
-                                <td>${item.correct}/${item.attempts}</td>
-                                <td>${escapeAdminText(item.prompt || '')}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                ${renderSpiSummaryTable('区分別', domainRows)}
+                ${renderSpiSummaryTable('分野別', categoryRows)}
             </div>
         `;
     } catch (err) {
@@ -1701,6 +1675,47 @@ function escapeAdminText(value) {
         '"': '&quot;',
         "'": '&#039;'
     }[char]));
+}
+
+function summarizeSpiItems(items, key) {
+    const summaryMap = new Map();
+    items.forEach(item => {
+        const label = item[key] || '-';
+        const current = summaryMap.get(label) || { label, attempts: 0, correct: 0 };
+        current.attempts += item.attempts;
+        current.correct += item.correct;
+        summaryMap.set(label, current);
+    });
+    return Array.from(summaryMap.values())
+        .map(item => ({
+            ...item,
+            accuracy: item.attempts > 0 ? (item.correct / item.attempts) * 100 : 0
+        }))
+        .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
+}
+
+function renderSpiSummaryTable(title, rows) {
+    return `
+        <h4>${escapeAdminText(title)}</h4>
+        <table class="career-table">
+            <thead>
+                <tr>
+                    <th>分野</th>
+                    <th>正答率</th>
+                    <th>正解/回答</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map(row => `
+                    <tr>
+                        <td>${escapeAdminText(row.label)}</td>
+                        <td><strong>${row.accuracy.toFixed(1)}%</strong></td>
+                        <td>${row.correct}/${row.attempts}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
 }
 
 async function loadSpecialThemeStatus() {
