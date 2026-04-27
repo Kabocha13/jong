@@ -1221,6 +1221,120 @@ if (DAILY_TAX_BUTTON) {
     });
 }
 
+// --- 陣取り合戦シーズン終了 ---
+
+function getTerritorySeasonWinner(battle) {
+    const normalized = normalizeTerritoryBattle(battle);
+    const owners = normalized.tiles.map(tile => tile.owner).filter(Boolean);
+    if (owners.length !== normalized.tiles.length) return null;
+    const firstOwner = owners[0];
+    return owners.every(owner => owner === firstOwner) ? firstOwner : null;
+}
+
+async function loadTerritorySeasonStatus() {
+    if (!TERRITORY_SEASON_END_BUTTON || !TERRITORY_SEASON_STATUS) return;
+
+    TERRITORY_SEASON_END_BUTTON.disabled = true;
+    TERRITORY_SEASON_STATUS.textContent = '戦況を確認中...';
+
+    try {
+        const currentData = await fetchAllData();
+        const battle = normalizeTerritoryBattle(currentData.territory_battle);
+        const winner = getTerritorySeasonWinner(battle);
+        const occupiedCount = battle.tiles.filter(tile => tile.owner).length;
+        const seasonNumber = getTerritorySeasonNumber(battle);
+
+        if (winner) {
+            TERRITORY_SEASON_STATUS.textContent = `第${seasonNumber}シーズン制覇: ${winner}。終了できます。`;
+            TERRITORY_SEASON_END_BUTTON.disabled = false;
+        } else {
+            TERRITORY_SEASON_STATUS.textContent = `第${seasonNumber}シーズン進行中: ${occupiedCount}/${battle.tiles.length}区制圧。全区を1ユーザーが制覇すると終了できます。`;
+        }
+    } catch (error) {
+        console.error('陣取り戦況の取得に失敗:', error);
+        TERRITORY_SEASON_STATUS.textContent = `戦況の取得に失敗しました: ${error.message}`;
+    }
+}
+
+async function handleTerritorySeasonEnd() {
+    if (!TERRITORY_SEASON_END_BUTTON || !TERRITORY_SEASON_MESSAGE) return;
+
+    TERRITORY_SEASON_END_BUTTON.disabled = true;
+    showMessage(TERRITORY_SEASON_MESSAGE, '陣取りシーズンを終了中...', 'info');
+
+    try {
+        const currentData = await fetchAllData();
+        const battle = normalizeTerritoryBattle(currentData.territory_battle);
+        const winner = getTerritorySeasonWinner(battle);
+
+        if (!winner) {
+            showMessage(TERRITORY_SEASON_MESSAGE, '❌ まだ1ユーザーが全区を制覇していません。', 'error');
+            await loadTerritorySeasonStatus();
+            return;
+        }
+
+        if (!window.confirm(`${winner} に1000Pを付与し、陣取り合戦を次シーズンへリセットします。よろしいですか？`)) {
+            await loadTerritorySeasonStatus();
+            return;
+        }
+
+        const scoresMap = new Map((currentData.scores || []).map(player => [player.name, player]));
+        const winnerData = scoresMap.get(winner);
+        if (!winnerData) {
+            showMessage(TERRITORY_SEASON_MESSAGE, `❌ 勝者 ${winner} のプレイヤーデータが見つかりません。`, 'error');
+            await loadTerritorySeasonStatus();
+            return;
+        }
+
+        scoresMap.set(winner, {
+            ...winnerData,
+            score: parseFloat(((winnerData.score || 0) + 1000).toFixed(1))
+        });
+
+        const currentSeasonNumber = getTerritorySeasonNumber(battle);
+        const nextSeasonNumber = currentSeasonNumber + 1;
+        const nextBattle = createDefaultTerritoryBattle(nextSeasonNumber);
+        nextBattle.actions = [
+            ...(battle.actions || []),
+            {
+                at: new Date().toISOString(),
+                player: winner,
+                tileId: 'season',
+                tileName: `第${currentSeasonNumber}シーズン`,
+                amount: 1000,
+                previousOwner: winner,
+                owner: null,
+                result: `${winner} が全区制覇。1000Pを獲得し、第${nextSeasonNumber}シーズンへ移行しました。`
+            }
+        ].slice(-30);
+
+        const response = await updateAllData({
+            ...currentData,
+            scores: Array.from(scoresMap.values()),
+            territory_battle: nextBattle
+        });
+
+        if (response.status === 'success') {
+            invalidateFetchCache();
+            showMessage(TERRITORY_SEASON_MESSAGE, `✅ ${winner} に1000Pを付与し、第${nextSeasonNumber}シーズンを開始しました。`, 'success');
+            await loadPlayerList();
+            await loadTransferPlayerLists();
+            await loadTerritorySeasonStatus();
+        } else {
+            showMessage(TERRITORY_SEASON_MESSAGE, `❌ シーズン終了エラー: ${response.message}`, 'error');
+            await loadTerritorySeasonStatus();
+        }
+    } catch (error) {
+        console.error('陣取りシーズン終了中にエラー:', error);
+        showMessage(TERRITORY_SEASON_MESSAGE, `❌ サーバーエラー: ${error.message}`, 'error');
+        await loadTerritorySeasonStatus();
+    }
+}
+
+if (TERRITORY_SEASON_END_BUTTON) {
+    TERRITORY_SEASON_END_BUTTON.addEventListener('click', handleTerritorySeasonEnd);
+}
+
 
 // -----------------------------------------------------------------
 // ★★★ 新規追加: プレゼントコード発行機能 ★★★
