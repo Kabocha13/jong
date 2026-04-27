@@ -7,7 +7,8 @@ const FIREBASE_COLLECTIONS = {
     lotteries: 'lotteries',
     gift_codes: 'gift_codes',
     exercise_reports: 'exercise_reports',
-    career_posts: 'career_posts'
+    career_posts: 'career_posts',
+    spi_question_stats: 'spi_question_stats'
 };
 let _firebaseFirestoreSettingsApplied = false;
 
@@ -93,6 +94,7 @@ function createEmptyData() {
         gift_codes: [],
         exercise_reports: [],
         career_posts: [],
+        spi_question_stats: [],
         territory_battle: createDefaultTerritoryBattle(),
         special_theme: null,
         attendance_allowed_users: []
@@ -126,6 +128,7 @@ function getItemDocId(key, item, index) {
     if (key === 'gift_codes') return toDocId(item.code ?? item.name ?? item.id ?? `gift_${index}`);
     if (key === 'exercise_reports') return toDocId(item.id ?? `exercise_${index}`);
     if (key === 'career_posts') return toDocId(item.id ?? `career_${index}`);
+    if (key === 'spi_question_stats') return toDocId(item.id ?? item.questionId ?? `spi_stat_${index}`);
     if (key === 'speedstorm_records') return toDocId(item.id ?? item.player ?? `speedstorm_${index}`);
     return toDocId(item.id ?? index);
 }
@@ -405,6 +408,7 @@ async function fetchAllDataFromFirebase() {
         giftCodes,
         exerciseReports,
         careerPosts,
+        spiQuestionStats,
         settingsDoc,
         territoryDoc
     ] = await Promise.all([
@@ -415,6 +419,7 @@ async function fetchAllDataFromFirebase() {
         fetchCollection(db, 'gift_codes'),
         fetchCollection(db, 'exercise_reports'),
         fetchCollection(db, 'career_posts'),
+        fetchCollection(db, 'spi_question_stats'),
         db.collection('settings').doc('app').get(),
         db.collection('territory_battle').doc('current').get()
     ]);
@@ -428,6 +433,7 @@ async function fetchAllDataFromFirebase() {
         gift_codes: giftCodes,
         exercise_reports: exerciseReports,
         career_posts: careerPosts,
+        spi_question_stats: spiQuestionStats,
         territory_battle: territoryDoc.exists ? territoryDoc.data() : null,
         special_theme: settings.special_theme ?? null,
         attendance_allowed_users: settings.attendance_allowed_users ?? []

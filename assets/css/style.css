@@ -1351,6 +1351,25 @@ label {
     line-height: 1.4;
 }
 
+.spi-analysis-summary {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(201, 168, 76, 0.35);
+    background-color: #fffdf5;
+}
+
+.spi-analysis-summary strong {
+    color: var(--color-indigo);
+    font-family: var(--font-display);
+}
+
+.spi-analysis-summary span {
+    color: #596174;
+    line-height: 1.4;
+}
+
 @media (max-width: 700px) {
     .spi-header {
         align-items: flex-start;

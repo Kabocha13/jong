@@ -30,6 +30,9 @@ const TERRITORY_SEASON_END_BUTTON = document.getElementById('territory-season-en
 const TERRITORY_SEASON_STATUS = document.getElementById('territory-season-status');
 const TERRITORY_SEASON_MESSAGE = document.getElementById('territory-season-message');
 
+// SPI分析
+const SPI_ANALYSIS_CONTAINER = document.getElementById('spi-analysis-container');
+
 // ★ 出席登録の表示設定
 const ATTENDANCE_ACCESS_LIST = document.getElementById('attendance-access-list');
 const ATTENDANCE_ACCESS_SAVE_BUTTON = document.getElementById('attendance-access-save-button');
@@ -114,6 +117,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         loadMahjongForm();
         initializeLotteryForm();
         loadExerciseReports();
+        loadSpiAnalysis();
         loadSpecialThemeStatus();
         loadAttendanceAccessStatus();
         loadTerritorySeasonStatus();
@@ -1605,6 +1609,84 @@ async function loadExerciseReports() {
         }).join('');
     } catch (err) {
         container.innerHTML = '<p>申請の読み込みに失敗しました。</p>';
+    }
+}
+
+// ============================================================
+// SPI正答率分析
+// ============================================================
+
+async function loadSpiAnalysis() {
+    if (!SPI_ANALYSIS_CONTAINER) return;
+    SPI_ANALYSIS_CONTAINER.innerHTML = '<p>読み込み中...</p>';
+
+    try {
+        const currentData = await fetchAllData();
+        const stats = (currentData.spi_question_stats || [])
+            .filter(item => Number(item.attempts || 0) > 0)
+            .map(item => {
+                const attempts = Number(item.attempts || 0);
+                const correct = Number(item.correct || 0);
+                return {
+                    ...item,
+                    attempts,
+                    correct,
+                    accuracy: attempts > 0 ? (correct / attempts) * 100 : 0
+                };
+            })
+            .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
+
+        if (stats.length === 0) {
+            SPI_ANALYSIS_CONTAINER.innerHTML = '<p>まだSPIの回答データがありません。</p>';
+            return;
+        }
+
+        const totalAttempts = stats.reduce((sum, item) => sum + item.attempts, 0);
+        const totalCorrect = stats.reduce((sum, item) => sum + item.correct, 0);
+        const totalAccuracy = totalAttempts > 0 ? (totalCorrect / totalAttempts) * 100 : 0;
+        const domainSummary = ['非言語', '言語'].map(domain => {
+            const items = stats.filter(item => item.domain === domain);
+            const attempts = items.reduce((sum, item) => sum + item.attempts, 0);
+            const correct = items.reduce((sum, item) => sum + item.correct, 0);
+            const accuracy = attempts > 0 ? (correct / attempts) * 100 : 0;
+            return `${domain}: ${attempts}問回答 / 正答率 ${accuracy.toFixed(1)}%`;
+        }).join('　');
+
+        SPI_ANALYSIS_CONTAINER.innerHTML = `
+            <div class="spi-analysis-summary">
+                <strong>全体正答率 ${totalAccuracy.toFixed(1)}%</strong>
+                <span>${totalAttempts}問回答 / ${totalCorrect}問正解</span>
+                <span>${domainSummary}</span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="career-table">
+                    <thead>
+                        <tr>
+                            <th>問題</th>
+                            <th>区分</th>
+                            <th>分野</th>
+                            <th>正答率</th>
+                            <th>正解/回答</th>
+                            <th>内容</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${stats.map(item => `
+                            <tr>
+                                <td>${escapeAdminText(item.id)}</td>
+                                <td>${escapeAdminText(item.domain || '-')}</td>
+                                <td>${escapeAdminText(item.category || '-')}</td>
+                                <td><strong>${item.accuracy.toFixed(1)}%</strong></td>
+                                <td>${item.correct}/${item.attempts}</td>
+                                <td>${escapeAdminText(item.prompt || '')}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    } catch (err) {
+        SPI_ANALYSIS_CONTAINER.innerHTML = `<p>SPI分析の読み込みに失敗しました: ${escapeAdminText(err.message)}</p>`;
     }
 }
 
