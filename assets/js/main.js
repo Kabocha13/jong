@@ -179,10 +179,11 @@ function renderTerritoryBattle(battle, players) {
                             <label for="territory-target">目標区</label>
                             <select id="territory-target" required>
                                 <option value="" disabled selected>区を選択</option>
-                                ${normalized.tiles.map(tile => `<option value="${tile.id}">${tile.name} / ${tile.owner || '中立'} / 防衛 ${tile.defense.toFixed(1)}P</option>`).join('')}
+                                ${normalized.tiles.map(tile => `<option value="${tile.id}" data-owner="${escapeText(tile.owner || '')}" data-defense="${tile.defense.toFixed(1)}">${tile.name} / ${tile.owner || '中立'} / 防衛 ${tile.defense.toFixed(1)}P</option>`).join('')}
                             </select>
                             <label for="territory-points">投入ポイント</label>
                             <input type="number" id="territory-points" min="0.1" step="0.1" value="0.1" required>
+                            <p id="territory-odds-help" class="territory-odds-help">攻撃勝率: 投入P÷(投入P+防衛×2/3)。敗北時: 防衛-投入P×0.5</p>
                             <button type="submit" class="territory-submit">出陣</button>
                         </form>
                     ` : `
@@ -214,14 +215,42 @@ function renderTerritoryBattle(battle, players) {
 function attachTerritoryHandlers() {
     const form = document.getElementById('territory-action-form');
     const select = document.getElementById('territory-target');
+    const amountInput = document.getElementById('territory-points');
+    const oddsHelp = document.getElementById('territory-odds-help');
     if (!form || !select) return;
+
+    const updateOddsHelp = () => {
+        if (!amountInput || !oddsHelp) return;
+        const option = select.selectedOptions[0];
+        const amount = parseFloat(amountInput.value);
+        const defense = option ? parseFloat(option.dataset.defense) : NaN;
+        if (!option || !option.value || isNaN(amount) || amount <= 0 || isNaN(defense)) {
+            oddsHelp.textContent = '攻撃勝率: 投入P÷(投入P+防衛×2/3)。敗北時: 防衛-投入P×0.5';
+            return;
+        }
+
+        const owner = option.dataset.owner || '';
+        if (owner === (localStorage.getItem('authUsername') || '')) {
+            oddsHelp.textContent = `強化: 防衛 +${amount.toFixed(1)}P`;
+            return;
+        }
+
+        const winProbability = calculateTerritoryWinProbability(amount, defense);
+        const defenseDamage = Math.min(defense, amount * 0.5);
+        oddsHelp.textContent = `攻撃勝率 ${Math.round(winProbability * 100)}%。敗北時 防衛 -${defenseDamage.toFixed(1)}P`;
+    };
 
     TERRITORY_BATTLE_CONTAINER.querySelectorAll('.territory-tile').forEach(tileButton => {
         tileButton.addEventListener('click', () => {
             select.value = tileButton.dataset.territoryId;
             select.focus();
+            updateOddsHelp();
         });
     });
+
+    select.addEventListener('change', updateOddsHelp);
+    if (amountInput) amountInput.addEventListener('input', updateOddsHelp);
+    updateOddsHelp();
 
     form.addEventListener('submit', handleTerritoryAction);
 }

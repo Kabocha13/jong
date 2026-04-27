@@ -754,6 +754,13 @@ button[type="submit"]:hover,
     margin-bottom: 8px;
 }
 
+.territory-odds-help {
+    color: rgba(255, 241, 188, 0.84);
+    font-size: 0.76em;
+    line-height: 1.4;
+    margin: -2px 0 8px 0;
+}
+
 .territory-submit {
     width: 100%;
     background: linear-gradient(#c79637, #875d1e);
