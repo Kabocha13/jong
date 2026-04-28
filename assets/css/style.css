@@ -774,7 +774,7 @@ button[type="submit"]:hover,
 
 .territory-submit:disabled {
     opacity: 0.55;
-    cursor: wait;
+    cursor: not-allowed;
 }
 
 .territory-login-prompt {

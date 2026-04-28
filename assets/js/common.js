@@ -301,6 +301,8 @@ const TOKYO_WARDS = [
 const TERRITORY_AVERAGE_WARD_AREA = TOKYO_WARDS.reduce((sum, ward) => sum + ward.area, 0) / TOKYO_WARDS.length;
 const TERRITORY_DAILY_DEFENSE_GROWTH_RATE = 0.05;
 const TERRITORY_DAY_MS = 24 * 60 * 60 * 1000;
+const TERRITORY_ACTION_LIMIT_PER_HOUR = 3;
+const TERRITORY_ACTION_WINDOW_MS = 60 * 60 * 1000;
 
 function getNeutralTerritoryDefense(area, multiplier = 1) {
     return parseFloat((Math.min(15, Math.max(5, area / TERRITORY_AVERAGE_WARD_AREA * 7)) * multiplier).toFixed(1));
@@ -323,6 +325,47 @@ function addDaysIso(isoDate, days) {
     const baseTime = Date.parse(isoDate);
     if (!Number.isFinite(baseTime)) return new Date().toISOString();
     return new Date(baseTime + days * TERRITORY_DAY_MS).toISOString();
+}
+
+function normalizeTerritoryActionLimits(actionLimits, fallbackActions = [], now = Date.now()) {
+    const cutoff = now - TERRITORY_ACTION_WINDOW_MS;
+    const normalized = {};
+
+    const addActionTime = (playerName, at) => {
+        const player = String(playerName || '').trim();
+        const time = Date.parse(at);
+        if (!player || !Number.isFinite(time) || time <= cutoff || time > now + 60000) return;
+        if (!normalized[player]) normalized[player] = [];
+        normalized[player].push(new Date(time).toISOString());
+    };
+
+    if (actionLimits && typeof actionLimits === 'object' && !Array.isArray(actionLimits)) {
+        Object.entries(actionLimits).forEach(([playerName, times]) => {
+            if (!Array.isArray(times)) return;
+            times.forEach(at => addActionTime(playerName, at));
+        });
+    }
+
+    if (Array.isArray(fallbackActions)) {
+        fallbackActions.forEach(action => addActionTime(action && action.player, action && action.at));
+    }
+
+    Object.keys(normalized).forEach(playerName => {
+        normalized[playerName] = [...new Set(normalized[playerName])]
+            .sort((a, b) => Date.parse(a) - Date.parse(b))
+            .slice(-TERRITORY_ACTION_LIMIT_PER_HOUR);
+    });
+
+    return normalized;
+}
+
+function getTerritoryRecentActionTimes(battle, playerName, now = Date.now()) {
+    const limits = normalizeTerritoryActionLimits(
+        battle && battle.actionLimits,
+        [],
+        now
+    );
+    return limits[String(playerName || '').trim()] || [];
 }
 
 // -----------------------------------------------------------------
@@ -633,7 +676,8 @@ function createDefaultTerritoryBattle(seasonNumber = 1) {
             defenseGrowthAt: null,
             defense: getNeutralTerritoryDefense(ward.area, neutralDefenseMultiplier)
         })),
-        actions: []
+        actions: [],
+        actionLimits: {}
     };
 }
 
@@ -723,7 +767,8 @@ function normalizeTerritoryBattle(battle) {
                 defense
             };
         }),
-        actions: Array.isArray(normalized.actions) ? normalized.actions.slice(-30) : []
+        actions: Array.isArray(normalized.actions) ? normalized.actions.slice(-30) : [],
+        actionLimits: normalizeTerritoryActionLimits(normalized.actionLimits)
     };
 }
 

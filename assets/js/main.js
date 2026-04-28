@@ -124,12 +124,41 @@ function calculateTerritoryWinProbability(amount, defense) {
     return Math.min(1, Math.max(0, amount / (amount + defense * (2 / 3))));
 }
 
+function getTerritoryActionLimitState(playerName, battle, now = Date.now()) {
+    const recentActions = getTerritoryRecentActionTimes(battle, playerName, now);
+    const remaining = Math.max(0, TERRITORY_ACTION_LIMIT_PER_HOUR - recentActions.length);
+    const oldestTime = recentActions.length > 0
+        ? Math.min(...recentActions.map(at => Date.parse(at)).filter(Number.isFinite))
+        : NaN;
+    const nextAvailableAt = remaining === 0 && Number.isFinite(oldestTime)
+        ? new Date(oldestTime + TERRITORY_ACTION_WINDOW_MS)
+        : null;
+
+    return {
+        used: recentActions.length,
+        remaining,
+        nextAvailableAt
+    };
+}
+
+function formatTerritoryActionLimitText(limitState) {
+    if (!limitState) return '';
+    if (limitState.remaining > 0) {
+        return `行動: 残り${limitState.remaining}回 / 1時間${TERRITORY_ACTION_LIMIT_PER_HOUR}回`;
+    }
+    const waitUntil = limitState.nextAvailableAt
+        ? limitState.nextAvailableAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+        : 'しばらく後';
+    return `行動上限です。次の行動は ${waitUntil} 以降`;
+}
+
 function renderTerritoryBattle(battle, players) {
     if (!TERRITORY_BATTLE_CONTAINER) return;
 
     const normalized = normalizeTerritoryBattle(battle);
     const loginName = localStorage.getItem('authUsername') || '';
     const playerStats = loginName ? getPlayerTerritoryStats(loginName, normalized) : null;
+    const actionLimit = loginName ? getTerritoryActionLimitState(loginName, normalized) : null;
     const leaders = players
         .map(player => ({
             name: player.name,
@@ -154,6 +183,7 @@ function renderTerritoryBattle(battle, players) {
                     <span class="territory-kicker">自軍</span>
                     <strong>${loginName ? escapeText(loginName) : '未ログイン'}</strong>
                     <small>${playerStats ? `${playerStats.count}区 / ${playerStats.area.toFixed(1)}km² / -${playerStats.reduction.toFixed(1)}%` : 'マイページのログイン情報を使用'}</small>
+                    ${actionLimit ? `<small>${formatTerritoryActionLimitText(actionLimit)}</small>` : ''}
                 </div>
             </div>
             <div class="territory-layout">
@@ -184,7 +214,8 @@ function renderTerritoryBattle(battle, players) {
                             <label for="territory-points">投入ポイント</label>
                             <input type="number" id="territory-points" min="0.1" step="0.1" value="0.1" required>
                             <p id="territory-odds-help" class="territory-odds-help">攻撃勝率: 投入P÷(投入P+防衛×2/3)。所有地は毎日 防衛+5%</p>
-                            <button type="submit" class="territory-submit">出陣</button>
+                            <p class="territory-odds-help">${formatTerritoryActionLimitText(actionLimit)}</p>
+                            <button type="submit" class="territory-submit"${actionLimit && actionLimit.remaining === 0 ? ' disabled' : ''}>出陣</button>
                         </form>
                     ` : `
                         <div class="territory-login-prompt">
@@ -293,6 +324,15 @@ async function handleTerritoryAction(e) {
         }
 
         const battle = normalizeTerritoryBattle(currentData.territory_battle);
+        const actionLimit = getTerritoryActionLimitState(username, battle);
+        if (actionLimit.remaining <= 0) {
+            const nextText = actionLimit.nextAvailableAt
+                ? actionLimit.nextAvailableAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+                : 'しばらく後';
+            showMessage(messageEl, `1時間の行動回数は${TERRITORY_ACTION_LIMIT_PER_HOUR}回までです。次の行動は ${nextText} 以降にできます。`, 'error');
+            return;
+        }
+
         const tile = battle.tiles.find(t => t.id === targetId);
         if (!tile) {
             showMessage(messageEl, '目標区が見つかりません。', 'error');
@@ -353,6 +393,11 @@ async function handleTerritoryAction(e) {
                 result: resultText
             }
         ].slice(-30);
+        battle.actionLimits = normalizeTerritoryActionLimits(battle.actionLimits);
+        battle.actionLimits[username] = [
+            ...(battle.actionLimits[username] || []),
+            actionAt
+        ].slice(-TERRITORY_ACTION_LIMIT_PER_HOUR);
 
         const newData = {
             scores: Array.from(scoresMap.values()),
