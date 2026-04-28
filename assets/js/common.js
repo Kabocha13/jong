@@ -604,7 +604,7 @@ async function submitExerciseReportToFirebase({ player, distance, pace, imageFil
     const imageRef = storage.ref().child(imagePath);
     await imageRef.put(imageFile, { contentType: imageFile.type || 'image/jpeg' });
     const imageUrl = await imageRef.getDownloadURL();
-    const points = parseFloat((distanceNum * 10).toFixed(1));
+    const points = calculateExercisePoints(distanceNum);
 
     const report = {
         id: reportId,
@@ -622,6 +622,15 @@ async function submitExerciseReportToFirebase({ player, distance, pace, imageFil
     await db.collection(FIREBASE_COLLECTIONS.exercise_reports).doc(reportId).set(report);
     invalidateFetchCache();
     return { status: 'success', message: '運動申請を送信しました。', points, suspicious };
+}
+
+function calculateExercisePoints(distance) {
+    const distanceNum = Math.max(0, parseFloat(distance) || 0);
+    const basePoints = distanceNum * 10;
+    const exponentialBonus = Math.exp(distanceNum / 6) - 1;
+    const multiplier = Math.min(1.75, 1 + exponentialBonus * 0.35);
+
+    return parseFloat((basePoints * multiplier).toFixed(1));
 }
 
 async function handleExerciseActionInFirebase(reportId, action) {
