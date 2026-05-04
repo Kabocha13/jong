@@ -1,37 +1,38 @@
-/* assets/css/special.css — 1周年記念テーマ (黒×金) */
+/* assets/css/special.css - Golden Week theme (fresh green, sky blue, gold) */
 
 /* ============================================================
    CSS変数の上書き
    ============================================================ */
 html.special-theme {
-    --color-indigo:       #080808;
-    --color-indigo-mid:   #1c1800;
-    --color-indigo-light: #2e2600;
-    --color-gold:         #d4af37;
-    --color-gold-light:   #f0d060;
-    --color-gold-pale:    #fff3c0;
-    --color-cream:        #0e0e0a;
-    --color-text:         #e8d5a0;
-    --color-light:        #f5e6b8;
+    --color-indigo:       #14506b;
+    --color-indigo-mid:   #1d7a8f;
+    --color-indigo-light: #62b6cb;
+    --color-gold:         #e5b642;
+    --color-gold-light:   #f8d66d;
+    --color-gold-pale:    #fff3bf;
+    --color-cream:        #fffdf2;
+    --color-text:         #24362f;
+    --color-light:        #ffffff;
+    --color-accent:       #2f9e44;
 
-    --color-error:        #e05040;
-    --color-success:      #3ab870;
-    --color-info:         #4a90d9;
+    --color-error:        #d9480f;
+    --color-success:      #2f9e44;
+    --color-info:         #1971c2;
 
     --deco-line:       1px solid var(--color-gold);
     --deco-line-thick: 2px solid var(--color-gold);
 }
 
 /* ============================================================
-   記念バナー
+   GWバナー
    ============================================================ */
 html.special-theme body::before {
-    content: '✦  1st  Anniversary  ✦';
+    content: '✦  Golden Week Special  ✦';
     display: block;
     text-align: center;
-    background: linear-gradient(90deg, #080808 0%, #2a2000 40%, #2a2000 60%, #080808 100%);
-    border-bottom: 1px solid var(--color-gold);
-    color: var(--color-gold-light);
+    background: linear-gradient(90deg, #14506b 0%, #2f9e44 35%, #e5b642 50%, #2f9e44 65%, #14506b 100%);
+    border-bottom: 1px solid rgba(255, 243, 191, 0.75);
+    color: #fffdf2;
     padding: 7px 0;
     font-family: 'Cinzel', serif;
     letter-spacing: 6px;
@@ -40,26 +41,29 @@ html.special-theme body::before {
     text-transform: uppercase;
     animation: gold-shimmer 5s linear infinite;
     background-size: 200% auto;
+    text-shadow: 0 1px 8px rgba(20, 80, 107, 0.35);
 }
 
 /* ============================================================
    背景・基本
    ============================================================ */
 html.special-theme body {
-    background-color: #080808;
+    background-color: #dff6ff;
     background-image:
+        radial-gradient(circle at 18% 12%, rgba(248, 214, 109, 0.38) 0 92px, transparent 94px),
         repeating-linear-gradient(
             45deg,
             transparent, transparent 38px,
-            rgba(212, 175, 55, 0.09) 38px,
-            rgba(212, 175, 55, 0.09) 40px
+            rgba(47, 158, 68, 0.11) 38px,
+            rgba(47, 158, 68, 0.11) 40px
         ),
         repeating-linear-gradient(
             -45deg,
             transparent, transparent 38px,
-            rgba(212, 175, 55, 0.09) 38px,
-            rgba(212, 175, 55, 0.09) 40px
-        );
+            rgba(25, 113, 194, 0.09) 38px,
+            rgba(25, 113, 194, 0.09) 40px
+        ),
+        linear-gradient(180deg, #dff6ff 0%, #f7ffe5 58%, #fffdf2 100%);
     color: var(--color-text);
 }
 
@@ -67,17 +71,17 @@ html.special-theme body {
    メインコンテンツ
    ============================================================ */
 html.special-theme main {
-    background-color: #0e0e0a;
+    background-color: rgba(255, 253, 242, 0.96);
     box-shadow:
-        0 0 0 1px var(--color-gold),
-        0 0 0 4px #080808,
-        0 0 0 5px var(--color-gold),
-        0 20px 60px rgba(0, 0, 0, 0.7);
+        0 0 0 1px rgba(229, 182, 66, 0.75),
+        0 0 0 4px rgba(255, 253, 242, 0.9),
+        0 0 0 5px rgba(47, 158, 68, 0.45),
+        0 20px 50px rgba(20, 80, 107, 0.16);
 }
 
 html.special-theme main > h2,
 html.special-theme main > h2:first-child {
-    color: var(--color-gold-pale);
+    color: var(--color-indigo);
 }
 
 /* ============================================================
@@ -85,60 +89,60 @@ html.special-theme main > h2:first-child {
    ============================================================ */
 html.special-theme .tool-box,
 html.special-theme .info-box {
-    background-color: #141410;
-    border-color: rgba(212, 175, 55, 0.3);
+    background-color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(47, 158, 68, 0.22);
     border-top-color: var(--color-gold);
 }
 
 html.special-theme .tool-box:hover {
-    box-shadow: 0 6px 24px rgba(212, 175, 55, 0.1);
+    box-shadow: 0 6px 24px rgba(20, 80, 107, 0.12);
 }
 
 html.special-theme .tool-box h2,
 html.special-theme .tool-box h3,
 html.special-theme .tool-box h4,
 html.special-theme .info-box h3.icon-title {
-    color: var(--color-gold-pale);
-    border-bottom-color: rgba(212, 175, 55, 0.35);
+    color: var(--color-indigo);
+    border-bottom-color: rgba(47, 158, 68, 0.28);
 }
 
 html.special-theme .tool-box p,
 html.special-theme .tool-box li,
 html.special-theme .info-box p,
 html.special-theme .info-box li {
-    color: #c8b888;
+    color: #345247;
 }
 
 /* ============================================================
    ランキング
    ============================================================ */
 html.special-theme .ranking-item {
-    background-color: #141410;
-    border-color: rgba(212, 175, 55, 0.2);
-    border-left-color: rgba(212, 175, 55, 0.25);
+    background-color: #ffffff;
+    border-color: rgba(47, 158, 68, 0.2);
+    border-left-color: rgba(47, 158, 68, 0.35);
 }
 
 html.special-theme .ranking-item:hover {
-    background-color: #1c1c14;
-    border-left-color: var(--color-gold);
-    box-shadow: 2px 4px 12px rgba(212, 175, 55, 0.08);
+    background-color: #f5fff7;
+    border-left-color: var(--color-accent);
+    box-shadow: 2px 4px 12px rgba(47, 158, 68, 0.12);
 }
 
 html.special-theme .rank-1 {
-    background: linear-gradient(to right, #1e1a00, #141410);
+    background: linear-gradient(to right, #fff7d1, #ffffff);
     border-left-color: var(--color-gold);
-    box-shadow: 0 3px 12px rgba(212, 175, 55, 0.2);
+    box-shadow: 0 3px 12px rgba(229, 182, 66, 0.24);
 }
 
-html.special-theme .rank-2 { border-left-color: #606878; }
-html.special-theme .rank-3 { border-left-color: #987050; }
+html.special-theme .rank-2 { border-left-color: #62b6cb; }
+html.special-theme .rank-3 { border-left-color: #74b816; }
 
-html.special-theme .player-name { color: #d8c898; }
-html.special-theme .player-score { color: var(--color-gold-light); }
+html.special-theme .player-name { color: #24362f; }
+html.special-theme .player-score { color: #b7791f; }
 
 html.special-theme .ranking-item:has(.luxury-name) {
-    background: linear-gradient(to right, #1e1a00, #141410);
-    border-top-color: rgba(212, 175, 55, 0.4);
+    background: linear-gradient(to right, #fff7d1, #ffffff);
+    border-top-color: rgba(229, 182, 66, 0.48);
 }
 
 /* ============================================================
@@ -151,23 +155,23 @@ html.special-theme input[type="datetime-local"],
 html.special-theme input[type="file"],
 html.special-theme select,
 html.special-theme textarea {
-    background-color: #1a1a12;
-    color: #e8d5a0;
-    border-color: rgba(212, 175, 55, 0.3);
-    border-bottom-color: var(--color-gold);
+    background-color: #ffffff;
+    color: var(--color-text);
+    border-color: rgba(25, 113, 194, 0.22);
+    border-bottom-color: var(--color-accent);
 }
 
 html.special-theme input:focus,
 html.special-theme select:focus,
 html.special-theme textarea:focus {
-    background-color: #222218;
-    border-color: var(--color-gold-light);
-    border-bottom-color: var(--color-gold-light);
-    box-shadow: 0 3px 10px rgba(212, 175, 55, 0.15);
+    background-color: #f8fff3;
+    border-color: var(--color-gold);
+    border-bottom-color: var(--color-gold);
+    box-shadow: 0 3px 10px rgba(47, 158, 68, 0.16);
 }
 
 html.special-theme label {
-    color: var(--color-gold-pale);
+    color: var(--color-indigo);
 }
 
 /* ============================================================
@@ -175,120 +179,150 @@ html.special-theme label {
    ============================================================ */
 html.special-theme .bet-tile,
 html.special-theme .bet-card {
-    background-color: #141410;
-    border-color: rgba(212, 175, 55, 0.25);
-    border-left-color: var(--color-gold);
+    background-color: #ffffff;
+    border-color: rgba(47, 158, 68, 0.24);
+    border-left-color: var(--color-accent);
 }
 
 html.special-theme .bet-tile h4 {
-    color: var(--color-gold-pale);
-    border-bottom-color: rgba(212, 175, 55, 0.2);
+    color: var(--color-indigo);
+    border-bottom-color: rgba(47, 158, 68, 0.2);
 }
 
-html.special-theme .bet-deadline { color: #b89870; }
+html.special-theme .bet-deadline { color: #6f8d38; }
 
 html.special-theme .my-wager-text {
-    color: #d8c898;
-    background: linear-gradient(to right, rgba(212,175,55,0.1), transparent);
-    border-left-color: var(--color-gold);
+    color: #345247;
+    background: linear-gradient(to right, rgba(47, 158, 68, 0.1), transparent);
+    border-left-color: var(--color-accent);
 }
 
 /* ============================================================
    宝くじ当選表
    ============================================================ */
 html.special-theme .lottery-prize-table th {
-    background-color: #1c1800;
+    background-color: var(--color-indigo);
     color: var(--color-gold-pale);
 }
 
 html.special-theme .lottery-prize-table td {
-    border-bottom-color: rgba(212, 175, 55, 0.1);
-    color: #c8b888;
+    border-bottom-color: rgba(47, 158, 68, 0.12);
+    color: #345247;
 }
 
 html.special-theme .lottery-prize-table tr:last-child td {
-    background-color: rgba(212, 175, 55, 0.04);
-    color: #706050;
+    background-color: rgba(248, 214, 109, 0.16);
+    color: #6f8d38;
 }
 
 /* ============================================================
    メッセージ
    ============================================================ */
 html.special-theme .message.success {
-    background-color: #0a1a0f;
-    color: #3ab870;
+    background-color: #ebfbee;
+    color: #2f9e44;
 }
 
 html.special-theme .message.error {
-    background-color: #1a0a0a;
-    color: #e05040;
+    background-color: #fff4e6;
+    color: #d9480f;
 }
 
 html.special-theme .message.info {
-    background-color: #0a0f1a;
-    color: #4a90d9;
+    background-color: #e7f5ff;
+    color: #1971c2;
 }
 
 /* ============================================================
    認証セクション見出し
    ============================================================ */
 html.special-theme #auth-section h2 {
-    color: var(--color-gold-pale);
-    border-bottom-color: rgba(212, 175, 55, 0.3);
+    color: var(--color-indigo);
+    border-bottom-color: rgba(47, 158, 68, 0.28);
 }
 
 /* ============================================================
    instruction・info-text
    ============================================================ */
-html.special-theme .instruction { color: #b89870; }
-html.special-theme .info-text   { color: #a08060; }
-html.special-theme .update-info { color: #a08060; }
+html.special-theme .instruction { color: #6f8d38; }
+html.special-theme .info-text   { color: #52796f; }
+html.special-theme .update-info { color: #52796f; }
 
 /* ============================================================
-   セカンダリボタン
+   ボタン
    ============================================================ */
+html.special-theme button[type="submit"],
+html.special-theme .action-button,
+html.special-theme #refresh-button,
+html.special-theme #mahjong-submit-button,
+html.special-theme #daily-tax-button {
+    background: linear-gradient(135deg, #2f9e44 0%, #1d7a8f 100%);
+    color: #fffdf2;
+    border-color: var(--color-gold);
+    box-shadow: 0 4px 16px rgba(20, 80, 107, 0.2), inset 0 1px 0 rgba(255, 253, 242, 0.35);
+}
+
+html.special-theme button[type="submit"]:hover,
+html.special-theme .action-button:hover,
+html.special-theme #refresh-button:hover,
+html.special-theme #mahjong-submit-button:hover,
+html.special-theme #daily-tax-button:hover {
+    background: linear-gradient(135deg, #74b816 0%, #1971c2 100%);
+    color: #ffffff;
+    box-shadow: 0 6px 22px rgba(47, 158, 68, 0.24), 0 0 0 1px var(--color-gold-light);
+}
+
 html.special-theme .secondary-button {
-    color: var(--color-gold-pale) !important;
-    border-color: var(--color-gold) !important;
+    color: var(--color-indigo) !important;
+    border-color: var(--color-indigo) !important;
+    background: rgba(255, 255, 255, 0.42) !important;
 }
 
 html.special-theme .secondary-button:hover {
-    background: var(--color-gold) !important;
-    color: #080808 !important;
+    background: var(--color-indigo) !important;
+    color: #fffdf2 !important;
 }
 
 /* ============================================================
    テーブル汎用
    ============================================================ */
 html.special-theme table th {
-    background-color: #1c1800;
+    background-color: var(--color-indigo);
     color: var(--color-gold-pale);
 }
 
 html.special-theme table td {
-    color: #c8b888;
-    border-bottom-color: rgba(212, 175, 55, 0.1);
+    color: #345247;
+    border-bottom-color: rgba(47, 158, 68, 0.12);
 }
 
 html.special-theme table tr:hover td {
-    background-color: #1a1a10;
+    background-color: #f5fff7;
 }
 
 /* ============================================================
    就活ランキング (ホーム)
    ============================================================ */
 html.special-theme .ranking-panel h2 {
-    color: var(--color-gold-pale);
+    color: var(--color-indigo);
     border-bottom-color: var(--color-gold);
 }
 
 html.special-theme .career-link {
-    color: var(--color-gold-light);
+    color: #1971c2;
+}
+
+html.special-theme .career-link:hover {
+    color: var(--color-accent);
+}
+
+html.special-theme .career-offers {
+    color: #d9480f;
 }
 
 /* ============================================================
    天気表示
    ============================================================ */
 html.special-theme .weather-day {
-    color: var(--color-gold-pale);
+    color: var(--color-indigo);
 }

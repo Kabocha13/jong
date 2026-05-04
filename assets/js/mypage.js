@@ -341,9 +341,13 @@ if (PRO_BONUS_BUTTON) {
             const penaltyOccurred = Math.random() * 100 < totalProbability;
             if (penaltyOccurred) {
                 newScore -= 50;
-                const accumReduction = status === 'luxury' ? 10 : 5;
-                accumulated = Math.max(0, accumulated - accumReduction);
-                if (status === 'luxury') daily += 5;
+                if (status === 'luxury') {
+                    accumulated = Math.max(0, accumulated - 8);
+                } else if (status === 'pro') {
+                    accumulated = Math.max(0, accumulated - 5);
+                } else {
+                    daily = Math.max(0, daily - 10);
+                }
             }
 
             // 特別ボーナス判定（全会員共通 1%）
@@ -352,10 +356,12 @@ if (PRO_BONUS_BUTTON) {
                 newScore += 100;
             }
 
-            // 確率更新
-            daily += 5;
-            if (pressCount >= 1) {
-                accumulated += 10;
+            // 確率更新（ペナルティ発生時は加算なし）
+            if (!penaltyOccurred) {
+                daily += 5;
+                if (pressCount >= 1) {
+                    accumulated += 10;
+                }
             }
             pressCount++;
 

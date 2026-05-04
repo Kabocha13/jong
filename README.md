@@ -97,3 +97,6 @@
 **24.0** 環境をFirebaseに変更(高速化)
 
 **24.1** GW限定デザインの追加
+
+
+npx firebase deploy --only hosting
