@@ -854,29 +854,107 @@ window.SPI_BANK_VERSION = 'spi-v3';
 // スペシャルテーマ適用
 // -----------------------------------------------------------------
 
+const SPECIAL_THEME_DISPLAY_OVERRIDE_KEY = 'specialThemeDisplayOverride';
+let latestSpecialThemeData = null;
+
+function isSpecialThemeActive(themeData) {
+    if (!themeData || !themeData.startDate || !themeData.endDate) return false;
+    const now   = new Date();
+    const start = new Date(themeData.startDate + 'T00:00:00');
+    const end   = new Date(themeData.endDate   + 'T23:59:59');
+    return now >= start && now <= end;
+}
+
+function isMasterThemeToggleAllowed() {
+    return localStorage.getItem('authUsername') === MASTER_USERNAME;
+}
+
+function getSpecialThemeDisplayMode() {
+    return localStorage.getItem(SPECIAL_THEME_DISPLAY_OVERRIDE_KEY) === 'normal'
+        ? 'normal'
+        : 'special';
+}
+
+function ensureSpecialThemeStylesheet() {
+    if (document.getElementById('special-theme-css')) return;
+    const link = document.createElement('link');
+    link.id   = 'special-theme-css';
+    link.rel  = 'stylesheet';
+    link.href = 'assets/css/special.css';
+    document.head.appendChild(link);
+}
+
+function removeSpecialThemeToggleButton() {
+    const existing = document.getElementById('special-theme-toggle-button');
+    if (existing) existing.remove();
+}
+
+function updateSpecialThemeToggleButton() {
+    if (!isMasterThemeToggleAllowed()) {
+        removeSpecialThemeToggleButton();
+        return;
+    }
+
+    const mode = getSpecialThemeDisplayMode();
+    const button = document.getElementById('special-theme-toggle-button') || document.createElement('button');
+    button.id = 'special-theme-toggle-button';
+    button.type = 'button';
+    button.textContent = mode === 'special' ? '通常表示' : '特別表示';
+    button.title = 'スペシャルテーマの表示を切り替えます';
+    button.setAttribute('aria-label', 'スペシャルテーマ表示切替');
+    button.style.position = 'fixed';
+    button.style.right = '16px';
+    button.style.bottom = '76px';
+    button.style.zIndex = '1000';
+    button.style.width = 'auto';
+    button.style.padding = '8px 12px';
+    button.style.borderRadius = '999px';
+    button.style.border = '1px solid rgba(39, 68, 114, 0.35)';
+    button.style.background = mode === 'special' ? '#ffffff' : '#274472';
+    button.style.color = mode === 'special' ? '#274472' : '#eef7ff';
+    button.style.boxShadow = '0 6px 18px rgba(39, 68, 114, 0.22)';
+    button.style.fontSize = '0.85rem';
+    button.style.fontWeight = '700';
+    button.style.cursor = 'pointer';
+
+    button.onclick = () => {
+        const nextMode = getSpecialThemeDisplayMode() === 'special' ? 'normal' : 'special';
+        localStorage.setItem(SPECIAL_THEME_DISPLAY_OVERRIDE_KEY, nextMode);
+        applySpecialTheme(latestSpecialThemeData);
+    };
+
+    if (!button.parentNode) document.body.appendChild(button);
+}
+
+function refreshSpecialThemeDisplayToggle() {
+    applySpecialTheme(latestSpecialThemeData);
+}
+
+window.refreshSpecialThemeDisplayToggle = refreshSpecialThemeDisplayToggle;
+
 /**
  * special_theme データを元に special.css を動的に読み込む
  * @param {object|null} themeData - { startDate, endDate, label } または null
  */
 function applySpecialTheme(themeData) {
-    if (!themeData || !themeData.startDate || !themeData.endDate) return;
-    const now   = new Date();
-    const start = new Date(themeData.startDate + 'T00:00:00');
-    const end   = new Date(themeData.endDate   + 'T23:59:59');
-    if (now >= start && now <= end) {
-        if (!document.getElementById('special-theme-css')) {
-            const link = document.createElement('link');
-            link.id   = 'special-theme-css';
-            link.rel  = 'stylesheet';
-            link.href = 'assets/css/special.css';
-            document.head.appendChild(link);
+    latestSpecialThemeData = themeData;
+    if (isMasterThemeToggleAllowed()) {
+        ensureSpecialThemeStylesheet();
+        if (isMasterThemeToggleAllowed() && getSpecialThemeDisplayMode() === 'normal') {
+            document.documentElement.classList.remove('special-theme');
+        } else {
+            document.documentElement.classList.add('special-theme');
         }
+    } else if (isSpecialThemeActive(themeData)) {
+        ensureSpecialThemeStylesheet();
         document.documentElement.classList.add('special-theme');
     } else {
         document.documentElement.classList.remove('special-theme');
         const existing = document.getElementById('special-theme-css');
         if (existing) existing.remove();
+        removeSpecialThemeToggleButton();
     }
+    updateSpecialThemeToggleButton();
 }
 
 // ページ読み込み時にキャッシュから即時適用（フラッシュ防止）

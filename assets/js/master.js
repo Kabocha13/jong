@@ -104,6 +104,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
             localStorage.setItem('authUsername', username);
             localStorage.setItem('authPassword', password);
         }
+        if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
         // UIの切り替え
         document.getElementById('auth-section').classList.add('hidden');
@@ -151,6 +152,7 @@ function handleMasterLogout() {
     qjongSignOut();
     localStorage.removeItem('authUsername');
     localStorage.removeItem('authPassword');
+    if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
     // 2. 状態をリセットし、UIを切り替える
     document.getElementById('auth-section').classList.remove('hidden');
@@ -1842,6 +1844,7 @@ async function saveSpecialTheme(themeData) {
         const res = await updateAllData(newData);
         if (res.status === 'success') {
             showMessage(messageEl, themeData ? `✅ テーマを設定しました。` : '✅ テーマを解除しました。', 'success');
+            applySpecialTheme(themeData);
             await loadSpecialThemeStatus();
         } else {
             showMessage(messageEl, `❌ エラー: ${res.message}`, 'error');

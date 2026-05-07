@@ -689,6 +689,7 @@ async function attemptLogin(username, password, isAuto = false) {
         authenticatedUser = { ...user };
         localStorage.setItem('authUsername', username);
         localStorage.setItem('authPassword', password);
+        if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
         AUTH_SECTION.classList.add('hidden');
         CAREER_CONTENT.classList.remove('hidden');
@@ -708,6 +709,7 @@ function handleLogout() {
     qjongSignOut();
     localStorage.removeItem('authUsername');
     localStorage.removeItem('authPassword');
+    if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
     CAREER_CONTENT.classList.add('hidden');
     AUTH_SECTION.classList.remove('hidden');
     AUTH_FORM.reset();

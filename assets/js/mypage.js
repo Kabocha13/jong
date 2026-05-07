@@ -82,6 +82,7 @@ async function attemptLogin(username, password, isAuto = false) {
         // 1. 認証情報をlocalStorageに保存 (自動ログイン用)
         localStorage.setItem('authUsername', username);
         localStorage.setItem('authPassword', password);
+        if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
         // 2. UIの切り替え
         document.getElementById('auth-section').classList.add('hidden');
@@ -130,6 +131,7 @@ function handleLogout() {
     
     localStorage.removeItem('authUsername');
     localStorage.removeItem('authPassword');
+    if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
     qjongSignOut();
 
     authenticatedUser = null;
