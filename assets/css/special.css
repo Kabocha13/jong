@@ -1,69 +1,64 @@
-/* assets/css/special.css - Golden Week theme (fresh green, sky blue, gold) */
+/* assets/css/special.css - Hydrangea Rain SPI theme */
 
 /* ============================================================
    CSS変数の上書き
    ============================================================ */
 html.special-theme {
-    --color-indigo:       #14506b;
-    --color-indigo-mid:   #1d7a8f;
-    --color-indigo-light: #62b6cb;
-    --color-gold:         #e5b642;
-    --color-gold-light:   #f8d66d;
-    --color-gold-pale:    #fff3bf;
-    --color-cream:        #fffdf2;
-    --color-text:         #24362f;
+    --color-indigo:       #274472;
+    --color-indigo-mid:   #5b6fb2;
+    --color-indigo-light: #8da7e8;
+    --color-gold:         #7fb7a3;
+    --color-gold-light:   #b8d8ba;
+    --color-gold-pale:    #eef7ff;
+    --color-cream:        #f7fbff;
+    --color-text:         #223248;
     --color-light:        #ffffff;
-    --color-accent:       #2f9e44;
+    --color-accent:       #8f6ed5;
 
-    --color-error:        #d9480f;
-    --color-success:      #2f9e44;
-    --color-info:         #1971c2;
+    --color-error:        #c65d7b;
+    --color-success:      #2f8f83;
+    --color-info:         #407fb7;
 
-    --deco-line:       1px solid var(--color-gold);
-    --deco-line-thick: 2px solid var(--color-gold);
+    --deco-line:       1px solid rgba(127, 183, 163, 0.7);
+    --deco-line-thick: 2px solid rgba(143, 110, 213, 0.72);
 }
 
 /* ============================================================
-   GWバナー
+   テーマバナー
    ============================================================ */
 html.special-theme body::before {
-    content: '✦  Golden Week Special  ✦';
+    content: '紫陽花と雨のSPI強化月間';
     display: block;
     text-align: center;
-    background: linear-gradient(90deg, #14506b 0%, #2f9e44 35%, #e5b642 50%, #2f9e44 65%, #14506b 100%);
-    border-bottom: 1px solid rgba(255, 243, 191, 0.75);
-    color: #fffdf2;
-    padding: 7px 0;
-    font-family: 'Cinzel', serif;
-    letter-spacing: 6px;
-    font-size: 0.75em;
-    font-weight: 600;
-    text-transform: uppercase;
-    animation: gold-shimmer 5s linear infinite;
-    background-size: 200% auto;
-    text-shadow: 0 1px 8px rgba(20, 80, 107, 0.35);
+    background:
+        linear-gradient(90deg, rgba(39, 68, 114, 0.96), rgba(91, 111, 178, 0.96), rgba(127, 183, 163, 0.96), rgba(143, 110, 213, 0.96));
+    border-bottom: 1px solid rgba(238, 247, 255, 0.86);
+    color: #ffffff;
+    padding: 8px 12px;
+    font-family: var(--font-body);
+    letter-spacing: 0.14em;
+    font-size: 0.82em;
+    font-weight: 700;
+    text-shadow: 0 1px 10px rgba(28, 45, 84, 0.35);
 }
 
 /* ============================================================
    背景・基本
    ============================================================ */
 html.special-theme body {
-    background-color: #dff6ff;
+    background-color: #dceefa;
     background-image:
-        radial-gradient(circle at 18% 12%, rgba(248, 214, 109, 0.38) 0 92px, transparent 94px),
+        radial-gradient(circle at 12% 10%, rgba(143, 110, 213, 0.18) 0 74px, transparent 76px),
+        radial-gradient(circle at 86% 15%, rgba(127, 183, 163, 0.22) 0 96px, transparent 98px),
+        radial-gradient(circle at 18% 82%, rgba(92, 156, 205, 0.18) 0 88px, transparent 90px),
         repeating-linear-gradient(
-            45deg,
-            transparent, transparent 38px,
-            rgba(47, 158, 68, 0.11) 38px,
-            rgba(47, 158, 68, 0.11) 40px
+            115deg,
+            rgba(255, 255, 255, 0) 0,
+            rgba(255, 255, 255, 0) 26px,
+            rgba(82, 139, 186, 0.12) 27px,
+            rgba(82, 139, 186, 0.12) 28px
         ),
-        repeating-linear-gradient(
-            -45deg,
-            transparent, transparent 38px,
-            rgba(25, 113, 194, 0.09) 38px,
-            rgba(25, 113, 194, 0.09) 40px
-        ),
-        linear-gradient(180deg, #dff6ff 0%, #f7ffe5 58%, #fffdf2 100%);
+        linear-gradient(180deg, #dceefa 0%, #f4f8ff 50%, #f3fbf7 100%);
     color: var(--color-text);
 }
 
@@ -71,12 +66,12 @@ html.special-theme body {
    メインコンテンツ
    ============================================================ */
 html.special-theme main {
-    background-color: rgba(255, 253, 242, 0.96);
+    background-color: rgba(247, 251, 255, 0.96);
     box-shadow:
-        0 0 0 1px rgba(229, 182, 66, 0.75),
-        0 0 0 4px rgba(255, 253, 242, 0.9),
-        0 0 0 5px rgba(47, 158, 68, 0.45),
-        0 20px 50px rgba(20, 80, 107, 0.16);
+        0 0 0 1px rgba(143, 110, 213, 0.34),
+        0 0 0 4px rgba(255, 255, 255, 0.9),
+        0 0 0 5px rgba(127, 183, 163, 0.4),
+        0 22px 56px rgba(39, 68, 114, 0.18);
 }
 
 html.special-theme main > h2,
@@ -89,13 +84,13 @@ html.special-theme main > h2:first-child {
    ============================================================ */
 html.special-theme .tool-box,
 html.special-theme .info-box {
-    background-color: rgba(255, 255, 255, 0.9);
-    border-color: rgba(47, 158, 68, 0.22);
-    border-top-color: var(--color-gold);
+    background-color: rgba(255, 255, 255, 0.92);
+    border-color: rgba(82, 139, 186, 0.18);
+    border-top-color: rgba(143, 110, 213, 0.72);
 }
 
 html.special-theme .tool-box:hover {
-    box-shadow: 0 6px 24px rgba(20, 80, 107, 0.12);
+    box-shadow: 0 8px 26px rgba(39, 68, 114, 0.13);
 }
 
 html.special-theme .tool-box h2,
@@ -103,14 +98,14 @@ html.special-theme .tool-box h3,
 html.special-theme .tool-box h4,
 html.special-theme .info-box h3.icon-title {
     color: var(--color-indigo);
-    border-bottom-color: rgba(47, 158, 68, 0.28);
+    border-bottom-color: rgba(127, 183, 163, 0.34);
 }
 
 html.special-theme .tool-box p,
 html.special-theme .tool-box li,
 html.special-theme .info-box p,
 html.special-theme .info-box li {
-    color: #345247;
+    color: #31465e;
 }
 
 /* ============================================================
@@ -118,31 +113,31 @@ html.special-theme .info-box li {
    ============================================================ */
 html.special-theme .ranking-item {
     background-color: #ffffff;
-    border-color: rgba(47, 158, 68, 0.2);
-    border-left-color: rgba(47, 158, 68, 0.35);
+    border-color: rgba(82, 139, 186, 0.18);
+    border-left-color: rgba(143, 110, 213, 0.5);
 }
 
 html.special-theme .ranking-item:hover {
-    background-color: #f5fff7;
+    background-color: #f4f8ff;
     border-left-color: var(--color-accent);
-    box-shadow: 2px 4px 12px rgba(47, 158, 68, 0.12);
+    box-shadow: 2px 4px 14px rgba(91, 111, 178, 0.14);
 }
 
 html.special-theme .rank-1 {
-    background: linear-gradient(to right, #fff7d1, #ffffff);
-    border-left-color: var(--color-gold);
-    box-shadow: 0 3px 12px rgba(229, 182, 66, 0.24);
+    background: linear-gradient(to right, #f2eaff, #ffffff);
+    border-left-color: var(--color-accent);
+    box-shadow: 0 3px 13px rgba(143, 110, 213, 0.2);
 }
 
-html.special-theme .rank-2 { border-left-color: #62b6cb; }
-html.special-theme .rank-3 { border-left-color: #74b816; }
+html.special-theme .rank-2 { border-left-color: #5c9ccd; }
+html.special-theme .rank-3 { border-left-color: #7fb7a3; }
 
-html.special-theme .player-name { color: #24362f; }
-html.special-theme .player-score { color: #b7791f; }
+html.special-theme .player-name { color: #223248; }
+html.special-theme .player-score { color: #6f55b7; }
 
 html.special-theme .ranking-item:has(.luxury-name) {
-    background: linear-gradient(to right, #fff7d1, #ffffff);
-    border-top-color: rgba(229, 182, 66, 0.48);
+    background: linear-gradient(to right, #f2eaff, #ffffff);
+    border-top-color: rgba(143, 110, 213, 0.35);
 }
 
 /* ============================================================
@@ -157,17 +152,17 @@ html.special-theme select,
 html.special-theme textarea {
     background-color: #ffffff;
     color: var(--color-text);
-    border-color: rgba(25, 113, 194, 0.22);
-    border-bottom-color: var(--color-accent);
+    border-color: rgba(82, 139, 186, 0.24);
+    border-bottom-color: rgba(143, 110, 213, 0.7);
 }
 
 html.special-theme input:focus,
 html.special-theme select:focus,
 html.special-theme textarea:focus {
-    background-color: #f8fff3;
-    border-color: var(--color-gold);
-    border-bottom-color: var(--color-gold);
-    box-shadow: 0 3px 10px rgba(47, 158, 68, 0.16);
+    background-color: #f7fbff;
+    border-color: var(--color-accent);
+    border-bottom-color: var(--color-accent);
+    box-shadow: 0 3px 12px rgba(143, 110, 213, 0.18);
 }
 
 html.special-theme label {
@@ -180,20 +175,20 @@ html.special-theme label {
 html.special-theme .bet-tile,
 html.special-theme .bet-card {
     background-color: #ffffff;
-    border-color: rgba(47, 158, 68, 0.24);
-    border-left-color: var(--color-accent);
+    border-color: rgba(82, 139, 186, 0.2);
+    border-left-color: #5c9ccd;
 }
 
 html.special-theme .bet-tile h4 {
     color: var(--color-indigo);
-    border-bottom-color: rgba(47, 158, 68, 0.2);
+    border-bottom-color: rgba(127, 183, 163, 0.25);
 }
 
-html.special-theme .bet-deadline { color: #6f8d38; }
+html.special-theme .bet-deadline { color: #59768f; }
 
 html.special-theme .my-wager-text {
-    color: #345247;
-    background: linear-gradient(to right, rgba(47, 158, 68, 0.1), transparent);
+    color: #31465e;
+    background: linear-gradient(to right, rgba(143, 110, 213, 0.1), transparent);
     border-left-color: var(--color-accent);
 }
 
@@ -202,35 +197,35 @@ html.special-theme .my-wager-text {
    ============================================================ */
 html.special-theme .lottery-prize-table th {
     background-color: var(--color-indigo);
-    color: var(--color-gold-pale);
+    color: #eef7ff;
 }
 
 html.special-theme .lottery-prize-table td {
-    border-bottom-color: rgba(47, 158, 68, 0.12);
-    color: #345247;
+    border-bottom-color: rgba(82, 139, 186, 0.12);
+    color: #31465e;
 }
 
 html.special-theme .lottery-prize-table tr:last-child td {
-    background-color: rgba(248, 214, 109, 0.16);
-    color: #6f8d38;
+    background-color: rgba(143, 110, 213, 0.1);
+    color: #6f55b7;
 }
 
 /* ============================================================
    メッセージ
    ============================================================ */
 html.special-theme .message.success {
-    background-color: #ebfbee;
-    color: #2f9e44;
+    background-color: #e8f8f4;
+    color: #2f8f83;
 }
 
 html.special-theme .message.error {
-    background-color: #fff4e6;
-    color: #d9480f;
+    background-color: #fff0f4;
+    color: #c65d7b;
 }
 
 html.special-theme .message.info {
-    background-color: #e7f5ff;
-    color: #1971c2;
+    background-color: #edf6ff;
+    color: #407fb7;
 }
 
 /* ============================================================
@@ -238,15 +233,15 @@ html.special-theme .message.info {
    ============================================================ */
 html.special-theme #auth-section h2 {
     color: var(--color-indigo);
-    border-bottom-color: rgba(47, 158, 68, 0.28);
+    border-bottom-color: rgba(127, 183, 163, 0.34);
 }
 
 /* ============================================================
    instruction・info-text
    ============================================================ */
-html.special-theme .instruction { color: #6f8d38; }
-html.special-theme .info-text   { color: #52796f; }
-html.special-theme .update-info { color: #52796f; }
+html.special-theme .instruction { color: #59768f; }
+html.special-theme .info-text   { color: #526b7f; }
+html.special-theme .update-info { color: #526b7f; }
 
 /* ============================================================
    ボタン
@@ -256,10 +251,10 @@ html.special-theme .action-button,
 html.special-theme #refresh-button,
 html.special-theme #mahjong-submit-button,
 html.special-theme #daily-tax-button {
-    background: linear-gradient(135deg, #2f9e44 0%, #1d7a8f 100%);
-    color: #fffdf2;
-    border-color: var(--color-gold);
-    box-shadow: 0 4px 16px rgba(20, 80, 107, 0.2), inset 0 1px 0 rgba(255, 253, 242, 0.35);
+    background: linear-gradient(135deg, #5c9ccd 0%, #8f6ed5 100%);
+    color: #ffffff;
+    border-color: rgba(127, 183, 163, 0.9);
+    box-shadow: 0 4px 16px rgba(39, 68, 114, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 html.special-theme button[type="submit"]:hover,
@@ -267,20 +262,20 @@ html.special-theme .action-button:hover,
 html.special-theme #refresh-button:hover,
 html.special-theme #mahjong-submit-button:hover,
 html.special-theme #daily-tax-button:hover {
-    background: linear-gradient(135deg, #74b816 0%, #1971c2 100%);
+    background: linear-gradient(135deg, #407fb7 0%, #7fb7a3 100%);
     color: #ffffff;
-    box-shadow: 0 6px 22px rgba(47, 158, 68, 0.24), 0 0 0 1px var(--color-gold-light);
+    box-shadow: 0 6px 22px rgba(91, 111, 178, 0.24), 0 0 0 1px rgba(238, 247, 255, 0.9);
 }
 
 html.special-theme .secondary-button {
     color: var(--color-indigo) !important;
-    border-color: var(--color-indigo) !important;
-    background: rgba(255, 255, 255, 0.42) !important;
+    border-color: rgba(39, 68, 114, 0.7) !important;
+    background: rgba(255, 255, 255, 0.5) !important;
 }
 
 html.special-theme .secondary-button:hover {
     background: var(--color-indigo) !important;
-    color: #fffdf2 !important;
+    color: #eef7ff !important;
 }
 
 /* ============================================================
@@ -288,28 +283,28 @@ html.special-theme .secondary-button:hover {
    ============================================================ */
 html.special-theme table th {
     background-color: var(--color-indigo);
-    color: var(--color-gold-pale);
+    color: #eef7ff;
 }
 
 html.special-theme table td {
-    color: #345247;
-    border-bottom-color: rgba(47, 158, 68, 0.12);
+    color: #31465e;
+    border-bottom-color: rgba(82, 139, 186, 0.12);
 }
 
 html.special-theme table tr:hover td {
-    background-color: #f5fff7;
+    background-color: #f4f8ff;
 }
 
 /* ============================================================
-   就活ランキング (ホーム)
+   就活・SPI
    ============================================================ */
 html.special-theme .ranking-panel h2 {
     color: var(--color-indigo);
-    border-bottom-color: var(--color-gold);
+    border-bottom-color: rgba(143, 110, 213, 0.72);
 }
 
 html.special-theme .career-link {
-    color: #1971c2;
+    color: #5c73c9;
 }
 
 html.special-theme .career-link:hover {
@@ -317,7 +312,28 @@ html.special-theme .career-link:hover {
 }
 
 html.special-theme .career-offers {
-    color: #d9480f;
+    color: #c65d7b;
+}
+
+html.special-theme .spi-stat-item {
+    background: linear-gradient(180deg, #ffffff 0%, #f4f8ff 100%);
+    border-color: rgba(143, 110, 213, 0.18);
+}
+
+html.special-theme .spi-progress,
+html.special-theme .spi-stat-item strong {
+    color: #6f55b7;
+}
+
+html.special-theme .spi-question-card,
+html.special-theme .spi-choice {
+    background-color: rgba(255, 255, 255, 0.88);
+    border-color: rgba(82, 139, 186, 0.18);
+}
+
+html.special-theme .spi-choice:hover {
+    background-color: #f2eaff;
+    border-color: rgba(143, 110, 213, 0.45);
 }
 
 /* ============================================================
