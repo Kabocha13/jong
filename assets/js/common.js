@@ -848,7 +848,7 @@ function showMessage(element, message, type) {
 const MASTER_USERNAME = "Kabocha";
 
 // SPI問題集の現行バージョン (career.jsとmaster.jsで使用)
-window.SPI_BANK_VERSION = 'spi-v4';
+window.SPI_BANK_VERSION = 'spi-v5';
 
 // -----------------------------------------------------------------
 // スペシャルテーマ適用
