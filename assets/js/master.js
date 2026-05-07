@@ -1623,7 +1623,9 @@ async function loadSpiAnalysis() {
     SPI_ANALYSIS_CONTAINER.innerHTML = '<p>読み込み中...</p>';
 
     try {
+        const currentBankVersion = window.SPI_BANK_VERSION || 'spi-v2';
         const stats = (await fetchSpiQuestionStats())
+            .filter(item => isCurrentSpiQuestionStat(item, currentBankVersion))
             .filter(item => Number(item.attempts || 0) > 0)
             .map(item => {
                 const attempts = Number(item.attempts || 0);
@@ -1638,7 +1640,7 @@ async function loadSpiAnalysis() {
             .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
 
         if (stats.length === 0) {
-            SPI_ANALYSIS_CONTAINER.innerHTML = '<p>まだSPIの回答データがありません。</p>';
+            SPI_ANALYSIS_CONTAINER.innerHTML = '<p>現行SPI問題集の回答データはまだありません。</p>';
             return;
         }
 
@@ -1651,7 +1653,7 @@ async function loadSpiAnalysis() {
         SPI_ANALYSIS_CONTAINER.innerHTML = `
             <div class="spi-analysis-summary">
                 <strong>全体正答率 ${totalAccuracy.toFixed(1)}%</strong>
-                <span>${totalAttempts}問回答 / ${totalCorrect}問正解</span>
+                <span>${escapeAdminText(currentBankVersion)}: ${totalAttempts}問回答 / ${totalCorrect}問正解</span>
             </div>
             <div style="overflow-x:auto;">
                 ${renderSpiSummaryTable('区分別', domainRows)}
@@ -1661,6 +1663,12 @@ async function loadSpiAnalysis() {
     } catch (err) {
         SPI_ANALYSIS_CONTAINER.innerHTML = `<p>SPI分析の読み込みに失敗しました: ${escapeAdminText(err.message)}</p>`;
     }
+}
+
+function isCurrentSpiQuestionStat(item, currentBankVersion) {
+    if (!item || !item.id) return false;
+    if (item.bankVersion) return item.bankVersion === currentBankVersion;
+    return String(item.id).startsWith(`${currentBankVersion}-`);
 }
 
 // ============================================================

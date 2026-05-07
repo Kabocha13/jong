@@ -14,7 +14,7 @@ const POST_TYPES = {
 const OFFER_BONUS     = 100;  // 内定時に全員へ配布するボーナスP
 const SPI_POINT_REWARD = 0.1;
 const SPI_TOTAL_QUESTIONS = 200;
-const SPI_BANK_VERSION = 'spi-v2';
+const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v2';
 
 // ============================================================
 // 状態
@@ -425,6 +425,7 @@ async function saveSpiQuestionAnswerStat(question, isCorrect) {
 
     const updated = {
         ...current,
+        bankVersion: SPI_BANK_VERSION,
         domain: question.domain,
         category: question.category,
         prompt: question.prompt,

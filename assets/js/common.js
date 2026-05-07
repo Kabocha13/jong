@@ -847,6 +847,9 @@ function showMessage(element, message, type) {
 // ★ 修正: ハードコードされたパスワードを削除し、マスターユーザー名に置き換える
 const MASTER_USERNAME = "Kabocha";
 
+// SPI問題集の現行バージョン (career.jsとmaster.jsで使用)
+window.SPI_BANK_VERSION = 'spi-v2';
+
 // -----------------------------------------------------------------
 // スペシャルテーマ適用
 // -----------------------------------------------------------------
