@@ -11,8 +11,8 @@ const POST_TYPES = {
     pass_interview_final:  { label: '💬 最終面接通過',  points: 30 },
     offer:                 { label: '🎉 内定',          points: 100 },
 };
-const OFFER_BONUS     = 100;  // 内定時に全員へ配布するボーナスP
-const SPI_POINT_REWARD = 0.1;
+const OFFER_BONUS     = 10;  // 内定時に全員へ配布するボーナスP
+const SPI_POINT_REWARD = 0.2;
 const SPI_TOTAL_QUESTIONS = 200;
 const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v3';
 
