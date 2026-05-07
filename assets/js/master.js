@@ -1624,7 +1624,12 @@ async function loadSpiAnalysis() {
 
     try {
         const currentBankVersion = window.SPI_BANK_VERSION || 'spi-v2';
-        const stats = (await fetchSpiQuestionStats())
+        const [questionStats, currentData] = await Promise.all([
+            fetchSpiQuestionStats(),
+            fetchAllData()
+        ]);
+        const playerSummary = summarizeSpiPlayerStats(currentData.scores || [], currentBankVersion);
+        const stats = questionStats
             .filter(item => isCurrentSpiQuestionStat(item, currentBankVersion))
             .filter(item => Number(item.attempts || 0) > 0)
             .map(item => {
@@ -1639,30 +1644,63 @@ async function loadSpiAnalysis() {
             })
             .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
 
-        if (stats.length === 0) {
+        if (playerSummary.attempts === 0 && stats.length === 0) {
             SPI_ANALYSIS_CONTAINER.innerHTML = '<p>現行SPI問題集の回答データはまだありません。</p>';
             return;
         }
 
-        const totalAttempts = stats.reduce((sum, item) => sum + item.attempts, 0);
-        const totalCorrect = stats.reduce((sum, item) => sum + item.correct, 0);
+        const detailTotalAttempts = stats.reduce((sum, item) => sum + item.attempts, 0);
+        const detailTotalCorrect = stats.reduce((sum, item) => sum + item.correct, 0);
+        const usePlayerSummary = playerSummary.attempts > 0;
+        const totalAttempts = usePlayerSummary ? playerSummary.attempts : detailTotalAttempts;
+        const totalCorrect = usePlayerSummary ? playerSummary.correct : detailTotalCorrect;
         const totalAccuracy = totalAttempts > 0 ? (totalCorrect / totalAttempts) * 100 : 0;
         const domainRows = summarizeSpiItems(stats, 'domain');
         const categoryRows = summarizeSpiItems(stats, 'category');
+        const detailNotice = usePlayerSummary && detailTotalAttempts !== totalAttempts
+            ? `<p class="instruction">分野別の内訳は保存済みの問題別集計（${detailTotalAttempts}問分）から表示しています。</p>`
+            : '';
 
         SPI_ANALYSIS_CONTAINER.innerHTML = `
             <div class="spi-analysis-summary">
                 <strong>全体正答率 ${totalAccuracy.toFixed(1)}%</strong>
-                <span>${escapeAdminText(currentBankVersion)}: ${totalAttempts}問回答 / ${totalCorrect}問正解</span>
+                <span>${escapeAdminText(currentBankVersion)}: ${totalAttempts}問回答 / ${totalCorrect}問正解 / ${playerSummary.players}人</span>
             </div>
-            <div style="overflow-x:auto;">
-                ${renderSpiSummaryTable('区分別', domainRows)}
-                ${renderSpiSummaryTable('分野別', categoryRows)}
-            </div>
+            ${detailNotice}
+            ${stats.length > 0
+                ? `<div style="overflow-x:auto;">
+                    ${renderSpiSummaryTable('区分別', domainRows)}
+                    ${renderSpiSummaryTable('分野別', categoryRows)}
+                </div>`
+                : '<p>問題別の内訳データはまだありません。</p>'}
         `;
     } catch (err) {
         SPI_ANALYSIS_CONTAINER.innerHTML = `<p>SPI分析の読み込みに失敗しました: ${escapeAdminText(err.message)}</p>`;
     }
+}
+
+function summarizeSpiPlayerStats(players, currentBankVersion) {
+    return (players || []).reduce((summary, player) => {
+        const stats = player && player.spiStats ? player.spiStats : null;
+        if (!isCurrentSpiPlayerStats(stats, currentBankVersion)) return summary;
+
+        const answeredIds = Array.isArray(stats.answeredQuestionIds) ? stats.answeredQuestionIds : [];
+        const attempted = Number(stats.attempted || answeredIds.length || 0);
+        const correct = Number(stats.correct || 0);
+        if (attempted <= 0) return summary;
+
+        summary.players += 1;
+        summary.attempts += attempted;
+        summary.correct += correct;
+        return summary;
+    }, { players: 0, attempts: 0, correct: 0 });
+}
+
+function isCurrentSpiPlayerStats(stats, currentBankVersion) {
+    if (!stats) return false;
+    if (stats.bankVersion) return stats.bankVersion === currentBankVersion;
+    const answeredIds = Array.isArray(stats.answeredQuestionIds) ? stats.answeredQuestionIds : [];
+    return answeredIds.some(id => String(id).startsWith(`${currentBankVersion}-`));
 }
 
 function isCurrentSpiQuestionStat(item, currentBankVersion) {
