@@ -1623,13 +1623,15 @@ async function loadSpiAnalysis() {
     SPI_ANALYSIS_CONTAINER.innerHTML = '<p>読み込み中...</p>';
 
     try {
-        const currentBankVersion = window.SPI_BANK_VERSION || 'spi-v2';
+        const currentBankVersion = window.SPI_BANK_VERSION || 'spi-v3';
         const [questionStats, currentData] = await Promise.all([
             fetchSpiQuestionStats(),
             fetchAllData()
         ]);
-        const playerSummary = summarizeSpiPlayerStats(currentData.scores || [], currentBankVersion);
-        const stats = questionStats
+        const players = currentData.scores || [];
+        const playerSummary = summarizeSpiPlayerStats(players, currentBankVersion);
+        const answerStats = summarizeSpiAnswerRecords(players, currentBankVersion);
+        const savedQuestionStats = questionStats
             .filter(item => isCurrentSpiQuestionStat(item, currentBankVersion))
             .filter(item => Number(item.attempts || 0) > 0)
             .map(item => {
@@ -1643,6 +1645,7 @@ async function loadSpiAnalysis() {
                 };
             })
             .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
+        const stats = answerStats.length > 0 ? answerStats : savedQuestionStats;
 
         if (playerSummary.attempts === 0 && stats.length === 0) {
             SPI_ANALYSIS_CONTAINER.innerHTML = '<p>現行SPI問題集の回答データはまだありません。</p>';
@@ -1657,8 +1660,9 @@ async function loadSpiAnalysis() {
         const totalAccuracy = totalAttempts > 0 ? (totalCorrect / totalAttempts) * 100 : 0;
         const domainRows = summarizeSpiItems(stats, 'domain');
         const categoryRows = summarizeSpiItems(stats, 'category');
-        const detailNotice = usePlayerSummary && detailTotalAttempts !== totalAttempts
-            ? `<p class="instruction">分野別の内訳は保存済みの問題別集計（${detailTotalAttempts}問分）から表示しています。</p>`
+        const detailSource = answerStats.length > 0 ? 'プレイヤー回答ログ' : '保存済みの問題別集計';
+        const detailNotice = detailTotalAttempts !== totalAttempts
+            ? `<p class="instruction">区分別・分野別・問題別の内訳は${detailSource}（${detailTotalAttempts}問分）から表示しています。</p>`
             : '';
 
         SPI_ANALYSIS_CONTAINER.innerHTML = `
@@ -1671,12 +1675,56 @@ async function loadSpiAnalysis() {
                 ? `<div style="overflow-x:auto;">
                     ${renderSpiSummaryTable('区分別', domainRows)}
                     ${renderSpiSummaryTable('分野別', categoryRows)}
+                    ${renderSpiQuestionTable(stats)}
                 </div>`
                 : '<p>問題別の内訳データはまだありません。</p>'}
         `;
     } catch (err) {
         SPI_ANALYSIS_CONTAINER.innerHTML = `<p>SPI分析の読み込みに失敗しました: ${escapeAdminText(err.message)}</p>`;
     }
+}
+
+function summarizeSpiAnswerRecords(players, currentBankVersion) {
+    const questionMap = new Map();
+    (players || []).forEach(player => {
+        const records = player && player.spiStats && Array.isArray(player.spiStats.answerRecords)
+            ? player.spiStats.answerRecords
+            : [];
+        records.forEach(record => {
+            if (!isCurrentSpiAnswerRecord(record, currentBankVersion)) return;
+            const questionId = record.questionId || record.id;
+            if (!questionId) return;
+
+            const current = questionMap.get(questionId) || {
+                id: questionId,
+                domain: record.domain || '-',
+                category: record.category || '-',
+                prompt: record.prompt || questionId,
+                attempts: 0,
+                correct: 0
+            };
+            current.domain = record.domain || current.domain;
+            current.category = record.category || current.category;
+            current.prompt = record.prompt || current.prompt;
+            current.attempts += 1;
+            current.correct += record.isCorrect ? 1 : 0;
+            questionMap.set(questionId, current);
+        });
+    });
+
+    return Array.from(questionMap.values())
+        .map(item => ({
+            ...item,
+            accuracy: item.attempts > 0 ? (item.correct / item.attempts) * 100 : 0
+        }))
+        .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
+}
+
+function isCurrentSpiAnswerRecord(record, currentBankVersion) {
+    if (!record) return false;
+    if (record.bankVersion) return record.bankVersion === currentBankVersion;
+    const questionId = record.questionId || record.id;
+    return String(questionId || '').startsWith(`${currentBankVersion}-`);
 }
 
 function summarizeSpiPlayerStats(players, currentBankVersion) {
@@ -1755,6 +1803,34 @@ function renderSpiSummaryTable(title, rows) {
                 ${rows.map(row => `
                     <tr>
                         <td>${escapeAdminText(row.label)}</td>
+                        <td><strong>${row.accuracy.toFixed(1)}%</strong></td>
+                        <td>${row.correct}/${row.attempts}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function renderSpiQuestionTable(rows) {
+    return `
+        <h4>問題別</h4>
+        <table class="career-table">
+            <thead>
+                <tr>
+                    <th>区分</th>
+                    <th>分野</th>
+                    <th>問題</th>
+                    <th>正答率</th>
+                    <th>正解/回答</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rows.map(row => `
+                    <tr>
+                        <td>${escapeAdminText(row.domain || '-')}</td>
+                        <td>${escapeAdminText(row.category || '-')}</td>
+                        <td>${escapeAdminText(row.prompt || row.id || '-')}</td>
                         <td><strong>${row.accuracy.toFixed(1)}%</strong></td>
                         <td>${row.correct}/${row.attempts}</td>
                     </tr>

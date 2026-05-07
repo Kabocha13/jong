@@ -98,5 +98,7 @@
 
 **24.1** GW限定デザインの追加
 
+**24.2** SPI問題集v3を提供
+
 
 npx firebase deploy --only hosting

@@ -14,7 +14,7 @@ const POST_TYPES = {
 const OFFER_BONUS     = 100;  // 内定時に全員へ配布するボーナスP
 const SPI_POINT_REWARD = 0.1;
 const SPI_TOTAL_QUESTIONS = 200;
-const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v2';
+const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v3';
 
 // ============================================================
 // 状態
@@ -64,7 +64,10 @@ function uniqueNumbers(values) {
 }
 
 function getSpiDomain(category) {
-    return ['語句', '二語関係', '空欄補充', '文意把握'].includes(category) ? '言語' : '非言語';
+    if (category.startsWith('玉手箱')) return '玉手箱';
+    if (category === '一般常識') return '一般常識';
+    if (category === '時事') return '時事';
+    return 'SPI';
 }
 
 function makeNumericQuestion(id, category, prompt, answer, unit, explanation, distractors) {
@@ -109,7 +112,7 @@ function makeChoiceQuestion(id, category, prompt, answer, choices, explanation) 
     };
 }
 
-function buildSpiQuestions() {
+function buildSpiQuestionsV2() {
     const questions = [];
     let id = 1;
 
@@ -326,6 +329,228 @@ function buildSpiQuestions() {
     return questions.slice(0, SPI_TOTAL_QUESTIONS);
 }
 
+function buildSpiQuestions() {
+    const questions = [];
+    let id = 1;
+    const addNumeric = (category, prompt, answer, unit, explanation, distractors) => {
+        questions.push(makeNumericQuestion(id, category, prompt, answer, unit, explanation, distractors));
+        id++;
+    };
+    const addChoice = (category, prompt, answer, choices, explanation) => {
+        questions.push(makeChoiceQuestion(id, category, prompt, answer, choices, explanation));
+        id++;
+    };
+
+    for (let i = 0; i < 18; i++) {
+        const base = 3600 + i * 240;
+        const first = 12 + (i % 5) * 3;
+        const second = 8 + (i % 4) * 2;
+        const answer = Math.round(base * (1 + first / 100) * (1 - second / 100));
+        addNumeric(
+            'SPI割合',
+            `${base}円の商品を${first}%値上げし、その後${second}%値引きした。最終価格はいくらですか。`,
+            answer,
+            '円',
+            `値上げ後に値引きするので ${base} × ${100 + first}% × ${100 - second}% を計算します。`,
+            [base + first * 100, base * (100 + first - second) / 100, answer + 120, answer - 180]
+        );
+    }
+
+    for (let i = 0; i < 18; i++) {
+        const a = 2 + (i % 4);
+        const b = 5 + (i % 5);
+        const c = 3 + (i % 6);
+        const total = (a + b + c) * (9 + i);
+        const answer = total * b / (a + b + c);
+        addNumeric(
+            'SPI比',
+            `A:B:C=${a}:${b}:${c}、合計が${total}のとき、Bはいくつですか。`,
+            answer,
+            '',
+            `全体は${a + b + c}等分、Bは${b}等分です。`,
+            [total * a / (a + b + c), total * c / (a + b + c), answer + b, answer - a]
+        );
+    }
+
+    for (let i = 0; i < 18; i++) {
+        const upstream = 18 + (i % 6) * 3;
+        const current = 2 + (i % 4);
+        const downTime = 2 + (i % 3) * 0.5;
+        const distance = (upstream + current) * downTime;
+        const answer = distance / (upstream - current);
+        addNumeric(
+            'SPI速さ',
+            `静水時速${upstream}km、川の流れ時速${current}kmの船が下りに${formatNumber(downTime)}時間かかった。同じ距離を上ると何時間ですか。`,
+            Number(answer.toFixed(1)),
+            '時間',
+            `距離は下り速度×時間、上り時間は距離÷上り速度です。`,
+            [downTime, answer + 0.5, distance / upstream, answer * 1.5]
+        );
+    }
+
+    for (let i = 0; i < 18; i++) {
+        const a = 6 + (i % 5);
+        const b = 9 + (i % 7);
+        const together = a * b / (a + b);
+        const done = 1 + (i % 3) * 0.5;
+        const remaining = 1 - done / together;
+        const answer = Math.max(0.5, remaining * b);
+        addNumeric(
+            'SPI仕事算',
+            `Aは${a}時間、Bは${b}時間で終える仕事を2人で${formatNumber(done)}時間行った。残りをBだけで行うと何時間ですか。`,
+            Number(answer.toFixed(1)),
+            '時間',
+            `2人の仕事率で進んだ分を引き、残りをBの仕事率で割ります。`,
+            [together, answer + 1, b - done, Math.abs(b - a)]
+        );
+    }
+
+    for (let i = 0; i < 18; i++) {
+        const x = 8 + i;
+        const y = 3 + (i % 5);
+        const answer = x * x - y * 2;
+        addNumeric(
+            'SPI推論',
+            `数列 5, 14, 29, 50, 77 ... は n番目が n^2+2n+2 で表せる。${x}番目から${y * 2}を引くといくつですか。`,
+            answer,
+            '',
+            `${x}番目は ${x}^2 + 2×${x} + 2。そこから${y * 2}を引きます。`,
+            [answer + x, answer - y, x * x + y, answer + y * 2]
+        );
+    }
+
+    const verbalQuestions = [
+        ['SPI語句', '「恣意的」の意味として最も近いものはどれですか。', '自分勝手で根拠が乏しい', ['礼儀正しく控えめだ', '客観的で検証済みだ', '長期的に安定している'], '恣意的は、思いつきや個人的判断に左右される様子です。'],
+        ['SPI語句', '「敷衍」の意味として最も近いものはどれですか。', '内容を押し広げて説明する', ['要点を削って隠す', '数字を丸めて示す', '意見を完全に撤回する'], '敷衍は、意味を広げて詳しく述べることです。'],
+        ['SPI語句', '「蓋然性」の意味として最も近いものはどれですか。', 'ある事柄が起こりそうな度合い', ['必ず失敗する理由', '議論を避ける態度', '過去の記録を写すこと'], '蓋然性は確からしさ、起こりやすさです。'],
+        ['SPI語句', '「逡巡」の意味として最も近いものはどれですか。', '決めかねてためらう', ['素早く断定する', '順序よく並べる', '強く推奨する'], '逡巡は、ためらって進まないことです。'],
+        ['SPI語句', '「示唆」の反対に最も近いものはどれですか。', '明言', ['暗示', '含意', 'ほのめかし'], '示唆は間接的に示すことなので、反対は明言です。'],
+        ['SPI二語関係', '「仮説：検証」と同じ関係を表すものはどれですか。', '計画：実行', ['原因：結果', '価格：需要', '部分：全体'], '仮説は検証され、計画は実行されます。'],
+        ['SPI二語関係', '「冗長：簡潔」と同じ関係を表すものはどれですか。', '曖昧：明確', ['俊敏：迅速', '保存：保管', '材料：完成品'], 'どちらも反対関係です。'],
+        ['SPI二語関係', '「証拠：推論」と同じ関係を表すものはどれですか。', '資料：分析', ['結論：前提', '結果：原因', '目的：手段'], '証拠をもとに推論し、資料をもとに分析します。'],
+        ['SPI二語関係', '「規範：行動」と同じ関係を表すものはどれですか。', '設計図：建築', ['炎：煙', '魚：水槽', '本：ページ'], '規範は行動の基準、設計図は建築の基準です。'],
+        ['SPI二語関係', '「需要：価格」と同じ関係を表すものはどれですか。', '気温：売上', ['鍵：施錠', '文字：文章', '医師：病院'], '一方の変化が他方に影響する関係です。'],
+        ['SPI空欄補充', '提案を通すには、利点だけでなく反対意見への____も用意する必要がある。', '反証', ['装飾', '沈黙', '偶然'], '反対意見に対して根拠を示して返すので反証です。'],
+        ['SPI空欄補充', '調査結果に偏りがないか、標本の____を確認した。', '代表性', ['匿名性', '即時性', '装飾性'], '標本が全体を代表しているかを見る概念です。'],
+        ['SPI空欄補充', '短期的な利益と長期的な信用は____する場合がある。', '相反', ['融合', '複製', '沈殿'], '両立せず反対方向に働く場合があるので相反です。'],
+        ['SPI文意把握', '新制度の導入では、制度そのものの合理性だけでなく、利用者が迷わず使える導線も成果を左右する。', '合理性と使いやすさの両方が重要だ', ['合理性だけで成果は決まる', '利用者の行動は無関係だ', '制度は複雑なほどよい'], '制度設計と利用導線の両面を述べています。'],
+        ['SPI文意把握', '過去の成功例は判断材料になるが、環境が異なれば同じ方法が逆効果になることもある。', '成功例は状況に合わせて使うべきだ', ['成功例は常に再現できる', '過去の情報は不要だ', '環境差は無視できる'], '成功例の条件依存性が主旨です。'],
+        ['SPI文意把握', '数値目標は行動を促す一方、測りやすいものだけを重視する危険もある。', '数値目標には利点と副作用がある', ['数値目標は常に不要だ', '測りやすさだけが重要だ', '行動には影響しない'], '促進効果と偏りの危険を述べています。'],
+        ['SPI文意把握', '説明責任を果たすとは、結論を示すだけでなく、前提と判断過程を相手が追える形にすることである。', '結論だけでなく前提と過程の共有が必要だ', ['結論だけが説明責任だ', '前提は隠すべきだ', '判断過程は不要だ'], '説明責任の範囲を述べています。'],
+        ['SPI文意把握', '変化が速い市場では、詳細な計画よりも、早く試して学びを反映する仕組みが有効なことがある。', '試行と学習を回す仕組みが有効な場合がある', ['計画は必ず無意味だ', '市場変化は考えない', '学びは反映しない'], '速い環境での反復改善が主旨です。'],
+        ['SPI文意把握', '公平な評価には同じ基準を使うことが必要だが、前提条件の違いを無視するとかえって不公平になる。', '同じ基準と条件差への配慮が必要だ', ['条件差は常に無視すべきだ', '基準は不要だ', '公平性は結果だけで決まる'], '公平性には基準と前提差の配慮が要ります。'],
+        ['SPI文意把握', '情報共有の目的は量を増やすことではなく、必要な人が必要な時に判断できる状態を作ることである。', '判断に使える状態を作ることが重要だ', ['共有量が多いほど常に良い', '必要な人は限定しない', '判断とは関係ない'], '情報共有の目的を述べています。']
+    ];
+    verbalQuestions.forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
+
+    for (let i = 0; i < 18; i++) {
+        const a = 17 + i;
+        const b = 9 + (i % 7);
+        const c = 4 + (i % 5);
+        const answer = a * b - c * c;
+        addNumeric(
+            '玉手箱四則逆算',
+            `□ + ${c * c} = ${a} × ${b} のとき、□に入る数はいくつですか。`,
+            answer,
+            '',
+            `右辺を計算し、${c * c}を引きます。`,
+            [answer + c, answer - b, a + b + c, answer + c * c]
+        );
+    }
+
+    for (let i = 0; i < 12; i++) {
+        const east = 120 + i * 9;
+        const west = 95 + i * 7;
+        const growth = 6 + (i % 5);
+        const answer = Math.round((east * (100 + growth) / 100 - west) * 10) / 10;
+        addNumeric(
+            '玉手箱表の読み取り',
+            `東支店の売上${east}百万円が前年比${growth}%増、西支店は${west}百万円だった。増加後の東支店は西支店より何百万円多いですか。`,
+            answer,
+            '百万円',
+            `東支店の増加後売上を出してから西支店との差を取ります。`,
+            [answer + 5, answer - 5, east - west, east * growth / 100]
+        );
+    }
+
+    const tamatebakoReading = [
+        ['玉手箱論理読解', '全てのAはBである。一部のBはCである。このとき必ず言えることはどれですか。', 'AがCであるとは限らない', ['全てのAはCである', '全てのCはAである', 'Bは存在しない'], '一部のBがCでも、AとCの重なりは確定しません。'],
+        ['玉手箱論理読解', '「売上が伸びた店舗は広告を増やした」は真である。必ず言えることはどれですか。', '売上が伸びた店舗は広告を増やした', ['広告を増やせば必ず売上が伸びる', '売上が伸びない店舗は広告を減らした', '広告と売上は無関係'], '条件文から言えるのは前件が成り立つ場合の後件です。'],
+        ['玉手箱論理読解', 'A案は費用が低く効果は中、B案は費用が中で効果が高い。費用対効果を最重視するなら最初に確認すべき情報はどれですか。', '効果を同じ単位で比較できる指標', ['提案者の年齢', '資料の色', '会議室の広さ'], '費用対効果には効果の測定単位が必要です。'],
+        ['玉手箱論理読解', 'ある施策後に離脱率が下がった。ただし同時期に価格改定も行われた。妥当な判断はどれですか。', '施策だけの効果とは断定できない', ['施策の効果が完全に証明された', '価格改定は必ず無関係だ', 'データは不要だ'], '複数要因が同時に変わると単独効果は断定できません。'],
+        ['玉手箱論理読解', 'アンケート回答者の多くが既存顧客だった。新規顧客向け施策を決める際の注意点はどれですか。', '回答者の偏りを考慮する', ['既存顧客の意見を消す', '結果を必ず採用する', '設問数だけを見る'], '標本の偏りが判断に影響します。'],
+        ['玉手箱論理読解', '「納期を短くすると品質確認の時間が減る可能性がある」。この主張の前提はどれですか。', '品質確認には一定の時間が必要である', ['納期は常に長い', '品質確認は不要である', '短納期なら品質は必ず上がる'], '確認時間が品質に関係することが前提です。'],
+        ['玉手箱論理読解', '利益率が高い商品ほど優先販売すべきだ、という主張の弱点はどれですか。', '販売数量や在庫制約を考慮していない', ['利益率を見ている', '商品を比較している', '優先順位を決めている'], '率だけでは総利益や制約が見えません。'],
+        ['玉手箱論理読解', '過去3年で応募者が増えたため来年も増える、という予測に必要な補強はどれですか。', '増加要因が来年も続く根拠', ['昨年の曜日', '担当者の好み', '資料枚数'], '傾向が続く理由が必要です。'],
+        ['玉手箱論理読解', '新機能の利用者は満足度が高い。ただし利用者は希望者だけだった。注意すべき点はどれですか。', '希望者に偏った可能性がある', ['満足度は測れない', '新機能は存在しない', '希望者は全員不満だ'], '自己選択バイアスがあります。'],
+        ['玉手箱論理読解', '費用削減により短期利益は増えたが、問い合わせ対応時間が長くなった。評価に必要な視点はどれですか。', '顧客満足や将来売上への影響', ['削減額だけ', '担当者名だけ', '会議の長さだけ'], '短期利益以外の影響を見る必要があります。']
+    ];
+    tamatebakoReading.forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
+
+    const generalQuestions = [
+        ['一般常識', '日本国憲法で国権の最高機関とされるものはどれですか。', '国会', ['内閣', '最高裁判所', '日本銀行'], '日本国憲法第41条で国会は国権の最高機関とされます。'],
+        ['一般常識', '需要が供給を上回ると、一般に価格はどうなりやすいですか。', '上がりやすい', ['下がりやすい', '必ずゼロになる', '法律で固定される'], '需要超過では価格上昇圧力が働きます。'],
+        ['一般常識', '損益計算書で最終的なもうけに近い項目はどれですか。', '当期純利益', ['流動資産', '資本金', '固定負債'], '損益計算書は収益・費用と利益を示します。'],
+        ['一般常識', '貸借対照表の基本式として正しいものはどれですか。', '資産 = 負債 + 純資産', ['売上 = 資産 + 負債', '費用 = 純資産 - 現金', '利益 = 資本金 + 借入金'], 'B/Sは資産、負債、純資産の関係を示します。'],
+        ['一般常識', 'GDPに含まれるものとして最も適切なのはどれですか。', '国内で一定期間に生産された付加価値', ['国民の預金残高', '輸入品の全価格だけ', '政府の借金総額'], 'GDPは国内総生産です。'],
+        ['一般常識', '円安が輸入企業に与えやすい影響はどれですか。', '仕入れコストが上がりやすい', ['輸入コストが必ず下がる', '為替の影響が消える', '税率が自動で下がる'], '円の価値が下がると外貨建て輸入品は高くなりやすいです。'],
+        ['一般常識', '株式会社の最高意思決定機関として代表的なものはどれですか。', '株主総会', ['営業会議', '監査法人', '労働組合'], '株主総会は会社の重要事項を決める機関です。'],
+        ['一般常識', '独占禁止法が主に防ごうとするものはどれですか。', '公正な競争を妨げる行為', ['会計処理', '自然災害', '著作物の創作'], '独禁法は私的独占や不当な取引制限などを規制します。'],
+        ['一般常識', '著作権の対象として最も適切なものはどれですか。', '創作性のある文章や音楽', ['単なる事実そのもの', '短いありふれた記号だけ', '法律で定めた税率'], '創作的表現が著作権の対象です。'],
+        ['一般常識', '労働基準法で原則として1日8時間・週40時間とされるものはどれですか。', '法定労働時間', ['休職期間', '試用期間', '退職金額'], '法定労働時間の基本です。'],
+        ['一般常識', '企業のCSRに最も近い意味はどれですか。', '企業の社会的責任', ['短期借入金', '顧客管理番号', '在庫回転率'], 'CSRはCorporate Social Responsibilityです。'],
+        ['一般常識', 'SDGsの目標数はいくつですか。', '17', ['7', '12', '25'], 'SDGsは17の目標で構成されます。'],
+        ['一般常識', '一次エネルギーとして分類されるものはどれですか。', '原油', ['電気', '都市ガスの請求書', 'LED照明'], '自然から得られる未変換のエネルギーが一次エネルギーです。'],
+        ['一般常識', 'インフレ率が高い状態で中央銀行が取りやすい政策はどれですか。', '利上げ', ['通貨供給を無制限に増やす', '統計を廃止する', '金利を必ずマイナスにする'], '利上げは需要を抑え物価上昇を抑制する方向に働きます。'],
+        ['一般常識', '民法上、契約は原則としていつ成立しますか。', '申込みと承諾が合致したとき', ['印鑑を必ず押したときだけ', '登記したときだけ', '新聞に載ったとき'], '契約は意思表示の合致で成立します。'],
+        ['一般常識', 'マーケティングの4Pに含まれないものはどれですか。', 'People', ['Product', 'Price', 'Place'], '基本的な4PはProduct, Price, Place, Promotionです。'],
+        ['一般常識', '財務三表に含まれないものはどれですか。', '稟議書', ['貸借対照表', '損益計算書', 'キャッシュフロー計算書'], '財務三表はB/S、P/L、C/Fです。'],
+        ['一般常識', '個人情報保護で重要な考え方はどれですか。', '利用目的をできるだけ特定する', ['目的を隠して集める', '無期限に何でも共有する', '本人確認を常に省く'], '個人情報は利用目的の特定などが求められます。'],
+        ['一般常識', '選挙で小選挙区制の特徴として近いものはどれですか。', '1選挙区から原則1人を選ぶ', ['全国で1人だけ選ぶ', '投票を行わない', '議席を企業に配る'], '小選挙区は各選挙区で主に1人を選びます。'],
+        ['一般常識', '貿易収支が黒字とは何を意味しますか。', '輸出額が輸入額を上回る', ['輸入額が輸出額を上回る', '税収が歳出を上回る', '現金残高がゼロになる'], '貿易収支は輸出と輸入の差です。'],
+        ['一般常識', 'サプライチェーンとは何を指しますか。', '調達から販売までの供給の流れ', ['給与計算の一覧', '広告文の見出し', '株主だけの名簿'], '供給網全体の流れを指します。'],
+        ['一般常識', 'ROEの説明として最も近いものはどれですか。', '自己資本に対する利益率', ['売上に対する広告費', '在庫に対する人数', '借入金の返済期限'], 'ROEは自己資本利益率です。'],
+        ['一般常識', 'コンプライアンスの意味として最も近いものはどれですか。', '法令や社会規範を守ること', ['売上を最大にすることだけ', '宣伝を増やすこと', '在庫を隠すこと'], 'コンプライアンスは法令遵守を中心とする概念です。'],
+        ['一般常識', 'クラウドサービスの特徴として適切なものはどれですか。', 'ネットワーク経由で計算資源を利用できる', ['必ず紙で保存する', '通信を一切使わない', '電力が不要になる'], 'クラウドはネットワーク越しに資源を利用します。'],
+        ['一般常識', '生成AIを業務利用する際に注意すべきことはどれですか。', '機密情報の入力や出力の検証', ['出力を必ず無条件で採用する', '著作権を常に無視する', '利用目的を考えない'], '機密、正確性、権利関係の確認が重要です。'],
+        ['一般常識', '地球温暖化対策で排出量取引が扱う主な対象はどれですか。', '温室効果ガスの排出枠', ['社員の勤務時間', '商品のJANコード', '鉄道路線の運賃'], '排出量取引は排出枠を売買する仕組みです。'],
+        ['一般常識', 'M&Aの説明として最も近いものはどれですか。', '企業の合併や買収', ['商品の値引き', '社員研修', '税務申告だけ'], 'Mergers and Acquisitionsの略です。'],
+        ['一般常識', 'キャッシュフロー計算書で分かることはどれですか。', '現金の増減の流れ', ['会社の定款全文', '社員の評価点', '株主の趣味'], 'C/Fは現金の流れを示します。'],
+        ['一般常識', 'リスク分散の例として適切なものはどれですか。', '投資先を複数に分ける', ['全資金を一社に集中する', '情報を一切集めない', '期限を決めない'], '複数対象に分けることで特定リスクを抑えます。'],
+        ['一般常識', '機会費用の意味として最も近いものはどれですか。', 'ある選択で失われた次善の利益', ['実際に支払った税金だけ', '商品の定価', '会議室の面積'], '選ばなかった最善の代替案の価値です。']
+    ];
+    generalQuestions.forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
+
+    const currentQuestions = [
+        ['時事', '2024年7月に発行が始まった新一万円札の肖像は誰ですか。', '渋沢栄一', ['福沢諭吉', '津田梅子', '北里柴三郎'], '新一万円札は渋沢栄一です。'],
+        ['時事', '2024年7月に発行が始まった新五千円札の肖像は誰ですか。', '津田梅子', ['樋口一葉', '渋沢栄一', '野口英世'], '新五千円札は津田梅子です。'],
+        ['時事', '2024年7月に発行が始まった新千円札の肖像は誰ですか。', '北里柴三郎', ['野口英世', '夏目漱石', '新渡戸稲造'], '新千円札は北里柴三郎です。'],
+        ['時事', '大阪・関西万博2025の会場はどこですか。', '夢洲', ['お台場', '長島', '幕張'], '大阪市の夢洲が会場です。'],
+        ['時事', '大阪・関西万博2025のテーマはどれですか。', 'いのち輝く未来社会のデザイン', ['人類の進歩と調和', '自然との共生', '海と空の交流'], '公式テーマは「いのち輝く未来社会のデザイン」です。'],
+        ['時事', '2024年3月に日本銀行が終了を決めた政策として最も適切なものはどれですか。', 'マイナス金利政策', ['消費税', '個人番号制度', '国勢調査'], '日本銀行は2024年3月にマイナス金利政策を終了しました。'],
+        ['時事', '2024年12月2日に日本で新規発行が停止されたものはどれですか。', '現行の健康保険証', ['運転免許証', '旅券', '住民票'], 'マイナ保険証への移行に伴い、現行保険証の新規発行が停止されました。'],
+        ['時事', '2024年10月1日に第102代内閣総理大臣に指名された人物は誰ですか。', '石破茂', ['岸田文雄', '菅義偉', '河野太郎'], '2024年10月1日に石破茂氏が指名されました。'],
+        ['時事', 'パリ2024オリンピックで日本が獲得した金メダル数はどれですか。', '20個', ['10個', '14個', '30個'], 'JOC公表の日本の金メダル数は20個です。'],
+        ['時事', 'パリ2024オリンピックで日本の総メダル数はどれですか。', '45個', ['35個', '50個', '58個'], 'JOC公表の総メダル数は45個です。'],
+        ['時事', '2024年から新紙幣に採用された偽造防止技術として話題になったものはどれですか。', '3Dホログラム', ['QR納税印', '透明な紙', '香り付きインク'], '新紙幣では立体的に見えるホログラムが採用されています。'],
+        ['時事', '2025年大阪・関西万博の開催期間として正しいものはどれですか。', '2025年4月13日から10月13日', ['2024年4月から10月', '2025年1月から3月', '2026年4月から10月'], '開催期間は2025年4月13日から10月13日です。'],
+        ['時事', '2024年に日本銀行が政策金利の主な操作対象として示したものはどれですか。', '無担保コールレート翌日物', ['長期失業率', '消費税率', '最低賃金'], '短期金利の操作対象として無担保コールレート翌日物を用います。'],
+        ['時事', '2024年以降の医療保険資格確認で中心になるカードはどれですか。', 'マイナンバーカード', ['学生証', '図書館カード', '交通系ICカード'], 'マイナ保険証としてマイナンバーカード利用が進められています。'],
+        ['時事', '大阪・関西万博2025の英語名として最も近いものはどれですか。', 'EXPO 2025 Osaka, Kansai, Japan', ['Tokyo Games 2025', 'Japan Tech Fair 2025', 'Kansai Summit 2025'], '公式英語名はEXPO 2025 Osaka, Kansai, Japanです。'],
+        ['時事', '2024年新紙幣で肖像が女性なのはどの額面ですか。', '五千円札', ['一万円札', '千円札', '二千円札'], '津田梅子が五千円札の肖像です。'],
+        ['時事', '2024年3月の金融政策変更後、日本銀行が短期金利を誘導するとした水準はどれですか。', '0から0.1%程度', ['マイナス2%程度', '5%程度', '10%程度'], '2024年春の声明で0から0.1%程度への誘導が示されました。'],
+        ['時事', 'パリ2024オリンピックで日本の金メダル獲得数が多かった競技の一つはどれですか。', 'レスリング', ['クリケット', 'スカッシュ', 'アメリカンフットボール'], '日本はレスリングで複数の金メダルを獲得しました。'],
+        ['時事', '2024年の新紙幣発行で一万円札から交代した旧肖像は誰ですか。', '福沢諭吉', ['伊藤博文', '聖徳太子', '夏目漱石'], '旧一万円札の肖像は福沢諭吉でした。'],
+        ['時事', '大阪・関西万博2025のサブテーマに含まれる考え方として最も近いものはどれですか。', 'いのちを救う・力を与える・つなぐ', ['軍備を増やす', '貨幣を廃止する', '全競技を屋内化する'], '公式サブテーマはSaving, Empowering, Connecting Livesです。']
+    ];
+    currentQuestions.forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
+
+    if (questions.length !== SPI_TOTAL_QUESTIONS) {
+        console.warn(`SPI問題数が${questions.length}問です。期待値: ${SPI_TOTAL_QUESTIONS}`);
+    }
+    return questions.slice(0, SPI_TOTAL_QUESTIONS);
+}
+
 function normalizeSpiStats(player) {
     const stats = player && player.spiStats ? player.spiStats : {};
     if (stats.bankVersion !== SPI_BANK_VERSION) {
@@ -335,10 +560,12 @@ function normalizeSpiStats(player) {
             correct: 0,
             earnedPoints: 0,
             answeredQuestionIds: [],
+            answerRecords: [],
             lastAnsweredAt: null
         };
     }
     const answeredIds = Array.isArray(stats.answeredQuestionIds) ? stats.answeredQuestionIds : [];
+    const answerRecords = Array.isArray(stats.answerRecords) ? stats.answerRecords : [];
     const attempted = Number(stats.attempted || answeredIds.length || 0);
     const correct = Number(stats.correct || 0);
     return {
@@ -347,6 +574,7 @@ function normalizeSpiStats(player) {
         correct,
         earnedPoints: Number(stats.earnedPoints || 0),
         answeredQuestionIds: answeredIds,
+        answerRecords,
         lastAnsweredAt: stats.lastAnsweredAt || null
     };
 }
@@ -416,9 +644,12 @@ async function saveSpiQuestionAnswerStat(question, isCorrect) {
     const index = nextStats.findIndex(item => item.id === question.id);
     const current = index >= 0 ? nextStats[index] : {
         id: question.id,
+        bankVersion: SPI_BANK_VERSION,
         domain: question.domain,
         category: question.category,
         prompt: question.prompt,
+        correctIndex: question.answerIndex,
+        correctChoice: question.choices[question.answerIndex],
         attempts: 0,
         correct: 0
     };
@@ -429,6 +660,8 @@ async function saveSpiQuestionAnswerStat(question, isCorrect) {
         domain: question.domain,
         category: question.category,
         prompt: question.prompt,
+        correctIndex: question.answerIndex,
+        correctChoice: question.choices[question.answerIndex],
         attempts: Number(current.attempts || 0) + 1,
         correct: Number(current.correct || 0) + (isCorrect ? 1 : 0),
         updatedAt: new Date().toISOString()
@@ -528,6 +761,22 @@ SPI_ANSWER_FORM.addEventListener('submit', async (e) => {
             correct: stats.correct + (isCorrect ? 1 : 0),
             earnedPoints: parseFloat((stats.earnedPoints + (isCorrect ? SPI_POINT_REWARD : 0)).toFixed(1)),
             answeredQuestionIds: [...stats.answeredQuestionIds, currentSpiQuestion.id],
+            answerRecords: [
+                ...stats.answerRecords,
+                {
+                    bankVersion: SPI_BANK_VERSION,
+                    questionId: currentSpiQuestion.id,
+                    domain: currentSpiQuestion.domain,
+                    category: currentSpiQuestion.category,
+                    prompt: currentSpiQuestion.prompt,
+                    selectedIndex,
+                    selectedChoice: currentSpiQuestion.choices[selectedIndex],
+                    correctIndex: currentSpiQuestion.answerIndex,
+                    correctChoice: currentSpiQuestion.choices[currentSpiQuestion.answerIndex],
+                    isCorrect,
+                    answeredAt: new Date().toISOString()
+                }
+            ],
             lastAnsweredAt: new Date().toISOString()
         };
 
