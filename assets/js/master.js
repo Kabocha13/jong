@@ -1660,9 +1660,8 @@ async function loadSpiAnalysis() {
         const totalAccuracy = totalAttempts > 0 ? (totalCorrect / totalAttempts) * 100 : 0;
         const domainRows = summarizeSpiItems(stats, 'domain');
         const categoryRows = summarizeSpiItems(stats, 'category');
-        const detailSource = answerStats.length > 0 ? 'プレイヤー回答ログ' : '保存済みの問題別集計';
         const detailNotice = detailTotalAttempts !== totalAttempts
-            ? `<p class="instruction">区分別・分野別・問題別の内訳は${detailSource}（${detailTotalAttempts}問分）から表示しています。</p>`
+            ? `<p class="instruction">区分別・分野別の内訳は${detailTotalAttempts}問分から表示しています。</p>`
             : '';
 
         SPI_ANALYSIS_CONTAINER.innerHTML = `
@@ -1675,9 +1674,8 @@ async function loadSpiAnalysis() {
                 ? `<div style="overflow-x:auto;">
                     ${renderSpiSummaryTable('区分別', domainRows)}
                     ${renderSpiSummaryTable('分野別', categoryRows)}
-                    ${renderSpiQuestionTable(stats)}
                 </div>`
-                : '<p>問題別の内訳データはまだありません。</p>'}
+                : '<p>区分別・分野別の内訳データはまだありません。</p>'}
         `;
     } catch (err) {
         SPI_ANALYSIS_CONTAINER.innerHTML = `<p>SPI分析の読み込みに失敗しました: ${escapeAdminText(err.message)}</p>`;
@@ -1803,34 +1801,6 @@ function renderSpiSummaryTable(title, rows) {
                 ${rows.map(row => `
                     <tr>
                         <td>${escapeAdminText(row.label)}</td>
-                        <td><strong>${row.accuracy.toFixed(1)}%</strong></td>
-                        <td>${row.correct}/${row.attempts}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-}
-
-function renderSpiQuestionTable(rows) {
-    return `
-        <h4>問題別</h4>
-        <table class="career-table">
-            <thead>
-                <tr>
-                    <th>区分</th>
-                    <th>分野</th>
-                    <th>問題</th>
-                    <th>正答率</th>
-                    <th>正解/回答</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${rows.map(row => `
-                    <tr>
-                        <td>${escapeAdminText(row.domain || '-')}</td>
-                        <td>${escapeAdminText(row.category || '-')}</td>
-                        <td>${escapeAdminText(row.prompt || row.id || '-')}</td>
                         <td><strong>${row.accuracy.toFixed(1)}%</strong></td>
                         <td>${row.correct}/${row.attempts}</td>
                     </tr>
