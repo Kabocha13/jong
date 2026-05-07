@@ -14,7 +14,7 @@ const POST_TYPES = {
 const OFFER_BONUS     = 10;  // 内定時に全員へ配布するボーナスP
 const SPI_POINT_REWARD = 0.2;
 const SPI_TOTAL_QUESTIONS = 200;
-const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v3';
+const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v4';
 
 // ============================================================
 // 状態
@@ -408,14 +408,16 @@ function buildSpiQuestions() {
     for (let i = 0; i < 18; i++) {
         const x = 8 + i;
         const y = 3 + (i % 5);
-        const answer = x * x - y * 2;
+        const subtrahend = y * 2;
+        const term = 3 * x * x + 2;
+        const answer = term - subtrahend;
         addNumeric(
             'SPI推論',
-            `数列 5, 14, 29, 50, 77 ... は n番目が n^2+2n+2 で表せる。${x}番目から${y * 2}を引くといくつですか。`,
+            `数列 5, 14, 29, 50, 77 ... は n番目が 3n^2+2 で表せる。${x}番目から${subtrahend}を引くといくつですか。`,
             answer,
             '',
-            `${x}番目は ${x}^2 + 2×${x} + 2。そこから${y * 2}を引きます。`,
-            [answer + x, answer - y, x * x + y, answer + y * 2]
+            `${x}番目は 3×${x}^2 + 2 = ${term}。そこから${subtrahend}を引きます。`,
+            [answer + x, answer - y, term, answer + subtrahend]
         );
     }
 
