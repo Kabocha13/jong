@@ -12,9 +12,9 @@ const POST_TYPES = {
     offer:                 { label: '🎉 内定',          points: 100 },
 };
 const OFFER_BONUS     = 10;  // 内定時に全員へ配布するボーナスP
-const SPI_POINT_REWARD = 0.2;
+const SPI_POINT_REWARD = 0.5;
 const SPI_TOTAL_QUESTIONS = 200;
-const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v5';
+const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v6';
 
 // ============================================================
 // 状態
@@ -35,9 +35,13 @@ const SPI_QUESTION_META = document.getElementById('spi-question-meta');
 const SPI_QUESTION_TEXT = document.getElementById('spi-question-text');
 const SPI_CHOICE_LIST = document.getElementById('spi-choice-list');
 const SPI_ANSWER_FORM = document.getElementById('spi-answer-form');
+const SPI_TIMER       = document.getElementById('spi-timer');
+const SPI_START_BUTTON = document.getElementById('spi-start-button');
 const SPI_NEXT_BUTTON = document.getElementById('spi-next-button');
 const SPI_MESSAGE     = document.getElementById('spi-message');
 let currentSpiQuestion = null;
+let spiTimerInterval = null;
+let spiTimerStartedAt = null;
 
 // ============================================================
 // SPI問題集
@@ -347,7 +351,7 @@ function buildSpiQuestions() {
         id++;
     };
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 1; i++) {
         const base = 3600 + i * 240;
         const first = 12 + (i % 5) * 3;
         const second = 8 + (i % 4) * 2;
@@ -362,7 +366,7 @@ function buildSpiQuestions() {
         );
     }
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 1; i++) {
         const a = 2 + (i % 4);
         const b = 5 + (i % 5);
         const c = 3 + (i % 6);
@@ -378,7 +382,7 @@ function buildSpiQuestions() {
         );
     }
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
         const upstream = 18 + (i % 6) * 3;
         const current = 2 + (i % 4);
         const downTime = 2 + (i % 3) * 0.5;
@@ -394,7 +398,7 @@ function buildSpiQuestions() {
         );
     }
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 1; i++) {
         const a = 6 + (i % 5);
         const b = 9 + (i % 7);
         const together = a * b / (a + b);
@@ -411,7 +415,7 @@ function buildSpiQuestions() {
         );
     }
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 30; i++) {
         const x = 8 + i;
         const y = 3 + (i % 5);
         const subtrahend = y * 2;
@@ -481,7 +485,7 @@ function buildSpiQuestions() {
     ];
     verbalQuestions.forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 17; i++) {
         const unitPrice = 120 + i * 15;
         const count = 8 + i * 2;
         const discount = 100 + i * 20;
@@ -496,7 +500,7 @@ function buildSpiQuestions() {
         );
     }
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
         const start = 3 + (i % 5);
         const diff = 2 + (i % 4);
         const step = 1 + (i % 3);
@@ -512,7 +516,7 @@ function buildSpiQuestions() {
         );
     }
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 0; i++) {
         const a = 17 + i;
         const b = 9 + (i % 7);
         const c = 4 + (i % 5);
@@ -598,7 +602,7 @@ function buildSpiQuestions() {
         ['一般常識', 'リスク分散の例として適切なものはどれですか。', '投資先を複数に分ける', ['全資金を一社に集中する', '情報を一切集めない', '期限を決めない'], '複数対象に分けることで特定リスクを抑えます。'],
         ['一般常識', '機会費用の意味として最も近いものはどれですか。', 'ある選択で失われた次善の利益', ['実際に支払った税金だけ', '商品の定価', '会議室の面積'], '選ばなかった最善の代替案の価値です。']
     ];
-    generalQuestions.forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
+    generalQuestions.slice(0, 20).forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
 
     const currentQuestions = [
         ['時事', '2024年7月に発行が始まった新一万円札の肖像は誰ですか。', '渋沢栄一', ['福沢諭吉', '津田梅子', '北里柴三郎'], '新一万円札は渋沢栄一です。'],
@@ -622,7 +626,7 @@ function buildSpiQuestions() {
         ['時事', '2024年の新紙幣発行で一万円札から交代した旧肖像は誰ですか。', '福沢諭吉', ['伊藤博文', '聖徳太子', '夏目漱石'], '旧一万円札の肖像は福沢諭吉でした。'],
         ['時事', '大阪・関西万博2025のサブテーマに含まれる考え方として最も近いものはどれですか。', 'いのちを救う・力を与える・つなぐ', ['軍備を増やす', '貨幣を廃止する', '全競技を屋内化する'], '公式サブテーマはSaving, Empowering, Connecting Livesです。']
     ];
-    currentQuestions.slice(0, 10).forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
+    currentQuestions.forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
 
     if (questions.length !== SPI_TOTAL_QUESTIONS) {
         console.warn(`SPI問題数が${questions.length}問です。期待値: ${SPI_TOTAL_QUESTIONS}`);
@@ -680,8 +684,46 @@ function renderSpiStats(player) {
     `;
 }
 
+function formatElapsedTime(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+    const seconds = String(totalSeconds % 60).padStart(2, '0');
+    return `${minutes}:${seconds}`;
+}
+
+function resetSpiTimer() {
+    if (spiTimerInterval) {
+        clearInterval(spiTimerInterval);
+        spiTimerInterval = null;
+    }
+    spiTimerStartedAt = null;
+    SPI_TIMER.textContent = '00:00';
+    SPI_TIMER.classList.remove('is-running');
+    SPI_START_BUTTON.disabled = false;
+    SPI_START_BUTTON.textContent = 'スタート';
+}
+
+function startSpiTimer() {
+    if (spiTimerInterval || !currentSpiQuestion) return;
+    spiTimerStartedAt = Date.now();
+    SPI_TIMER.classList.add('is-running');
+    SPI_START_BUTTON.disabled = true;
+    SPI_START_BUTTON.textContent = '計測中';
+    spiTimerInterval = setInterval(() => {
+        SPI_TIMER.textContent = formatElapsedTime(Date.now() - spiTimerStartedAt);
+    }, 1000);
+}
+
+function stopSpiTimer() {
+    if (!spiTimerInterval) return;
+    clearInterval(spiTimerInterval);
+    spiTimerInterval = null;
+    SPI_TIMER.classList.remove('is-running');
+}
+
 function renderSpiQuestion(question) {
     currentSpiQuestion = question;
+    resetSpiTimer();
     SPI_MESSAGE.classList.add('hidden');
     SPI_NEXT_BUTTON.classList.add('hidden');
     SPI_ANSWER_FORM.classList.remove('hidden');
@@ -691,6 +733,7 @@ function renderSpiQuestion(question) {
         SPI_QUESTION_TEXT.textContent = 'SPI問題集200問をすべて回答しました。';
         SPI_CHOICE_LIST.innerHTML = '';
         SPI_ANSWER_FORM.classList.add('hidden');
+        SPI_START_BUTTON.disabled = true;
         return;
     }
 
@@ -804,6 +847,8 @@ AUTH_FORM.addEventListener('submit', async (e) => {
 
 LOGOUT_BUTTON.addEventListener('click', handleLogout);
 
+SPI_START_BUTTON.addEventListener('click', startSpiTimer);
+
 SPI_ANSWER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!authenticatedUser || !currentSpiQuestion) return;
@@ -878,6 +923,7 @@ SPI_ANSWER_FORM.addEventListener('submit', async (e) => {
         }
 
         authenticatedUser = { ...player };
+        stopSpiTimer();
         await saveSpiQuestionAnswerStat(currentSpiQuestion, isCorrect);
         document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
         renderSpiStats(authenticatedUser);

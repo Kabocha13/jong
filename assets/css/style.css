@@ -1315,6 +1315,30 @@ label {
     margin-bottom: 8px;
 }
 
+.spi-timer-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.spi-timer {
+    min-width: 76px;
+    padding: 7px 10px;
+    border: 1px solid rgba(13, 27, 75, 0.14);
+    background-color: #fff;
+    color: var(--color-indigo);
+    font-family: var(--font-display);
+    font-size: 0.95em;
+    text-align: center;
+}
+
+.spi-timer.is-running {
+    border-color: rgba(201, 168, 76, 0.65);
+    background-color: #fffdf5;
+}
+
 .spi-question-text {
     margin: 0 0 14px;
     color: var(--color-text);
