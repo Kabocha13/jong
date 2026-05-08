@@ -4,6 +4,7 @@
 // 定数
 // ============================================================
 const POST_TYPES = {
+    apply:                 { label: '📮 応募',          points: 3 },
     pass_doc:              { label: '📄 書類通過',      points: 20 },
     pass_interview_1:      { label: '💬 1次面接通過',   points: 30 },
     pass_interview_2:      { label: '💬 2次面接通過',   points: 30 },
@@ -42,6 +43,17 @@ const SPI_MESSAGE     = document.getElementById('spi-message');
 let currentSpiQuestion = null;
 let spiTimerInterval = null;
 let spiTimerStartedAt = null;
+
+function highlightCurrentRoadmapMonth() {
+    const roadmapItems = document.querySelectorAll('[data-roadmap-month]');
+    if (!roadmapItems.length) return;
+
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    roadmapItems.forEach(item => {
+        item.classList.toggle('is-current', item.dataset.roadmapMonth === currentMonth);
+    });
+}
 
 // ============================================================
 // SPI問題集
@@ -817,6 +829,7 @@ async function attemptLogin(username, password, isAuto = false) {
         CAREER_CONTENT.classList.remove('hidden');
         document.getElementById('authenticated-user-name').textContent = authenticatedUser.name;
         document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
+        highlightCurrentRoadmapMonth();
 
         await renderAll();
         return true;
@@ -1076,16 +1089,17 @@ function renderRanking(posts, scores) {
     const stats = {};
     for (const post of posts) {
         if (!stats[post.player]) {
-            stats[post.player] = { offers: 0, finalPassed: 0, interviews: 0, docPassed: 0 };
+            stats[post.player] = { offers: 0, finalPassed: 0, interviews: 0, docPassed: 0, applications: 0 };
         }
         if (post.type === 'offer')                stats[post.player].offers++;
         else if (post.type === 'pass_interview_final') stats[post.player].finalPassed++;
         else if (post.type.startsWith('pass_interview_')) stats[post.player].interviews++;
         else if (post.type === 'pass_doc')         stats[post.player].docPassed++;
+        else if (post.type === 'apply')            stats[post.player].applications++;
     }
 
     const players = Object.entries(stats).sort((a, b) => {
-        const s = (p) => p[1].offers * 1000 + p[1].finalPassed * 100 + p[1].interviews * 10 + p[1].docPassed;
+        const s = (p) => p[1].offers * 1000 + p[1].finalPassed * 100 + p[1].interviews * 10 + p[1].docPassed * 3 + p[1].applications;
         return s(b) - s(a);
     });
 
@@ -1105,6 +1119,7 @@ function renderRanking(posts, scores) {
                     <th style="padding:6px 4px;text-align:center;">最終通過</th>
                     <th style="padding:6px 4px;text-align:center;">面接通過</th>
                     <th style="padding:6px 4px;text-align:center;">書類通過</th>
+                    <th style="padding:6px 4px;text-align:center;">応募</th>
                 </tr>
             </thead>
             <tbody>
@@ -1116,6 +1131,7 @@ function renderRanking(posts, scores) {
                     <td style="padding:6px 4px;text-align:center;">${s.finalPassed || '—'}</td>
                     <td style="padding:6px 4px;text-align:center;">${s.interviews || '—'}</td>
                     <td style="padding:6px 4px;text-align:center;">${s.docPassed || '—'}</td>
+                    <td style="padding:6px 4px;text-align:center;">${s.applications || '—'}</td>
                 </tr>`).join('')}
             </tbody>
         </table>`;
@@ -1126,6 +1142,7 @@ function typeColor(type) {
     if (type === 'pass_interview_final')     return '#e67e22';
     if (type.startsWith('pass_interview_')) return '#3498db';
     if (type === 'pass_doc')                return '#27ae60';
+    if (type === 'apply')                   return '#7f8c8d';
     return '#95a5a6';
 }
 

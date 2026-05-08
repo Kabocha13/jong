@@ -1245,6 +1245,77 @@ label {
     color: var(--color-indigo);
 }
 
+/* --- 就活ロードマップ --- */
+.roadmap-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.roadmap-header h3 {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.roadmap-header span {
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    border: 1px solid rgba(201, 168, 76, 0.55);
+    background-color: #fffdf5;
+    color: var(--color-indigo);
+    font-family: var(--font-display);
+    font-size: 0.72em;
+    letter-spacing: 1px;
+    line-height: 1.2;
+}
+
+.roadmap-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.roadmap-item {
+    min-height: 116px;
+    padding: 12px;
+    border: 1px solid rgba(201, 168, 76, 0.28);
+    border-left: 4px solid rgba(201, 168, 76, 0.55);
+    background-color: #fffdf5;
+}
+
+.roadmap-item time,
+.roadmap-item span {
+    display: block;
+    color: #6b7280;
+    font-size: 0.78em;
+    line-height: 1.35;
+}
+
+.roadmap-item strong {
+    display: block;
+    margin: 8px 0 4px;
+    color: var(--color-indigo);
+    font-size: 1.02em;
+    line-height: 1.35;
+}
+
+.roadmap-item.is-current {
+    border-color: var(--color-gold);
+    border-left-color: var(--color-indigo);
+    background-color: #ffffff;
+    box-shadow: 0 6px 18px rgba(13, 27, 75, 0.1);
+}
+
+.roadmap-item.is-current time::after {
+    content: " 現在";
+    color: var(--color-error);
+    font-family: var(--font-display);
+    font-size: 0.9em;
+    font-weight: 700;
+}
+
 /* --- SPI問題集 --- */
 .spi-header {
     display: flex;
@@ -1395,6 +1466,16 @@ label {
 }
 
 @media (max-width: 700px) {
+    .roadmap-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .roadmap-header span {
+        width: 100%;
+        text-align: center;
+    }
+
     .spi-header {
         align-items: flex-start;
     }

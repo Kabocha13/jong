@@ -38,6 +38,81 @@
                 <button type="button" id="logout-button" class="action-button secondary-button mt-10">ログアウト</button>
             </div>
 
+            <div class="tool-box" id="career-roadmap-tool">
+                <div class="roadmap-header">
+                    <h3>就活ロードマップ</h3>
+                    <span>3年 2026年4月開始</span>
+                </div>
+                <div class="roadmap-list" aria-label="就活ロードマップ">
+                    <div class="roadmap-item" data-roadmap-month="2026-04">
+                        <time>3年4月</time>
+                        <strong>自己分析</strong>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2026-05">
+                        <time>3年5月</time>
+                        <strong>SPI練習、ES作成</strong>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2026-06">
+                        <time>3年6月</time>
+                        <strong>夏インターン応募</strong>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2026-07">
+                        <time>3年7月</time>
+                        <strong>夏インターン</strong>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2026-08">
+                        <time>3年8月</time>
+                        <strong>夏インターン</strong>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2026-09">
+                        <time>3年9月</time>
+                        <strong>早期選考開始</strong>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2026-10">
+                        <time>3年10月</time>
+                        <strong>秋インターン</strong>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2026-11">
+                        <time>3年11月</time>
+                        <strong>本選考準備</strong>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2026-12">
+                        <time>3年12月</time>
+                        <strong>冬インターン</strong>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2027-01">
+                        <time>3年1月</time>
+                        <strong>本選考準備</strong>
+                        <span>内定率3割</span>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2027-02">
+                        <time>3年2月</time>
+                        <strong>本選考準備</strong>
+                        <span>内定率4割</span>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2027-03">
+                        <time>3年3月</time>
+                        <strong>広報解禁</strong>
+                        <span>内定率5割</span>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2027-04">
+                        <time>4年4月</time>
+                        <strong>本選考応募</strong>
+                        <span>内定率6.5割</span>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2027-05">
+                        <time>4年5月</time>
+                        <strong>本選考応募</strong>
+                        <span>内定率8割</span>
+                    </div>
+                    <div class="roadmap-item" data-roadmap-month="2027-06">
+                        <time>4年6月</time>
+                        <strong>選考解禁</strong>
+                        <span>内定率9割</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- SPI問題集 -->
             <div class="tool-box" id="spi-tool">
                 <div class="spi-header">
@@ -69,6 +144,7 @@
                         <label for="post-type">種別:</label>
                         <select id="post-type" required>
                             <option value="" disabled selected>選択してください</option>
+                            <option value="apply">📮 応募 (+3P)</option>
                             <option value="pass_doc">📄 書類通過 (+20P)</option>
                             <option value="pass_interview_1">💬 1次面接通過 (+30P)</option>
                             <option value="pass_interview_2">💬 2次面接通過 (+30P)</option>
