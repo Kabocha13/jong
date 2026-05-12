@@ -191,11 +191,33 @@ function jsonFromFirestoreDocument(document) {
 
 function createFirestoreRestDb(config) {
     const databaseId = config.databaseId || '(default)';
+    const databaseRoot = `projects/${config.projectId}/databases/${databaseId}/documents`;
     const baseUrl = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/${databaseId}/documents`;
     const keyQuery = `key=${encodeURIComponent(config.apiKey)}`;
 
     function docUrl(path) {
         return `${baseUrl}/${path.split('/').map(encodeURIComponent).join('/')}?${keyQuery}`;
+    }
+
+    function commitUrl() {
+        return `${baseUrl}:commit?${keyQuery}`;
+    }
+
+    function documentName(path) {
+        return `${databaseRoot}/${path}`;
+    }
+
+    function updateMaskFromFields(fields) {
+        return { fieldPaths: Object.keys(fields || {}) };
+    }
+
+    async function commitWrites(writes) {
+        if (!writes.length) return null;
+        return request(commitUrl(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ writes })
+        });
     }
 
     async function request(url, options = {}) {
@@ -229,17 +251,26 @@ function createFirestoreRestDb(config) {
                 };
             },
             async set(data) {
-                await request(docUrl(path), {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fields: firestoreFieldsFromJson(data) })
-                });
+                const fields = firestoreFieldsFromJson(data);
+                await commitWrites([{
+                    update: {
+                        name: documentName(path),
+                        fields
+                    }
+                }]);
             },
             async update(data) {
-                await this.set(data);
+                const fields = firestoreFieldsFromJson(data);
+                await commitWrites([{
+                    update: {
+                        name: documentName(path),
+                        fields
+                    },
+                    updateMask: updateMaskFromFields(fields)
+                }]);
             },
             async delete() {
-                await request(docUrl(path), { method: 'DELETE' });
+                await commitWrites([{ delete: documentName(path) }]);
             }
         };
     }
@@ -263,14 +294,24 @@ function createFirestoreRestDb(config) {
     return {
         collection: makeCollection,
         batch() {
-            const operations = [];
+            const writes = [];
             return {
-                set: (docRef, data) => operations.push(() => docRef.set(data)),
-                delete: docRef => operations.push(() => docRef.delete()),
-                commit: async () => {
-                    for (const operation of operations) {
-                        await operation();
+                set: (docRef, data, options = {}) => {
+                    const fields = firestoreFieldsFromJson(data);
+                    const write = {
+                        update: {
+                            name: documentName(docRef.path),
+                            fields
+                        }
+                    };
+                    if (options && options.merge) {
+                        write.updateMask = updateMaskFromFields(fields);
                     }
+                    writes.push(write);
+                },
+                delete: docRef => writes.push({ delete: documentName(docRef.path) }),
+                commit: async () => {
+                    await commitWrites(writes);
                 }
             };
         },

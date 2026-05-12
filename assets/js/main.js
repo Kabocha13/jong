@@ -112,8 +112,8 @@ function getTerritoryActionLabel(tile, playerName, battle) {
     if (!playerName) return '';
     const stats = getPlayerTerritoryStats(playerName, battle);
     const ownedIds = stats.tiles.map(t => t.id);
+    if (ownedIds.length === 0) return '';
     if (tile.owner === playerName) return '強化';
-    if (ownedIds.length === 0 && !tile.owner) return '本拠';
     const isAdjacent = getGridAdjacentTerritoryIds(tile.id).some(id => ownedIds.includes(id));
     if (isAdjacent) return tile.owner ? '攻撃' : '占領';
     return '';
@@ -159,6 +159,7 @@ function renderTerritoryBattle(battle, players) {
     const loginName = localStorage.getItem('authUsername') || '';
     const playerStats = loginName ? getPlayerTerritoryStats(loginName, normalized) : null;
     const actionLimit = loginName ? getTerritoryActionLimitState(loginName, normalized) : null;
+    const isGameOver = loginName && playerStats && playerStats.count === 0;
     const leaders = players
         .map(player => ({
             name: player.name,
@@ -204,7 +205,11 @@ function renderTerritoryBattle(battle, players) {
                 </div>
                 <div class="territory-command">
                     <h4>軍議</h4>
-                    ${loginName ? `
+                    ${loginName && isGameOver ? `
+                        <div class="territory-login-prompt">
+                            <p>所有区がないためゲームオーバーです。</p>
+                        </div>
+                    ` : loginName ? `
                         <form id="territory-action-form">
                             <label for="territory-target">目標区</label>
                             <select id="territory-target" required>
@@ -310,6 +315,7 @@ async function handleTerritoryAction(e) {
 
     try {
         await qjongSignIn(username, password);
+        invalidateFetchCache();
         const currentData = await fetchAllData();
         const scoresMap = new Map((currentData.scores || []).map(player => [player.name, player]));
         const player = scoresMap.get(username);
@@ -342,10 +348,14 @@ async function handleTerritoryAction(e) {
         const stats = getPlayerTerritoryStats(username, battle);
         const ownedIds = stats.tiles.map(t => t.id);
         const isOwnTile = tile.owner === username;
-        const isFirstBase = ownedIds.length === 0 && !tile.owner;
         const isAdjacent = getGridAdjacentTerritoryIds(targetId).some(id => ownedIds.includes(id));
 
-        if (!isOwnTile && !isFirstBase && !isAdjacent) {
+        if (ownedIds.length === 0) {
+            showMessage(messageEl, '所有区がないためゲームオーバーです。出陣できません。', 'error');
+            return;
+        }
+
+        if (!isOwnTile && !isAdjacent) {
             showMessage(messageEl, '隣接する区にのみ出陣できます。', 'error');
             return;
         }
