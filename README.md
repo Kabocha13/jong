@@ -108,6 +108,8 @@
 
 **24.6** 就活ロードマップを追加
 
+**24.7** 毎日ボーナス,陣取り合戦のバグ修正
+
 npx firebase deploy --only hosting
 
 SPI割合              1
