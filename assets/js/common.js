@@ -103,13 +103,22 @@ function normalizeFetchedRecord(record) {
     const normalized = { ...createEmptyData(), ...(record || {}) };
     normalized.scores = (normalized.scores || []).map(player => ({
         ...player,
-        status: player.status || 'none'
+        score: toFiniteNumber(player.score, 0),
+        status: player.status || 'none',
+        dailyProbability: toFiniteNumber(player.dailyProbability, 0),
+        accumulatedProbability: toFiniteNumber(player.accumulatedProbability, 0),
+        dailyPressCount: Math.max(0, Math.floor(toFiniteNumber(player.dailyPressCount, 0)))
     }));
     normalized.territory_battle = normalizeTerritoryBattle(normalized.territory_battle);
     normalized.attendance_allowed_users = Array.isArray(normalized.attendance_allowed_users)
         ? normalized.attendance_allowed_users.filter(Boolean)
         : [];
     return normalized;
+}
+
+function toFiniteNumber(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
 }
 
 function toDocId(value) {

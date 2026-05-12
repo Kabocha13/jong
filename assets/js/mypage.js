@@ -233,6 +233,31 @@ function getTodayJST() {
     return nowJST.toISOString().slice(0, 10);
 }
 
+function getJSTDateDayNumber(dateText) {
+    const match = String(dateText || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    return Math.floor(Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000));
+}
+
+function getElapsedBonusDays(lastDate, todayJST) {
+    const lastDay = getJSTDateDayNumber(lastDate);
+    const todayDay = getJSTDateDayNumber(todayJST);
+    if (lastDay === null || todayDay === null) return lastDate === todayJST ? 0 : 1;
+    return Math.max(0, todayDay - lastDay);
+}
+
+function getBonusNumber(value, fallback = 0) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+}
+
+function clampBonusProbability(value) {
+    return Math.min(100, Math.max(0, value));
+}
+
 function updateMemberBonusDisplay() {
     if (!authenticatedUser) return;
 
@@ -252,14 +277,15 @@ function updateMemberBonusDisplay() {
     // 日付変更時は表示上のリセット・減衰を反映（実DB更新はボタン押下時）
     const todayJST = getTodayJST();
     const lastDate = authenticatedUser.lastBonusDate || '';
-    let daily = authenticatedUser.dailyProbability || 0;
-    let accumulated = authenticatedUser.accumulatedProbability || 0;
-    if (lastDate !== todayJST) {
+    let daily = getBonusNumber(authenticatedUser.dailyProbability);
+    let accumulated = getBonusNumber(authenticatedUser.accumulatedProbability);
+    const elapsedDays = getElapsedBonusDays(lastDate, todayJST);
+    if (elapsedDays > 0) {
         daily = 0;
-        accumulated = Math.max(0, accumulated - 5);
+        accumulated = Math.max(0, accumulated - 5 * elapsedDays);
     }
     const territoryReduction = getPlayerTerritoryStats(authenticatedUser.name, latestAllData && latestAllData.territory_battle).reduction;
-    const total = Math.max(0, daily + accumulated - territoryReduction);
+    const total = clampBonusProbability(daily + accumulated - territoryReduction);
 
     if (PRO_BONUS_INSTRUCTION) {
         PRO_BONUS_INSTRUCTION.innerHTML = `${memberType}会員: ボタンを押すたびに <strong>+${bonusAmount.toFixed(1)} P</strong>（1日何回でも押せます）`;
@@ -325,12 +351,13 @@ if (PRO_BONUS_BUTTON) {
             const lastDate = targetPlayer.lastBonusDate || '';
 
             // 日付変更時は0時リセット処理
-            let daily = targetPlayer.dailyProbability || 0;
-            let accumulated = targetPlayer.accumulatedProbability || 0;
-            let pressCount = targetPlayer.dailyPressCount || 0;
-            if (lastDate !== todayJST) {
+            let daily = getBonusNumber(targetPlayer.dailyProbability);
+            let accumulated = getBonusNumber(targetPlayer.accumulatedProbability);
+            let pressCount = Math.max(0, Math.floor(getBonusNumber(targetPlayer.dailyPressCount)));
+            const elapsedDays = getElapsedBonusDays(lastDate, todayJST);
+            if (elapsedDays > 0) {
                 daily = 0;
-                accumulated = Math.max(0, accumulated - 5);
+                accumulated = Math.max(0, accumulated - 5 * elapsedDays);
                 pressCount = 0;
             }
 
@@ -339,7 +366,7 @@ if (PRO_BONUS_BUTTON) {
 
             // ペナルティ判定（合計確率）
             const territoryReduction = getPlayerTerritoryStats(player, currentData.territory_battle).reduction;
-            const totalProbability = Math.max(0, daily + accumulated - territoryReduction);
+            const totalProbability = clampBonusProbability(daily + accumulated - territoryReduction);
             const penaltyOccurred = Math.random() * 100 < totalProbability;
             if (penaltyOccurred) {
                 newScore -= 50;
