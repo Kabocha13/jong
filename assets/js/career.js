@@ -15,7 +15,7 @@ const POST_TYPES = {
 const OFFER_BONUS     = 10;  // 内定時に全員へ配布するボーナスP
 const SPI_POINT_REWARD = 0.5;
 const SPI_TOTAL_QUESTIONS = 200;
-const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v6';
+const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v7';
 
 // ============================================================
 // 状態
@@ -363,83 +363,110 @@ function buildSpiQuestions() {
         id++;
     };
 
-    for (let i = 0; i < 1; i++) {
-        const base = 3600 + i * 240;
-        const first = 12 + (i % 5) * 3;
-        const second = 8 + (i % 4) * 2;
-        const answer = Math.round(base * (1 + first / 100) * (1 - second / 100));
-        addNumeric(
-            'SPI割合',
-            `${base}円の商品を${first}%値上げし、その後${second}%値引きした。最終価格はいくらですか。`,
-            answer,
-            '円',
-            `値上げ後に値引きするので ${base} × ${100 + first}% × ${100 - second}% を計算します。`,
-            [base + first * 100, base * (100 + first - second) / 100, answer + 120, answer - 180]
+    for (let i = 0; i < 6; i++) {
+        const people = ['A', 'B', 'C', 'D'];
+        const target = people[i % people.length];
+        const before = people[(i + 1) % people.length];
+        const after = people[(i + 2) % people.length];
+        addChoice(
+            'SPI推論-順序',
+            `${people.join('、')}の4人が横一列に並ぶ。${target}は${before}より左、${after}は${target}より右にいる。確実に言えることはどれですか。`,
+            `${target}は${after}より左にいる`,
+            [`${target}は必ず一番右である`, `${before}は${after}より右にいる`, `${after}は必ず一番左である`],
+            `${after}は${target}より右なので、${target}は${after}より左です。`
         );
     }
 
-    for (let i = 0; i < 1; i++) {
-        const a = 2 + (i % 4);
-        const b = 5 + (i % 5);
-        const c = 3 + (i % 6);
-        const total = (a + b + c) * (9 + i);
-        const answer = total * b / (a + b + c);
+    for (let i = 0; i < 6; i++) {
+        const total = 240 + i * 40;
+        const percent = 15 + (i % 4) * 5;
+        const answer = total * percent / 100;
         addNumeric(
-            'SPI比',
-            `A:B:C=${a}:${b}:${c}、合計が${total}のとき、Bはいくつですか。`,
+            'SPI推論-割合',
+            `全体${total}人のうち${percent}%がAを選んだ。Aを選んだ人数は何人ですか。`,
+            answer,
+            '人',
+            `${total} × ${percent}% を計算します。`,
+            [total - answer, answer + percent, total / percent, answer - 5]
+        );
+    }
+
+    for (let i = 0; i < 6; i++) {
+        const condition = i % 2 === 0 ? '合格者は全員、面接を受けた' : '資料を提出した人だけが審査対象になる';
+        const answer = i % 2 === 0 ? '合格者は面接を受けた' : '資料未提出者は審査対象にならない';
+        addChoice(
+            'SPI推論-正誤',
+            `次の条件が正しいとき、必ず正しいものはどれですか。「${condition}」`,
+            answer,
+            i % 2 === 0
+                ? ['面接を受けた人は全員合格した', '不合格者は面接を受けていない', '面接は合格に無関係である']
+                : ['資料提出者は全員合格する', '審査対象者は資料を提出していない', '資料提出は不要である'],
+            '条件文から必ず言える範囲だけを選びます。'
+        );
+    }
+
+    for (let i = 0; i < 12; i++) {
+        const win = 3 + (i % 3);
+        const draw = 1;
+        const aWin = 2 + (i % 4);
+        const aDraw = i % 3;
+        const bWin = 1 + (i % 5);
+        const bDraw = (i + 1) % 3;
+        const aPoint = aWin * win + aDraw * draw;
+        const bPoint = bWin * win + bDraw * draw;
+        addNumeric(
+            'SPI推論-対戦',
+            `勝ち${win}点、引き分け${draw}点。Aは${aWin}勝${aDraw}分、Bは${bWin}勝${bDraw}分だった。AとBの得点差は何点ですか。`,
+            Math.abs(aPoint - bPoint),
+            '点',
+            `Aは${aPoint}点、Bは${bPoint}点なので差を取ります。`,
+            [aPoint, bPoint, Math.abs(aWin - bWin), Math.abs(aPoint - bPoint) + win]
+        );
+    }
+
+    for (let i = 0; i < 6; i++) {
+        const start = 4 + i;
+        const right = 3 + (i % 4);
+        const left = 1 + (i % 2);
+        const answer = start + right - left;
+        addNumeric(
+            'SPI推論-位置',
+            `左から${start}番目にいる人が、右へ${right}人分移動し、その後左へ${left}人分戻った。左から何番目ですか。`,
+            answer,
+            '番目',
+            `位置は ${start}+${right}-${left} で求めます。`,
+            [start + right, start - left, answer + 2, Math.max(1, answer - 2)]
+        );
+    }
+
+    for (let i = 0; i < 6; i++) {
+        const count = 4 + (i % 3);
+        const base = 58 + i * 3;
+        const scores = Array.from({ length: count }, (_, idx) => base + idx * 4);
+        const next = base + count * 5;
+        const answer = (scores.reduce((sum, value) => sum + value, 0) + next) / (count + 1);
+        addNumeric(
+            'SPI推論-平均',
+            `${scores.join('、')}、${next} の平均はいくつですか。`,
+            Number(answer.toFixed(1)),
+            '',
+            `合計を${count + 1}個で割ります。`,
+            [answer + 2, answer - 2, next, base]
+        );
+    }
+
+    for (let i = 0; i < 6; i++) {
+        const divisor = 3 + (i % 4);
+        const quotient = 12 + i;
+        const remainder = 1 + (i % (divisor - 1));
+        const answer = divisor * quotient + remainder;
+        addNumeric(
+            'SPI推論-整数',
+            `ある整数を${divisor}で割ると商が${quotient}、余りが${remainder}だった。この整数はいくつですか。`,
             answer,
             '',
-            `全体は${a + b + c}等分、Bは${b}等分です。`,
-            [total * a / (a + b + c), total * c / (a + b + c), answer + b, answer - a]
-        );
-    }
-
-    for (let i = 0; i < 10; i++) {
-        const upstream = 18 + (i % 6) * 3;
-        const current = 2 + (i % 4);
-        const downTime = 2 + (i % 3) * 0.5;
-        const distance = (upstream + current) * downTime;
-        const answer = distance / (upstream - current);
-        addNumeric(
-            'SPI速さ',
-            `静水時速${upstream}km、川の流れ時速${current}kmの船が下りに${formatNumber(downTime)}時間かかった。同じ距離を上ると何時間ですか。`,
-            Number(answer.toFixed(1)),
-            '時間',
-            `距離は下り速度×時間、上り時間は距離÷上り速度です。`,
-            [downTime, answer + 0.5, distance / upstream, answer * 1.5]
-        );
-    }
-
-    for (let i = 0; i < 1; i++) {
-        const a = 6 + (i % 5);
-        const b = 9 + (i % 7);
-        const together = a * b / (a + b);
-        const done = 1 + (i % 3) * 0.5;
-        const remaining = 1 - done / together;
-        const answer = Math.max(0.5, remaining * b);
-        addNumeric(
-            'SPI仕事算',
-            `Aは${a}時間、Bは${b}時間で終える仕事を2人で${formatNumber(done)}時間行った。残りをBだけで行うと何時間ですか。`,
-            Number(answer.toFixed(1)),
-            '時間',
-            `2人の仕事率で進んだ分を引き、残りをBの仕事率で割ります。`,
-            [together, answer + 1, b - done, Math.abs(b - a)]
-        );
-    }
-
-    for (let i = 0; i < 30; i++) {
-        const x = 8 + i;
-        const y = 3 + (i % 5);
-        const subtrahend = y * 2;
-        const term = 3 * x * x + 2;
-        const answer = term - subtrahend;
-        addNumeric(
-            'SPI推論',
-            `数列 5, 14, 29, 50, 77 ... は n番目が 3n^2+2 で表せる。${x}番目から${subtrahend}を引くといくつですか。`,
-            answer,
-            '',
-            `${x}番目は 3×${x}^2 + 2 = ${term}。そこから${subtrahend}を引きます。`,
-            [answer + x, answer - y, term, answer + subtrahend]
+            `割られる数は ${divisor}×${quotient}+${remainder} です。`,
+            [answer + divisor, answer - remainder, quotient + remainder, divisor + quotient]
         );
     }
 
@@ -454,6 +481,16 @@ function buildSpiQuestions() {
         ['SPI語句', '「均衡」の意味として最も近いものはどれですか。', 'つり合い', ['不足', '急増', '例外'], '均衡は、力や量などがつり合っている状態です。'],
         ['SPI語句', '「合理」の意味として最も近いものはどれですか。', '筋道が通っている', ['感情的である', '偶然である', '古風である'], '合理は、理由や筋道にかなっていることです。'],
         ['SPI語句', '「補足」の意味として最も近いものはどれですか。', '足りない分を補う', ['全て捨てる', '先に進める', '細かく分ける'], '補足は、不足している情報などを付け加えることです。'],
+        ['SPI語句', '「俯瞰」の意味として最も近いものはどれですか。', '全体を広く見渡す', ['細部だけを隠す', '急いで結論を変える', '同じ作業を繰り返す'], '俯瞰は、高い視点から全体を見ることです。'],
+        ['SPI語句', '「懸念」の意味として最も近いものはどれですか。', '気がかりに思うこと', ['強く祝うこと', '情報を広く配ること', '数量を増やすこと'], '懸念は、心配や不安に思うことです。'],
+        ['SPI語句', '「網羅」の意味として最も近いものはどれですか。', '漏れなく含める', ['一部だけ選ぶ', '後から取り消す', '順番を逆にする'], '網羅は、必要な範囲を漏れなく覆うことです。'],
+        ['SPI語句', '「暫定」の意味として最も近いものはどれですか。', '一時的に定める', ['永久に固定する', '完全に否定する', '細かく分解する'], '暫定は、正式決定まで一時的に決めることです。'],
+        ['SPI語句', '「精緻」の意味として最も近いものはどれですか。', '細かく整っている', ['大まかで粗い', '偶然に決まる', '外へ広がる'], '精緻は、細部までよく整っている様子です。'],
+        ['SPI語句', '「齟齬」の意味として最も近いものはどれですか。', '食い違い', ['完全な一致', '急な増加', '長い沈黙'], '齟齬は、物事がうまくかみ合わないことです。'],
+        ['SPI語句', '「端的」の意味として最も近いものはどれですか。', '要点がはっきりしている', ['遠回しで長い', '根拠がない', '古くなっている'], '端的は、要点を明確に表すことです。'],
+        ['SPI語句', '「踏襲」の意味として最も近いものはどれですか。', '前例や方法を受け継ぐ', ['新しく廃止する', '無関係に扱う', '数値を平均する'], '踏襲は、これまでのやり方を受け継ぐことです。'],
+        ['SPI語句', '「是正」の意味として最も近いものはどれですか。', '誤りを正す', ['状態を悪化させる', '意見をぼかす', '人数を増やす'], '是正は、悪い点や誤りを正すことです。'],
+        ['SPI語句', '「示達」の意味として最も近いものはどれですか。', '上位者が指示を伝える', ['秘密にしておく', '自由に解釈する', '結果だけを見る'], '示達は、命令や指示を下に伝えることです。'],
         ['SPI二語関係', '「仮説：検証」と同じ関係を表すものはどれですか。', '計画：実行', ['原因：結果', '価格：需要', '部分：全体'], '仮説は検証され、計画は実行されます。'],
         ['SPI二語関係', '「冗長：簡潔」と同じ関係を表すものはどれですか。', '曖昧：明確', ['俊敏：迅速', '保存：保管', '材料：完成品'], 'どちらも反対関係です。'],
         ['SPI二語関係', '「証拠：推論」と同じ関係を表すものはどれですか。', '資料：分析', ['結論：前提', '結果：原因', '目的：手段'], '証拠をもとに推論し、資料をもとに分析します。'],
@@ -543,7 +580,7 @@ function buildSpiQuestions() {
         );
     }
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
         const east = 120 + i * 9;
         const west = 95 + i * 7;
         const growth = 6 + (i % 5);
@@ -638,7 +675,7 @@ function buildSpiQuestions() {
         ['時事', '2024年の新紙幣発行で一万円札から交代した旧肖像は誰ですか。', '福沢諭吉', ['伊藤博文', '聖徳太子', '夏目漱石'], '旧一万円札の肖像は福沢諭吉でした。'],
         ['時事', '大阪・関西万博2025のサブテーマに含まれる考え方として最も近いものはどれですか。', 'いのちを救う・力を与える・つなぐ', ['軍備を増やす', '貨幣を廃止する', '全競技を屋内化する'], '公式サブテーマはSaving, Empowering, Connecting Livesです。']
     ];
-    currentQuestions.forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
+    currentQuestions.slice(0, 15).forEach(([category, prompt, answer, choices, explanation]) => addChoice(category, prompt, answer, choices, explanation));
 
     if (questions.length !== SPI_TOTAL_QUESTIONS) {
         console.warn(`SPI問題数が${questions.length}問です。期待値: ${SPI_TOTAL_QUESTIONS}`);
