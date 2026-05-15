@@ -52,8 +52,25 @@ function highlightCurrentRoadmapMonth() {
 
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    let currentItem = null;
     roadmapItems.forEach(item => {
-        item.classList.toggle('is-current', item.dataset.roadmapMonth === currentMonth);
+        const isCurrent = item.dataset.roadmapMonth === currentMonth;
+        item.classList.toggle('is-current', isCurrent);
+        if (isCurrent) currentItem = item;
+    });
+    if (currentItem) {
+        requestAnimationFrame(() => scrollRoadmapItemIntoView(currentItem));
+    }
+}
+
+function scrollRoadmapItemIntoView(item) {
+    const list = item.closest('.roadmap-list');
+    if (!list) return;
+
+    const targetLeft = item.offsetLeft - (list.clientWidth - item.offsetWidth) / 2;
+    list.scrollTo({
+        left: Math.max(0, targetLeft),
+        behavior: 'auto'
     });
 }
 
