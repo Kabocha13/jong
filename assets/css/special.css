@@ -315,6 +315,32 @@ html.special-theme .career-offers {
     color: #c65d7b;
 }
 
+html.special-theme .mypage-quick-nav a {
+    background-color: #f4f8ff;
+    border-color: rgba(82, 139, 186, 0.22);
+    color: #5c73c9;
+}
+
+html.special-theme .mypage-quick-nav a:hover,
+html.special-theme .mypage-quick-nav a:active {
+    background-color: #6f55b7;
+    color: #fff;
+    border-color: rgba(143, 110, 213, 0.52);
+}
+
+html.special-theme .mypage-accordion > summary::after {
+    border-color: rgba(143, 110, 213, 0.32);
+    color: #6f55b7;
+}
+
+html.special-theme .mypage-accordion[open] > summary {
+    border-bottom-color: rgba(143, 110, 213, 0.2);
+}
+
+html.special-theme .mypage-accordion[open] > summary::after {
+    background-color: #f4f8ff;
+}
+
 html.special-theme .roadmap-item {
     background-color: rgba(255, 255, 255, 0.88);
     border-color: rgba(143, 110, 213, 0.18);

@@ -41,6 +41,15 @@ const GIFT_CODE_INPUT = document.getElementById('gift-code-input');
 const APPLY_GIFT_CODE_MESSAGE = document.getElementById('apply-gift-code-message');
 const TARGET_CONTINUE_TOOL = document.getElementById('target-continue-tool');
 
+document.querySelectorAll('.mypage-quick-nav a[href^="#"]').forEach(link => {
+    link.addEventListener('click', () => {
+        const target = document.querySelector(link.getAttribute('href'));
+        if (target && target.tagName === 'DETAILS') {
+            target.open = true;
+        }
+    });
+});
+
 
 // 認証されたユーザー情報 ({name: '...', score: ..., status: ..., lastBonusTime: ...})
 let authenticatedUser = null; 
