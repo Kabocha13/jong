@@ -663,7 +663,7 @@ function renderHomeCareer(posts) {
                 </tr>`).join('')}
             </tbody>
         </table>
-        <p style="text-align:right; margin-top:10px;"><a href="career.html" class="career-link">詳細・投稿 →</a></p>
+        <p style="text-align:right; margin-top:10px;"><a href="mypage.html" class="career-link">詳細・投稿 →</a></p>
     `;
 
     container.innerHTML = html;

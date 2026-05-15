@@ -48,6 +48,14 @@ let authenticatedUser = null;
 let availableLotteries = [];
 let latestAllData = null;
 
+window.updateMyPageAuthenticatedUser = (user) => {
+    if (!user) return;
+    authenticatedUser = { ...authenticatedUser, ...user };
+    if (CURRENT_SCORE_ELEMENT && Number.isFinite(Number(authenticatedUser.score))) {
+        CURRENT_SCORE_ELEMENT.textContent = Number(authenticatedUser.score).toFixed(1);
+    }
+};
+
 // -----------------------------------------------------------------
 // ★★★ 認証とログイン状態の管理 ★★★
 // -----------------------------------------------------------------
@@ -174,6 +182,14 @@ async function initializeMyPageContent() {
     initializeWagerInputs();
 
     initializeMemberBonusFeature(); 
+
+    if (window.initializeCareerFeaturesForUser) {
+        await window.initializeCareerFeaturesForUser(authenticatedUser);
+    } else {
+        window.addEventListener('career-features-ready', () => {
+            window.initializeCareerFeaturesForUser(authenticatedUser);
+        }, { once: true });
+    }
     
     loadTransferReceiverList(); 
     

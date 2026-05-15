@@ -1322,6 +1322,32 @@ label {
     font-weight: 700;
 }
 
+.roadmap-compact .roadmap-header {
+    margin-bottom: 10px;
+}
+
+.roadmap-compact .roadmap-list {
+    gap: 7px;
+    padding-bottom: 8px;
+}
+
+.roadmap-compact .roadmap-item {
+    flex-basis: 118px;
+    min-height: 68px;
+    padding: 7px 8px;
+    border-left-width: 3px;
+}
+
+.roadmap-compact .roadmap-item time,
+.roadmap-compact .roadmap-item span {
+    font-size: 0.68em;
+}
+
+.roadmap-compact .roadmap-item strong {
+    margin: 4px 0 2px;
+    font-size: 0.78em;
+}
+
 /* --- SPI問題集 --- */
 .spi-header {
     display: flex;
@@ -1392,30 +1418,6 @@ label {
     margin-bottom: 8px;
 }
 
-.spi-timer-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.spi-timer {
-    min-width: 76px;
-    padding: 7px 10px;
-    border: 1px solid rgba(13, 27, 75, 0.14);
-    background-color: #fff;
-    color: var(--color-indigo);
-    font-family: var(--font-display);
-    font-size: 0.95em;
-    text-align: center;
-}
-
-.spi-timer.is-running {
-    border-color: rgba(201, 168, 76, 0.65);
-    background-color: #fffdf5;
-}
-
 .spi-question-text {
     margin: 0 0 14px;
     color: var(--color-text);
@@ -1471,6 +1473,16 @@ label {
     line-height: 1.4;
 }
 
+.career-timeline-block {
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(13, 27, 75, 0.12);
+}
+
+.career-timeline-block h4 {
+    margin-bottom: 12px;
+}
+
 @media (max-width: 700px) {
     .roadmap-header {
         align-items: flex-start;
@@ -1490,6 +1502,11 @@ label {
     .roadmap-item {
         flex-basis: 142px;
         min-height: 88px;
+    }
+
+    .roadmap-compact .roadmap-item {
+        flex-basis: 112px;
+        min-height: 66px;
     }
 
     .spi-header {

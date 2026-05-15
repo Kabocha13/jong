@@ -1,4 +1,5 @@
 // assets/js/career.js
+{
 
 // ============================================================
 // 定数
@@ -16,6 +17,7 @@ const OFFER_BONUS     = 10;  // 内定時に全員へ配布するボーナスP
 const SPI_POINT_REWARD = 0.5;
 const SPI_TOTAL_QUESTIONS = 200;
 const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v7';
+const IS_CAREER_EMBEDDED = window.CAREER_EMBEDDED === true;
 
 // ============================================================
 // 状態
@@ -26,7 +28,7 @@ let authenticatedUser = null;
 // DOM要素
 // ============================================================
 const AUTH_SECTION    = document.getElementById('auth-section');
-const CAREER_CONTENT  = document.getElementById('career-content');
+const CAREER_CONTENT  = document.getElementById('career-content') || document.getElementById('mypage-content');
 const AUTH_FORM       = document.getElementById('auth-form');
 const AUTH_MESSAGE    = document.getElementById('auth-message');
 const LOGOUT_BUTTON   = document.getElementById('logout-button');
@@ -36,13 +38,9 @@ const SPI_QUESTION_META = document.getElementById('spi-question-meta');
 const SPI_QUESTION_TEXT = document.getElementById('spi-question-text');
 const SPI_CHOICE_LIST = document.getElementById('spi-choice-list');
 const SPI_ANSWER_FORM = document.getElementById('spi-answer-form');
-const SPI_TIMER       = document.getElementById('spi-timer');
-const SPI_START_BUTTON = document.getElementById('spi-start-button');
 const SPI_NEXT_BUTTON = document.getElementById('spi-next-button');
 const SPI_MESSAGE     = document.getElementById('spi-message');
 let currentSpiQuestion = null;
-let spiTimerInterval = null;
-let spiTimerStartedAt = null;
 
 function highlightCurrentRoadmapMonth() {
     const roadmapItems = document.querySelectorAll('[data-roadmap-month]');
@@ -741,46 +739,8 @@ function renderSpiStats(player) {
     `;
 }
 
-function formatElapsedTime(ms) {
-    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-    const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
-    const seconds = String(totalSeconds % 60).padStart(2, '0');
-    return `${minutes}:${seconds}`;
-}
-
-function resetSpiTimer() {
-    if (spiTimerInterval) {
-        clearInterval(spiTimerInterval);
-        spiTimerInterval = null;
-    }
-    spiTimerStartedAt = null;
-    SPI_TIMER.textContent = '00:00';
-    SPI_TIMER.classList.remove('is-running');
-    SPI_START_BUTTON.disabled = false;
-    SPI_START_BUTTON.textContent = 'スタート';
-}
-
-function startSpiTimer() {
-    if (spiTimerInterval || !currentSpiQuestion) return;
-    spiTimerStartedAt = Date.now();
-    SPI_TIMER.classList.add('is-running');
-    SPI_START_BUTTON.disabled = true;
-    SPI_START_BUTTON.textContent = '計測中';
-    spiTimerInterval = setInterval(() => {
-        SPI_TIMER.textContent = formatElapsedTime(Date.now() - spiTimerStartedAt);
-    }, 1000);
-}
-
-function stopSpiTimer() {
-    if (!spiTimerInterval) return;
-    clearInterval(spiTimerInterval);
-    spiTimerInterval = null;
-    SPI_TIMER.classList.remove('is-running');
-}
-
 function renderSpiQuestion(question) {
     currentSpiQuestion = question;
-    resetSpiTimer();
     SPI_MESSAGE.classList.add('hidden');
     SPI_NEXT_BUTTON.classList.add('hidden');
     SPI_ANSWER_FORM.classList.remove('hidden');
@@ -790,7 +750,6 @@ function renderSpiQuestion(question) {
         SPI_QUESTION_TEXT.textContent = 'SPI問題集200問をすべて回答しました。';
         SPI_CHOICE_LIST.innerHTML = '';
         SPI_ANSWER_FORM.classList.add('hidden');
-        SPI_START_BUTTON.disabled = true;
         return;
     }
 
@@ -896,18 +855,18 @@ function handleLogout() {
     showMessage(AUTH_MESSAGE, '👋 ログアウトしました。', 'info');
 }
 
-AUTH_FORM.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value.trim();
-    await attemptLogin(username, password, false);
-});
+if (!IS_CAREER_EMBEDDED && AUTH_FORM && LOGOUT_BUTTON) {
+    AUTH_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        await attemptLogin(username, password, false);
+    });
 
-LOGOUT_BUTTON.addEventListener('click', handleLogout);
+    LOGOUT_BUTTON.addEventListener('click', handleLogout);
+}
 
-SPI_START_BUTTON.addEventListener('click', startSpiTimer);
-
-SPI_ANSWER_FORM.addEventListener('submit', async (e) => {
+if (SPI_ANSWER_FORM) SPI_ANSWER_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!authenticatedUser || !currentSpiQuestion) return;
 
@@ -981,9 +940,9 @@ SPI_ANSWER_FORM.addEventListener('submit', async (e) => {
         }
 
         authenticatedUser = { ...player };
-        stopSpiTimer();
         await saveSpiQuestionAnswerStat(currentSpiQuestion, isCorrect);
         document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
+        if (window.updateMyPageAuthenticatedUser) window.updateMyPageAuthenticatedUser(authenticatedUser);
         renderSpiStats(authenticatedUser);
 
         const correctChoice = currentSpiQuestion.choices[currentSpiQuestion.answerIndex];
@@ -1002,7 +961,7 @@ SPI_ANSWER_FORM.addEventListener('submit', async (e) => {
     }
 });
 
-SPI_NEXT_BUTTON.addEventListener('click', () => {
+if (SPI_NEXT_BUTTON) SPI_NEXT_BUTTON.addEventListener('click', () => {
     if (!authenticatedUser) return;
     renderSpiQuestion(getNextSpiQuestion(normalizeSpiStats(authenticatedUser)));
 });
@@ -1010,7 +969,8 @@ SPI_NEXT_BUTTON.addEventListener('click', () => {
 // ============================================================
 // 投稿フォーム
 // ============================================================
-document.getElementById('career-post-form').addEventListener('submit', async (e) => {
+const CAREER_POST_FORM = document.getElementById('career-post-form');
+if (CAREER_POST_FORM) CAREER_POST_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const messageEl  = document.getElementById('post-message');
     const type       = document.getElementById('post-type').value;
@@ -1076,6 +1036,7 @@ document.getElementById('career-post-form').addEventListener('submit', async (e)
             if (updated) {
                 authenticatedUser.score = updated.score;
                 document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
+                if (window.updateMyPageAuthenticatedUser) window.updateMyPageAuthenticatedUser(authenticatedUser);
             }
 
             e.target.reset();
@@ -1094,19 +1055,24 @@ document.getElementById('career-post-form').addEventListener('submit', async (e)
 // レンダリング
 // ============================================================
 async function renderAll() {
+    if (!authenticatedUser) return;
     const currentData = await fetchAllData();
     const latestUser = (currentData.scores || []).find(player => player.name === authenticatedUser.name);
     if (latestUser) {
         authenticatedUser = { ...latestUser };
         document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
+        if (window.updateMyPageAuthenticatedUser) window.updateMyPageAuthenticatedUser(authenticatedUser);
         loadSpiQuizForPlayer(authenticatedUser);
     }
     renderTimeline(currentData.career_posts || []);
-    renderRanking(currentData.career_posts || [], currentData.scores || []);
+    if (document.getElementById('career-ranking-container')) {
+        renderRanking(currentData.career_posts || [], currentData.scores || []);
+    }
 }
 
 function renderTimeline(posts) {
     const container = document.getElementById('career-timeline-container');
+    if (!container) return;
     if (posts.length === 0) {
         container.innerHTML = '<p>まだ投稿がありません。</p>';
         return;
@@ -1129,6 +1095,7 @@ function renderTimeline(posts) {
 
 function renderRanking(posts, scores) {
     const container = document.getElementById('career-ranking-container');
+    if (!container) return;
 
     // プレイヤーごとに集計
     const stats = {};
@@ -1202,10 +1169,21 @@ function escapeHtml(str) {
 // ============================================================
 // 初期化
 // ============================================================
-window.onload = async () => {
-    const savedUser = localStorage.getItem('authUsername');
-    const savedPass = localStorage.getItem('authPassword');
-    if (savedUser && savedPass) {
-        await attemptLogin(savedUser, savedPass, true);
-    }
+window.initializeCareerFeaturesForUser = async (user) => {
+    if (!user) return;
+    authenticatedUser = { ...user };
+    highlightCurrentRoadmapMonth();
+    await renderAll();
 };
+window.dispatchEvent(new Event('career-features-ready'));
+
+if (!IS_CAREER_EMBEDDED) {
+    window.onload = async () => {
+        const savedUser = localStorage.getItem('authUsername');
+        const savedPass = localStorage.getItem('authPassword');
+        if (savedUser && savedPass) {
+            await attemptLogin(savedUser, savedPass, true);
+        }
+    };
+}
+}

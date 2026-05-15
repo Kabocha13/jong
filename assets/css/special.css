@@ -315,6 +315,22 @@ html.special-theme .career-offers {
     color: #c65d7b;
 }
 
+html.special-theme .roadmap-item {
+    background-color: rgba(255, 255, 255, 0.88);
+    border-color: rgba(143, 110, 213, 0.18);
+}
+
+html.special-theme .roadmap-item.is-current {
+    border-color: rgba(143, 110, 213, 0.6);
+    border-left-color: #6f55b7;
+    box-shadow: 0 6px 18px rgba(82, 139, 186, 0.12);
+}
+
+html.special-theme .roadmap-header span {
+    background-color: #f4f8ff;
+    border-color: rgba(82, 139, 186, 0.18);
+}
+
 html.special-theme .spi-stat-item {
     background: linear-gradient(180deg, #ffffff 0%, #f4f8ff 100%);
     border-color: rgba(143, 110, 213, 0.18);
