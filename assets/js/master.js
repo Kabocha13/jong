@@ -57,6 +57,10 @@ let ALL_PLAYER_NAMES = []; // 全プレイヤー名を保持
 // ★ 修正: 認証状態をキャッシュではなく、メモリ上の変数で管理
 let isAuthenticatedAsMaster = false;
 
+function finishAuthPending() {
+    document.documentElement.classList.remove('auth-pending');
+}
+
 
 // -----------------------------------------------------------------
 // ★★★ 認証とログイン状態の管理 ★★★
@@ -78,6 +82,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
     // common.js で MASTER_USERNAME は "Kabocha" に固定されている
     if (username !== MASTER_USERNAME) {
         showMessage(AUTH_MESSAGE, '❌ ユーザー名がマスターユーザー名と異なります。', 'error');
+        finishAuthPending();
         return false;
     }
 
@@ -93,6 +98,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         if (!masterUser) {
             console.error("[ERROR:master.js] 認証失敗: 取得データ内にマスターユーザーが見つかりません。");
             showMessage(AUTH_MESSAGE, '❌ ユーザーデータにマスターアカウントが見つかりませんでした。', 'error');
+            finishAuthPending();
             return false;
         }
 
@@ -110,6 +116,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         document.getElementById('auth-section').classList.add('hidden');
         ADMIN_TOOLS.classList.remove('hidden');
         MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
+        finishAuthPending();
 
         // ツール類の初期化
         loadPlayerList();
@@ -133,6 +140,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
     } catch (error) {
         console.error("マスター認証中にエラー:", error);
         showMessage(AUTH_MESSAGE, `❌ Firebase認証エラー: ${error.message}`, 'error');
+        finishAuthPending();
         return false;
     }
 }
@@ -155,6 +163,7 @@ function handleMasterLogout() {
     if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
     // 2. 状態をリセットし、UIを切り替える
+    finishAuthPending();
     document.getElementById('auth-section').classList.remove('hidden');
     ADMIN_TOOLS.classList.add('hidden');
     MASTER_LOGOUT_BUTTON.classList.add('hidden'); // ログアウトボタンを非表示
@@ -172,7 +181,10 @@ async function autoLogin() {
     const username = localStorage.getItem('authUsername');
     const password = localStorage.getItem('authPassword');
     if (username && password) {
-        await attemptMasterLogin(username, password, true);
+        const success = await attemptMasterLogin(username, password, true);
+        if (!success) finishAuthPending();
+    } else {
+        finishAuthPending();
     }
 }
 

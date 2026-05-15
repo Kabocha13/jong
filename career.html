@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>就活</title>
     <link rel="icon" type="image/png" href="assets/icon.png">
+    <script>
+        if (localStorage.getItem('authUsername') && localStorage.getItem('authPassword')) {
+            document.documentElement.classList.add('auth-pending');
+        }
+    </script>
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>

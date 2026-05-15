@@ -57,6 +57,10 @@ let authenticatedUser = null;
 let availableLotteries = [];
 let latestAllData = null;
 
+function finishAuthPending() {
+    document.documentElement.classList.remove('auth-pending');
+}
+
 window.updateMyPageAuthenticatedUser = (user) => {
     if (!user) return;
     authenticatedUser = { ...authenticatedUser, ...user };
@@ -81,6 +85,7 @@ async function attemptLogin(username, password, isAuto = false) {
         await qjongSignIn(username, password);
     } catch (error) {
         showMessage(AUTH_MESSAGE, `❌ Firebase認証エラー: ${error.message}`, 'error');
+        finishAuthPending();
         return false;
     }
 
@@ -104,6 +109,7 @@ async function attemptLogin(username, password, isAuto = false) {
         // 2. UIの切り替え
         document.getElementById('auth-section').classList.add('hidden');
         MYPAGE_CONTENT.classList.remove('hidden');
+        finishAuthPending();
         
         if (!isAuto) {
              showMessage(AUTH_MESSAGE, `✅ ログイン成功! ようこそ、${username}様。`, 'success');
@@ -121,6 +127,7 @@ async function attemptLogin(username, password, isAuto = false) {
         } else {
             showMessage(AUTH_MESSAGE, '❌ ユーザーデータが見つかりません。', 'error');
         }
+        finishAuthPending();
         return false;
     }
 }
@@ -134,7 +141,10 @@ async function autoLogin() {
     const password = localStorage.getItem('authPassword');
 
     if (username && password) {
-        await attemptLogin(username, password, true);
+        const success = await attemptLogin(username, password, true);
+        if (!success) finishAuthPending();
+    } else {
+        finishAuthPending();
     }
 }
 
@@ -152,6 +162,7 @@ function handleLogout() {
     qjongSignOut();
 
     authenticatedUser = null;
+    finishAuthPending();
     document.getElementById('auth-section').classList.remove('hidden');
     MYPAGE_CONTENT.classList.add('hidden');
     

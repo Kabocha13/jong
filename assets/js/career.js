@@ -24,6 +24,10 @@ const IS_CAREER_EMBEDDED = window.CAREER_EMBEDDED === true;
 // ============================================================
 let authenticatedUser = null;
 
+function finishAuthPending() {
+    document.documentElement.classList.remove('auth-pending');
+}
+
 // ============================================================
 // DOM要素
 // ============================================================
@@ -822,6 +826,7 @@ async function attemptLogin(username, password, isAuto = false) {
         const user = allData.scores.find(p => p.name === username);
         if (!user) {
             if (!isAuto) showMessage(AUTH_MESSAGE, '❌ ユーザーデータが見つかりません。', 'error');
+            finishAuthPending();
             return false;
         }
         authenticatedUser = { ...user };
@@ -831,6 +836,7 @@ async function attemptLogin(username, password, isAuto = false) {
 
         AUTH_SECTION.classList.add('hidden');
         CAREER_CONTENT.classList.remove('hidden');
+        finishAuthPending();
         document.getElementById('authenticated-user-name').textContent = authenticatedUser.name;
         document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
         highlightCurrentRoadmapMonth();
@@ -839,6 +845,7 @@ async function attemptLogin(username, password, isAuto = false) {
         return true;
     } catch (err) {
         if (!isAuto) showMessage(AUTH_MESSAGE, `❌ エラー: ${err.message}`, 'error');
+        finishAuthPending();
         return false;
     }
 }
@@ -850,6 +857,7 @@ function handleLogout() {
     localStorage.removeItem('authPassword');
     if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
     CAREER_CONTENT.classList.add('hidden');
+    finishAuthPending();
     AUTH_SECTION.classList.remove('hidden');
     AUTH_FORM.reset();
     showMessage(AUTH_MESSAGE, '👋 ログアウトしました。', 'info');
@@ -1182,7 +1190,10 @@ if (!IS_CAREER_EMBEDDED) {
         const savedUser = localStorage.getItem('authUsername');
         const savedPass = localStorage.getItem('authPassword');
         if (savedUser && savedPass) {
-            await attemptLogin(savedUser, savedPass, true);
+            const success = await attemptLogin(savedUser, savedPass, true);
+            if (!success) finishAuthPending();
+        } else {
+            finishAuthPending();
         }
     };
 }
