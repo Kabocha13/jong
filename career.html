@@ -43,138 +43,76 @@
                 <button type="button" id="logout-button" class="action-button secondary-button mt-10">ログアウト</button>
             </div>
 
-            <div class="tool-box" id="career-roadmap-tool">
-                <div class="roadmap-header">
-                    <h3>就活ロードマップ</h3>
-                    <span>3年 2026年4月開始</span>
+            <div class="tool-box" id="career-management-section">
+                <div class="career-management-header">
+                    <div>
+                        <h3>就活管理ツール</h3>
+                        <p class="instruction">企業ごとの選考状況、給与、マイページ、詳細情報を一覧で管理します。</p>
+                    </div>
+                    <button type="button" id="career-add-company-button" class="action-button w-auto">企業を追加</button>
                 </div>
-                <div class="roadmap-list" aria-label="就活ロードマップ">
-                    <div class="roadmap-item" data-roadmap-month="2026-04">
-                        <time>3年4月</time>
-                        <strong>自己分析</strong>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2026-05">
-                        <time>3年5月</time>
-                        <strong>SPI練習、ES作成</strong>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2026-06">
-                        <time>3年6月</time>
-                        <strong>夏インターン応募</strong>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2026-07">
-                        <time>3年7月</time>
-                        <strong>夏インターン</strong>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2026-08">
-                        <time>3年8月</time>
-                        <strong>夏インターン</strong>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2026-09">
-                        <time>3年9月</time>
-                        <strong>早期選考開始</strong>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2026-10">
-                        <time>3年10月</time>
-                        <strong>秋インターン</strong>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2026-11">
-                        <time>3年11月</time>
-                        <strong>本選考準備</strong>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2026-12">
-                        <time>3年12月</time>
-                        <strong>冬インターン</strong>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2027-01">
-                        <time>3年1月</time>
-                        <strong>本選考準備</strong>
-                        <span>内定率3割</span>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2027-02">
-                        <time>3年2月</time>
-                        <strong>本選考準備</strong>
-                        <span>内定率4割</span>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2027-03">
-                        <time>3年3月</time>
-                        <strong>広報解禁</strong>
-                        <span>内定率5割</span>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2027-04">
-                        <time>4年4月</time>
-                        <strong>本選考応募</strong>
-                        <span>内定率6.5割</span>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2027-05">
-                        <time>4年5月</time>
-                        <strong>本選考応募</strong>
-                        <span>内定率8割</span>
-                    </div>
-                    <div class="roadmap-item" data-roadmap-month="2027-06">
-                        <time>4年6月</time>
-                        <strong>選考解禁</strong>
-                        <span>内定率9割</span>
-                    </div>
+                <div class="career-table-controls">
+                    <label for="career-sort-select">並び替え:</label>
+                    <select id="career-sort-select">
+                        <option value="priority">志望度順</option>
+                        <option value="status">選考状況順</option>
+                        <option value="name">企業名順</option>
+                        <option value="tasks">未完了タスク数順</option>
+                    </select>
                 </div>
+                <p id="career-management-message" class="hidden"></p>
+                <div id="career-company-list"><p>ロード中...</p></div>
             </div>
 
-            <!-- SPI問題集 -->
-            <div class="tool-box" id="spi-tool">
-                <div class="spi-header">
-                    <h3>SPI 問題集</h3>
-                    <div id="spi-progress" class="spi-progress">0 / 200</div>
-                </div>
-                <div id="spi-stats" class="spi-stats"></div>
-                <div id="spi-question-card" class="spi-question-card">
-                    <div class="spi-question-meta" id="spi-question-meta"></div>
-                    <p id="spi-question-text" class="spi-question-text">ロード中...</p>
-                    <form id="spi-answer-form">
-                        <div id="spi-choice-list" class="spi-choice-list"></div>
-                        <button type="submit" class="action-button">回答する</button>
+            <div id="career-company-modal" class="career-modal hidden" role="dialog" aria-modal="true" aria-labelledby="career-modal-title">
+                <div class="career-modal-backdrop" data-career-action="close-modal"></div>
+                <div class="career-modal-panel">
+                    <div class="career-modal-header">
+                        <h3 id="career-modal-title">企業詳細</h3>
+                        <button type="button" class="career-modal-close" data-career-action="close-modal" aria-label="閉じる">×</button>
+                    </div>
+                    <form id="career-company-form" class="career-company-form">
+                        <input type="hidden" id="career-company-id">
+                        <div class="career-form-grid">
+                            <div class="form-group"><label for="career-company-name">企業名:</label><input type="text" id="career-company-name" required></div>
+                            <div class="form-group"><label for="career-company-priority">志望順位:</label><select id="career-company-priority"><option>高</option><option selected>中</option><option>低</option></select></div>
+                            <div class="form-group"><label for="career-company-status">選考状況:</label><select id="career-company-status"><option>未応募</option><option>ES準備中</option><option>ES提出済み</option><option>Webテスト</option><option>一次面接</option><option>二次面接</option><option>最終面接</option><option>内定</option><option>不合格</option><option>辞退</option></select></div>
+                            <div class="form-group"><label for="career-company-salary">給与:</label><input type="text" id="career-company-salary"></div>
+                            <div class="form-group"><label for="career-company-url">企業マイページリンク:</label><input type="url" id="career-company-url"></div>
+                            <div class="form-group"><label for="career-company-login-id">マイページログインID:</label><input type="text" id="career-company-login-id"></div>
+                            <div class="form-group"><label for="career-company-password">パスワード:</label><input type="text" id="career-company-password"></div>
+                        </div>
+                        <div class="form-group"><label for="career-company-es">ES:</label><textarea id="career-company-es" rows="5" placeholder="ESの設問や回答メモ"></textarea></div>
+                        <div class="career-form-actions">
+                            <button type="submit" class="action-button w-auto">保存</button>
+                            <button type="button" id="career-company-delete-button" class="action-button secondary-button danger-button w-auto hidden">企業を削除</button>
+                        </div>
                     </form>
-                    <button type="button" id="spi-next-button" class="action-button secondary-button hidden">次の問題へ</button>
+                    <section class="career-task-editor">
+                        <h4>タスク</h4>
+                        <div id="career-company-task-list"></div>
+                    </section>
+                    <form id="career-task-form" class="career-task-form">
+                        <input type="hidden" id="career-task-company-id">
+                        <div class="career-task-grid">
+                            <div class="form-group"><label for="career-task-title">タスク名:</label><input type="text" id="career-task-title" required></div>
+                            <div class="form-group"><label for="career-task-type">種別:</label><select id="career-task-type"><option>ES</option><option>SPI</option><option>写真</option><option>面接予約</option><option>その他</option></select></div>
+                            <div class="form-group"><label for="career-task-deadline">締切日:</label><input type="date" id="career-task-deadline"></div>
+                            <label class="career-task-check"><input type="checkbox" id="career-task-done"> 完了</label>
+                        </div>
+                        <div class="form-group"><label for="career-task-note">メモ:</label><textarea id="career-task-note" rows="2"></textarea></div>
+                        <button type="submit" class="action-button w-auto">タスクを追加</button>
+                    </form>
                 </div>
-                <p id="spi-message" class="hidden"></p>
-            </div>
-
-            <!-- 投稿フォーム -->
-            <div class="tool-box">
-                <h3>📝 就活報告</h3>
-                <form id="career-post-form">
-                    <div class="form-group">
-                        <label for="post-type">種別:</label>
-                        <select id="post-type" required>
-                            <option value="" disabled selected>選択してください</option>
-                            <option value="apply">📮 応募 (+3P)</option>
-                            <option value="pass_doc">📄 書類通過 (+20P)</option>
-                            <option value="pass_interview_1">💬 1次面接通過 (+30P)</option>
-                            <option value="pass_interview_2">💬 2次面接通過 (+30P)</option>
-                            <option value="pass_interview_3">💬 3次面接通過 (+30P)</option>
-                            <option value="pass_interview_final">💬 最終面接通過 (+30P)</option>
-                            <option value="offer">🎉 内定 (+100P・全員に100P)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="post-company">企業名:</label>
-                        <input type="text" id="post-company" required placeholder="例: 株式会社〇〇">
-                    </div>
-<button type="submit" class="action-button w-auto" style="background-color: #4a90d9;">投稿する</button>
-                </form>
-                <p id="post-message" class="hidden"></p>
-            </div>
-
-            <!-- タイムライン -->
-            <div class="tool-box">
-                <h3>📰 タイムライン</h3>
-                <div id="career-timeline-container"><p>ロード中...</p></div>
             </div>
         </section>
     </main>
 
     <footer>
         <nav class="footer-nav">
-            <a href="index.html"  class="input-link">ランキング</a>
+            <a href="index.html"  class="input-link">ホーム</a>
             <a href="mypage.html" class="input-link">マイページ</a>
+            <a href="career.html" class="input-link">就活</a>
             <a href="master.html" class="input-link">マスター</a>
         </nav>
     </footer>

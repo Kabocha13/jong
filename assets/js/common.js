@@ -7,7 +7,8 @@ const FIREBASE_COLLECTIONS = {
     lotteries: 'lotteries',
     gift_codes: 'gift_codes',
     exercise_reports: 'exercise_reports',
-    career_posts: 'career_posts'
+    career_posts: 'career_posts',
+    career_companies: 'career_companies'
 };
 let _firebaseFirestoreSettingsApplied = false;
 
@@ -93,6 +94,7 @@ function createEmptyData() {
         gift_codes: [],
         exercise_reports: [],
         career_posts: [],
+        career_companies: [],
         territory_battle: createDefaultTerritoryBattle(),
         special_theme: null,
         attendance_allowed_users: []
@@ -135,6 +137,7 @@ function getItemDocId(key, item, index) {
     if (key === 'gift_codes') return toDocId(item.code ?? item.name ?? item.id ?? `gift_${index}`);
     if (key === 'exercise_reports') return toDocId(item.id ?? `exercise_${index}`);
     if (key === 'career_posts') return toDocId(item.id ?? `career_${index}`);
+    if (key === 'career_companies') return toDocId(item.id ?? `company_${index}`);
     if (key === 'speedstorm_records') return toDocId(item.id ?? item.player ?? `speedstorm_${index}`);
     return toDocId(item.id ?? index);
 }
@@ -494,6 +497,15 @@ async function fetchCollection(db, key) {
     return snapshot.docs.map(doc => ({ ...doc.data(), _docId: doc.id }));
 }
 
+async function fetchOptionalCollection(db, key) {
+    try {
+        return await fetchCollection(db, key);
+    } catch (error) {
+        console.warn(`${key} の取得に失敗しました。空配列として続行します。`, error);
+        return [];
+    }
+}
+
 async function fetchSpiQuestionStats() {
     const db = getFirestoreDb();
     if (!db) return [];
@@ -523,6 +535,7 @@ async function fetchAllDataFromFirebase() {
         giftCodes,
         exerciseReports,
         careerPosts,
+        careerCompanies,
         settingsDoc,
         territoryDoc
     ] = await Promise.all([
@@ -533,6 +546,7 @@ async function fetchAllDataFromFirebase() {
         fetchCollection(db, 'gift_codes'),
         fetchCollection(db, 'exercise_reports'),
         fetchCollection(db, 'career_posts'),
+        fetchOptionalCollection(db, 'career_companies'),
         db.collection('settings').doc('app').get(),
         db.collection('territory_battle').doc('current').get()
     ]);
@@ -546,6 +560,7 @@ async function fetchAllDataFromFirebase() {
         gift_codes: giftCodes,
         exercise_reports: exerciseReports,
         career_posts: careerPosts,
+        career_companies: careerCompanies,
         territory_battle: territoryDoc.exists ? territoryDoc.data() : null,
         special_theme: settings.special_theme ?? null,
         attendance_allowed_users: settings.attendance_allowed_users ?? []

@@ -210,7 +210,7 @@ async function initializeMyPageContent() {
             window.initializeCareerFeaturesForUser(authenticatedUser);
         }, { once: true });
     }
-    
+
     loadTransferReceiverList(); 
     
     await loadLotteryData();

@@ -4,16 +4,8 @@
 // ============================================================
 // 定数
 // ============================================================
-const POST_TYPES = {
-    apply:                 { label: '📮 応募',          points: 3 },
-    pass_doc:              { label: '📄 書類通過',      points: 20 },
-    pass_interview_1:      { label: '💬 1次面接通過',   points: 30 },
-    pass_interview_2:      { label: '💬 2次面接通過',   points: 30 },
-    pass_interview_3:      { label: '💬 3次面接通過',   points: 30 },
-    pass_interview_final:  { label: '💬 最終面接通過',  points: 30 },
-    offer:                 { label: '🎉 内定',          points: 100 },
-};
-const OFFER_BONUS     = 10;  // 内定時に全員へ配布するボーナスP
+const CAREER_STATUS_ORDER = ['未応募', 'ES準備中', 'ES提出済み', 'Webテスト', '一次面接', '二次面接', '最終面接', '内定', '不合格', '辞退'];
+const CAREER_PRIORITY_ORDER = { '高': 0, '中': 1, '低': 2 };
 const SPI_POINT_REWARD = 0.5;
 const SPI_TOTAL_QUESTIONS = 200;
 const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v7';
@@ -992,85 +984,272 @@ if (SPI_NEXT_BUTTON) SPI_NEXT_BUTTON.addEventListener('click', () => {
 });
 
 // ============================================================
-// 投稿フォーム
+// 就活管理ツール
 // ============================================================
-const CAREER_POST_FORM = document.getElementById('career-post-form');
-if (CAREER_POST_FORM) CAREER_POST_FORM.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const messageEl  = document.getElementById('post-message');
-    const type       = document.getElementById('post-type').value;
-    const company    = document.getElementById('post-company').value.trim();
-    const submitBtn  = e.target.querySelector('button[type="submit"]');
+const CAREER_COMPANY_FORM = document.getElementById('career-company-form');
+const CAREER_TASK_FORM = document.getElementById('career-task-form');
+const CAREER_MANAGEMENT_MESSAGE = document.getElementById('career-management-message');
+const CAREER_COMPANY_LIST = document.getElementById('career-company-list');
+const CAREER_COMPANY_TASK_LIST = document.getElementById('career-company-task-list');
+const CAREER_COMPANY_DELETE_BUTTON = document.getElementById('career-company-delete-button');
+const CAREER_ADD_COMPANY_BUTTON = document.getElementById('career-add-company-button');
+const CAREER_COMPANY_MODAL = document.getElementById('career-company-modal');
+const CAREER_SORT_SELECT = document.getElementById('career-sort-select');
 
-    if (!type || !company) {
-        showMessage(messageEl, '❌ 種別と企業名を入力してください。', 'error');
+let careerCompaniesCache = [];
+let selectedCareerCompanyId = '';
+
+function getCareerField(id) {
+    return document.getElementById(id);
+}
+
+function normalizeCareerCompany(company) {
+    return {
+        id: company.id || `co_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        owner: company.owner || authenticatedUser?.name || '',
+        name: company.name || '',
+        salary: company.salary || '',
+        mypageUrl: company.mypageUrl || '',
+        status: company.status || '未応募',
+        priority: company.priority || '中',
+        loginId: company.loginId || '',
+        password: company.password || '',
+        es: company.es || '',
+        tasks: Array.isArray(company.tasks) ? company.tasks : [],
+        createdAt: company.createdAt || new Date().toISOString(),
+        updatedAt: company.updatedAt || new Date().toISOString()
+    };
+}
+
+function getOwnedCareerCompanies(data) {
+    const companies = (data.career_companies || [])
+        .map(normalizeCareerCompany)
+        .filter(company => company.owner === authenticatedUser.name);
+    return sortCareerCompanies(companies, CAREER_SORT_SELECT?.value || 'priority');
+}
+
+function getPendingTaskCount(company) {
+    return (company.tasks || []).filter(task => !task.done).length;
+}
+
+function sortCareerCompanies(companies, sortKey) {
+    return [...companies].sort((a, b) => {
+        if (sortKey === 'name') return a.name.localeCompare(b.name, 'ja');
+        if (sortKey === 'status') {
+            const statusDiff = CAREER_STATUS_ORDER.indexOf(a.status) - CAREER_STATUS_ORDER.indexOf(b.status);
+            return statusDiff || a.name.localeCompare(b.name, 'ja');
+        }
+        if (sortKey === 'tasks') {
+            const taskDiff = getPendingTaskCount(b) - getPendingTaskCount(a);
+            return taskDiff || a.name.localeCompare(b.name, 'ja');
+        }
+        const priorityDiff = (CAREER_PRIORITY_ORDER[a.priority] ?? 9) - (CAREER_PRIORITY_ORDER[b.priority] ?? 9);
+        return priorityDiff || a.name.localeCompare(b.name, 'ja');
+    });
+}
+
+function readCareerCompanyForm() {
+    const existingId = getCareerField('career-company-id')?.value || '';
+    const now = new Date().toISOString();
+    return {
+        id: existingId || `co_${Date.now()}`,
+        owner: authenticatedUser.name,
+        name: getCareerField('career-company-name').value.trim(),
+        salary: getCareerField('career-company-salary').value.trim(),
+        mypageUrl: getCareerField('career-company-url').value.trim(),
+        status: getCareerField('career-company-status').value,
+        priority: getCareerField('career-company-priority').value,
+        loginId: getCareerField('career-company-login-id').value.trim(),
+        password: getCareerField('career-company-password').value.trim(),
+        es: getCareerField('career-company-es').value.trim(),
+        createdAt: now,
+        updatedAt: now
+    };
+}
+
+function fillCareerCompanyForm(company) {
+    const normalized = normalizeCareerCompany(company);
+    selectedCareerCompanyId = normalized.id;
+    getCareerField('career-company-id').value = normalized.id;
+    getCareerField('career-company-name').value = normalized.name;
+    getCareerField('career-company-salary').value = normalized.salary;
+    getCareerField('career-company-url').value = normalized.mypageUrl;
+    getCareerField('career-company-status').value = normalized.status;
+    getCareerField('career-company-priority').value = normalized.priority;
+    getCareerField('career-company-login-id').value = normalized.loginId;
+    getCareerField('career-company-password').value = normalized.password;
+    getCareerField('career-company-es').value = normalized.es;
+    if (CAREER_COMPANY_DELETE_BUTTON) CAREER_COMPANY_DELETE_BUTTON.classList.remove('hidden');
+    getCareerField('career-task-company-id').value = normalized.id;
+    renderCompanyTasks(normalized);
+    openCareerModal();
+}
+
+function resetCareerCompanyForm(company = null) {
+    if (!CAREER_COMPANY_FORM) return;
+    CAREER_COMPANY_FORM.reset();
+    selectedCareerCompanyId = company?.id || '';
+    getCareerField('career-company-id').value = company?.id || '';
+    getCareerField('career-company-name').value = company?.name || '';
+    getCareerField('career-company-salary').value = company?.salary || '';
+    getCareerField('career-company-url').value = company?.mypageUrl || '';
+    getCareerField('career-company-login-id').value = company?.loginId || '';
+    getCareerField('career-company-password').value = company?.password || '';
+    getCareerField('career-company-es').value = company?.es || '';
+    getCareerField('career-company-priority').value = '中';
+    getCareerField('career-company-status').value = '未応募';
+    if (company) {
+        getCareerField('career-company-priority').value = company.priority || '中';
+        getCareerField('career-company-status').value = company.status || '未応募';
+    }
+    getCareerField('career-task-company-id').value = company?.id || '';
+    if (CAREER_COMPANY_DELETE_BUTTON) CAREER_COMPANY_DELETE_BUTTON.classList.toggle('hidden', !company);
+    renderCompanyTasks(company || { id: '', tasks: [] });
+}
+
+function openCareerModal() {
+    if (!CAREER_COMPANY_MODAL) return;
+    CAREER_COMPANY_MODAL.classList.remove('hidden');
+    document.body.classList.add('career-modal-open');
+}
+
+function closeCareerModal() {
+    if (!CAREER_COMPANY_MODAL) return;
+    CAREER_COMPANY_MODAL.classList.add('hidden');
+    document.body.classList.remove('career-modal-open');
+}
+
+async function saveCareerCompanies(nextCompanies, message) {
+    const db = getFirestoreDb();
+    if (!db) throw new Error('Firebase が設定されていません。');
+
+    const collectionRef = db.collection(FIREBASE_COLLECTIONS.career_companies);
+    const snapshot = await collectionRef.get();
+    const nextIds = new Set();
+    const batch = db.batch();
+
+    nextCompanies.forEach((company, index) => {
+        const normalized = normalizeCareerCompany(company);
+        const docId = getItemDocId('career_companies', normalized, index);
+        nextIds.add(docId);
+        const payload = { ...normalized };
+        delete payload._docId;
+        batch.set(collectionRef.doc(docId), payload);
+    });
+
+    snapshot.docs.forEach(doc => {
+        const company = doc.data();
+        if (company.owner === authenticatedUser.name && !nextIds.has(doc.id)) {
+            batch.delete(doc.ref);
+        }
+    });
+
+    await batch.commit();
+    invalidateFetchCache();
+    showMessage(CAREER_MANAGEMENT_MESSAGE, message, 'success');
+    await renderAll();
+}
+
+if (CAREER_COMPANY_FORM) CAREER_COMPANY_FORM.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const formCompany = readCareerCompanyForm();
+    if (!formCompany.name) {
+        showMessage(CAREER_MANAGEMENT_MESSAGE, '企業名を入力してください。', 'error');
         return;
     }
 
     submitBtn.disabled = true;
     try {
         const currentData = await fetchAllData();
-        const postDef     = POST_TYPES[type];
-
-        const newPost = {
-            id:         `cp_${Date.now()}`,
-            player:     authenticatedUser.name,
-            type,
-            company,
-            postedAt:   new Date().toISOString(),
-            points:     postDef.points,
-        };
-
-        // スコアをMapで管理
-        const scoreMap = new Map(currentData.scores.map(s => [s.name, { ...s }]));
-
-        // 投稿者にポイント付与
-        if (postDef.points > 0) {
-            const poster = scoreMap.get(authenticatedUser.name);
-            if (poster) poster.score = parseFloat((poster.score + postDef.points).toFixed(1));
-        }
-
-        // 内定の場合、全員（投稿者含む）にボーナスP付与
-        if (type === 'offer') {
-            for (const [, player] of scoreMap) {
-                player.score = parseFloat((player.score + OFFER_BONUS).toFixed(1));
-            }
-        }
-
-        const newCareerPosts = [...(currentData.career_posts || []), newPost];
-
-        const newData = {
-            scores:               Array.from(scoreMap.values()),
-            sports_bets:          currentData.sports_bets          || [],
-            speedstorm_records:   currentData.speedstorm_records    || [],
-            lotteries:            currentData.lotteries             || [],
-            gift_codes:           currentData.gift_codes            || [],
-            exercise_reports:     currentData.exercise_reports      || [],
-            career_posts:         newCareerPosts,
-        };
-
-        const res = await updateAllData(newData);
-        if (res.status === 'success') {
-            let msg = `✅ 投稿しました。`;
-            if (postDef.points > 0) msg += ` +${postDef.points}P 獲得！`;
-            if (type === 'offer')    msg += ` 全員に ${OFFER_BONUS}P のボーナスが配布されました🎉`;
-            showMessage(messageEl, msg, 'success');
-
-            // 残高を更新
-            const updated = Array.from(scoreMap.values()).find(s => s.name === authenticatedUser.name);
-            if (updated) {
-                authenticatedUser.score = updated.score;
-                document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
-                if (window.updateMyPageAuthenticatedUser) window.updateMyPageAuthenticatedUser(authenticatedUser);
-            }
-
-            e.target.reset();
-            await renderAll();
-        } else {
-            showMessage(messageEl, `❌ 投稿エラー: ${res.message}`, 'error');
-        }
+        const owned = getOwnedCareerCompanies(currentData);
+        const existing = owned.find(company => company.id === formCompany.id);
+        const nextCompany = normalizeCareerCompany({
+            ...existing,
+            ...formCompany,
+            tasks: existing?.tasks || [],
+            createdAt: existing?.createdAt || formCompany.createdAt,
+            updatedAt: new Date().toISOString()
+        });
+        const nextOwned = existing
+            ? owned.map(company => company.id === nextCompany.id ? nextCompany : company)
+            : [...owned, nextCompany];
+        await saveCareerCompanies(nextOwned, existing ? '企業情報を更新しました。' : '企業を追加しました。');
+        selectedCareerCompanyId = nextCompany.id;
+        fillCareerCompanyForm(nextCompany);
     } catch (err) {
-        showMessage(messageEl, `❌ サーバーエラー: ${err.message}`, 'error');
+        showMessage(CAREER_MANAGEMENT_MESSAGE, `保存エラー: ${err.message}`, 'error');
+    } finally {
+        submitBtn.disabled = false;
+    }
+});
+
+if (CAREER_ADD_COMPANY_BUTTON) CAREER_ADD_COMPANY_BUTTON.addEventListener('click', () => {
+    resetCareerCompanyForm();
+    openCareerModal();
+});
+
+if (CAREER_SORT_SELECT) CAREER_SORT_SELECT.addEventListener('change', () => {
+    careerCompaniesCache = sortCareerCompanies(careerCompaniesCache, CAREER_SORT_SELECT.value);
+    renderCareerCompanyList(careerCompaniesCache);
+});
+
+if (CAREER_COMPANY_DELETE_BUTTON) CAREER_COMPANY_DELETE_BUTTON.addEventListener('click', async () => {
+    const companyId = getCareerField('career-company-id')?.value;
+    if (!companyId || !confirm('この企業情報を削除しますか？')) return;
+    CAREER_COMPANY_DELETE_BUTTON.disabled = true;
+    try {
+        const currentData = await fetchAllData();
+        const nextOwned = getOwnedCareerCompanies(currentData).filter(company => company.id !== companyId);
+        await saveCareerCompanies(nextOwned, '企業情報を削除しました。');
+        resetCareerCompanyForm();
+        closeCareerModal();
+    } catch (err) {
+        showMessage(CAREER_MANAGEMENT_MESSAGE, `削除エラー: ${err.message}`, 'error');
+    } finally {
+        CAREER_COMPANY_DELETE_BUTTON.disabled = false;
+    }
+});
+
+if (CAREER_TASK_FORM) CAREER_TASK_FORM.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const companyId = getCareerField('career-task-company-id').value;
+    const title = getCareerField('career-task-title').value.trim();
+    if (!companyId) {
+        showMessage(CAREER_MANAGEMENT_MESSAGE, '先に企業情報を保存してください。', 'error');
+        return;
+    }
+    if (!title) return;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    try {
+        const currentData = await fetchAllData();
+        const owned = getOwnedCareerCompanies(currentData);
+        const nextOwned = owned.map(company => {
+            if (company.id !== companyId) return company;
+            return normalizeCareerCompany({
+                ...company,
+                tasks: [
+                    ...(company.tasks || []),
+                    {
+                        id: `task_${Date.now()}`,
+                        title,
+                        type: getCareerField('career-task-type').value,
+                        deadline: getCareerField('career-task-deadline').value,
+                        done: getCareerField('career-task-done').checked,
+                        note: getCareerField('career-task-note').value.trim(),
+                        createdAt: new Date().toISOString()
+                    }
+                ],
+                updatedAt: new Date().toISOString()
+            });
+        });
+        await saveCareerCompanies(nextOwned, 'タスクを追加しました。');
+        e.target.reset();
+        const updatedCompany = nextOwned.find(company => company.id === companyId);
+        if (updatedCompany) fillCareerCompanyForm(updatedCompany);
+    } catch (err) {
+        showMessage(CAREER_MANAGEMENT_MESSAGE, `タスク保存エラー: ${err.message}`, 'error');
     } finally {
         submitBtn.disabled = false;
     }
@@ -1087,104 +1266,156 @@ async function renderAll() {
         authenticatedUser = { ...latestUser };
         document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
         if (window.updateMyPageAuthenticatedUser) window.updateMyPageAuthenticatedUser(authenticatedUser);
-        loadSpiQuizForPlayer(authenticatedUser);
-    }
-    renderTimeline(currentData.career_posts || []);
-    if (document.getElementById('career-ranking-container')) {
-        renderRanking(currentData.career_posts || [], currentData.scores || []);
-    }
-}
-
-function renderTimeline(posts) {
-    const container = document.getElementById('career-timeline-container');
-    if (!container) return;
-    if (posts.length === 0) {
-        container.innerHTML = '<p>まだ投稿がありません。</p>';
-        return;
-    }
-
-    const sorted = [...posts].sort((a, b) => new Date(b.postedAt) - new Date(a.postedAt));
-    container.innerHTML = sorted.map(post => {
-        const def  = POST_TYPES[post.type] || { label: post.type };
-        const date = new Date(post.postedAt).toLocaleDateString('ja-JP');
-        return `
-        <div style="border-left:4px solid ${typeColor(post.type)};padding:10px 14px;margin-bottom:12px;background:#fafafa;border-radius:0 6px 6px 0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
-                <span><strong>${escapeHtml(post.player)}</strong>　<span style="color:${typeColor(post.type)};font-weight:bold;">${def.label}</span></span>
-                <span style="color:#888;font-size:0.85em;">${date}</span>
-            </div>
-            <p style="margin:4px 0 0;font-size:1em;">🏢 ${escapeHtml(post.company)}</p>
-        </div>`;
-    }).join('');
-}
-
-function renderRanking(posts, scores) {
-    const container = document.getElementById('career-ranking-container');
-    if (!container) return;
-
-    // プレイヤーごとに集計
-    const stats = {};
-    for (const post of posts) {
-        if (!stats[post.player]) {
-            stats[post.player] = { offers: 0, finalPassed: 0, interviews: 0, docPassed: 0, applications: 0 };
+        if (SPI_PROGRESS && SPI_STATS && SPI_QUESTION_TEXT) {
+            loadSpiQuizForPlayer(authenticatedUser);
         }
-        if (post.type === 'offer')                stats[post.player].offers++;
-        else if (post.type === 'pass_interview_final') stats[post.player].finalPassed++;
-        else if (post.type.startsWith('pass_interview_')) stats[post.player].interviews++;
-        else if (post.type === 'pass_doc')         stats[post.player].docPassed++;
-        else if (post.type === 'apply')            stats[post.player].applications++;
     }
+    renderCareerManagement(currentData);
+}
 
-    const players = Object.entries(stats).sort((a, b) => {
-        const s = (p) => p[1].offers * 1000 + p[1].finalPassed * 100 + p[1].interviews * 10 + p[1].docPassed * 3 + p[1].applications;
-        return s(b) - s(a);
-    });
+function renderCareerManagement(data) {
+    careerCompaniesCache = getOwnedCareerCompanies(data);
+    renderCareerCompanyList(careerCompaniesCache);
+    const selected = careerCompaniesCache.find(company => company.id === selectedCareerCompanyId);
+    if (selected && CAREER_COMPANY_MODAL && !CAREER_COMPANY_MODAL.classList.contains('hidden')) {
+        fillCareerCompanyForm(selected);
+    }
+}
 
-    if (players.length === 0) {
-        container.innerHTML = '<p>まだデータがありません。</p>';
+function renderCareerCompanyList(companies) {
+    if (!CAREER_COMPANY_LIST) return;
+    if (!companies.length) {
+        CAREER_COMPANY_LIST.innerHTML = '<p class="career-empty">まだ企業が登録されていません。「企業を追加」から始めてください。</p>';
         return;
     }
-
-    const medals = ['🥇', '🥈', '🥉'];
-    container.innerHTML = `
-        <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
-            <thead>
-                <tr style="border-bottom:2px solid #ddd;text-align:left;">
-                    <th style="padding:6px 4px;">順位</th>
-                    <th style="padding:6px 4px;">名前</th>
-                    <th style="padding:6px 4px;text-align:center;">内定</th>
-                    <th style="padding:6px 4px;text-align:center;">最終通過</th>
-                    <th style="padding:6px 4px;text-align:center;">面接通過</th>
-                    <th style="padding:6px 4px;text-align:center;">書類通過</th>
-                    <th style="padding:6px 4px;text-align:center;">応募</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${players.map(([name, s], i) => `
-                <tr style="border-bottom:1px solid #eee;">
-                    <td style="padding:6px 4px;">${medals[i] || i + 1}</td>
-                    <td style="padding:6px 4px;font-weight:bold;">${escapeHtml(name)}</td>
-                    <td style="padding:6px 4px;text-align:center;">${s.offers > 0 ? `<span style="color:#e74c3c;font-weight:bold;">${s.offers}</span>` : '—'}</td>
-                    <td style="padding:6px 4px;text-align:center;">${s.finalPassed || '—'}</td>
-                    <td style="padding:6px 4px;text-align:center;">${s.interviews || '—'}</td>
-                    <td style="padding:6px 4px;text-align:center;">${s.docPassed || '—'}</td>
-                    <td style="padding:6px 4px;text-align:center;">${s.applications || '—'}</td>
-                </tr>`).join('')}
-            </tbody>
-        </table>`;
+    CAREER_COMPANY_LIST.innerHTML = `
+        <div class="career-table-wrap">
+            <table class="career-table career-company-table">
+                <thead>
+                    <tr>
+                        <th>企業名</th>
+                        <th>志望</th>
+                        <th>選考状況</th>
+                        <th>給与</th>
+                        <th>リンク</th>
+                        <th>タスク</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${companies.map(company => {
+                        const pendingTasks = (company.tasks || []).filter(task => !task.done).length;
+                        return `
+                        <tr>
+                            <td>${escapeHtml(company.name)}</td>
+                            <td><span class="career-priority priority-${escapeHtml(company.priority)}">${escapeHtml(company.priority)}</span></td>
+                            <td>${escapeHtml(company.status)}</td>
+                            <td>${escapeHtml(company.salary || '—')}</td>
+                            <td>${company.mypageUrl ? `<a class="career-link" href="${escapeHtml(company.mypageUrl)}" target="_blank" rel="noopener">開く</a>` : '—'}</td>
+                            <td>${pendingTasks ? `未完了 ${pendingTasks}` : 'なし'}</td>
+                            <td>
+                                <button type="button" class="career-mini-button" data-career-action="edit" data-company-id="${escapeHtml(company.id)}">詳細</button>
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>`;
 }
 
-function typeColor(type) {
-    if (type === 'offer')                    return '#e74c3c';
-    if (type === 'pass_interview_final')     return '#e67e22';
-    if (type.startsWith('pass_interview_')) return '#3498db';
-    if (type === 'pass_doc')                return '#27ae60';
-    if (type === 'apply')                   return '#7f8c8d';
-    return '#95a5a6';
+function renderCompanyTasks(company) {
+    if (!CAREER_COMPANY_TASK_LIST) return;
+    const tasks = [...(company.tasks || [])].sort((a, b) => {
+        if (Boolean(a.done) !== Boolean(b.done)) return a.done ? 1 : -1;
+        return (a.deadline || '9999-12-31').localeCompare(b.deadline || '9999-12-31');
+    });
+    if (!tasks.length) {
+        CAREER_COMPANY_TASK_LIST.innerHTML = '<p class="mt-10">この企業のタスクはまだありません。</p>';
+        return;
+    }
+    CAREER_COMPANY_TASK_LIST.innerHTML = `<ul class="career-task-list">${tasks.map(task => renderCareerTaskItem({ ...task, companyId: company.id }, false)).join('')}</ul>`;
 }
+
+function renderCareerTaskItem(task, showCompany) {
+    const deadline = task.deadline ? new Date(`${task.deadline}T00:00:00`).toLocaleDateString('ja-JP') : '締切なし';
+    return `
+        <li class="career-task-item ${task.done ? 'is-done' : ''}">
+            <label>
+                <input type="checkbox" ${task.done ? 'checked' : ''} data-career-action="toggle-task" data-company-id="${escapeHtml(task.companyId)}" data-task-id="${escapeHtml(task.id)}">
+                <span>
+                    <strong>${escapeHtml(task.title)}</strong>
+                    <small>${escapeHtml(task.type || 'その他')} / ${escapeHtml(deadline)}${showCompany ? ` / ${escapeHtml(task.companyName)}` : ''}</small>
+                    ${task.note ? `<em>${escapeHtml(task.note)}</em>` : ''}
+                </span>
+            </label>
+            <button type="button" class="career-mini-button" data-career-action="delete-task" data-company-id="${escapeHtml(task.companyId)}" data-task-id="${escapeHtml(task.id)}">削除</button>
+        </li>`;
+}
+
+document.addEventListener('click', async (e) => {
+    const target = e.target.closest('[data-career-action]');
+    if (!target) return;
+    const action = target.dataset.careerAction;
+    if (action === 'close-modal') {
+        closeCareerModal();
+        return;
+    }
+    if (!authenticatedUser) return;
+    if (action === 'toggle-task') return;
+    const companyId = target.dataset.companyId;
+    const taskId = target.dataset.taskId;
+
+    try {
+        const currentData = await fetchAllData();
+        const owned = getOwnedCareerCompanies(currentData);
+        const company = owned.find(item => item.id === companyId);
+        if (!company) return;
+
+        if (action === 'edit') {
+            fillCareerCompanyForm(company);
+            document.getElementById('career-management-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+
+        if (action === 'delete-task' && !confirm('このタスクを削除しますか？')) return;
+
+        const nextOwned = owned.map(item => {
+            if (item.id !== companyId) return item;
+            const tasks = (item.tasks || []).filter(task => !(action === 'delete-task' && task.id === taskId));
+            return normalizeCareerCompany({ ...item, tasks, updatedAt: new Date().toISOString() });
+        });
+        await saveCareerCompanies(nextOwned, 'タスクを削除しました。');
+    } catch (err) {
+        showMessage(CAREER_MANAGEMENT_MESSAGE, `タスク更新エラー: ${err.message}`, 'error');
+    }
+});
+
+document.addEventListener('change', async (e) => {
+    const target = e.target.closest('[data-career-action="toggle-task"]');
+    if (!target || !authenticatedUser) return;
+    const companyId = target.dataset.companyId;
+    const taskId = target.dataset.taskId;
+
+    try {
+        const currentData = await fetchAllData();
+        const owned = getOwnedCareerCompanies(currentData);
+        const nextOwned = owned.map(item => {
+            if (item.id !== companyId) return item;
+            const tasks = (item.tasks || []).map(task => {
+                if (task.id !== taskId) return task;
+                return { ...task, done: target.checked };
+            });
+            return normalizeCareerCompany({ ...item, tasks, updatedAt: new Date().toISOString() });
+        });
+        await saveCareerCompanies(nextOwned, 'タスクを更新しました。');
+    } catch (err) {
+        target.checked = !target.checked;
+        showMessage(CAREER_MANAGEMENT_MESSAGE, `タスク更新エラー: ${err.message}`, 'error');
+    }
+});
 
 function escapeHtml(str) {
-    return String(str)
+    return String(str ?? '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
