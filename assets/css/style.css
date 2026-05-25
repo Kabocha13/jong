@@ -1419,6 +1419,22 @@ html.auth-pending #auth-section { display: none !important; }
     min-width: 150px;
 }
 
+.career-task-table td:nth-child(2),
+.career-task-table td:nth-child(3),
+.career-task-table th:nth-child(2),
+.career-task-table th:nth-child(3) {
+    text-align: left;
+}
+
+.career-task-table tr.is-done td {
+    opacity: 0.68;
+    background-color: #f7f7f2;
+}
+
+.career-task-table tr.is-done td:nth-child(2) {
+    text-decoration: line-through;
+}
+
 .career-priority {
     display: inline-flex;
     align-items: center;

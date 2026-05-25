@@ -990,6 +990,7 @@ const CAREER_COMPANY_FORM = document.getElementById('career-company-form');
 const CAREER_TASK_FORM = document.getElementById('career-task-form');
 const CAREER_MANAGEMENT_MESSAGE = document.getElementById('career-management-message');
 const CAREER_COMPANY_LIST = document.getElementById('career-company-list');
+const CAREER_ALL_TASK_TABLE = document.getElementById('career-all-task-table');
 const CAREER_COMPANY_TASK_LIST = document.getElementById('career-company-task-list');
 const CAREER_COMPANY_DELETE_BUTTON = document.getElementById('career-company-delete-button');
 const CAREER_ADD_COMPANY_BUTTON = document.getElementById('career-add-company-button');
@@ -1276,10 +1277,70 @@ async function renderAll() {
 function renderCareerManagement(data) {
     careerCompaniesCache = getOwnedCareerCompanies(data);
     renderCareerCompanyList(careerCompaniesCache);
+    renderAllTaskTable(careerCompaniesCache);
     const selected = careerCompaniesCache.find(company => company.id === selectedCareerCompanyId);
     if (selected && CAREER_COMPANY_MODAL && !CAREER_COMPANY_MODAL.classList.contains('hidden')) {
         fillCareerCompanyForm(selected);
     }
+}
+
+function getAllCareerTasks(companies) {
+    return companies.flatMap(company => (company.tasks || []).map(task => ({
+        ...task,
+        companyId: company.id,
+        companyName: company.name,
+        companyPriority: company.priority,
+        companyStatus: company.status
+    }))).sort((a, b) => {
+        if (Boolean(a.done) !== Boolean(b.done)) return a.done ? 1 : -1;
+        const deadlineDiff = (a.deadline || '9999-12-31').localeCompare(b.deadline || '9999-12-31');
+        if (deadlineDiff !== 0) return deadlineDiff;
+        return String(a.companyName || '').localeCompare(String(b.companyName || ''), 'ja');
+    });
+}
+
+function renderAllTaskTable(companies) {
+    if (!CAREER_ALL_TASK_TABLE) return;
+    const tasks = getAllCareerTasks(companies);
+    if (!tasks.length) {
+        CAREER_ALL_TASK_TABLE.innerHTML = '<p class="career-empty">まだタスクが登録されていません。企業詳細からタスクを追加できます。</p>';
+        return;
+    }
+
+    CAREER_ALL_TASK_TABLE.innerHTML = `
+        <div class="career-table-wrap">
+            <table class="career-table career-task-table">
+                <thead>
+                    <tr>
+                        <th>完了</th>
+                        <th>タスク</th>
+                        <th>企業名</th>
+                        <th>種別</th>
+                        <th>締切</th>
+                        <th>メモ</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tasks.map(task => {
+                        const deadline = task.deadline ? new Date(`${task.deadline}T00:00:00`).toLocaleDateString('ja-JP') : '—';
+                        return `
+                        <tr class="${task.done ? 'is-done' : ''}">
+                            <td><input type="checkbox" ${task.done ? 'checked' : ''} data-career-action="toggle-task" data-company-id="${escapeHtml(task.companyId)}" data-task-id="${escapeHtml(task.id)}"></td>
+                            <td>${escapeHtml(task.title)}</td>
+                            <td>${escapeHtml(task.companyName)}</td>
+                            <td>${escapeHtml(task.type || 'その他')}</td>
+                            <td>${escapeHtml(deadline)}</td>
+                            <td>${escapeHtml(task.note || '—')}</td>
+                            <td>
+                                <button type="button" class="career-mini-button" data-career-action="edit" data-company-id="${escapeHtml(task.companyId)}">詳細</button>
+                                <button type="button" class="career-mini-button" data-career-action="delete-task" data-company-id="${escapeHtml(task.companyId)}" data-task-id="${escapeHtml(task.id)}">削除</button>
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>`;
 }
 
 function renderCareerCompanyList(companies) {
