@@ -1637,7 +1637,7 @@ async function loadSpiAnalysis() {
     SPI_ANALYSIS_CONTAINER.innerHTML = '<p>読み込み中...</p>';
 
     try {
-        const currentBankVersion = window.SPI_BANK_VERSION || 'spi-v3';
+        const currentBankVersion = window.SPI_BANK_VERSION || 'spi-v8';
         const [questionStats, currentData] = await Promise.all([
             fetchSpiQuestionStats(),
             fetchAllData()
