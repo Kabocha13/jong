@@ -5,6 +5,9 @@ import { onRequest } from 'firebase-functions/v2/https';
 const app = admin.initializeApp();
 const db = getFirestore(app, 'q-jong');
 const MASTER_USERNAME = 'Kabocha';
+const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
+const DEFAULT_MANABA_LOGIN_PATH = '/ct/login';
+const DEFAULT_MANABA_ASSIGNMENTS_PATH = '/ct/home_library_query';
 const ALLOWED_ORIGINS = new Set([
   'https://q-jong.web.app',
   'https://q-jong.firebaseapp.com',
@@ -19,7 +22,7 @@ function setCors(req, res) {
   }
   res.set('Vary', 'Origin');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
 function authUidFromUsername(username) {
@@ -34,6 +37,368 @@ async function getStoredPassword(playerDoc, player) {
 
   // 移行期間の後方互換。player_secrets 作成後は players.pass を削除する。
   return String(player.pass || '');
+}
+
+function buildUrl(baseUrl, path = '') {
+  const base = String(baseUrl || '').trim();
+  if (!base) throw new Error('manaba URLが未設定です。');
+  const parsedBase = new URL(base);
+  const root = `${parsedBase.protocol}//${parsedBase.host}/`;
+  return new URL(String(path || ''), root).toString();
+}
+
+function parseCookieHeaders(headers) {
+  const raw = headers.get('set-cookie');
+  if (!raw) return [];
+  return raw
+    .split(/,\s*(?=[^;,]+=)/)
+    .map(cookie => cookie.split(';')[0])
+    .filter(Boolean);
+}
+
+function mergeCookies(existing, next) {
+  const jar = new Map();
+  existing.forEach(cookie => {
+    const [name] = cookie.split('=');
+    if (name) jar.set(name, cookie);
+  });
+  next.forEach(cookie => {
+    const [name] = cookie.split('=');
+    if (name) jar.set(name, cookie);
+  });
+  return [...jar.values()];
+}
+
+function decodeHtml(value) {
+  return String(value || '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
+
+function stripTags(value) {
+  return decodeHtml(String(value || '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]*>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseAttributes(tag) {
+  const attrs = {};
+  String(tag || '').replace(/([:\w-]+)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/g, (_, key, __, doubleValue, singleValue, bareValue) => {
+    attrs[key.toLowerCase()] = decodeHtml(doubleValue ?? singleValue ?? bareValue ?? '');
+    return '';
+  });
+  return attrs;
+}
+
+function extractHiddenInputs(html) {
+  const params = new URLSearchParams();
+  const inputPattern = /<input\b[^>]*>/gi;
+  let match;
+  while ((match = inputPattern.exec(String(html || '')))) {
+    const attrs = parseAttributes(match[0]);
+    if (String(attrs.type || '').toLowerCase() !== 'hidden' || !attrs.name) continue;
+    params.append(attrs.name, attrs.value || '');
+  }
+  return params;
+}
+
+function findLoginFormAction(html, fallbackUrl) {
+  const formMatch = String(html || '').match(/<form\b[^>]*>/i);
+  if (!formMatch) return fallbackUrl;
+  const attrs = parseAttributes(formMatch[0]);
+  if (!attrs.action) return fallbackUrl;
+  try {
+    return new URL(attrs.action, fallbackUrl).toString();
+  } catch {
+    return fallbackUrl;
+  }
+}
+
+function findFirstLink(rowHtml, baseUrl) {
+  const match = String(rowHtml || '').match(/<a\b[^>]*href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i);
+  const href = match ? (match[2] || match[3] || match[4] || '') : '';
+  if (!href) return '';
+  try {
+    return new URL(decodeHtml(href), baseUrl).toString();
+  } catch {
+    return decodeHtml(href);
+  }
+}
+
+function findLinkByClass(rowHtml, className, baseUrl) {
+  const classPattern = String(className || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const containerPattern = new RegExp(`<[^>]*class\\s*=\\s*["'][^"']*${classPattern}[^"']*["'][^>]*>[\\s\\S]*?<\\/[^>]+>`, 'i');
+  const containerMatch = String(rowHtml || '').match(containerPattern);
+  const targetHtml = containerMatch ? containerMatch[0] : String(rowHtml || '');
+  const linkMatch = targetHtml.match(/<a\b[^>]*href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/i);
+  if (!linkMatch) return { text: '', url: '' };
+  const href = linkMatch[2] || linkMatch[3] || linkMatch[4] || '';
+  let url = '';
+  try {
+    url = new URL(decodeHtml(href), baseUrl).toString();
+  } catch {
+    url = decodeHtml(href);
+  }
+  return { text: stripTags(linkMatch[5] || ''), url };
+}
+
+function parseManabaLibraryAssignments(html, baseUrl) {
+  if (!/未提出の課題一覧|myassignments-title/.test(String(html || ''))) return [];
+  const rows = String(html || '').match(/<tr\b[\s\S]*?<\/tr>/gi) || [];
+  const assignments = [];
+
+  rows.forEach((row, index) => {
+    if (!/myassignments-title/.test(row)) return;
+    const cells = (row.match(/<t[dh]\b[\s\S]*?<\/t[dh]>/gi) || []).map(stripTags);
+    const type = cells[0] || '課題';
+    const assignment = findLinkByClass(row, 'myassignments-title', baseUrl);
+    const course = findLinkByClass(row, 'mycourse-title', baseUrl);
+    const periods = (row.match(/<td\b[^>]*class\s*=\s*["'][^"']*td-period[^"']*["'][^>]*>[\s\S]*?<\/td>/gi) || []).map(stripTags);
+    const startText = periods[0] || '';
+    const deadlineText = periods[1] || '';
+    const sourceKey = `${assignment.text}|${course.text}|${deadlineText}|${assignment.url || index}`;
+
+    assignments.push({
+      id: `manaba_${Buffer.from(sourceKey).toString('base64url').slice(0, 40)}`,
+      title: assignment.text || '名称未取得',
+      course: course.text || '',
+      type,
+      status: '未提出',
+      startText,
+      deadlineText,
+      deadline: normalizeDeadline(deadlineText),
+      url: assignment.url,
+      courseUrl: course.url,
+      source: 'manaba',
+      done: false
+    });
+  });
+
+  return assignments;
+}
+
+function findManabaPendingLinks(html, baseUrl) {
+  const links = [];
+  const seen = new Set();
+  const anchorPattern = /<a\b[^>]*href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))[^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+
+  while ((match = anchorPattern.exec(String(html || '')))) {
+    const rawHref = match[2] || match[3] || match[4] || '';
+    const label = stripTags(match[5] || '');
+    const href = decodeHtml(rawHref);
+    const nearby = stripTags(String(html || '').slice(Math.max(0, match.index - 300), match.index + match[0].length + 300));
+    const text = `${label} ${href} ${nearby}`;
+    const looksPending = /(未提出|未回答|未解答|未受験|未完了|課題一覧|レポート|小テスト|アンケート)/.test(text);
+    if (!href || !looksPending) continue;
+
+    try {
+      const url = new URL(href, baseUrl).toString();
+      if (!seen.has(url)) {
+        seen.add(url);
+        links.push(url);
+      }
+    } catch {
+      // Invalid or javascript links cannot be fetched server-side.
+    }
+  }
+
+  return links.slice(0, 8);
+}
+
+function parseManabaAssignmentBlocks(html, baseUrl) {
+  const pendingWords = /(未提出|未回答|未解答|未受験|未完了|受付中)/;
+  const doneWords = /(提出済|回答済|解答済|完了|採点済)/;
+  const blockPattern = /<(li|div|section)\b[^>]*>[\s\S]*?<\/\1>/gi;
+  const assignments = [];
+  let match;
+
+  while ((match = blockPattern.exec(String(html || '')))) {
+    const block = match[0];
+    const text = stripTags(block);
+    if (text.length < 8 || !pendingWords.test(text) || doneWords.test(text)) continue;
+    const url = findFirstLink(block, baseUrl);
+    const deadlineText = (text.match(/20\d{2}[\/.-]\d{1,2}[\/.-]\d{1,2}[^\s　]*/)?.[0]) || '';
+    const sourceKey = `${text.slice(0, 100)}|${url}`;
+    assignments.push({
+      id: `manaba_${Buffer.from(sourceKey).toString('base64url').slice(0, 40)}`,
+      title: text.replace(deadlineText, '').replace(pendingWords, '').trim().slice(0, 90) || '名称未取得',
+      course: '',
+      status: (text.match(pendingWords)?.[0]) || '未提出',
+      deadlineText,
+      deadline: normalizeDeadline(deadlineText),
+      url,
+      source: 'manaba',
+      done: false
+    });
+  }
+
+  return assignments;
+}
+
+function normalizeDeadline(text) {
+  const value = String(text || '');
+  const match = value.match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);
+  if (!match) return '';
+  const [, year, month, day] = match;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
+function parseManabaAssignments(html, baseUrl) {
+  const libraryAssignments = parseManabaLibraryAssignments(html, baseUrl);
+  if (libraryAssignments.length) return libraryAssignments;
+
+  const rows = String(html || '').match(/<tr\b[\s\S]*?<\/tr>/gi) || [];
+  const pendingWords = /(未提出|未回答|未解答|未受験|未完了|未提出課題|受付中)/;
+  const doneWords = /(提出済|回答済|解答済|完了|採点済)/;
+  const assignments = [];
+
+  rows.forEach((row, index) => {
+    const cells = (row.match(/<t[dh]\b[\s\S]*?<\/t[dh]>/gi) || []).map(stripTags).filter(Boolean);
+    const text = stripTags(row);
+    if (!cells.length || !pendingWords.test(text) || doneWords.test(text)) return;
+
+    const deadlineText = cells.find(cell => /20\d{2}[\/.-]\d{1,2}[\/.-]\d{1,2}/.test(cell)) || '';
+    const status = cells.find(cell => pendingWords.test(cell)) || '未提出';
+    const title = cells.find(cell => !pendingWords.test(cell) && cell !== deadlineText) || text.slice(0, 80);
+    const course = cells.length >= 3 ? cells[0] : '';
+    const url = findFirstLink(row, baseUrl);
+    const sourceKey = `${title}|${deadlineText}|${url || index}`;
+
+    assignments.push({
+      id: `manaba_${Buffer.from(sourceKey).toString('base64url').slice(0, 40)}`,
+      title,
+      course,
+      status,
+      deadlineText,
+      deadline: normalizeDeadline(deadlineText),
+      url,
+      source: 'manaba',
+      done: false
+    });
+  });
+
+  const blockAssignments = parseManabaAssignmentBlocks(html, baseUrl);
+  const merged = new Map();
+  [...assignments, ...blockAssignments].forEach(item => {
+    merged.set(item.id, item);
+  });
+  return [...merged.values()];
+}
+
+function getHtmlTitle(html) {
+  const match = String(html || '').match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
+  return stripTags(match ? match[1] : '');
+}
+
+function getTextPreview(html) {
+  return stripTags(html).slice(0, 300);
+}
+
+async function scrapeManabaCredential(credentialDoc) {
+  const credential = credentialDoc.data();
+  const baseUrl = credential.baseUrl || DEFAULT_MANABA_BASE_URL;
+  const loginUrl = buildUrl(baseUrl, credential.loginPath || DEFAULT_MANABA_LOGIN_PATH);
+  const assignmentsUrl = buildUrl(baseUrl, credential.assignmentsPath || DEFAULT_MANABA_ASSIGNMENTS_PATH);
+  const username = String(credential.loginId || '');
+  const password = String(credential.password || '');
+  const usernameField = credential.usernameField || 'userid';
+  const passwordField = credential.passwordField || 'password';
+  if (!username || !password) throw new Error('ログインIDまたはパスワードが未設定です。');
+
+  let cookies = [];
+  const loginPage = await fetch(loginUrl, {
+    method: 'GET',
+    redirect: 'manual',
+    signal: AbortSignal.timeout(20000)
+  });
+  cookies = mergeCookies(cookies, parseCookieHeaders(loginPage.headers));
+  const loginHtml = await loginPage.text().catch(() => '');
+  const body = extractHiddenInputs(loginHtml);
+  body.set(usernameField, username);
+  body.set(passwordField, password);
+
+  const postUrl = findLoginFormAction(loginHtml, loginUrl);
+  const loginResponse = await fetch(postUrl, {
+    method: 'POST',
+    redirect: 'manual',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Cookie: cookies.join('; ')
+    },
+    signal: AbortSignal.timeout(20000),
+    body
+  });
+  cookies = mergeCookies(cookies, parseCookieHeaders(loginResponse.headers));
+
+  const assignmentsResponse = await fetch(assignmentsUrl, {
+    method: 'GET',
+    headers: { Cookie: cookies.join('; ') },
+    signal: AbortSignal.timeout(20000)
+  });
+  let html = await assignmentsResponse.text();
+  if (!assignmentsResponse.ok) {
+    throw new Error(`課題一覧の取得に失敗しました (${assignmentsResponse.status})。`);
+  }
+
+  let assignments = parseManabaAssignments(html, assignmentsUrl);
+  const checkedUrls = [assignmentsUrl];
+
+  if (!assignments.length) {
+    const candidateUrls = findManabaPendingLinks(html, assignmentsUrl);
+    for (const candidateUrl of candidateUrls) {
+      const candidateResponse = await fetch(candidateUrl, {
+        method: 'GET',
+        headers: { Cookie: cookies.join('; ') },
+        signal: AbortSignal.timeout(20000)
+      });
+      const candidateHtml = await candidateResponse.text();
+      checkedUrls.push(candidateUrl);
+      if (!candidateResponse.ok) continue;
+      const candidateAssignments = parseManabaAssignments(candidateHtml, candidateUrl);
+      if (candidateAssignments.length) {
+        html = candidateHtml;
+        assignments = candidateAssignments;
+        break;
+      }
+    }
+  }
+
+  await db.collection('manaba_assignments').doc(credentialDoc.id).set({
+    owner: credential.owner || '',
+    ownerUid: credentialDoc.id,
+    assignments,
+    lastSyncedAt: new Date().toISOString(),
+    lastSyncStatus: 'success',
+    lastSyncError: '',
+    lastSyncTitle: getHtmlTitle(html),
+    lastSyncPreview: assignments.length ? '' : getTextPreview(html),
+    lastCheckedUrls: checkedUrls
+  }, { merge: true });
+
+  return assignments.length;
+}
+
+async function syncManabaCredentialDoc(credentialDoc) {
+  try {
+    return { uid: credentialDoc.id, count: await scrapeManabaCredential(credentialDoc), status: 'success' };
+  } catch (error) {
+    await db.collection('manaba_assignments').doc(credentialDoc.id).set({
+      ownerUid: credentialDoc.id,
+      lastSyncedAt: new Date().toISOString(),
+      lastSyncStatus: 'error',
+      lastSyncError: error.message
+    }, { merge: true });
+    return { uid: credentialDoc.id, count: 0, status: 'error', message: error.message };
+  }
 }
 
 export const qjongLogin = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
@@ -91,5 +456,41 @@ export const qjongLogin = onRequest({ region: 'asia-northeast1' }, async (req, r
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 'error', message: `Firebase認証エラー: ${error.message}` });
+  }
+});
+
+export const syncManabaNow = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const token = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '');
+    if (!token) {
+      res.status(401).json({ status: 'error', message: '認証が必要です。' });
+      return;
+    }
+    const decoded = await admin.auth().verifyIdToken(token);
+    const credentialDoc = await db.collection('manaba_credentials').doc(decoded.uid).get();
+    if (!credentialDoc.exists) {
+      res.status(404).json({ status: 'error', message: 'manaba認証情報が保存されていません。' });
+      return;
+    }
+
+    const result = await syncManabaCredentialDoc(credentialDoc);
+    if (result.status === 'error') {
+      res.status(502).json({ status: 'error', message: result.message });
+      return;
+    }
+    res.status(200).json({ status: 'success', count: result.count });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 'error', message: error.message });
   }
 });

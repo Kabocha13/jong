@@ -1002,6 +1002,7 @@ footer {
 input[type="text"],
 input[type="password"],
 input[type="number"],
+input[type="url"],
 input[type="datetime-local"],
 select,
 textarea {
@@ -1432,6 +1433,15 @@ html.auth-pending #auth-section { display: none !important; }
 }
 
 .career-task-table tr.is-done td:nth-child(2) {
+    text-decoration: line-through;
+}
+
+.manaba-assignment-table tr.is-done td {
+    opacity: 0.68;
+    background-color: #f7f7f2;
+}
+
+.manaba-assignment-table tr.is-done td:nth-child(2) {
     text-decoration: line-through;
 }
 

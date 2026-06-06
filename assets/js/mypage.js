@@ -40,6 +40,10 @@ const APPLY_GIFT_CODE_FORM = document.getElementById('apply-gift-code-form');
 const GIFT_CODE_INPUT = document.getElementById('gift-code-input');
 const APPLY_GIFT_CODE_MESSAGE = document.getElementById('apply-gift-code-message');
 const TARGET_CONTINUE_TOOL = document.getElementById('target-continue-tool');
+const MANABA_SYNC_BUTTON = document.getElementById('manaba-sync-button');
+const MANABA_ASSIGNMENT_LIST = document.getElementById('manaba-assignment-list');
+const MANABA_IMPORT_MESSAGE = document.getElementById('manaba-import-message');
+const MANABA_SYNC_INTERVAL_MS = 60 * 60 * 1000;
 
 document.querySelectorAll('.mypage-quick-nav a[href^="#"]').forEach(link => {
     link.addEventListener('click', () => {
@@ -217,6 +221,8 @@ async function initializeMyPageContent() {
     initializeLotteryPurchaseForm();
 
     initializeGiftCodeFeature();
+
+    await initManabaAssignments();
 
     controlTargetContinueFormDisplay();
 
@@ -1442,6 +1448,151 @@ async function handleCheckLotteryResult(e) {
 
 
 window.onload = autoLogin;
+
+// ============================================================
+// manaba 未提出課題
+// ============================================================
+
+async function initManabaAssignments() {
+    if (!authenticatedUser || !MANABA_ASSIGNMENT_LIST) return;
+
+    bindManabaFormsOnce();
+    await loadManabaAssignments();
+    await syncManabaOnLoginIfStale();
+}
+
+let manabaFormsBound = false;
+
+function bindManabaFormsOnce() {
+    if (manabaFormsBound) return;
+    manabaFormsBound = true;
+
+    MANABA_SYNC_BUTTON?.addEventListener('click', async () => {
+        await syncManabaFromServer(true);
+    });
+
+    MANABA_ASSIGNMENT_LIST?.addEventListener('change', async (e) => {
+        const target = e.target.closest('[data-manaba-action="toggle-done"]');
+        if (!target) return;
+        await toggleManabaAssignmentDone(target.dataset.assignmentId, target.checked);
+    });
+}
+
+async function syncManabaOnLoginIfStale() {
+    try {
+        const credentials = await fetchManabaCredentialsFromFirebase();
+        if (!credentials || !credentials.baseUrl || !credentials.loginId || !credentials.password) return;
+        const record = await fetchManabaAssignmentsFromFirebase();
+        const lastSynced = Date.parse(record?.lastSyncedAt || '');
+        if (Number.isFinite(lastSynced) && Date.now() - lastSynced < MANABA_SYNC_INTERVAL_MS) return;
+        await syncManabaFromServer(false);
+    } catch (err) {
+        renderManabaSyncNote(`自動取得に失敗しました: ${err.message}`, 'error');
+    }
+}
+
+async function syncManabaFromServer(showProgress) {
+    if (!MANABA_SYNC_BUTTON) return;
+    MANABA_SYNC_BUTTON.disabled = true;
+    if (showProgress) renderManabaSyncNote('manabaから取得中...', 'info');
+
+    try {
+        const data = await syncManabaAssignmentsNow();
+        renderManabaSyncNote(`${data.count}件の未提出課題を取得しました。`, 'success');
+        await loadManabaAssignments();
+    } catch (err) {
+        renderManabaSyncNote(`取得エラー: ${err.message}`, 'error');
+    } finally {
+        MANABA_SYNC_BUTTON.disabled = false;
+    }
+}
+
+function renderManabaSyncNote(message, type) {
+    showMessage(MANABA_IMPORT_MESSAGE, message, type);
+}
+
+async function loadManabaAssignments() {
+    if (!MANABA_ASSIGNMENT_LIST) return;
+    try {
+        const record = await fetchManabaAssignmentsFromFirebase();
+        renderManabaAssignments(record || { assignments: [] });
+    } catch (err) {
+        MANABA_ASSIGNMENT_LIST.innerHTML = '<p>manaba課題の読み込みに失敗しました。</p>';
+    }
+}
+
+function renderManabaAssignments(record) {
+    const assignments = [...(record.assignments || [])].sort((a, b) => {
+        if (Boolean(a.done) !== Boolean(b.done)) return a.done ? 1 : -1;
+        return (a.deadline || '9999-12-31').localeCompare(b.deadline || '9999-12-31');
+    });
+    const syncedAt = record.lastSyncedAt
+        ? new Date(record.lastSyncedAt).toLocaleString('ja-JP')
+        : '未取得';
+    const statusText = record.lastSyncStatus === 'error'
+        ? ` / 前回エラー: ${manabaEscapeHtml(record.lastSyncError || '')}`
+        : '';
+    const previewText = record.lastSyncPreview
+        ? `<p class="text-small">取得ページ: ${manabaEscapeHtml(record.lastSyncTitle || 'タイトルなし')} / ${manabaEscapeHtml(record.lastSyncPreview)}</p>`
+        : '';
+    const checkedUrlsText = Array.isArray(record.lastCheckedUrls) && record.lastCheckedUrls.length
+        ? `<p class="text-small">確認URL: ${record.lastCheckedUrls.map(url => manabaEscapeHtml(url)).join(' / ')}</p>`
+        : '';
+
+    if (!assignments.length) {
+        MANABA_ASSIGNMENT_LIST.innerHTML = `<p class="text-small">最終取得: ${manabaEscapeHtml(syncedAt)}${statusText}</p>${previewText}${checkedUrlsText}<p>未提出課題はありません。</p>`;
+        return;
+    }
+
+    MANABA_ASSIGNMENT_LIST.innerHTML = `
+        <p class="text-small">最終取得: ${manabaEscapeHtml(syncedAt)}${statusText}</p>
+        <div class="career-table-wrap">
+            <table class="career-table manaba-assignment-table">
+                <thead>
+                    <tr>
+                        <th>完了</th>
+                        <th>課題</th>
+                        <th>授業</th>
+                        <th>締切</th>
+                        <th>状態</th>
+                        <th>リンク</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${assignments.map(item => `
+                        <tr class="${item.done ? 'is-done' : ''}">
+                            <td><input type="checkbox" ${item.done ? 'checked' : ''} data-manaba-action="toggle-done" data-assignment-id="${manabaEscapeHtml(item.id)}"></td>
+                            <td>${manabaEscapeHtml(item.title || '名称未取得')}</td>
+                            <td>${manabaEscapeHtml(item.course || '—')}</td>
+                            <td>${manabaEscapeHtml(item.deadline || item.deadlineText || '—')}</td>
+                            <td>${manabaEscapeHtml(item.status || '未提出')}</td>
+                            <td>${item.url ? `<a class="career-link" href="${manabaEscapeHtml(item.url)}" target="_blank" rel="noopener">開く</a>` : '—'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+async function toggleManabaAssignmentDone(assignmentId, done) {
+    try {
+        const record = await fetchManabaAssignmentsFromFirebase();
+        if (!record || !Array.isArray(record.assignments)) return;
+        const assignments = record.assignments.map(item => item.id === assignmentId ? { ...item, done } : item);
+        await saveManabaAssignmentsToFirebase(assignments, authenticatedUser.name);
+        await loadManabaAssignments();
+    } catch (err) {
+        renderManabaSyncNote(`更新エラー: ${err.message}`, 'error');
+    }
+}
+
+function manabaEscapeHtml(str) {
+    return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
 
 // ============================================================
 // 運動申請

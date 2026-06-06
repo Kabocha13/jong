@@ -80,9 +80,114 @@ async function qjongSignOut() {
 }
 
 async function getFirebaseIdToken() {
+    const user = await waitForFirebaseUser();
+    return user ? user.getIdToken() : null;
+}
+
+function getCurrentFirebaseUidSync() {
     const auth = getFirebaseAuth();
-    if (!auth || !auth.currentUser) return null;
-    return auth.currentUser.getIdToken();
+    return auth && auth.currentUser ? auth.currentUser.uid : null;
+}
+
+async function waitForFirebaseUser(timeoutMs = 5000) {
+    const auth = getFirebaseAuth();
+    if (!auth) return null;
+    if (auth.currentUser) return auth.currentUser;
+
+    return new Promise(resolve => {
+        let unsubscribe = null;
+        const timeoutId = setTimeout(() => {
+            if (unsubscribe) unsubscribe();
+            resolve(auth.currentUser || null);
+        }, timeoutMs);
+
+        unsubscribe = auth.onAuthStateChanged(user => {
+            clearTimeout(timeoutId);
+            if (unsubscribe) unsubscribe();
+            resolve(user || null);
+        });
+    });
+}
+
+async function requireFirebaseUid() {
+    const user = await waitForFirebaseUser();
+    if (!user) throw new Error('Firebase認証が必要です。ログアウトして再ログインしてください。');
+    return user.uid;
+}
+
+const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
+const DEFAULT_MANABA_LOGIN_PATH = '/ct/login';
+const DEFAULT_MANABA_ASSIGNMENTS_PATH = '/ct/home_library_query';
+
+async function saveManabaCredentialsToFirebase(credentials) {
+    const db = getFirestoreDb();
+    const uid = await requireFirebaseUid();
+    if (!db) throw new Error('Firebaseが設定されていません。');
+
+    const payload = {
+        owner: credentials.owner || '',
+        ownerUid: uid,
+        baseUrl: String(credentials.baseUrl || DEFAULT_MANABA_BASE_URL).trim(),
+        loginPath: String(credentials.loginPath || DEFAULT_MANABA_LOGIN_PATH).trim(),
+        assignmentsPath: String(credentials.assignmentsPath || DEFAULT_MANABA_ASSIGNMENTS_PATH).trim(),
+        loginId: String(credentials.loginId || '').trim(),
+        password: String(credentials.password || ''),
+        usernameField: String(credentials.usernameField || 'userid').trim(),
+        passwordField: String(credentials.passwordField || 'password').trim(),
+        updatedAt: new Date().toISOString()
+    };
+    await db.collection('manaba_credentials').doc(uid).set(payload, { merge: true });
+    return payload;
+}
+
+async function fetchManabaCredentialsFromFirebase() {
+    const db = getFirestoreDb();
+    if (!db) return null;
+    const uid = getCurrentFirebaseUidSync() || await requireFirebaseUid();
+    const doc = await db.collection('manaba_credentials').doc(uid).get();
+    return doc.exists ? doc.data() : null;
+}
+
+async function fetchManabaAssignmentsFromFirebase() {
+    const db = getFirestoreDb();
+    if (!db) return null;
+    const uid = getCurrentFirebaseUidSync() || await requireFirebaseUid();
+    const doc = await db.collection('manaba_assignments').doc(uid).get();
+    return doc.exists ? doc.data() : null;
+}
+
+async function saveManabaAssignmentsToFirebase(assignments, owner) {
+    const db = getFirestoreDb();
+    const uid = await requireFirebaseUid();
+    if (!db) throw new Error('Firebaseが設定されていません。');
+    const payload = {
+        owner: owner || '',
+        ownerUid: uid,
+        assignments: assignments || [],
+        lastSyncedAt: new Date().toISOString(),
+        lastSyncStatus: 'success',
+        lastSyncError: ''
+    };
+    await db.collection('manaba_assignments').doc(uid).set(payload, { merge: true });
+    return payload;
+}
+
+async function syncManabaAssignmentsNow() {
+    const token = await getFirebaseIdToken();
+    if (!token) throw new Error('Firebase認証が必要です。');
+    const response = await fetch(`${getFunctionsBaseUrl()}/syncManabaNow`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status !== 'success') {
+        throw new Error(data.message || 'manaba同期に失敗しました。');
+    }
+    return data;
 }
 
 function createEmptyData() {
