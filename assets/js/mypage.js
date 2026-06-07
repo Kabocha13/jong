@@ -403,13 +403,11 @@ if (PRO_BONUS_BUTTON) {
                 pressCount = 0;
             }
 
-            // ボーナス付与
-            let newScore = targetPlayer.score + bonusAmount;
-
             // ペナルティ判定（合計確率）
             const territoryReduction = getPlayerTerritoryStats(player, currentData.territory_battle).reduction;
             const totalProbability = clampBonusProbability(daily + accumulated - territoryReduction);
             const penaltyOccurred = Math.random() * 100 < totalProbability;
+            let newScore = targetPlayer.score;
             if (penaltyOccurred) {
                 newScore -= 50;
                 if (status === 'luxury') {
@@ -419,10 +417,12 @@ if (PRO_BONUS_BUTTON) {
                 } else {
                     daily = Math.max(0, daily - 10);
                 }
+            } else {
+                newScore += bonusAmount;
             }
 
-            // 特別ボーナス判定（全会員共通 1%）
-            const specialBonusOccurred = Math.random() * 100 < 1;
+            // 特別ボーナス判定（全会員共通 1%。ペナルティ発生時は付与しない）
+            const specialBonusOccurred = !penaltyOccurred && Math.random() * 100 < 1;
             if (specialBonusOccurred) {
                 newScore += 100;
             }
@@ -459,14 +459,15 @@ if (PRO_BONUS_BUTTON) {
             const response = await updateAllData(newData);
 
             if (response.status === 'success') {
-                let resultMsg = `✅ ボーナス +${bonusAmount.toFixed(1)} P を獲得しました！`;
-                if (specialBonusOccurred) {
-                    resultMsg += ` 🎉 特別ボーナス！ +100 P`;
-                }
                 if (penaltyOccurred) {
-                    resultMsg += ` ⚠️ ペナルティ発生！ -50 P`;
+                    showMessage(messageEl, `⚠️ ボーナス外れ。ペナルティ -50 P`, 'error');
+                } else {
+                    let resultMsg = `✅ ボーナス +${bonusAmount.toFixed(1)} P を獲得しました！`;
+                    if (specialBonusOccurred) {
+                        resultMsg += ` 🎉 特別ボーナス！ +100 P`;
+                    }
+                    showMessage(messageEl, resultMsg, 'success');
                 }
-                showMessage(messageEl, resultMsg, penaltyOccurred ? 'error' : 'success');
 
                 if (penaltyOccurred) {
                     triggerBonusAnimation('penalty', `-50 P`);
