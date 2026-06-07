@@ -1554,7 +1554,6 @@ function renderManabaAssignments(record) {
                         <th>課題</th>
                         <th>授業</th>
                         <th>締切</th>
-                        <th>状態</th>
                         <th>リンク</th>
                     </tr>
                 </thead>
@@ -1564,8 +1563,7 @@ function renderManabaAssignments(record) {
                             <td><input type="checkbox" ${item.done ? 'checked' : ''} data-manaba-action="toggle-done" data-assignment-id="${manabaEscapeHtml(item.id)}"></td>
                             <td>${manabaEscapeHtml(item.title || '名称未取得')}</td>
                             <td>${manabaEscapeHtml(item.course || '—')}</td>
-                            <td>${manabaEscapeHtml(item.deadline || item.deadlineText || '—')}</td>
-                            <td>${manabaEscapeHtml(item.status || '未提出')}</td>
+                            <td>${manabaEscapeHtml(item.deadlineText || item.deadline || '—')}</td>
                             <td>${item.url ? `<a class="career-link" href="${manabaEscapeHtml(item.url)}" target="_blank" rel="noopener">開く</a>` : '—'}</td>
                         </tr>
                     `).join('')}
