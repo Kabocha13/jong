@@ -231,7 +231,7 @@ function getTerritoryActionLabel(tile, playerName, battle) {
     const stats = getPlayerTerritoryStats(playerName, battle);
     const ownedIds = stats.tiles.map(t => t.id);
     if (ownedIds.length === 0) return '';
-    if (tile.owner === playerName) return '強化';
+    if (tile.owner === playerName) return '強化/還元';
     const isAdjacent = getGridAdjacentTerritoryIds(tile.id).some(id => ownedIds.includes(id));
     if (isAdjacent) return tile.owner ? '攻撃' : '占領';
     return '';
@@ -334,9 +334,14 @@ function renderTerritoryBattle(battle, players) {
                                 <option value="" disabled selected>区を選択</option>
                                 ${normalized.tiles.map(tile => `<option value="${tile.id}" data-owner="${escapeText(tile.owner || '')}" data-defense="${tile.defense.toFixed(1)}">${tile.name} / ${tile.owner || '中立'} / 防衛 ${tile.defense.toFixed(1)}P</option>`).join('')}
                             </select>
-                            <label for="territory-points">投入ポイント</label>
+                            <label for="territory-action-mode">行動</label>
+                            <select id="territory-action-mode">
+                                <option value="attack">出陣 / 強化</option>
+                                <option value="redeem">防衛力をポイントに戻す</option>
+                            </select>
+                            <label for="territory-points">投入ポイント / 還元する防衛力</label>
                             <input type="number" id="territory-points" min="0.1" step="0.1" value="0.1" required>
-                            <p id="territory-odds-help" class="territory-odds-help">攻撃勝率: 投入P÷(投入P+防衛×2/3)。所有地は毎日 防衛+5%</p>
+                            <p id="territory-odds-help" class="territory-odds-help">攻撃勝率: 投入P÷(投入P+防衛×2/3)。全エリアは毎日 防衛+1%</p>
                             <p class="territory-odds-help">${formatTerritoryActionLimitText(actionLimit)}</p>
                             <button type="submit" class="territory-submit"${actionLimit && actionLimit.remaining === 0 ? ' disabled' : ''}>出陣</button>
                         </form>
@@ -369,6 +374,7 @@ function renderTerritoryBattle(battle, players) {
 function attachTerritoryHandlers() {
     const form = document.getElementById('territory-action-form');
     const select = document.getElementById('territory-target');
+    const modeSelect = document.getElementById('territory-action-mode');
     const amountInput = document.getElementById('territory-points');
     const oddsHelp = document.getElementById('territory-odds-help');
     if (!form || !select) return;
@@ -378,13 +384,25 @@ function attachTerritoryHandlers() {
         const option = select.selectedOptions[0];
         const amount = parseFloat(amountInput.value);
         const defense = option ? parseFloat(option.dataset.defense) : NaN;
+        const owner = option ? (option.dataset.owner || '') : '';
+        const isOwnTile = owner === (localStorage.getItem('authUsername') || '');
+        const mode = modeSelect ? modeSelect.value : 'attack';
         if (!option || !option.value || isNaN(amount) || amount <= 0 || isNaN(defense)) {
-            oddsHelp.textContent = '攻撃勝率: 投入P÷(投入P+防衛×2/3)。所有地は毎日 防衛+5%';
+            oddsHelp.textContent = '攻撃勝率: 投入P÷(投入P+防衛×2/3)。全エリアは毎日 防衛+1%';
             return;
         }
 
-        const owner = option.dataset.owner || '';
-        if (owner === (localStorage.getItem('authUsername') || '')) {
+        if (mode === 'redeem') {
+            if (!isOwnTile) {
+                oddsHelp.textContent = '還元: 自分の所有区だけ防衛力をポイントに戻せます。';
+                return;
+            }
+            const redeemAmount = Math.min(defense, amount);
+            oddsHelp.textContent = `還元: 防衛 -${redeemAmount.toFixed(1)} / ポイント +${(redeemAmount / 2).toFixed(1)}P`;
+            return;
+        }
+
+        if (isOwnTile) {
             oddsHelp.textContent = `強化: 防衛 +${amount.toFixed(1)}P`;
             return;
         }
@@ -403,6 +421,7 @@ function attachTerritoryHandlers() {
     });
 
     select.addEventListener('change', updateOddsHelp);
+    if (modeSelect) modeSelect.addEventListener('change', updateOddsHelp);
     if (amountInput) amountInput.addEventListener('input', updateOddsHelp);
     updateOddsHelp();
 
@@ -414,6 +433,7 @@ async function handleTerritoryAction(e) {
 
     const messageEl = document.getElementById('territory-message');
     const targetId = document.getElementById('territory-target').value;
+    const actionMode = document.getElementById('territory-action-mode')?.value || 'attack';
     const amount = parseFloat(document.getElementById('territory-points').value);
     const username = localStorage.getItem('authUsername');
     const password = localStorage.getItem('authPassword');
@@ -442,7 +462,7 @@ async function handleTerritoryAction(e) {
             showMessage(messageEl, 'ログイン情報を確認できませんでした。', 'error');
             return;
         }
-        if ((player.score || 0) < amount) {
+        if (actionMode !== 'redeem' && (player.score || 0) < amount) {
             showMessage(messageEl, `ポイント残高が不足しています。現在 ${player.score.toFixed(1)}P`, 'error');
             return;
         }
@@ -481,7 +501,23 @@ async function handleTerritoryAction(e) {
         const previousOwner = tile.owner;
         const actionAt = new Date().toISOString();
         let resultText = '';
-        if (isOwnTile) {
+        let scoreChange = -amount;
+        let actionAmount = parseFloat(amount.toFixed(1));
+
+        if (actionMode === 'redeem') {
+            if (!isOwnTile) {
+                showMessage(messageEl, '防衛力をポイントに戻せるのは自分の所有区だけです。', 'error');
+                return;
+            }
+            if (amount > tile.defense) {
+                showMessage(messageEl, `還元できる防衛力は最大 ${tile.defense.toFixed(1)} です。`, 'error');
+                return;
+            }
+            const refund = parseFloat((amount / 2).toFixed(1));
+            tile.defense = parseFloat(Math.max(0, tile.defense - amount).toFixed(1));
+            scoreChange = refund;
+            resultText = `${tile.name}の防衛力 ${amount.toFixed(1)} を ${refund.toFixed(1)}P に戻しました。`;
+        } else if (isOwnTile) {
             tile.defense = parseFloat((tile.defense + amount).toFixed(1));
             resultText = `${tile.name}を強化しました。`;
         } else {
@@ -504,7 +540,7 @@ async function handleTerritoryAction(e) {
 
         scoresMap.set(username, {
             ...player,
-            score: parseFloat((player.score - amount).toFixed(1))
+            score: parseFloat((player.score + scoreChange).toFixed(1))
         });
 
         battle.updatedAt = actionAt;
@@ -515,7 +551,7 @@ async function handleTerritoryAction(e) {
                 player: username,
                 tileId: tile.id,
                 tileName: tile.name,
-                amount: parseFloat(amount.toFixed(1)),
+                amount: actionAmount,
                 previousOwner,
                 owner: tile.owner,
                 result: resultText
@@ -542,7 +578,10 @@ async function handleTerritoryAction(e) {
         if (response.status === 'success') {
             invalidateFetchCache();
             localStorage.removeItem(LS_DATA_KEY);
-            showMessage(messageEl, `${resultText} ${amount.toFixed(1)}Pを消費しました。`, 'success');
+            const pointsText = actionMode === 'redeem'
+                ? `${scoreChange.toFixed(1)}Pを獲得しました。`
+                : `${amount.toFixed(1)}Pを消費しました。`;
+            showMessage(messageEl, `${resultText} ${pointsText}`, 'success');
             await renderScores();
         } else {
             showMessage(messageEl, `出陣エラー: ${response.message}`, 'error');

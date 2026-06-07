@@ -457,7 +457,7 @@ const TOKYO_WARDS = [
 ];
 
 const TERRITORY_AVERAGE_WARD_AREA = TOKYO_WARDS.reduce((sum, ward) => sum + ward.area, 0) / TOKYO_WARDS.length;
-const TERRITORY_DAILY_DEFENSE_GROWTH_RATE = 0.05;
+const TERRITORY_DAILY_DEFENSE_GROWTH_RATE = 0.01;
 const TERRITORY_DAY_MS = 24 * 60 * 60 * 1000;
 const TERRITORY_ACTION_LIMIT_PER_HOUR = 3;
 const TERRITORY_ACTION_WINDOW_MS = 60 * 60 * 1000;
@@ -852,7 +852,7 @@ function createDefaultTerritoryBattle(seasonNumber = 1) {
             area: ward.area,
             owner: null,
             ownerSince: null,
-            defenseGrowthAt: null,
+            defenseGrowthAt: new Date().toISOString(),
             defense: getNeutralTerritoryDefense(ward.area, neutralDefenseMultiplier)
         })),
         actions: [],
@@ -927,8 +927,8 @@ function normalizeTerritoryBattle(battle) {
                 : getNeutralTerritoryDefense(ward.area, neutralDefenseMultiplier);
             const owner = existing.owner || null;
             let ownerSince = owner ? (existing.ownerSince || normalized.updatedAt || new Date().toISOString()) : null;
-            let defenseGrowthAt = owner ? (existing.defenseGrowthAt || ownerSince) : null;
-            if (owner && defenseGrowthAt) {
+            let defenseGrowthAt = existing.defenseGrowthAt || ownerSince || normalized.updatedAt || new Date().toISOString();
+            if (defenseGrowthAt) {
                 const elapsedDays = Math.floor((Date.now() - Date.parse(defenseGrowthAt)) / TERRITORY_DAY_MS);
                 if (elapsedDays > 0) {
                     defense = defense * Math.pow(1 + TERRITORY_DAILY_DEFENSE_GROWTH_RATE, elapsedDays);
