@@ -14,8 +14,15 @@
 
     <main id="main-content">
         <section id="auth-section" class="info-box">
-            <h2>管理画面を準備中</h2>
-            <p id="auth-message" class="message info">データを読み込んでいます...</p>
+            <h2>PIN</h2>
+            <form id="auth-form" autocomplete="off">
+                <div class="form-group">
+                    <label for="master-pin">PIN:</label>
+                    <input type="password" id="master-pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required autocomplete="one-time-code">
+                </div>
+                <button type="submit">OPEN</button>
+            </form>
+            <p id="auth-message" class="hidden"></p>
         </section>
 
         <section id="admin-tools" class="hidden">

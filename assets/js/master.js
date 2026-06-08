@@ -70,20 +70,25 @@ function finishAuthPending() {
 // -----------------------------------------------------------------
 
 /**
- * マスター画面のFirebase書き込み権限を準備する処理
+ * PINでマスター画面を開く処理
+ * @param {string} pin - 入力されたPIN
  * @param {boolean} isAuto - 自動ログインかどうか
  * @returns {Promise<boolean>} 認証成功ならtrue
  */
-async function attemptMasterLogin(isAuto = true) {
+async function attemptMasterLogin(pin, isAuto = false) {
     if (!isAuto) {
-        showMessage(AUTH_MESSAGE, '管理画面を準備中...', 'info');
+        showMessage(AUTH_MESSAGE, '確認中...', 'info');
     }
 
-    // Firebaseの書き込み権限を維持するため、隠し管理画面の表示時にマスターとしてサインインする
+    if (pin !== MASTER_PIN) {
+        showMessage(AUTH_MESSAGE, '❌ PINが違います。', 'error');
+        finishAuthPending();
+        return false;
+    }
+
     try {
-        await qjongSignIn(MASTER_USERNAME, MASTER_PIN);
         await runDailyPointTaxIfNeeded().catch(error => {
-            console.warn('日次ポイント徴収に失敗しました。マスター認証は継続します。', error);
+            console.warn('日次ポイント徴収に失敗しました。マスター画面の表示は継続します。', error);
         });
         const allData = await fetchAllData();
         const scores = allData.scores;
@@ -164,12 +169,19 @@ function handleMasterLogout() {
  * ページロード時の自動ログイン処理
  */
 async function autoLogin() {
-    const success = await attemptMasterLogin(true);
-    if (!success) finishAuthPending();
+    finishAuthPending();
 }
 
 
 // --- イベントリスナーの修正と追加 ---
+
+if (AUTH_FORM) {
+    AUTH_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const pin = document.getElementById('master-pin').value.trim();
+        await attemptMasterLogin(pin, false);
+    });
+}
 
 // ★ 新規追加: ログアウトボタンのイベントリスナー
 if (MASTER_LOGOUT_BUTTON) MASTER_LOGOUT_BUTTON.addEventListener('click', handleMasterLogout);

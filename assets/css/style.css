@@ -1152,24 +1152,19 @@ footer {
     pointer-events: none;
 }
 
-.footer-secret-master {
+.footer-edge-hit {
     position: absolute;
-    right: max(18px, env(safe-area-inset-right));
-    bottom: calc(12px + env(safe-area-inset-bottom));
-    width: 14px;
-    height: 14px;
-    border: 1px solid rgba(201, 168, 76, 0.46);
-    border-radius: 2px;
-    background: rgba(201, 168, 76, 0.14);
-    box-shadow: inset 0 0 0 2px rgba(13, 27, 75, 0.22);
-    transform: rotate(45deg);
-    opacity: 0.48;
+    left: 0;
+    bottom: 0;
+    width: 34px;
+    height: calc(34px + env(safe-area-inset-bottom));
+    opacity: 0;
     pointer-events: auto;
 }
 
-.footer-secret-master:focus-visible {
+.footer-edge-hit:focus-visible {
     outline: 2px solid var(--color-gold-light);
-    outline-offset: 4px;
+    outline-offset: -4px;
     opacity: 1;
 }
 
