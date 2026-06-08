@@ -1,4 +1,4 @@
-// assets/js/career.js
+// assets/js/job-quiz.js
 {
 
 // ============================================================
@@ -7,7 +7,7 @@
 const SPI_POINT_REWARD = 0.5;
 const SPI_TOTAL_QUESTIONS = 200;
 const SPI_BANK_VERSION = window.SPI_BANK_VERSION || 'spi-v8';
-const IS_CAREER_EMBEDDED = window.CAREER_EMBEDDED === true;
+const IS_JOB_QUIZ_EMBEDDED = window.JOB_QUIZ_EMBEDDED === true;
 
 // ============================================================
 // 状態
@@ -22,7 +22,7 @@ function finishAuthPending() {
 // DOM要素
 // ============================================================
 const AUTH_SECTION    = document.getElementById('auth-section');
-const CAREER_CONTENT  = document.getElementById('career-content') || document.getElementById('mypage-content');
+const PAGE_CONTENT    = document.getElementById('mypage-content');
 const AUTH_FORM       = document.getElementById('auth-form');
 const AUTH_MESSAGE    = document.getElementById('auth-message');
 const LOGOUT_BUTTON   = document.getElementById('logout-button');
@@ -793,7 +793,7 @@ async function attemptLogin(username, password, isAuto = false) {
         if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
         AUTH_SECTION.classList.add('hidden');
-        CAREER_CONTENT.classList.remove('hidden');
+        PAGE_CONTENT.classList.remove('hidden');
         finishAuthPending();
         document.getElementById('authenticated-user-name').textContent = authenticatedUser.name;
         document.getElementById('current-score').textContent = authenticatedUser.score.toFixed(1);
@@ -814,14 +814,14 @@ function handleLogout() {
     localStorage.removeItem('authUsername');
     localStorage.removeItem('authPassword');
     if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
-    CAREER_CONTENT.classList.add('hidden');
+    PAGE_CONTENT.classList.add('hidden');
     finishAuthPending();
     AUTH_SECTION.classList.remove('hidden');
     AUTH_FORM.reset();
     showMessage(AUTH_MESSAGE, '👋 ログアウトしました。', 'info');
 }
 
-if (!IS_CAREER_EMBEDDED && AUTH_FORM && LOGOUT_BUTTON) {
+if (!IS_JOB_QUIZ_EMBEDDED && AUTH_FORM && LOGOUT_BUTTON) {
     AUTH_FORM.addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = document.getElementById('username').value.trim();
@@ -960,15 +960,15 @@ function escapeHtml(str) {
 // ============================================================
 // 初期化
 // ============================================================
-window.initializeCareerFeaturesForUser = async (user) => {
+window.initializeJobQuizForUser = async (user) => {
     if (!user) return;
     authenticatedUser = { ...user };
     highlightCurrentRoadmapMonth();
     await renderAll();
 };
-window.dispatchEvent(new Event('career-features-ready'));
+window.dispatchEvent(new Event('job-quiz-ready'));
 
-if (!IS_CAREER_EMBEDDED) {
+if (!IS_JOB_QUIZ_EMBEDDED) {
     window.onload = async () => {
         const savedUser = localStorage.getItem('authUsername');
         const savedPass = localStorage.getItem('authPassword');

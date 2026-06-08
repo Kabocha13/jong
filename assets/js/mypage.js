@@ -210,11 +210,11 @@ async function initializeMyPageContent() {
 
     initializeMemberBonusFeature(); 
 
-    if (window.initializeCareerFeaturesForUser) {
-        await window.initializeCareerFeaturesForUser(authenticatedUser);
+    if (window.initializeJobQuizForUser) {
+        await window.initializeJobQuizForUser(authenticatedUser);
     } else {
-        window.addEventListener('career-features-ready', () => {
-            window.initializeCareerFeaturesForUser(authenticatedUser);
+        window.addEventListener('job-quiz-ready', () => {
+            window.initializeJobQuizForUser(authenticatedUser);
         }, { once: true });
     }
 

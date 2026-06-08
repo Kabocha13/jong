@@ -47,6 +47,12 @@ function getJstDateKey(date = new Date()) {
   }).format(date);
 }
 
+function pointHistoryDocId(playerName, at = new Date().toISOString()) {
+  return encodeURIComponent(`ph_${at}_${playerName}_${Math.random().toString(36).slice(2, 8)}`)
+    .replace(/\./g, '%2E')
+    .replace(/\//g, '%2F');
+}
+
 async function collectDailyPointTaxForToday() {
   const todayKey = getJstDateKey();
   const settingsRef = db.collection('settings').doc('app');
@@ -72,10 +78,23 @@ async function collectDailyPointTaxForToday() {
       if (taxAmount <= 0) return;
 
       totalCollected += taxAmount;
+      const nextScore = Number((score - taxAmount).toFixed(1));
       transaction.set(doc.ref, {
         ...player,
-        score: Number((score - taxAmount).toFixed(1))
+        score: nextScore
       }, { merge: false });
+      const historyId = pointHistoryDocId(player.name);
+      transaction.set(db.collection('point_history').doc(historyId), {
+        id: historyId,
+        player: player.name,
+        beforeScore: Number(score.toFixed(1)),
+        afterScore: nextScore,
+        delta: Number((-taxAmount).toFixed(1)),
+        source: 'daily_point_tax',
+        reason: `日次ポイント徴収 ${(rate * 100).toFixed(1).replace(/\.0$/, '')}%`,
+        actor: 'scheduled_function',
+        createdAt: new Date().toISOString()
+      });
     });
 
     const nowIso = new Date().toISOString();

@@ -269,6 +269,49 @@ function getItemDocId(key, item, index) {
     return toDocId(item.id ?? index);
 }
 
+function createPointHistoryId(playerName, at = new Date().toISOString()) {
+    return toDocId(`ph_${at}_${playerName}_${Math.random().toString(36).slice(2, 8)}`);
+}
+
+function getPointHistoryActor() {
+    return localStorage.getItem('authUsername') || getCurrentFirebaseUidSync() || 'system';
+}
+
+function buildPointHistoryEntries(beforeScores, afterScores, meta = {}) {
+    const beforeMap = new Map((beforeScores || []).map(player => [player.name, player]));
+    const actor = meta.actor || getPointHistoryActor();
+    const source = meta.source || 'score_update';
+    const reason = meta.reason || '';
+    const at = meta.at || new Date().toISOString();
+
+    return (afterScores || []).flatMap(player => {
+        if (!player || !player.name) return [];
+        const before = beforeMap.get(player.name);
+        if (!before) return [];
+        const beforeScore = toFiniteNumber(before.score, 0);
+        const afterScore = toFiniteNumber(player.score, 0);
+        const delta = parseFloat((afterScore - beforeScore).toFixed(1));
+        if (delta === 0) return [];
+        return [{
+            id: createPointHistoryId(player.name, at),
+            player: player.name,
+            beforeScore: parseFloat(beforeScore.toFixed(1)),
+            afterScore: parseFloat(afterScore.toFixed(1)),
+            delta,
+            source,
+            reason,
+            actor,
+            createdAt: at
+        }];
+    });
+}
+
+function addPointHistoryEntriesToBatch(db, batch, entries) {
+    (entries || []).forEach(entry => {
+        batch.set(db.collection('point_history').doc(entry.id), entry);
+    });
+}
+
 function firestoreValueFromJson(value) {
     if (value === undefined) return undefined;
     if (value === null) return { nullValue: null };
@@ -448,6 +491,7 @@ function createFirestoreRestDb(config) {
         async runTransaction(updateFunction) {
             const transaction = {
                 get: docRef => docRef.get(),
+                set: (docRef, data, options = {}) => docRef.set(data, options),
                 update: (docRef, data) => docRef.update(data),
                 delete: docRef => docRef.delete()
             };
@@ -751,10 +795,16 @@ async function updateAllDataInFirebase(newData) {
         const currentData = _fetchCache || await fetchAllDataFromFirebase();
         const mergedData = normalizeFetchedRecord({ ...currentData, ...(newData || {}) });
         const batch = db.batch();
+        const pointHistoryEntries = buildPointHistoryEntries(
+            currentData.scores,
+            mergedData.scores,
+            newData?.point_history_meta || {}
+        );
 
         for (const key of Object.keys(FIREBASE_COLLECTIONS)) {
             await replaceCollection(db, batch, key, mergedData[key] || []);
         }
+        addPointHistoryEntriesToBatch(db, batch, pointHistoryEntries);
 
         batch.set(db.collection('settings').doc('app'), {
             special_theme: mergedData.special_theme ?? null,
@@ -840,6 +890,11 @@ async function runDailyPointTaxIfNeeded() {
         delete payload._docId;
         batch.set(db.collection(FIREBASE_COLLECTIONS.scores).doc(getItemDocId('scores', player, 0)), payload);
     });
+    addPointHistoryEntriesToBatch(db, batch, buildPointHistoryEntries(currentData.scores, updatedScores, {
+        source: 'daily_point_tax',
+        reason: `日次ポイント徴収 ${(rate * 100).toFixed(1).replace(/\.0$/, '')}%`,
+        actor: 'system'
+    }));
 
     const nowIso = new Date().toISOString();
     batch.set(db.collection('settings').doc('app'), {
@@ -932,6 +987,18 @@ async function handleExerciseActionInFirebase(reportId, action) {
             const player = playerDoc.data();
             const nextScore = parseFloat(((player.score || 0) + report.points).toFixed(1));
             transaction.update(playerRef, { score: nextScore });
+            const historyRef = db.collection('point_history').doc(createPointHistoryId(report.player));
+            transaction.set(historyRef, {
+                id: historyRef.id,
+                player: report.player,
+                beforeScore: parseFloat(toFiniteNumber(player.score, 0).toFixed(1)),
+                afterScore: nextScore,
+                delta: parseFloat(report.points.toFixed(1)),
+                source: 'exercise_report',
+                reason: `運動申請承認 ${report.distance}km`,
+                actor: getPointHistoryActor(),
+                createdAt: new Date().toISOString()
+            });
             message = `✅ ${report.player} の申請を承認し、${report.points}P を付与しました。`;
         } else {
             message = `❌ ${report.player} の申請を却下しました。`;
@@ -1127,7 +1194,7 @@ function showMessage(element, message, type) {
 // ★ 修正: ハードコードされたパスワードを削除し、マスターユーザー名に置き換える
 const MASTER_USERNAME = "Kabocha";
 
-// SPI問題集の現行バージョン (career.jsとmaster.jsで使用)
+// SPI問題集の現行バージョン (job-quiz.jsとmaster.jsで使用)
 window.SPI_BANK_VERSION = 'spi-v8';
 
 // -----------------------------------------------------------------
