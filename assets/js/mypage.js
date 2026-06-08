@@ -1475,11 +1475,6 @@ function bindManabaFormsOnce() {
         await syncManabaFromServer(true);
     });
 
-    MANABA_ASSIGNMENT_LIST?.addEventListener('change', async (e) => {
-        const target = e.target.closest('[data-manaba-action="toggle-done"]');
-        if (!target) return;
-        await toggleManabaAssignmentDone(target.dataset.assignmentId, target.checked);
-    });
 }
 
 async function syncManabaOnLoginIfStale() {
@@ -1527,7 +1522,6 @@ async function loadManabaAssignments() {
 
 function renderManabaAssignments(record) {
     const assignments = [...(record.assignments || [])].sort((a, b) => {
-        if (Boolean(a.done) !== Boolean(b.done)) return a.done ? 1 : -1;
         return (a.deadline || '9999-12-31').localeCompare(b.deadline || '9999-12-31');
     });
     const syncedAt = record.lastSyncedAt
@@ -1554,7 +1548,6 @@ function renderManabaAssignments(record) {
             <table class="career-table manaba-assignment-table">
                 <thead>
                     <tr>
-                        <th>完了</th>
                         <th>課題</th>
                         <th>授業</th>
                         <th>締切</th>
@@ -1563,8 +1556,7 @@ function renderManabaAssignments(record) {
                 </thead>
                 <tbody>
                     ${assignments.map(item => `
-                        <tr class="${item.done ? 'is-done' : ''}">
-                            <td><input type="checkbox" ${item.done ? 'checked' : ''} data-manaba-action="toggle-done" data-assignment-id="${manabaEscapeHtml(item.id)}"></td>
+                        <tr>
                             <td>${manabaEscapeHtml(item.title || '名称未取得')}</td>
                             <td>${manabaEscapeHtml(item.course || '—')}</td>
                             <td>${manabaEscapeHtml(item.deadlineText || item.deadline || '—')}</td>
@@ -1574,18 +1566,6 @@ function renderManabaAssignments(record) {
                 </tbody>
             </table>
         </div>`;
-}
-
-async function toggleManabaAssignmentDone(assignmentId, done) {
-    try {
-        const record = await fetchManabaAssignmentsFromFirebase();
-        if (!record || !Array.isArray(record.assignments)) return;
-        const assignments = record.assignments.map(item => item.id === assignmentId ? { ...item, done } : item);
-        await saveManabaAssignmentsToFirebase(assignments, authenticatedUser.name);
-        await loadManabaAssignments();
-    } catch (err) {
-        renderManabaSyncNote(`更新エラー: ${err.message}`, 'error');
-    }
 }
 
 function manabaEscapeHtml(str) {

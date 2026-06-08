@@ -482,7 +482,6 @@ h2, h3 {
 /* --- ボタンデザイン --- */
 button[type="submit"],
 .action-button,
-#refresh-button,
 #mahjong-submit-button,
 #daily-tax-button {
     position: relative;
@@ -1070,7 +1069,7 @@ button[type="submit"]:hover,
     #home-manaba-section .manaba-assignment-table tr {
         position: relative;
         margin-bottom: 8px;
-        padding: 10px 10px 9px 44px;
+        padding: 10px;
         border: 1px solid rgba(201, 168, 76, 0.32);
         border-radius: 6px;
         background-color: #fffdf8;
@@ -1088,13 +1087,6 @@ button[type="submit"]:hover,
     }
 
     #home-manaba-section .manaba-assignment-table td:first-child {
-        position: absolute;
-        top: 10px;
-        left: 12px;
-        width: 22px;
-    }
-
-    #home-manaba-section .manaba-assignment-table td:nth-child(2) {
         margin-bottom: 5px;
         font-size: 1em;
         font-weight: 700;
@@ -1102,14 +1094,14 @@ button[type="submit"]:hover,
         overflow-wrap: anywhere;
     }
 
-    #home-manaba-section .manaba-assignment-table td:nth-child(n+3)::before {
+    #home-manaba-section .manaba-assignment-table td:nth-child(n+2)::before {
         content: attr(data-label) " ";
         color: #7a8190;
         font-size: 0.76em;
         font-weight: 700;
     }
 
-    #home-manaba-section .manaba-assignment-table td:nth-child(n+3) {
+    #home-manaba-section .manaba-assignment-table td:nth-child(n+2) {
         color: #454b5f;
         font-size: 0.86em;
     }
@@ -1402,6 +1394,35 @@ html.auth-pending #auth-section { display: none !important; }
     margin-bottom: 8px;
 }
 
+#refresh-button {
+    display: inline-block;
+    width: auto;
+    min-height: 30px;
+    margin: 0;
+    padding: 6px 12px;
+    background: #fff;
+    color: var(--color-indigo);
+    border: 1px solid rgba(201, 168, 76, 0.55);
+    border-radius: 1px;
+    font-family: var(--font-display);
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(13, 27, 75, 0.12);
+}
+
+#refresh-button:hover {
+    background-color: #fffdf5;
+    border-color: var(--color-gold);
+    color: var(--color-indigo-mid);
+}
+
+#refresh-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
 .attendance-button {
     display: inline-block;
     background: linear-gradient(135deg, var(--color-indigo-mid) 0%, var(--color-indigo) 100%);
@@ -1516,15 +1537,6 @@ html.auth-pending #auth-section { display: none !important; }
 .career-table-wrap {
     width: 100%;
     overflow-x: auto;
-}
-
-.manaba-assignment-table tr.is-done td {
-    opacity: 0.68;
-    background-color: #f7f7f2;
-}
-
-.manaba-assignment-table tr.is-done td:nth-child(2) {
-    text-decoration: line-through;
 }
 
 /* --- 就活ロードマップ --- */

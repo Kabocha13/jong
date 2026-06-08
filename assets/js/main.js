@@ -8,8 +8,8 @@ const SPORTS_BETS_CONTAINER = document.getElementById('sports-bets-container');
 const LOTTERY_LIST_CONTAINER = document.getElementById('lottery-list-container'); 
 const TERRITORY_BATTLE_CONTAINER = document.getElementById('territory-battle-container');
 const HOME_MANABA_ASSIGNMENT_LIST = document.getElementById('home-manaba-assignment-list');
-const HOME_MANABA_SYNC_BUTTON = document.getElementById('home-manaba-sync-button');
 const HOME_MANABA_MESSAGE = document.getElementById('home-manaba-message');
+const REFRESH_BUTTON = document.getElementById('refresh-button');
 
 const EXCLUDED_PLAYERS = ['3mahjong'];
 const LS_DATA_KEY = 'cachedHomeData';
@@ -154,8 +154,6 @@ async function syncHomeManabaIfStale(record) {
 }
 
 async function syncHomeManabaFromServer(showProgress) {
-    if (!HOME_MANABA_SYNC_BUTTON) return;
-    HOME_MANABA_SYNC_BUTTON.disabled = true;
     if (showProgress) showMessage(HOME_MANABA_MESSAGE, 'manabaから取得中...', 'info');
 
     try {
@@ -165,15 +163,12 @@ async function syncHomeManabaFromServer(showProgress) {
         renderHomeManabaAssignmentTable(record || { assignments: [] });
     } catch (error) {
         showMessage(HOME_MANABA_MESSAGE, `取得エラー: ${error.message}`, 'error');
-    } finally {
-        HOME_MANABA_SYNC_BUTTON.disabled = false;
     }
 }
 
 function renderHomeManabaAssignmentTable(record) {
     if (!HOME_MANABA_ASSIGNMENT_LIST) return;
     const assignments = [...(record.assignments || [])].sort((a, b) => {
-        if (Boolean(a.done) !== Boolean(b.done)) return a.done ? 1 : -1;
         return (a.deadline || '9999-12-31').localeCompare(b.deadline || '9999-12-31');
     });
     const syncedAt = record.lastSyncedAt
@@ -191,7 +186,6 @@ function renderHomeManabaAssignmentTable(record) {
             <table class="career-table manaba-assignment-table">
                 <thead>
                     <tr>
-                        <th>完了</th>
                         <th>課題</th>
                         <th>授業</th>
                         <th>締切</th>
@@ -200,8 +194,7 @@ function renderHomeManabaAssignmentTable(record) {
                 </thead>
                 <tbody>
                     ${assignments.map(item => `
-                        <tr class="${item.done ? 'is-done' : ''}">
-                            <td data-label="完了"><input type="checkbox" ${item.done ? 'checked' : ''} data-home-manaba-action="toggle-done" data-assignment-id="${escapeText(item.id)}"></td>
+                        <tr>
                             <td data-label="課題">${escapeText(item.title || '名称未取得')}</td>
                             <td data-label="授業">${escapeText(item.course || '—')}</td>
                             <td data-label="締切">${escapeText(item.deadlineText || item.deadline || '—')}</td>
@@ -211,21 +204,6 @@ function renderHomeManabaAssignmentTable(record) {
                 </tbody>
             </table>
         </div>`;
-}
-
-async function toggleHomeManabaAssignmentDone(assignmentId, done) {
-    try {
-        const isLoggedIn = await ensureHomeFirebaseLogin();
-        if (!isLoggedIn) return;
-        const record = await fetchManabaAssignmentsFromFirebase();
-        if (!record || !Array.isArray(record.assignments)) return;
-        const assignments = record.assignments.map(item => item.id === assignmentId ? { ...item, done } : item);
-        await saveManabaAssignmentsToFirebase(assignments, localStorage.getItem('authUsername') || '');
-        const updated = await fetchManabaAssignmentsFromFirebase();
-        renderHomeManabaAssignmentTable(updated || { assignments: [] });
-    } catch (error) {
-        showMessage(HOME_MANABA_MESSAGE, `更新エラー: ${error.message}`, 'error');
-    }
 }
 
 function getOwnerClass(owner, players) {
@@ -778,23 +756,21 @@ async function renderHomePage() {
 // 初期ロードとボタンイベント
 window.onload = renderHomePage;
 
-document.getElementById('refresh-button').addEventListener('click', renderScores);
-
-HOME_MANABA_SYNC_BUTTON?.addEventListener('click', async () => {
-    const isLoggedIn = await ensureHomeFirebaseLogin();
-    if (!isLoggedIn) {
-        showMessage(HOME_MANABA_MESSAGE, 'マイページでログインしてから取得してください。', 'error');
-        return;
+REFRESH_BUTTON?.addEventListener('click', async () => {
+    REFRESH_BUTTON.disabled = true;
+    try {
+        loadCafeteriaMenu();
+        await renderScores();
+        const isLoggedIn = await ensureHomeFirebaseLogin();
+        if (isLoggedIn) {
+            await syncHomeManabaFromServer(true);
+        } else if (HOME_MANABA_ASSIGNMENT_LIST) {
+            HOME_MANABA_ASSIGNMENT_LIST.innerHTML = '<p class="info-text">マイページでログインすると未提出課題を表示できます。</p>';
+        }
+    } finally {
+        REFRESH_BUTTON.disabled = false;
     }
-    await syncHomeManabaFromServer(true);
 });
-
-HOME_MANABA_ASSIGNMENT_LIST?.addEventListener('change', async (event) => {
-    const target = event.target.closest('[data-home-manaba-action="toggle-done"]');
-    if (!target) return;
-    await toggleHomeManabaAssignmentDone(target.dataset.assignmentId, target.checked);
-});
-
 
 // 食堂メニュー
 function loadCafeteriaMenu() {

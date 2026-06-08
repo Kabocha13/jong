@@ -15,6 +15,7 @@
 
     <main>
         <div class="attendance-bar">
+            <button type="button" id="refresh-button">更新</button>
             <div id="attendance-bar"></div>
         </div>
 
@@ -25,7 +26,6 @@
                     <p>データを読み込み中...</p>
                 </div>
                 <p class="update-info" id="last-update"></p>
-                <button id="refresh-button">🔄 ランキング更新</button>
             </div>
         </div>
 
@@ -42,10 +42,7 @@
             </div>
 
             <div class="info-box home-campus-box" id="home-manaba-section">
-                <div class="home-manaba-header">
-                    <h3 class="icon-title">manaba 未提出課題</h3>
-                    <button type="button" id="home-manaba-sync-button" class="action-button secondary-button w-auto">manabaから取得</button>
-                </div>
+                <h3 class="icon-title">manaba 未提出課題</h3>
                 <p id="home-manaba-message" class="hidden"></p>
                 <div id="home-manaba-assignment-list">
                     <p>manaba課題を読み込み中...</p>
