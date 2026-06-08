@@ -1,10 +1,13 @@
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 
 const app = admin.initializeApp();
 const db = getFirestore(app, 'q-jong');
 const MASTER_USERNAME = 'Kabocha';
+const DAILY_POINT_TAX_DEFAULT_RATE = 0.11;
+const DAILY_POINT_TAX_EXCLUDED_PLAYERS = new Set(['3mahjong']);
 const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
 const DEFAULT_MANABA_LOGIN_PATH = '/ct/login';
 const DEFAULT_MANABA_ASSIGNMENTS_PATH = '/ct/home_library_query';
@@ -27,6 +30,70 @@ function setCors(req, res) {
 
 function authUidFromUsername(username) {
   return encodeURIComponent(username).replace(/%/g, '_').slice(0, 120);
+}
+
+function normalizeDailyPointTaxRate(value) {
+  const rate = Number(value);
+  if (!Number.isFinite(rate)) return DAILY_POINT_TAX_DEFAULT_RATE;
+  return Math.min(1, Math.max(0, rate));
+}
+
+function getJstDateKey(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
+
+async function collectDailyPointTaxForToday() {
+  const todayKey = getJstDateKey();
+  const settingsRef = db.collection('settings').doc('app');
+
+  return db.runTransaction(async transaction => {
+    const settingsDoc = await transaction.get(settingsRef);
+    const settings = settingsDoc.exists ? settingsDoc.data() : {};
+
+    if (settings.daily_point_tax_last_date === todayKey) {
+      return { status: 'skipped', date: todayKey, reason: 'already_collected' };
+    }
+
+    const rate = normalizeDailyPointTaxRate(settings.daily_point_tax_rate);
+    const playersSnapshot = await transaction.get(db.collection('players'));
+    let totalCollected = 0;
+
+    playersSnapshot.docs.forEach(doc => {
+      const player = doc.data();
+      const score = Number(player.score || 0);
+      if (DAILY_POINT_TAX_EXCLUDED_PLAYERS.has(player.name) || score <= 0 || rate <= 0) return;
+
+      const taxAmount = Number((score * rate).toFixed(1));
+      if (taxAmount <= 0) return;
+
+      totalCollected += taxAmount;
+      transaction.set(doc.ref, {
+        ...player,
+        score: Number((score - taxAmount).toFixed(1))
+      }, { merge: false });
+    });
+
+    const nowIso = new Date().toISOString();
+    transaction.set(settingsRef, {
+      daily_point_tax_rate: rate,
+      daily_point_tax_last_date: todayKey,
+      daily_point_tax_last_run_at: nowIso,
+      daily_point_tax_last_total: Number(totalCollected.toFixed(1)),
+      updatedAt: nowIso
+    }, { merge: true });
+
+    return {
+      status: 'success',
+      date: todayKey,
+      rate,
+      totalCollected: Number(totalCollected.toFixed(1))
+    };
+  });
 }
 
 async function getStoredPassword(playerDoc, player) {
@@ -400,6 +467,15 @@ async function syncManabaCredentialDoc(credentialDoc) {
     return { uid: credentialDoc.id, count: 0, status: 'error', message: error.message };
   }
 }
+
+export const collectDailyPointTax = onSchedule({
+  region: 'asia-northeast1',
+  schedule: '5 0 * * *',
+  timeZone: 'Asia/Tokyo'
+}, async () => {
+  const result = await collectDailyPointTaxForToday();
+  console.log('collectDailyPointTax result:', result);
+});
 
 export const qjongLogin = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
   setCors(req, res);

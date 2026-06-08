@@ -241,10 +241,17 @@
             </div>
 
             <div class="tool-box">
-                <h3>💰 日次ポイント徴収 (11%)</h3>
-                <button type="button" id="daily-tax-button" class="action-button w-auto" style="background-color: #DAA520;">
-                    日次ポイント徴収を実行
-                </button>
+                <h3>💰 日次ポイント徴収設定</h3>
+                <p class="instruction" id="daily-tax-status">設定を読み込み中...</p>
+                <form id="daily-tax-form">
+                    <div class="form-group">
+                        <label for="daily-tax-rate">徴収率 (%):</label>
+                        <input type="number" id="daily-tax-rate" step="0.1" min="0" max="100" required>
+                    </div>
+                    <button type="submit" class="action-button w-auto" style="background-color: #DAA520;">
+                        徴収率を保存
+                    </button>
+                </form>
                 <p id="daily-tax-message" class="hidden"></p>
             </div>
 

@@ -107,10 +107,18 @@ async function ensureHomeFirebaseLogin() {
     const username = localStorage.getItem('authUsername');
     const password = localStorage.getItem('authPassword');
     if (!username || !password) return false;
-    if (getCurrentFirebaseUidSync()) return true;
+    if (getCurrentFirebaseUidSync()) {
+        await runDailyPointTaxIfNeeded().catch(error => {
+            console.warn('日次ポイント徴収に失敗しました。ホーム表示は継続します。', error);
+        });
+        return true;
+    }
 
     try {
         await qjongSignIn(username, password);
+        await runDailyPointTaxIfNeeded().catch(error => {
+            console.warn('日次ポイント徴収に失敗しました。ホーム表示は継続します。', error);
+        });
         return true;
     } catch (error) {
         console.warn('ホームmanaba用ログインに失敗:', error);

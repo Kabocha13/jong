@@ -21,8 +21,10 @@ const MAHJONG_PLAYER_INPUTS_CONTAINER = document.getElementById('mahjong-player-
 const MAHJONG_MESSAGE_ELEMENT = document.getElementById('mahjong-message');
 const MAHJONG_SUBMIT_BUTTON = document.getElementById('mahjong-submit-button');
 
-// ★ 新規追加: 日次ポイント徴収
-const DAILY_TAX_BUTTON = document.getElementById('daily-tax-button');
+// ★ 日次ポイント徴収設定
+const DAILY_TAX_FORM = document.getElementById('daily-tax-form');
+const DAILY_TAX_RATE_INPUT = document.getElementById('daily-tax-rate');
+const DAILY_TAX_STATUS = document.getElementById('daily-tax-status');
 const DAILY_TAX_MESSAGE = document.getElementById('daily-tax-message');
 
 // ★ 陣取り合戦シーズン終了
@@ -89,6 +91,9 @@ async function attemptMasterLogin(username, password, isAuto = false) {
     // 2. Cloud Functionでパスワードを照合
     try {
         await qjongSignIn(username, password);
+        await runDailyPointTaxIfNeeded().catch(error => {
+            console.warn('日次ポイント徴収に失敗しました。マスター認証は継続します。', error);
+        });
         const allData = await fetchAllData();
         const scores = allData.scores;
         
@@ -129,6 +134,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         loadSpecialThemeStatus();
         loadAttendanceAccessStatus();
         loadTerritorySeasonStatus();
+        loadDailyTaxSettings();
         
         if (!isAuto) {
              showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
@@ -1133,114 +1139,46 @@ if (document.getElementById('adjustment-form')) {
     });
 }
 
-// --- 日次ポイント徴収機能のロジック (新規追加) ---
+// --- 日次ポイント徴収設定 ---
+async function loadDailyTaxSettings() {
+    if (!DAILY_TAX_RATE_INPUT || !DAILY_TAX_STATUS) return;
 
-// ★ 修正: DAILY_TAX_BUTTON が存在しないページもあるため、nullチェック
-if (DAILY_TAX_BUTTON) {
-    DAILY_TAX_BUTTON.addEventListener('click', async () => {
-        // 削除: TOTAL_TAX_AMOUNT を定数から削除
-        // const TOTAL_TAX_AMOUNT = 100.0; // 削除
-        const TAX_RATE = 0.11; // 徴収率 11%
-        const EXCLUDED_PLAYER_NAMES = ['3mahjong']; 
-        const messageEl = DAILY_TAX_MESSAGE;
-    
-        if (!window.confirm(`全プレイヤーの保有ポイント合計の ${TAX_RATE * 100}% を比例配分で徴収を実行します。よろしいですか？`)) {
+    try {
+        const data = await fetchAllData();
+        const ratePercent = (data.daily_point_tax_rate * 100).toFixed(1).replace(/\.0$/, '');
+        DAILY_TAX_RATE_INPUT.value = ratePercent;
+        const lastDate = data.daily_point_tax_last_date || '未実行';
+        const lastTotal = Number(data.daily_point_tax_last_total || 0).toFixed(1);
+        DAILY_TAX_STATUS.textContent = `毎日ログイン時に自動徴収します。最終徴収日: ${lastDate} / 前回徴収: ${lastTotal}P`;
+    } catch (error) {
+        console.error(error);
+        DAILY_TAX_STATUS.textContent = '日次ポイント徴収設定を読み込めませんでした。';
+    }
+}
+
+if (DAILY_TAX_FORM) {
+    DAILY_TAX_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitButton = DAILY_TAX_FORM.querySelector('button[type="submit"]');
+        const ratePercent = parseFloat(DAILY_TAX_RATE_INPUT.value);
+
+        if (!Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 100) {
+            showMessage(DAILY_TAX_MESSAGE, '徴収率は0〜100%で入力してください。', 'error');
             return;
         }
-    
-        DAILY_TAX_BUTTON.disabled = true;
-        showMessage(messageEl, 'ポイント徴収を処理中...', 'info');
-        
-        try {
-            const currentData = await fetchAllData();
-            // pass/pro/status/lastBonusTimeフィールドを保持するために、scores全体をマップとして処理
-            let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
-            
-            // 1. 徴収対象プレイヤーの特定と総ポイントの計算
-            const targetPlayers = currentData.scores.filter(player => 
-                !EXCLUDED_PLAYER_NAMES.includes(player.name)
-            );
-            
-            // 徴収対象プレイヤーの合計ポイントを計算 (ポイントがマイナスの場合は0として扱う)
-            const totalTargetScore = targetPlayers.reduce((sum, player) => sum + Math.max(0, player.score), 0);
-            
-            // ★ 新規: 徴収合計額を計算
-            const CALCULATED_TAX_AMOUNT = parseFloat((totalTargetScore * TAX_RATE).toFixed(1)); 
 
-            if (totalTargetScore <= 0 || CALCULATED_TAX_AMOUNT <= 0) {
-                showMessage(messageEl, '⚠️ 徴収対象プレイヤーの合計ポイントが0以下、または徴収合計額が0です。徴収はスキップされました。', 'info');
-                return;
-            }
-    
-            let pointsToDistribute = {}; // 徴収額を保持するオブジェクト
-    
-            // 2. 各プレイヤーの徴収額を計算
-            targetPlayers.forEach(player => {
-                // ポイントがマイナスまたはゼロの場合は徴収しない
-                if (player.score <= 0) {
-                     pointsToDistribute[player.name] = 0;
-                     return;
-                }
-    
-                // 比例配分で徴収額を計算し、小数点第一位に丸める
-                // CALCULATED_TAX_AMOUNT を使用して比例配分する
-                const taxAmount = parseFloat((CALCULATED_TAX_AMOUNT * (player.score / totalTargetScore)).toFixed(1));
-                pointsToDistribute[player.name] = taxAmount;
-            });
-            
-            // 3. スコアを更新
-            targetPlayers.forEach(player => {
-                const taxAmount = pointsToDistribute[player.name];
-                
-                if (taxAmount > 0) {
-                    const newScore = player.score - taxAmount;
-                    
-                    // pass/status/lastBonusTimeフィールドを保持したままscoreを更新
-                    currentScoresMap.set(player.name, { 
-                        ...player, 
-                        score: parseFloat(newScore.toFixed(1)) 
-                    });
-                }
-            });
-            
-            const newScores = Array.from(currentScoresMap.values()); // pass/pro/status/lastBonusTimeフィールドを保持したscores
-    
-            // ★★★ 修正: lotteries, gift_codes フィールドを保持 ★★★
-            const newData = {
-                scores: newScores,
-                sports_bets: currentData.sports_bets,
-                speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
-            };
-    
-            const response = await updateAllData(newData);
-    
-            if (response.status === 'success') {
-                // 徴収された合計ポイントを再計算し、小数点第一位で表示
-                const finalTaxCollected = newScores
-                    .filter(p => targetPlayers.map(tp => tp.name).includes(p.name)) // 徴収対象プレイヤーのみ
-                    .reduce((sum, current) => {
-                        const originalPlayer = currentData.scores.find(s => s.name === current.name);
-                        // (元のスコア) - (新しいスコア) を計算
-                        return sum + (originalPlayer.score - current.score);
-                    }, 0);
-    
-                showMessage(messageEl, `✅ 日次ポイント徴収を完了しました。合計徴収ポイント: ${finalTaxCollected.toFixed(1)} P (保有ポイント合計 ${totalTargetScore.toFixed(1)} P の約${(TAX_RATE * 100).toFixed(0)}%)`, 'success');
-                
-                // UIを更新
-                loadPlayerList(); 
-                loadTransferPlayerLists();
-                loadMahjongForm();
-            } else {
-                showMessage(messageEl, `❌ 徴収エラー: ${response.message}`, 'error');
-            }
-    
+        submitButton.disabled = true;
+        showMessage(DAILY_TAX_MESSAGE, '徴収率を保存中...', 'info');
+
+        try {
+            const savedRate = await saveDailyPointTaxRate(ratePercent / 100);
+            showMessage(DAILY_TAX_MESSAGE, `✅ 日次ポイント徴収率を${(savedRate * 100).toFixed(1).replace(/\.0$/, '')}%に保存しました。`, 'success');
+            await loadDailyTaxSettings();
         } catch (error) {
             console.error(error);
-            showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+            showMessage(DAILY_TAX_MESSAGE, `❌ 保存エラー: ${error.message}`, 'error');
         } finally {
-            DAILY_TAX_BUTTON.disabled = false;
+            submitButton.disabled = false;
         }
     });
 }

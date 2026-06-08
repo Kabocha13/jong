@@ -7,10 +7,12 @@ const FIREBASE_COLLECTIONS = {
     lotteries: 'lotteries',
     gift_codes: 'gift_codes',
     exercise_reports: 'exercise_reports',
-    career_posts: 'career_posts',
-    career_companies: 'career_companies'
+    career_posts: 'career_posts'
 };
+const DAILY_POINT_TAX_DEFAULT_RATE = 0.11;
+const DAILY_POINT_TAX_EXCLUDED_PLAYERS = ['3mahjong'];
 let _firebaseFirestoreSettingsApplied = false;
+let _dailyPointTaxCheckedDate = '';
 
 function isFirebaseConfigured() {
     return Boolean(
@@ -199,7 +201,10 @@ function createEmptyData() {
         gift_codes: [],
         exercise_reports: [],
         career_posts: [],
-        career_companies: [],
+        daily_point_tax_rate: DAILY_POINT_TAX_DEFAULT_RATE,
+        daily_point_tax_last_date: '',
+        daily_point_tax_last_run_at: '',
+        daily_point_tax_last_total: 0,
         territory_battle: createDefaultTerritoryBattle(),
         special_theme: null,
         attendance_allowed_users: []
@@ -217,10 +222,28 @@ function normalizeFetchedRecord(record) {
         dailyPressCount: Math.max(0, Math.floor(toFiniteNumber(player.dailyPressCount, 0)))
     }));
     normalized.territory_battle = normalizeTerritoryBattle(normalized.territory_battle);
+    normalized.daily_point_tax_rate = normalizeDailyPointTaxRate(normalized.daily_point_tax_rate);
+    normalized.daily_point_tax_last_date = String(normalized.daily_point_tax_last_date || '');
+    normalized.daily_point_tax_last_run_at = String(normalized.daily_point_tax_last_run_at || '');
+    normalized.daily_point_tax_last_total = toFiniteNumber(normalized.daily_point_tax_last_total, 0);
     normalized.attendance_allowed_users = Array.isArray(normalized.attendance_allowed_users)
         ? normalized.attendance_allowed_users.filter(Boolean)
         : [];
     return normalized;
+}
+
+function normalizeDailyPointTaxRate(value) {
+    const rate = toFiniteNumber(value, DAILY_POINT_TAX_DEFAULT_RATE);
+    return Math.min(1, Math.max(0, rate));
+}
+
+function getJstDateKey(date = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).format(date);
 }
 
 function toFiniteNumber(value, fallback = 0) {
@@ -242,7 +265,6 @@ function getItemDocId(key, item, index) {
     if (key === 'gift_codes') return toDocId(item.code ?? item.name ?? item.id ?? `gift_${index}`);
     if (key === 'exercise_reports') return toDocId(item.id ?? `exercise_${index}`);
     if (key === 'career_posts') return toDocId(item.id ?? `career_${index}`);
-    if (key === 'career_companies') return toDocId(item.id ?? `company_${index}`);
     if (key === 'speedstorm_records') return toDocId(item.id ?? item.player ?? `speedstorm_${index}`);
     return toDocId(item.id ?? index);
 }
@@ -640,7 +662,6 @@ async function fetchAllDataFromFirebase() {
         giftCodes,
         exerciseReports,
         careerPosts,
-        careerCompanies,
         settingsDoc,
         territoryDoc
     ] = await Promise.all([
@@ -651,7 +672,6 @@ async function fetchAllDataFromFirebase() {
         fetchCollection(db, 'gift_codes'),
         fetchCollection(db, 'exercise_reports'),
         fetchCollection(db, 'career_posts'),
-        fetchOptionalCollection(db, 'career_companies'),
         db.collection('settings').doc('app').get(),
         db.collection('territory_battle').doc('current').get()
     ]);
@@ -665,7 +685,10 @@ async function fetchAllDataFromFirebase() {
         gift_codes: giftCodes,
         exercise_reports: exerciseReports,
         career_posts: careerPosts,
-        career_companies: careerCompanies,
+        daily_point_tax_rate: settings.daily_point_tax_rate ?? DAILY_POINT_TAX_DEFAULT_RATE,
+        daily_point_tax_last_date: settings.daily_point_tax_last_date ?? '',
+        daily_point_tax_last_run_at: settings.daily_point_tax_last_run_at ?? '',
+        daily_point_tax_last_total: settings.daily_point_tax_last_total ?? 0,
         territory_battle: territoryDoc.exists ? territoryDoc.data() : null,
         special_theme: settings.special_theme ?? null,
         attendance_allowed_users: settings.attendance_allowed_users ?? []
@@ -735,6 +758,10 @@ async function updateAllDataInFirebase(newData) {
 
         batch.set(db.collection('settings').doc('app'), {
             special_theme: mergedData.special_theme ?? null,
+            daily_point_tax_rate: normalizeDailyPointTaxRate(mergedData.daily_point_tax_rate),
+            daily_point_tax_last_date: mergedData.daily_point_tax_last_date || '',
+            daily_point_tax_last_run_at: mergedData.daily_point_tax_last_run_at || '',
+            daily_point_tax_last_total: toFiniteNumber(mergedData.daily_point_tax_last_total, 0),
             attendance_allowed_users: mergedData.attendance_allowed_users || [],
             updatedAt: new Date().toISOString()
         }, { merge: true });
@@ -751,6 +778,89 @@ async function updateAllDataInFirebase(newData) {
         console.error("Firebase書き込み中にエラー:", error);
         return { status: "error", message: `Firebase書き込み失敗: ${error.message}`, totalChange: 0 };
     }
+}
+
+async function saveDailyPointTaxRate(rate) {
+    const db = getFirestoreDb();
+    if (!db) throw new Error('Firebase が設定されていません。');
+    const normalizedRate = normalizeDailyPointTaxRate(rate);
+    await db.collection('settings').doc('app').set({
+        daily_point_tax_rate: normalizedRate,
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+    invalidateFetchCache();
+    return normalizedRate;
+}
+
+async function runDailyPointTaxIfNeeded() {
+    const todayKey = getJstDateKey();
+    if (_dailyPointTaxCheckedDate === todayKey) {
+        return { status: 'skipped', message: '本日分の日次ポイント徴収は確認済みです。' };
+    }
+
+    if (!getCurrentFirebaseUidSync()) {
+        return { status: 'skipped', message: 'ログイン前のため日次ポイント徴収をスキップしました。' };
+    }
+
+    const db = getFirestoreDb();
+    if (!db) return { status: 'skipped', message: 'Firebase が設定されていません。' };
+
+    const currentData = normalizeFetchedRecord(await fetchAllDataFromFirebase());
+    const rate = normalizeDailyPointTaxRate(currentData.daily_point_tax_rate);
+
+    if (currentData.daily_point_tax_last_date === todayKey) {
+        _dailyPointTaxCheckedDate = todayKey;
+        return { status: 'skipped', message: '本日分の日次ポイント徴収は完了済みです。' };
+    }
+
+    const targetPlayers = currentData.scores.filter(player =>
+        !DAILY_POINT_TAX_EXCLUDED_PLAYERS.includes(player.name)
+    );
+    const updatedScores = currentData.scores.map(player => {
+        if (DAILY_POINT_TAX_EXCLUDED_PLAYERS.includes(player.name) || player.score <= 0 || rate <= 0) {
+            return player;
+        }
+        const taxAmount = parseFloat((player.score * rate).toFixed(1));
+        if (taxAmount <= 0) return player;
+        return {
+            ...player,
+            score: parseFloat((player.score - taxAmount).toFixed(1))
+        };
+    });
+
+    const totalCollected = updatedScores.reduce((sum, player) => {
+        const original = currentData.scores.find(item => item.name === player.name);
+        if (!original || !targetPlayers.some(item => item.name === player.name)) return sum;
+        return sum + Math.max(0, (original.score || 0) - (player.score || 0));
+    }, 0);
+
+    const batch = db.batch();
+    updatedScores.forEach(player => {
+        const payload = { ...player };
+        delete payload._docId;
+        batch.set(db.collection(FIREBASE_COLLECTIONS.scores).doc(getItemDocId('scores', player, 0)), payload);
+    });
+
+    const nowIso = new Date().toISOString();
+    batch.set(db.collection('settings').doc('app'), {
+        daily_point_tax_rate: rate,
+        daily_point_tax_last_date: todayKey,
+        daily_point_tax_last_run_at: nowIso,
+        daily_point_tax_last_total: parseFloat(totalCollected.toFixed(1)),
+        updatedAt: nowIso
+    }, { merge: true });
+
+    await batch.commit();
+    _dailyPointTaxCheckedDate = todayKey;
+    invalidateFetchCache();
+
+    return {
+        status: 'success',
+        message: `日次ポイント徴収を完了しました。`,
+        date: todayKey,
+        rate,
+        totalCollected: parseFloat(totalCollected.toFixed(1))
+    };
 }
 
 async function submitExerciseReportToFirebase({ player, distance, pace, imageFile }) {

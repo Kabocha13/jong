@@ -87,6 +87,9 @@ async function attemptLogin(username, password, isAuto = false) {
     
     try {
         await qjongSignIn(username, password);
+        await runDailyPointTaxIfNeeded().catch(error => {
+            console.warn('日次ポイント徴収に失敗しました。ログイン処理は継続します。', error);
+        });
     } catch (error) {
         showMessage(AUTH_MESSAGE, `❌ Firebase認証エラー: ${error.message}`, 'error');
         finishAuthPending();
