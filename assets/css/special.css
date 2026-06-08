@@ -377,10 +377,3 @@ html.special-theme .spi-choice:hover {
     background-color: #f2eaff;
     border-color: rgba(143, 110, 213, 0.45);
 }
-
-/* ============================================================
-   天気表示
-   ============================================================ */
-html.special-theme .weather-day {
-    color: var(--color-indigo);
-}

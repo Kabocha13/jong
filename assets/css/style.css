@@ -303,6 +303,56 @@ h2, h3 {
     text-transform: uppercase;
 }
 
+.home-campus-grid {
+    display: grid;
+    grid-template-columns: minmax(320px, 1.05fr) minmax(320px, 0.95fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.home-campus-box {
+    margin-bottom: 0;
+    height: 100%;
+}
+
+.home-manaba-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.home-manaba-header h3.icon-title {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.home-manaba-header .action-button {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 0.75em;
+    white-space: nowrap;
+}
+
+#home-manaba-assignment-list .text-small {
+    margin: 0 0 8px;
+}
+
+.home-events-section {
+    display: grid;
+    gap: 16px;
+}
+
+.home-event-group h4 {
+    margin: 0 0 10px;
+    color: var(--color-indigo);
+    font-family: var(--font-display);
+    font-size: 0.82em;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
 /* --- ツールボックス --- */
 .tool-box {
     background-color: #fff;
@@ -942,6 +992,148 @@ button[type="submit"]:hover,
 }
 
 @media (max-width: 760px) {
+    main {
+        padding-right: 10px;
+        padding-left: 10px;
+    }
+
+    .info-box {
+        padding: 14px 12px;
+        margin-bottom: 14px;
+    }
+
+    .info-box h3.icon-title {
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        font-size: 0.86em;
+        letter-spacing: 1.5px;
+    }
+
+    .home-campus-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .home-campus-box {
+        min-width: 0;
+    }
+
+    .home-cafeteria-box {
+        padding: 12px 10px;
+    }
+
+    .cafeteria-layout {
+        display: block;
+        padding-bottom: 0;
+        overflow: visible;
+    }
+
+    .cafeteria-label {
+        margin-bottom: 4px;
+        font-size: 0.72em;
+    }
+
+    .home-manaba-header {
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .home-manaba-header .action-button {
+        min-width: 96px;
+        padding: 7px 8px;
+        font-size: 0.68em;
+        letter-spacing: 0;
+    }
+
+    #home-manaba-section .career-table-wrap {
+        overflow: visible;
+    }
+
+    #home-manaba-section .manaba-assignment-table,
+    #home-manaba-section .manaba-assignment-table tbody,
+    #home-manaba-section .manaba-assignment-table tr,
+    #home-manaba-section .manaba-assignment-table td {
+        display: block;
+        width: 100%;
+    }
+
+    #home-manaba-section .manaba-assignment-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 0.88em;
+    }
+
+    #home-manaba-section .manaba-assignment-table thead {
+        display: none;
+    }
+
+    #home-manaba-section .manaba-assignment-table tr {
+        position: relative;
+        margin-bottom: 8px;
+        padding: 10px 10px 9px 44px;
+        border: 1px solid rgba(201, 168, 76, 0.32);
+        border-radius: 6px;
+        background-color: #fffdf8;
+    }
+
+    #home-manaba-section .manaba-assignment-table tr:hover td {
+        background: transparent;
+    }
+
+    #home-manaba-section .manaba-assignment-table td {
+        padding: 0;
+        border-bottom: 0;
+        text-align: left;
+        line-height: 1.35;
+    }
+
+    #home-manaba-section .manaba-assignment-table td:first-child {
+        position: absolute;
+        top: 10px;
+        left: 12px;
+        width: 22px;
+    }
+
+    #home-manaba-section .manaba-assignment-table td:nth-child(2) {
+        margin-bottom: 5px;
+        font-size: 1em;
+        font-weight: 700;
+        color: var(--color-indigo);
+        overflow-wrap: anywhere;
+    }
+
+    #home-manaba-section .manaba-assignment-table td:nth-child(n+3)::before {
+        content: attr(data-label) " ";
+        color: #7a8190;
+        font-size: 0.76em;
+        font-weight: 700;
+    }
+
+    #home-manaba-section .manaba-assignment-table td:nth-child(n+3) {
+        color: #454b5f;
+        font-size: 0.86em;
+    }
+
+    #home-manaba-section .career-link {
+        display: inline-flex;
+        margin-top: 3px;
+        padding: 3px 8px;
+        border: 1px solid rgba(201, 168, 76, 0.35);
+        border-radius: 4px;
+        background-color: #fff;
+        letter-spacing: 1px;
+    }
+
+    .home-events-section {
+        gap: 10px;
+    }
+
+    .home-event-group h4 {
+        margin-bottom: 7px;
+        font-size: 0.76em;
+        letter-spacing: 1px;
+    }
+
     .territory-status,
     .territory-layout {
         grid-template-columns: 1fr;
@@ -1110,7 +1302,7 @@ html.auth-pending #auth-section { display: none !important; }
     border-radius: 2px;
 }
 .cafeteria-panel {
-    flex: 0 0 80%;
+    flex: 1 1 100%;
     scroll-snap-align: start;
 }
 .cafeteria-label {
@@ -1208,29 +1400,6 @@ html.auth-pending #auth-section { display: none !important; }
     align-items: center;
     gap: 10px;
     margin-bottom: 8px;
-}
-
-#weather-bar {
-    display: flex;
-    gap: 6px;
-    margin-right: auto;
-}
-
-.weather-day {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.95em;
-    color: var(--color-indigo);
-}
-
-.weather-day .w-icon {
-    font-size: 1.3em;
-}
-
-.weather-day .w-temp {
-    font-size: 0.95em;
-    letter-spacing: 0.5px;
 }
 
 .attendance-button {

@@ -15,7 +15,6 @@
 
     <main>
         <div class="attendance-bar">
-            <div id="weather-bar"></div>
             <div id="attendance-bar"></div>
         </div>
 
@@ -30,37 +29,43 @@
             </div>
         </div>
 
-        <div class="info-box mt-20">
-            <h3 class="icon-title">📷 学生食堂情報</h3>
-            <div class="cafeteria-layout">
-                <div class="cafeteria-panel">
-                    <p class="cafeteria-label">今週のメニュー</p>
-                    <img alt="津田沼 学生食堂メニュー" id="tsudanuma-menu"
-                         style="width:100%; border-radius:2px; display:block;">
+        <div class="home-campus-grid mt-20">
+            <div class="info-box home-campus-box home-cafeteria-box">
+                <h3 class="icon-title">📷 学生食堂情報</h3>
+                <div class="cafeteria-layout">
+                    <div class="cafeteria-panel">
+                        <p class="cafeteria-label">今週のメニュー</p>
+                        <img alt="津田沼 学生食堂メニュー" id="tsudanuma-menu"
+                             style="width:100%; border-radius:2px; display:block;">
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-box home-campus-box" id="home-manaba-section">
+                <div class="home-manaba-header">
+                    <h3 class="icon-title">manaba 未提出課題</h3>
+                    <button type="button" id="home-manaba-sync-button" class="action-button secondary-button w-auto">manabaから取得</button>
+                </div>
+                <p id="home-manaba-message" class="hidden"></p>
+                <div id="home-manaba-assignment-list">
+                    <p>manaba課題を読み込み中...</p>
                 </div>
             </div>
         </div>
 
-        <div class="info-box mt-20" id="home-manaba-section">
-            <h3 class="icon-title">manaba 未提出課題</h3>
-            <button type="button" id="home-manaba-sync-button" class="action-button secondary-button w-auto">manabaから取得</button>
-            <p id="home-manaba-message" class="hidden"></p>
-            <div id="home-manaba-assignment-list" class="mt-20">
-                <p>manaba課題を読み込み中...</p>
+        <div class="info-box mt-20 home-events-section">
+            <h3 class="icon-title">開催中のイベント</h3>
+            <div class="home-event-group">
+                <h4>宝くじ</h4>
+                <div id="lottery-list-container">
+                    <p>宝くじデータを読み込み中...</p>
+                </div>
             </div>
-        </div>
-
-        <div class="info-box mt-20">
-            <h3 class="icon-title"> 宝くじ開催中</h3>
-            <div id="lottery-list-container">
-                <p>宝くじデータを読み込み中...</p>
-            </div>
-        </div>
-        
-        <div class="info-box mt-20">
-            <h3 class="icon-title">⚽ スポーツくじ</h3>
-            <div id="sports-bets-container">
-                <p>くじデータを読み込み中...</p>
+            <div class="home-event-group">
+                <h4>スポーツくじ</h4>
+                <div id="sports-bets-container">
+                    <p>くじデータを読み込み中...</p>
+                </div>
             </div>
         </div>
 

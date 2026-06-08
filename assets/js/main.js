@@ -201,11 +201,11 @@ function renderHomeManabaAssignmentTable(record) {
                 <tbody>
                     ${assignments.map(item => `
                         <tr class="${item.done ? 'is-done' : ''}">
-                            <td><input type="checkbox" ${item.done ? 'checked' : ''} data-home-manaba-action="toggle-done" data-assignment-id="${escapeText(item.id)}"></td>
-                            <td>${escapeText(item.title || '名称未取得')}</td>
-                            <td>${escapeText(item.course || '—')}</td>
-                            <td>${escapeText(item.deadlineText || item.deadline || '—')}</td>
-                            <td>${item.url ? `<a class="career-link" href="${escapeText(item.url)}" target="_blank" rel="noopener">開く</a>` : '—'}</td>
+                            <td data-label="完了"><input type="checkbox" ${item.done ? 'checked' : ''} data-home-manaba-action="toggle-done" data-assignment-id="${escapeText(item.id)}"></td>
+                            <td data-label="課題">${escapeText(item.title || '名称未取得')}</td>
+                            <td data-label="授業">${escapeText(item.course || '—')}</td>
+                            <td data-label="締切">${escapeText(item.deadlineText || item.deadline || '—')}</td>
+                            <td data-label="リンク">${item.url ? `<a class="career-link" href="${escapeText(item.url)}" target="_blank" rel="noopener">開く</a>` : '—'}</td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -833,45 +833,6 @@ function loadCafeteriaMenu() {
 }
 
 loadCafeteriaMenu();
-
-// 天気予報（今日・明日）
-(function () {
-    // wttr.in の天気コード → 絵文字
-    const WTTR_ICON = {
-        113: '☀️', 116: '🌤️', 119: '⛅', 122: '☁️',
-        143: '🌫️', 248: '🌫️', 260: '🌫️',
-        176: '🌦️', 263: '🌦️', 266: '🌦️', 293: '🌦️', 296: '🌦️', 353: '🌦️',
-        179: '🌨️', 227: '🌨️', 320: '🌨️', 323: '🌨️', 326: '🌨️', 368: '🌨️',
-        182: '🌧️', 185: '🌧️', 281: '🌧️', 284: '🌧️', 299: '🌧️', 302: '🌧️',
-        305: '🌧️', 308: '🌧️', 311: '🌧️', 314: '🌧️', 317: '🌧️', 356: '🌧️',
-        359: '🌧️', 362: '🌧️', 365: '🌧️', 374: '🌧️', 377: '🌧️',
-        230: '❄️', 329: '❄️', 332: '❄️', 335: '❄️', 338: '❄️', 350: '❄️', 371: '❄️',
-        200: '⛈️', 386: '⛈️', 389: '⛈️', 392: '⛈️', 395: '⛈️',
-    };
-
-    async function renderWeather() {
-        const bar = document.getElementById('weather-bar');
-        if (!bar) return;
-        try {
-            // wttr.in は CORS ヘッダーを返すのでクライアントから直接取得可能
-            const res = await fetch('https://wttr.in/35.68,140.02?format=j1');
-            const data = await res.json();
-            bar.innerHTML = [0, 1].map(i => {
-                const day = data.weather[i];
-                const code = parseInt(day.hourly[4].weatherCode); // 正午のコード
-                const icon = WTTR_ICON[code] ?? '🌡️';
-                const hi = Math.round(parseFloat(day.maxtempC));
-                const lo = Math.round(parseFloat(day.mintempC));
-                return `<span class="weather-day"><span class="w-icon">${icon}</span><span class="w-temp">${hi}°/${lo}°</span></span>`;
-            }).join('');
-        } catch {
-            // keep existing content on error; do not clear
-        }
-    }
-
-    renderWeather();
-    setInterval(renderWeather, 3600000); // 1時間ごとに更新
-}());
 
 // 出席登録ボタン
 (function () {
