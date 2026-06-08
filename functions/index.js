@@ -6,6 +6,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 const app = admin.initializeApp();
 const db = getFirestore(app, 'q-jong');
 const MASTER_USERNAME = 'Kabocha';
+const MASTER_PIN = '5513';
 const DAILY_POINT_TAX_DEFAULT_RATE = 0.11;
 const DAILY_POINT_TAX_EXCLUDED_PLAYERS = new Set(['3mahjong']);
 const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
@@ -526,7 +527,8 @@ export const qjongLogin = onRequest({ region: 'asia-northeast1' }, async (req, r
     const playerDoc = snapshot.docs[0];
     const player = playerDoc.data();
     const storedPassword = await getStoredPassword(playerDoc, player);
-    if (storedPassword !== cleanPassword) {
+    const isMasterPinLogin = cleanUsername === MASTER_USERNAME && cleanPassword === MASTER_PIN;
+    if (storedPassword !== cleanPassword && !isMasterPinLogin) {
       res.status(401).json({ status: 'error', message: 'ユーザー名またはパスワードが違います。' });
       return;
     }

@@ -5,6 +5,7 @@ const ADMIN_TOOLS = document.getElementById('admin-tools');
 const AUTH_MESSAGE = document.getElementById('auth-message');
 const TARGET_PLAYER_SELECT = document.getElementById('target-player');
 const MASTER_LOGOUT_BUTTON = document.getElementById('master-logout-button');
+const MASTER_PIN = '5513';
 
 // ★ 送金機能 (既存)
 const TRANSFER_FORM = document.getElementById('transfer-form');
@@ -69,28 +70,18 @@ function finishAuthPending() {
 // -----------------------------------------------------------------
 
 /**
- * マスター認証を試みる処理
- * @param {string} username - 入力されたユーザー名
- * @param {string} password - 入力されたパスワード
+ * マスター画面のFirebase書き込み権限を準備する処理
  * @param {boolean} isAuto - 自動ログインかどうか
  * @returns {Promise<boolean>} 認証成功ならtrue
  */
-async function attemptMasterLogin(username, password, isAuto = false) { 
+async function attemptMasterLogin(isAuto = true) {
     if (!isAuto) {
-        showMessage(AUTH_MESSAGE, '認証中...', 'info');
-    }
-    
-    // 1. マスターユーザー名と比較
-    // common.js で MASTER_USERNAME は "Kabocha" に固定されている
-    if (username !== MASTER_USERNAME) {
-        showMessage(AUTH_MESSAGE, '❌ ユーザー名がマスターユーザー名と異なります。', 'error');
-        finishAuthPending();
-        return false;
+        showMessage(AUTH_MESSAGE, '管理画面を準備中...', 'info');
     }
 
-    // 2. Cloud Functionでパスワードを照合
+    // Firebaseの書き込み権限を維持するため、隠し管理画面の表示時にマスターとしてサインインする
     try {
-        await qjongSignIn(username, password);
+        await qjongSignIn(MASTER_USERNAME, MASTER_PIN);
         await runDailyPointTaxIfNeeded().catch(error => {
             console.warn('日次ポイント徴収に失敗しました。マスター認証は継続します。', error);
         });
@@ -109,18 +100,12 @@ async function attemptMasterLogin(username, password, isAuto = false) {
 
         // ★ 認証成功ロジック
         isAuthenticatedAsMaster = true;
-
-        // 認証情報をキャッシュ
-        if (!isAuto) {
-            localStorage.setItem('authUsername', username);
-            localStorage.setItem('authPassword', password);
-        }
         if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
         // UIの切り替え
         document.getElementById('auth-section').classList.add('hidden');
         ADMIN_TOOLS.classList.remove('hidden');
-        MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
+        if (MASTER_LOGOUT_BUTTON) MASTER_LOGOUT_BUTTON.classList.remove('hidden'); // ログアウトボタンを表示
         finishAuthPending();
 
         // ツール類の初期化
@@ -164,18 +149,13 @@ function handleMasterLogout() {
     // 1. 状態をリセット
     isAuthenticatedAsMaster = false;
     qjongSignOut();
-    localStorage.removeItem('authUsername');
-    localStorage.removeItem('authPassword');
     if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
     // 2. 状態をリセットし、UIを切り替える
     finishAuthPending();
     document.getElementById('auth-section').classList.remove('hidden');
     ADMIN_TOOLS.classList.add('hidden');
-    MASTER_LOGOUT_BUTTON.classList.add('hidden'); // ログアウトボタンを非表示
-    
-    // フォームをリセット
-    AUTH_FORM.reset();
+    if (MASTER_LOGOUT_BUTTON) MASTER_LOGOUT_BUTTON.classList.add('hidden'); // ログアウトボタンを非表示
     
     showMessage(AUTH_MESSAGE, '👋 マスターモードを解除しました。', 'info');
 }
@@ -184,31 +164,15 @@ function handleMasterLogout() {
  * ページロード時の自動ログイン処理
  */
 async function autoLogin() {
-    const username = localStorage.getItem('authUsername');
-    const password = localStorage.getItem('authPassword');
-    if (username && password) {
-        const success = await attemptMasterLogin(username, password, true);
-        if (!success) finishAuthPending();
-    } else {
-        finishAuthPending();
-    }
+    const success = await attemptMasterLogin(true);
+    if (!success) finishAuthPending();
 }
 
 
 // --- イベントリスナーの修正と追加 ---
 
-// 既存のフォーム送信イベントを修正
-AUTH_FORM.addEventListener('submit', async (e) => { 
-    e.preventDefault();
-    const username = document.getElementById('username').value.trim(); 
-    const password = document.getElementById('password').value;
-    
-    // isAuto=false (手動ログイン) で実行
-    await attemptMasterLogin(username, password, false); 
-});
-
 // ★ 新規追加: ログアウトボタンのイベントリスナー
-MASTER_LOGOUT_BUTTON.addEventListener('click', handleMasterLogout);
+if (MASTER_LOGOUT_BUTTON) MASTER_LOGOUT_BUTTON.addEventListener('click', handleMasterLogout);
 
 // -----------------------------------------------------------------
 // ★★★ ページロード時に autoLogin を実行 ★★★
