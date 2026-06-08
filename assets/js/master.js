@@ -87,6 +87,7 @@ async function attemptMasterLogin(pin, isAuto = false) {
     }
 
     try {
+        window.QJONG_MASTER_PIN_FOR_WRITES = MASTER_PIN;
         await runDailyPointTaxIfNeeded().catch(error => {
             console.warn('日次ポイント徴収に失敗しました。マスター画面の表示は継続します。', error);
         });
@@ -153,6 +154,7 @@ function handleMasterLogout() {
     
     // 1. 状態をリセット
     isAuthenticatedAsMaster = false;
+    delete window.QJONG_MASTER_PIN_FOR_WRITES;
     qjongSignOut();
     if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 

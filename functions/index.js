@@ -7,6 +7,15 @@ const app = admin.initializeApp();
 const db = getFirestore(app, 'q-jong');
 const MASTER_USERNAME = 'Kabocha';
 const MASTER_PIN = '5513';
+const FIREBASE_COLLECTIONS = {
+  scores: 'players',
+  sports_bets: 'sports_bets',
+  speedstorm_records: 'speedstorm_records',
+  lotteries: 'lotteries',
+  gift_codes: 'gift_codes',
+  exercise_reports: 'exercise_reports',
+  career_posts: 'career_posts'
+};
 const DAILY_POINT_TAX_DEFAULT_RATE = 0.11;
 const DAILY_POINT_TAX_EXCLUDED_PLAYERS = new Set(['3mahjong']);
 const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
@@ -31,6 +40,40 @@ function setCors(req, res) {
 
 function authUidFromUsername(username) {
   return encodeURIComponent(username).replace(/%/g, '_').slice(0, 120);
+}
+
+function toDocId(value) {
+  const raw = String(value ?? '').trim();
+  return encodeURIComponent(raw || `item_${Date.now()}_${Math.random().toString(36).slice(2)}`)
+    .replace(/\./g, '%2E')
+    .replace(/\//g, '%2F');
+}
+
+function getItemDocId(key, item, index) {
+  if (key === 'scores') return toDocId(item.name || `player_${index}`);
+  if (key === 'sports_bets') return toDocId(item.betId ?? item.id ?? `bet_${index}`);
+  if (key === 'lotteries') return toDocId(item.lotteryId ?? item.id ?? `lottery_${index}`);
+  if (key === 'gift_codes') return toDocId(item.code ?? item.name ?? item.id ?? `gift_${index}`);
+  if (key === 'exercise_reports') return toDocId(item.id ?? `exercise_${index}`);
+  if (key === 'career_posts') return toDocId(item.id ?? `career_${index}`);
+  if (key === 'speedstorm_records') return toDocId(item.id ?? item.player ?? `speedstorm_${index}`);
+  return toDocId(item.id ?? index);
+}
+
+async function hasWriteAccess(req, body = {}) {
+  if (String(body.masterPin || '') === MASTER_PIN) return true;
+
+  const authHeader = req.get('authorization') || '';
+  const match = authHeader.match(/^Bearer\s+(.+)$/i);
+  if (!match) return false;
+
+  try {
+    await admin.auth().verifyIdToken(match[1]);
+    return true;
+  } catch (error) {
+    console.warn('IDトークン検証に失敗しました:', error.message);
+    return false;
+  }
 }
 
 function normalizeDailyPointTaxRate(value) {
@@ -495,6 +538,78 @@ export const collectDailyPointTax = onSchedule({
 }, async () => {
   const result = await collectDailyPointTaxForToday();
   console.log('collectDailyPointTax result:', result);
+});
+
+export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const body = req.body || {};
+    if (!await hasWriteAccess(req, body)) {
+      res.status(401).json({ status: 'error', message: '認証が必要です。' });
+      return;
+    }
+
+    const data = body.data || {};
+    const pointHistoryEntries = Array.isArray(body.pointHistoryEntries) ? body.pointHistoryEntries : [];
+    const batch = db.batch();
+
+    for (const [key, collectionName] of Object.entries(FIREBASE_COLLECTIONS)) {
+      const collectionRef = db.collection(collectionName);
+      const snapshot = await collectionRef.get();
+      const nextIds = new Set();
+
+      (Array.isArray(data[key]) ? data[key] : []).forEach((item, index) => {
+        const docId = getItemDocId(key, item, index);
+        nextIds.add(docId);
+        const payload = { ...item };
+        delete payload._docId;
+        batch.set(collectionRef.doc(docId), payload);
+      });
+
+      snapshot.docs.forEach(doc => {
+        if (!nextIds.has(doc.id)) {
+          batch.delete(doc.ref);
+        }
+      });
+    }
+
+    pointHistoryEntries.forEach(entry => {
+      if (!entry || !entry.id) return;
+      batch.set(db.collection('point_history').doc(toDocId(entry.id)), entry);
+    });
+
+    batch.set(db.collection('settings').doc('app'), {
+      special_theme: data.special_theme ?? null,
+      daily_point_tax_rate: normalizeDailyPointTaxRate(data.daily_point_tax_rate),
+      daily_point_tax_last_date: String(data.daily_point_tax_last_date || ''),
+      daily_point_tax_last_run_at: String(data.daily_point_tax_last_run_at || ''),
+      daily_point_tax_last_total: Number(data.daily_point_tax_last_total || 0),
+      attendance_allowed_users: Array.isArray(data.attendance_allowed_users) ? data.attendance_allowed_users : [],
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    if (data.territory_battle) {
+      batch.set(db.collection('territory_battle').doc('current'), {
+        ...data.territory_battle,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    await batch.commit();
+    res.status(200).json({ status: 'success', message: 'データをFirebaseに保存しました。' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `Firebase書き込み失敗: ${error.message}` });
+  }
 });
 
 export const qjongLogin = onRequest({ region: 'asia-northeast1' }, async (req, res) => {

@@ -1,4 +1,4 @@
-# jong　　Ver37.8
+# jong　　Ver37.9
 
 **1.1** 麻雀得点管理アプリリリース
 
@@ -179,6 +179,8 @@
 **37.7** マスター画面の承認入力を廃止し、ランダム文字列のHTMLファイル名へ変更
 
 **37.8** マスター画面をFirebase認証なしのPINのみに変更し、隠し導線を透明化
+
+**37.9** データ保存をCloud Function経由にし、出陣時のFirestore権限エラーを修正
 
 npx firebase deploy --only hosting,functions,firestore:rules
 

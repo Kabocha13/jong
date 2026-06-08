@@ -789,41 +789,47 @@ async function replaceCollection(db, batch, key, items) {
     });
 }
 
+async function updateAllDataViaFunction(data, pointHistoryEntries) {
+    const headers = new Headers({ 'Content-Type': 'application/json' });
+    const token = await getFirebaseIdToken();
+    if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const body = {
+        data,
+        pointHistoryEntries
+    };
+    if (window.QJONG_MASTER_PIN_FOR_WRITES) {
+        body.masterPin = window.QJONG_MASTER_PIN_FOR_WRITES;
+    }
+
+    const response = await fetch(`${getFunctionsBaseUrl()}/updateAllData`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.status !== 'success') {
+        throw new Error(result.message || `Cloud Function Error ${response.status}`);
+    }
+    return result;
+}
+
 async function updateAllDataInFirebase(newData) {
     try {
-        const db = getFirestoreDb();
         const currentData = _fetchCache || await fetchAllDataFromFirebase();
         const mergedData = normalizeFetchedRecord({ ...currentData, ...(newData || {}) });
-        const batch = db.batch();
         const pointHistoryEntries = buildPointHistoryEntries(
             currentData.scores,
             mergedData.scores,
             newData?.point_history_meta || {}
         );
 
-        for (const key of Object.keys(FIREBASE_COLLECTIONS)) {
-            await replaceCollection(db, batch, key, mergedData[key] || []);
-        }
-        addPointHistoryEntriesToBatch(db, batch, pointHistoryEntries);
-
-        batch.set(db.collection('settings').doc('app'), {
-            special_theme: mergedData.special_theme ?? null,
-            daily_point_tax_rate: normalizeDailyPointTaxRate(mergedData.daily_point_tax_rate),
-            daily_point_tax_last_date: mergedData.daily_point_tax_last_date || '',
-            daily_point_tax_last_run_at: mergedData.daily_point_tax_last_run_at || '',
-            daily_point_tax_last_total: toFiniteNumber(mergedData.daily_point_tax_last_total, 0),
-            attendance_allowed_users: mergedData.attendance_allowed_users || [],
-            updatedAt: new Date().toISOString()
-        }, { merge: true });
-        batch.set(db.collection('territory_battle').doc('current'), {
-            ...normalizeTerritoryBattle(mergedData.territory_battle),
-            updatedAt: new Date().toISOString()
-        }, { merge: false });
-
-        await batch.commit();
+        const functionResult = await updateAllDataViaFunction(mergedData, pointHistoryEntries);
         _fetchCache = mergedData;
         _fetchCacheTime = Date.now();
-        return { status: "success", message: "データをFirebaseに保存しました。", totalChange: 0 };
+        return { status: "success", message: functionResult.message || "データをFirebaseに保存しました。", totalChange: 0 };
     } catch (error) {
         console.error("Firebase書き込み中にエラー:", error);
         return { status: "error", message: `Firebase書き込み失敗: ${error.message}`, totalChange: 0 };

@@ -8,45 +8,45 @@ service cloud.firestore {
     }
 
     // 公開ページ表示用に読み取りは許可する。
-    // マスター画面はPINのみで運用するため、管理対象データの書き込みも許可する。
+    // 書き込みは Firebase Auth または Cloud Functions 経由で行う。
     match /players/{playerId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     match /point_history/{historyId} {
       allow read: if false;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     match /sports_bets/{betId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     match /speedstorm_records/{recordId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     match /lotteries/{lotteryId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     match /gift_codes/{giftCodeId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     match /exercise_reports/{reportId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     match /career_posts/{postId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     match /manaba_credentials/{userId} {
@@ -59,12 +59,12 @@ service cloud.firestore {
 
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
 
     match /territory_battle/{battleId} {
       allow read: if true;
-      allow write: if true;
+      allow write: if request.auth != null;
     }
   }
 }
