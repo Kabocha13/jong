@@ -1555,14 +1555,16 @@ function renderManabaAssignments(record) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${assignments.map(item => `
-                        <tr>
+                    ${assignments.map(item => {
+                        const urgentClass = isManabaAssignmentUrgent(item) ? ' class="manaba-assignment-urgent"' : '';
+                        return `
+                        <tr${urgentClass}>
                             <td>${manabaEscapeHtml(item.title || '名称未取得')}</td>
                             <td>${manabaEscapeHtml(item.course || '—')}</td>
                             <td>${manabaEscapeHtml(item.deadlineText || item.deadline || '—')}</td>
                             <td>${item.url ? `<a class="career-link" href="${manabaEscapeHtml(item.url)}" target="_blank" rel="noopener">開く</a>` : '—'}</td>
-                        </tr>
-                    `).join('')}
+                        </tr>`;
+                    }).join('')}
                 </tbody>
             </table>
         </div>`;

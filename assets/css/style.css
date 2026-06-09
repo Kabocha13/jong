@@ -1075,6 +1075,11 @@ button[type="submit"]:hover,
         background-color: #fffdf8;
     }
 
+    #home-manaba-section .manaba-assignment-table tr.manaba-assignment-urgent {
+        border-color: rgba(192, 57, 43, 0.42);
+        background-color: #fff0f0;
+    }
+
     #home-manaba-section .manaba-assignment-table tr:hover td {
         background: transparent;
     }
@@ -1104,6 +1109,11 @@ button[type="submit"]:hover,
     #home-manaba-section .manaba-assignment-table td:nth-child(n+2) {
         color: #454b5f;
         font-size: 0.86em;
+    }
+
+    #home-manaba-section .manaba-assignment-table tr.manaba-assignment-urgent td:nth-child(3) {
+        color: #c0392b;
+        font-weight: 700;
     }
 
     #home-manaba-section .career-link {
@@ -1585,6 +1595,20 @@ html.auth-pending #auth-section { display: none !important; }
 
 .career-table tr:hover td {
     background-color: #fffdf5;
+}
+
+.manaba-assignment-table tr.manaba-assignment-urgent td {
+    background-color: #fff0f0;
+    border-bottom-color: rgba(192, 57, 43, 0.28);
+}
+
+.manaba-assignment-table tr.manaba-assignment-urgent td:nth-child(3) {
+    color: #c0392b;
+    font-weight: 700;
+}
+
+.manaba-assignment-table tr.manaba-assignment-urgent:hover td {
+    background-color: #ffe7e7;
 }
 
 .career-offers {

@@ -193,14 +193,16 @@ function renderHomeManabaAssignmentTable(record) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${assignments.map(item => `
-                        <tr>
+                    ${assignments.map(item => {
+                        const urgentClass = isManabaAssignmentUrgent(item) ? ' class="manaba-assignment-urgent"' : '';
+                        return `
+                        <tr${urgentClass}>
                             <td data-label="課題">${escapeText(item.title || '名称未取得')}</td>
                             <td data-label="授業">${escapeText(item.course || '—')}</td>
                             <td data-label="締切">${escapeText(item.deadlineText || item.deadline || '—')}</td>
                             <td data-label="リンク">${item.url ? `<a class="career-link" href="${escapeText(item.url)}" target="_blank" rel="noopener">開く</a>` : '—'}</td>
-                        </tr>
-                    `).join('')}
+                        </tr>`;
+                    }).join('')}
                 </tbody>
             </table>
         </div>`;

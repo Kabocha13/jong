@@ -120,6 +120,47 @@ async function requireFirebaseUid() {
 const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
 const DEFAULT_MANABA_LOGIN_PATH = '/ct/login';
 const DEFAULT_MANABA_ASSIGNMENTS_PATH = '/ct/home_library_query';
+const MANABA_ASSIGNMENT_URGENT_HOURS = 48;
+
+function parseManabaAssignmentDeadline(item) {
+    const rawText = String(item?.deadlineText || item?.deadline || '').trim();
+    if (!rawText) return null;
+
+    const normalizedText = rawText
+        .replace(/[年月]/g, '/')
+        .replace(/[日]/g, ' ')
+        .replace(/[時]/g, ':')
+        .replace(/[分]/g, '')
+        .replace(/\([^)]*\)/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const dateMatch = normalizedText.match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);
+    if (!dateMatch) return null;
+
+    const [, year, month, day] = dateMatch;
+    const afterDate = normalizedText.slice(dateMatch.index + dateMatch[0].length);
+    const timeMatch = afterDate.match(/(\d{1,2}):(\d{1,2})/);
+    const hasTime = Boolean(timeMatch);
+    const hour = hasTime ? Number(timeMatch[1]) : 23;
+    const minute = hasTime ? Number(timeMatch[2]) : 59;
+    const deadline = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        hour,
+        minute,
+        hasTime ? 0 : 59
+    );
+
+    return Number.isNaN(deadline.getTime()) ? null : deadline;
+}
+
+function isManabaAssignmentUrgent(item, now = new Date()) {
+    const deadline = parseManabaAssignmentDeadline(item);
+    if (!deadline) return false;
+    const remainingMs = deadline.getTime() - now.getTime();
+    return remainingMs >= 0 && remainingMs <= MANABA_ASSIGNMENT_URGENT_HOURS * 60 * 60 * 1000;
+}
 
 async function saveManabaCredentialsToFirebase(credentials) {
     const db = getFirestoreDb();
