@@ -74,12 +74,12 @@ async function renderScores() {
         try {
             renderWithData(JSON.parse(cached), true);
         } catch (e) {
-            SCORES_CONTAINER.innerHTML = '<p>データを読み込み中...</p>';
+            SCORES_CONTAINER.innerHTML = loadingSkeletonHtml(3, 'ランキングを読み込み中');
         }
     } else {
-        SCORES_CONTAINER.innerHTML = '<p>データを読み込み中...</p>';
-        SPORTS_BETS_CONTAINER.innerHTML = '<p>くじデータを読み込み中...</p>';
-        LOTTERY_LIST_CONTAINER.innerHTML = '<p>宝くじデータを読み込み中...</p>';
+        SCORES_CONTAINER.innerHTML = loadingSkeletonHtml(3, 'ランキングを読み込み中');
+        SPORTS_BETS_CONTAINER.innerHTML = loadingSkeletonHtml(1, 'くじデータを読み込み中');
+        LOTTERY_LIST_CONTAINER.innerHTML = loadingSkeletonHtml(1, '宝くじデータを読み込み中');
     }
 
     // 2. 最新データを取得して更新
@@ -91,6 +91,11 @@ async function renderScores() {
 
     renderWithData(allData, false);
     localStorage.setItem(LS_DATA_KEY, JSON.stringify(allData));
+}
+
+function loadingSkeletonHtml(rows = 1, label = '読み込み中') {
+    const rowsHtml = '<div class="skeleton skeleton-row"></div>'.repeat(rows);
+    return `<div class="loading-placeholder" role="status" aria-label="${label}">${rowsHtml}</div>`;
 }
 
 function escapeText(value) {
@@ -759,7 +764,10 @@ async function renderHomePage() {
 window.onload = renderHomePage;
 
 REFRESH_BUTTON?.addEventListener('click', async () => {
+    const originalLabel = REFRESH_BUTTON.textContent;
     REFRESH_BUTTON.disabled = true;
+    REFRESH_BUTTON.setAttribute('aria-busy', 'true');
+    REFRESH_BUTTON.textContent = '更新中…';
     try {
         loadCafeteriaMenu();
         await renderScores();
@@ -771,6 +779,8 @@ REFRESH_BUTTON?.addEventListener('click', async () => {
         }
     } finally {
         REFRESH_BUTTON.disabled = false;
+        REFRESH_BUTTON.removeAttribute('aria-busy');
+        REFRESH_BUTTON.textContent = originalLabel;
     }
 });
 

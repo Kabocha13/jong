@@ -1,4 +1,4 @@
-# jong　　Ver37.9
+# jong　　Ver39.3
 
 **1.1** 麻雀得点管理アプリリリース
 
@@ -182,7 +182,20 @@
 
 **37.9** データ保存をCloud Function経由にし、出陣時のFirestore権限エラーを修正
 
-npx firebase deploy --only hosting,functions,firestore:rules
+**38.0** UX改善（スケルトンローディング、ボタンの処理中表示、フォーム入力補助、フォーカス表示・モーション低減対応）
+
+**39.0** カジノルーレット調デザインに全面変更（緑フェルト盤面 × マホガニー木枠 × 赤黒ポケット）
+
+**39.1** ルーレットホイールのアニメーションを追加（ヘッダー装飾とローディングスピナー、モーション低減設定に対応）
+
+**39.2** UX改善（トースト通知、エラーの手動クローズ、アコーディオン開閉状態の記憶、PWA対応、PCでイベント欄を横並び表示）
+
+**39.3** manaba課題の締切2日前プッシュ通知を実装（FCM、毎朝9時判定、マイページから端末ごとに有効化）
+
+npx firebase deploy --only hosting,functions,firestore
+
+（注意: このプロジェクトは名前付きFirestore DBを使うため firestore 設定が配列形式になっており、
+`--only firestore:rules` は「rulesというDB」を探して何もせず終わる。必ず `firestore` を指定する）
 
 
 ## 問題構成 v8

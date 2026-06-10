@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4f2d18">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Q-Jong">
     <title>Q-Jong</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
@@ -23,7 +28,11 @@
             <div class="ranking-panel">
                 <h2> 現在のスコアランキング </h2>
                 <div id="scores-container">
-                    <p>データを読み込み中...</p>
+                    <div class="loading-placeholder" role="status" aria-label="ランキングを読み込み中">
+                        <div class="skeleton skeleton-row"></div>
+                        <div class="skeleton skeleton-row"></div>
+                        <div class="skeleton skeleton-row"></div>
+                    </div>
                 </div>
                 <p class="update-info" id="last-update"></p>
             </div>
@@ -36,6 +45,7 @@
                     <div class="cafeteria-panel">
                         <p class="cafeteria-label">今週のメニュー</p>
                         <img alt="津田沼 学生食堂メニュー" id="tsudanuma-menu"
+                             loading="lazy" decoding="async"
                              style="width:100%; border-radius:2px; display:block;">
                     </div>
                 </div>
@@ -43,9 +53,13 @@
 
             <div class="info-box home-campus-box" id="home-manaba-section">
                 <h3 class="icon-title">manaba 未提出課題</h3>
-                <p id="home-manaba-message" class="hidden"></p>
+                <p id="home-manaba-message" class="hidden" aria-live="polite"></p>
                 <div id="home-manaba-assignment-list">
-                    <p>manaba課題を読み込み中...</p>
+                    <div class="loading-placeholder" role="status" aria-label="manaba課題を読み込み中">
+                        <div class="skeleton skeleton-text"></div>
+                        <div class="skeleton skeleton-row"></div>
+                        <div class="skeleton skeleton-row"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -55,13 +69,17 @@
             <div class="home-event-group">
                 <h4>宝くじ</h4>
                 <div id="lottery-list-container">
-                    <p>宝くじデータを読み込み中...</p>
+                    <div class="loading-placeholder" role="status" aria-label="宝くじデータを読み込み中">
+                        <div class="skeleton skeleton-row"></div>
+                    </div>
                 </div>
             </div>
             <div class="home-event-group">
                 <h4>スポーツくじ</h4>
                 <div id="sports-bets-container">
-                    <p>くじデータを読み込み中...</p>
+                    <div class="loading-placeholder" role="status" aria-label="くじデータを読み込み中">
+                        <div class="skeleton skeleton-row"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -69,7 +87,10 @@
         <div class="info-box mt-20 territory-section">
             <h3 class="territory-title">東京19区 陣取り合戦</h3>
             <div id="territory-battle-container">
-                <p>戦況を読み込み中...</p>
+                <div class="loading-placeholder" role="status" aria-label="戦況を読み込み中">
+                    <div class="skeleton skeleton-row"></div>
+                    <div class="skeleton skeleton-row"></div>
+                </div>
             </div>
         </div>
 

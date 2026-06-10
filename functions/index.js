@@ -531,6 +531,160 @@ async function syncManabaCredentialDoc(credentialDoc) {
   }
 }
 
+// ------------------------------------------------------------------
+// manaba締切プッシュ通知 (締切2日前)
+// ------------------------------------------------------------------
+
+const MANABA_REMINDER_DAYS_BEFORE = 2;
+const APP_URL = 'https://q-jong.web.app/';
+
+function parseManabaDeadlineDateParts(item) {
+  const rawText = String(item?.deadlineText || item?.deadline || '').trim();
+  if (!rawText) return null;
+
+  const normalizedText = rawText
+    .replace(/[年月]/g, '/')
+    .replace(/[日]/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const dateMatch = normalizedText.match(/(20\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})/);
+  if (!dateMatch) return null;
+
+  const [, year, month, day] = dateMatch;
+  return { year: Number(year), month: Number(month), day: Number(day) };
+}
+
+function getDaysUntilManabaDeadline(item, todayKey) {
+  const parts = parseManabaDeadlineDateParts(item);
+  if (!parts) return null;
+  const [todayYear, todayMonth, todayDay] = String(todayKey).split('-').map(Number);
+  const diffMs = Date.UTC(parts.year, parts.month - 1, parts.day)
+    - Date.UTC(todayYear, todayMonth - 1, todayDay);
+  return Math.round(diffMs / 86400000);
+}
+
+function buildDeadlineReminderBody(targets) {
+  const lines = targets.slice(0, 4).map(({ item, daysLeft }) => {
+    const label = daysLeft <= 0 ? '今日締切' : `あと${daysLeft}日`;
+    const course = item.course ? `（${item.course}）` : '';
+    return `${label}: ${item.title || '名称未取得'}${course}`;
+  });
+  if (targets.length > lines.length) {
+    lines.push(`ほか${targets.length - lines.length}件`);
+  }
+  return lines.join('\n');
+}
+
+export const sendManabaDeadlineReminders = onSchedule({
+  region: 'asia-northeast1',
+  schedule: '0 9 * * *',
+  timeZone: 'Asia/Tokyo',
+  timeoutSeconds: 300
+}, async () => {
+  const tokensSnapshot = await db.collection('push_tokens').get();
+  if (tokensSnapshot.empty) {
+    console.log('sendManabaDeadlineReminders: 通知先トークンがないためスキップしました。');
+    return;
+  }
+
+  // 通知対象ユーザーの課題を最新化してから判定する
+  for (const tokenDoc of tokensSnapshot.docs) {
+    const credentialDoc = await db.collection('manaba_credentials').doc(tokenDoc.id).get();
+    if (credentialDoc.exists) {
+      await syncManabaCredentialDoc(credentialDoc);
+    }
+  }
+
+  const todayKey = getJstDateKey();
+  const results = [];
+
+  for (const tokenDoc of tokensSnapshot.docs) {
+    const uid = tokenDoc.id;
+    const tokenEntries = Array.isArray(tokenDoc.data().tokens) ? tokenDoc.data().tokens : [];
+    const tokens = [...new Set(tokenEntries.map(entry => String(entry?.token || '')).filter(Boolean))];
+    if (!tokens.length) continue;
+
+    const assignmentsRef = db.collection('manaba_assignments').doc(uid);
+    const assignmentsDoc = await assignmentsRef.get();
+    if (!assignmentsDoc.exists) continue;
+
+    const record = assignmentsDoc.data();
+    const assignments = Array.isArray(record.assignments) ? record.assignments : [];
+    const sentMap = record.deadlineRemindersSent || {};
+
+    // 提出済み・消滅した課題の送信記録は掃除する
+    const currentIds = new Set(assignments.map(item => item?.id).filter(Boolean));
+    const nextSentMap = {};
+    Object.entries(sentMap).forEach(([id, at]) => {
+      if (currentIds.has(id)) nextSentMap[id] = at;
+    });
+
+    const targets = [];
+    assignments.forEach(item => {
+      if (!item || item.done || !item.id) return;
+      const daysLeft = getDaysUntilManabaDeadline(item, todayKey);
+      if (daysLeft === null || daysLeft < 0 || daysLeft > MANABA_REMINDER_DAYS_BEFORE) return;
+      if (nextSentMap[item.id]) return;
+      targets.push({ item, daysLeft });
+    });
+
+    if (!targets.length) {
+      if (Object.keys(nextSentMap).length !== Object.keys(sentMap).length) {
+        await assignmentsRef.set({ deadlineRemindersSent: nextSentMap }, { merge: true });
+      }
+      continue;
+    }
+
+    targets.sort((a, b) => a.daysLeft - b.daysLeft);
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title: `📚 締切が近い課題が${targets.length}件あります`,
+        body: buildDeadlineReminderBody(targets)
+      },
+      webpush: {
+        fcmOptions: { link: APP_URL },
+        notification: {
+          icon: '/assets/icon.png',
+          tag: 'manaba-deadline-reminder'
+        }
+      }
+    });
+
+    // 失効したトークンを削除する
+    const invalidTokens = new Set();
+    response.responses.forEach((sendResult, index) => {
+      if (sendResult.success) return;
+      const code = String(sendResult.error?.code || '');
+      if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
+        invalidTokens.add(tokens[index]);
+      }
+    });
+    if (invalidTokens.size) {
+      await tokenDoc.ref.set({
+        tokens: tokenEntries.filter(entry => !invalidTokens.has(String(entry?.token || ''))),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    }
+
+    const nowIso = new Date().toISOString();
+    targets.forEach(({ item }) => {
+      nextSentMap[item.id] = nowIso;
+    });
+    await assignmentsRef.set({ deadlineRemindersSent: nextSentMap }, { merge: true });
+
+    results.push({
+      uid,
+      notified: targets.length,
+      success: response.successCount,
+      failure: response.failureCount
+    });
+  }
+
+  console.log('sendManabaDeadlineReminders results:', JSON.stringify(results));
+});
+
 export const collectDailyPointTax = onSchedule({
   region: 'asia-northeast1',
   schedule: '5 0 * * *',

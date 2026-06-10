@@ -1,0 +1,25 @@
+{
+  "name": "Q-Jong",
+  "short_name": "Q-Jong",
+  "description": "麻雀得点ベースのポイント管理アプリ",
+  "lang": "ja",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a4429",
+  "theme_color": "#4f2d18",
+  "icons": [
+    {
+      "src": "assets/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

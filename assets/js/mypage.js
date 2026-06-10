@@ -54,6 +54,34 @@ document.querySelectorAll('.mypage-quick-nav a[href^="#"]').forEach(link => {
     });
 });
 
+// -----------------------------------------------------------------
+// アコーディオン開閉状態の記憶 (次回アクセス時に同じ状態で開く)
+// -----------------------------------------------------------------
+
+const ACCORDION_STATE_KEY = 'mypageAccordionState';
+
+function readAccordionState() {
+    try {
+        return JSON.parse(localStorage.getItem(ACCORDION_STATE_KEY)) || {};
+    } catch (e) {
+        return {};
+    }
+}
+
+(function restoreAccordionState() {
+    const saved = readAccordionState();
+    document.querySelectorAll('details.mypage-accordion[id]').forEach(details => {
+        if (typeof saved[details.id] === 'boolean') {
+            details.open = saved[details.id];
+        }
+        details.addEventListener('toggle', () => {
+            const state = readAccordionState();
+            state[details.id] = details.open;
+            localStorage.setItem(ACCORDION_STATE_KEY, JSON.stringify(state));
+        });
+    });
+}());
+
 
 // 認証されたユーザー情報 ({name: '...', score: ..., status: ..., lastBonusTime: ...})
 let authenticatedUser = null; 
@@ -184,8 +212,23 @@ AUTH_FORM.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value.trim();
-    
-    await attemptLogin(username, password, false);
+    const submitButton = document.getElementById('auth-submit-button');
+    const originalLabel = submitButton ? submitButton.textContent : '';
+
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.setAttribute('aria-busy', 'true');
+        submitButton.textContent = '認証中…';
+    }
+    try {
+        await attemptLogin(username, password, false);
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.removeAttribute('aria-busy');
+            submitButton.textContent = originalLabel;
+        }
+    }
 });
 
 LOGOUT_BUTTON.addEventListener('click', handleLogout);
@@ -1137,7 +1180,7 @@ async function loadLotteryData() {
                 
                 if (unclaimedTicketsCount > 0) {
                     statusHtml = `
-                        <button class=\"action-button check-lottery-result\" data-lottery-id=\"${l.lotteryId}\" style=\"width: auto; background-color: #28a745;\">
+                        <button class=\"action-button check-lottery-result\" data-lottery-id=\"${l.lotteryId}\" style=\"width: auto;\">
                             結果を見る (${unclaimedTicketsCount}枚 未確認)
                         </button>
                         ${prizeSummary}
@@ -1652,5 +1695,120 @@ async function loadExerciseHistory() {
         }).join('');
     } catch (err) {
         listEl.innerHTML = '<li>履歴の読み込みに失敗しました。</li>';
+    }
+}
+
+// -----------------------------------------------------------------
+// ★★★ manaba締切プッシュ通知 (締切2日前にFCMでお知らせ) ★★★
+// -----------------------------------------------------------------
+
+const ENABLE_NOTIFICATIONS_BUTTON = document.getElementById('enable-notifications-button');
+const NOTIFICATION_MESSAGE = document.getElementById('notification-message');
+const PUSH_TOKEN_SAVED_KEY = 'manabaPushTokenSaved';
+const NOTIFICATION_ENABLED_LABEL = '通知設定済み (タップで再設定)';
+
+function isPushNotificationSupported() {
+    return Boolean(
+        'Notification' in window &&
+        'serviceWorker' in navigator &&
+        window.firebase &&
+        firebase.messaging &&
+        firebase.messaging.isSupported()
+    );
+}
+
+function getMessagingVapidKey() {
+    const key = String((window.QJONG_FIREBASE_CONFIG || {}).messagingVapidKey || '');
+    return key && !key.includes('YOUR_') ? key : '';
+}
+
+async function savePushTokenToFirebase(token) {
+    const db = getFirestoreDb();
+    const uid = await requireFirebaseUid();
+    if (!db) throw new Error('Firebaseが設定されていません。');
+
+    const docRef = db.collection('push_tokens').doc(uid);
+    const existing = await docRef.get();
+    const entries = existing.exists && Array.isArray(existing.data().tokens) ? existing.data().tokens : [];
+    const nextEntries = entries.filter(entry => entry && entry.token && entry.token !== token);
+    nextEntries.push({
+        token,
+        userAgent: String(navigator.userAgent || '').slice(0, 160),
+        updatedAt: new Date().toISOString()
+    });
+
+    await docRef.set({
+        owner: localStorage.getItem('authUsername') || '',
+        ownerUid: uid,
+        tokens: nextEntries.slice(-5),
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+}
+
+async function registerPushToken() {
+    const vapidKey = getMessagingVapidKey();
+    if (!vapidKey) {
+        throw new Error('通知用キー(VAPID)が未設定です。firebase-config.js の messagingVapidKey を設定してください。');
+    }
+
+    getFirebaseApp();
+    const registration = await navigator.serviceWorker.register('firebase-messaging-sw.js');
+    const token = await firebase.messaging().getToken({
+        vapidKey,
+        serviceWorkerRegistration: registration
+    });
+    if (!token) throw new Error('通知トークンを取得できませんでした。');
+
+    await savePushTokenToFirebase(token);
+    localStorage.setItem(PUSH_TOKEN_SAVED_KEY, '1');
+    return token;
+}
+
+async function enableDeadlineNotifications() {
+    const originalLabel = ENABLE_NOTIFICATIONS_BUTTON.textContent;
+    ENABLE_NOTIFICATIONS_BUTTON.disabled = true;
+    ENABLE_NOTIFICATIONS_BUTTON.setAttribute('aria-busy', 'true');
+    ENABLE_NOTIFICATIONS_BUTTON.textContent = '設定中…';
+
+    try {
+        if (!isPushNotificationSupported()) {
+            throw new Error('この環境はプッシュ通知に未対応です。iPhoneの場合は「ホーム画面に追加」したQ-Jongから開いてください。');
+        }
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            throw new Error('通知が許可されませんでした。端末・ブラウザの通知設定を確認してください。');
+        }
+        await registerPushToken();
+        showMessage(NOTIFICATION_MESSAGE, '✅ この端末で締切通知を受け取ります（毎朝9時に判定）。', 'success');
+        ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_ENABLED_LABEL;
+    } catch (error) {
+        showMessage(NOTIFICATION_MESSAGE, `通知設定エラー: ${error.message}`, 'error');
+        ENABLE_NOTIFICATIONS_BUTTON.textContent = originalLabel;
+    } finally {
+        ENABLE_NOTIFICATIONS_BUTTON.disabled = false;
+        ENABLE_NOTIFICATIONS_BUTTON.removeAttribute('aria-busy');
+    }
+}
+
+if (ENABLE_NOTIFICATIONS_BUTTON) {
+    ENABLE_NOTIFICATIONS_BUTTON.addEventListener('click', enableDeadlineNotifications);
+
+    if (isPushNotificationSupported() && Notification.permission === 'granted' && localStorage.getItem(PUSH_TOKEN_SAVED_KEY)) {
+        ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_ENABLED_LABEL;
+
+        // ログイン済みならトークンを静かに最新化する (失敗しても画面には影響させない)
+        registerPushToken().catch(() => {});
+
+        // ページを開いている間に届いた通知はトーストで表示する
+        try {
+            getFirebaseApp();
+            firebase.messaging().onMessage(payload => {
+                const notification = (payload && payload.notification) || {};
+                const text = [notification.title, notification.body].filter(Boolean).join(' / ');
+                if (text) showToast(text, 'success');
+            });
+        } catch (error) {
+            console.warn('フォアグラウンド通知の初期化に失敗しました:', error);
+        }
     }
 }

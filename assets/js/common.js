@@ -1210,31 +1210,75 @@ function getPlayerTerritoryStats(playerName, battle) {
 // -----------------------------------------------------------------
 
 /**
+ * 画面下のトースト通知を表示する (success/errorの結果通知用)
+ * @param {string} message - 表示するテキスト
+ * @param {('success'|'error')} type - メッセージのタイプ
+ */
+function showToast(message, type) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.setAttribute('aria-live', 'polite');
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    // 同時表示は3件まで
+    while (container.children.length > 3) {
+        container.removeChild(container.firstChild);
+    }
+
+    setTimeout(() => {
+        toast.classList.add('toast-hide');
+        setTimeout(() => toast.remove(), 500);
+    }, type === 'error' ? 6000 : 3500);
+}
+
+/**
  * HTML要素にメッセージを表示するヘルパー関数
+ * 成功/情報は5秒で自動的に消え、エラーは✕で閉じるまで表示し続ける。
+ * 成功/エラーは画面下のトーストにも表示する (フォームが画面外でも見逃さないように)。
  * @param {HTMLElement} element - メッセージを表示する要素
  * @param {string} message - 表示するテキスト
  * @param {('success'|'error'|'info')} type - メッセージのタイプ
  */
 function showMessage(element, message, type) {
-    // ★ 修正: 'info' タイプに対応
-    element.textContent = message;
-    element.className = 'message';
-    if (type === 'success') {
-        element.classList.add('success');
-    } else if (type === 'error') {
-        element.classList.add('error');
-    } else if (type === 'info') {
-        element.classList.add('info');
-    }
-    
-    element.classList.remove('hidden');
-    
-    // 5秒後にメッセージを非表示にする (既存の3秒から延長)
-    setTimeout(() => {
-        if (element) { // 要素がまだ存在するか確認
-            element.classList.add('hidden');
+    if (element) {
+        if (element._hideTimer) {
+            clearTimeout(element._hideTimer);
+            element._hideTimer = null;
         }
-    }, 5000);
+
+        element.textContent = message;
+        element.className = 'message';
+        if (type === 'success' || type === 'error' || type === 'info') {
+            element.classList.add(type);
+        }
+        element.classList.remove('hidden');
+
+        if (type === 'error') {
+            const closeButton = document.createElement('button');
+            closeButton.type = 'button';
+            closeButton.className = 'message-close';
+            closeButton.setAttribute('aria-label', 'メッセージを閉じる');
+            closeButton.textContent = '✕';
+            closeButton.addEventListener('click', () => element.classList.add('hidden'));
+            element.appendChild(closeButton);
+        } else {
+            element._hideTimer = setTimeout(() => {
+                element.classList.add('hidden');
+            }, 5000);
+        }
+    }
+
+    if (type === 'success' || type === 'error') {
+        showToast(message, type);
+    }
 }
 
 // 共通パスワードを定義 (master.jsとmahjong.jsで使用)

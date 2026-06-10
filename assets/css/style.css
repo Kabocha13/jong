@@ -1,18 +1,33 @@
-/* assets/css/style.css - Art Deco: Indigo & Gold */
+/* assets/css/style.css - Casino Roulette: Felt Green, Mahogany Wood, Red & Black Pockets */
 
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap');
 
 /* --- 変数定義 --- */
 :root {
-    --color-indigo:       #0d1b4b;   /* 深藍 */
-    --color-indigo-mid:   #162260;   /* 中藍 */
-    --color-indigo-light: #1e2f7a;   /* 明藍 */
-    --color-gold:         #c9a84c;   /* ゴールド */
-    --color-gold-light:   #e8c96a;   /* 明ゴールド */
-    --color-gold-pale:    #f5e6b8;   /* 淡ゴールド */
-    --color-cream:        #faf6ec;   /* クリーム */
-    --color-text:         #1a1a2e;   /* 濃紺テキスト */
-    --color-light:        #ffffff;
+    /* ルーレットテーブル配色 */
+    --color-felt:        #0a4429;   /* 深緑フェルト */
+    --color-felt-mid:    #0e5c38;   /* 中緑フェルト */
+    --color-felt-light:  #168152;   /* 明緑フェルト */
+    --color-wood:        #4f2d18;   /* マホガニー */
+    --color-wood-mid:    #6e4226;   /* 中木目 */
+    --color-wood-light:  #8a5733;   /* 明木目 */
+    --color-rouge:       #a51c23;   /* ルーレット赤 */
+    --color-rouge-light: #c23038;
+    --color-rouge-dark:  #7d1218;
+    --color-noir:        #17181c;   /* ルーレット黒 */
+    --color-noir-light:  #2a2c33;
+    --color-gold:        #c9a84c;   /* ブラス金具 */
+    --color-gold-light:  #e8c96a;
+    --color-gold-pale:   #f5e6b8;
+    --color-cream:       #faf6ec;   /* クリーム */
+    --color-text:        #1f231f;   /* 濃緑がかった黒 */
+    --color-light:       #ffffff;
+    --color-accent:      #b08d2f;   /* 強調 (ポイント表示など) */
+
+    /* 旧テーマ互換マッピング (藍 → フェルト緑) */
+    --color-indigo:       var(--color-felt);
+    --color-indigo-mid:   var(--color-felt-mid);
+    --color-indigo-light: var(--color-felt-light);
 
     --color-error:   #c0392b;
     --color-success: #1a7a4a;
@@ -21,7 +36,7 @@
     --font-display: 'Cinzel', serif;
     --font-body:    'Cormorant Garamond', serif;
 
-    /* アールデコ装飾用 */
+    /* 装飾用 */
     --deco-line: 1px solid var(--color-gold);
     --deco-line-thick: 2px solid var(--color-gold);
 }
@@ -100,29 +115,53 @@
     animation: float-up-fade 1.3s ease-out forwards;
 }
 
+@keyframes skeleton-sweep {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+@keyframes roulette-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+@keyframes message-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes accordion-reveal {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
 /* --- 基本スタイル --- */
 *, *::before, *::after { box-sizing: border-box; }
+
+html {
+    scroll-behavior: smooth;
+}
 
 body {
     font-family: var(--font-body);
     font-size: 17px;
-    background-color: var(--color-indigo);
-    /* アールデコ幾何学背景 */
+    background-color: var(--color-felt);
+    /* フェルトの綾織り + テーブル照明のハイライト */
     background-image:
-        /* 斜め細線グリッド */
+        radial-gradient(circle at 50% -10%, rgba(255, 255, 255, 0.07), transparent 55%),
         repeating-linear-gradient(
             45deg,
             transparent,
             transparent 38px,
-            rgba(201, 168, 76, 0.07) 38px,
-            rgba(201, 168, 76, 0.07) 40px
+            rgba(0, 0, 0, 0.10) 38px,
+            rgba(0, 0, 0, 0.10) 40px
         ),
         repeating-linear-gradient(
             -45deg,
             transparent,
             transparent 38px,
-            rgba(201, 168, 76, 0.07) 38px,
-            rgba(201, 168, 76, 0.07) 40px
+            rgba(0, 0, 0, 0.10) 38px,
+            rgba(0, 0, 0, 0.10) 40px
         );
     background-attachment: fixed;
     color: var(--color-text);
@@ -132,40 +171,84 @@ body {
     line-height: 1.7;
 }
 
-/* --- ヘッダー --- */
+/* --- ヘッダー (マホガニーの木枠) --- */
 header {
-    background-color: var(--color-indigo);
+    background-color: var(--color-wood);
     background-image:
-        /* 上下に走るゴールドライン */
-        linear-gradient(to bottom, var(--color-gold) 3px, transparent 3px),
-        linear-gradient(to top,    var(--color-gold) 3px, transparent 3px),
-        /* 菱形リピートパターン */
+        /* 木肌の艶と陰影 */
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.10), transparent 35%, rgba(0, 0, 0, 0.30)),
+        /* 板の継ぎ目 */
         repeating-linear-gradient(
             90deg,
-            transparent,
-            transparent 58px,
-            rgba(201, 168, 76, 0.12) 58px,
-            rgba(201, 168, 76, 0.12) 60px
+            rgba(0, 0, 0, 0.16),
+            rgba(0, 0, 0, 0.16) 2px,
+            transparent 2px,
+            transparent 72px
+        ),
+        /* 木目の濃淡 */
+        linear-gradient(
+            90deg,
+            var(--color-wood) 0%,
+            var(--color-wood-mid) 28%,
+            var(--color-wood) 52%,
+            var(--color-wood-mid) 78%,
+            var(--color-wood) 100%
         );
     color: var(--color-gold-pale);
-    padding: 36px 20px 32px;
+    padding: 36px 20px 44px;
     text-align: center;
     box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5);
     position: relative;
     border-bottom: 3px solid var(--color-gold);
 }
 
-/* ヘッダー左右の装飾ライン */
-header::before,
-header::after {
+/* ヘッダー右: ゆっくり回るルーレットホイール (装飾・操作不可) */
+header::before {
     content: '';
     position: absolute;
     top: 50%;
-    transform: translateY(-50%);
-    width: 80px;
-    height: 2px;
-    background: linear-gradient(to right, transparent, var(--color-gold));
-    display: none;
+    right: 26px;
+    width: 58px;
+    height: 58px;
+    margin-top: -32px;
+    border-radius: 50%;
+    border: 3px solid var(--color-gold);
+    background:
+        /* 中心のハブ */
+        radial-gradient(circle at center, var(--color-gold-pale) 0 6px, var(--color-wood-mid) 6px 15px, transparent 15px),
+        /* 緑の0ポケット */
+        conic-gradient(var(--color-felt-light) 0deg 10deg, transparent 10deg 360deg),
+        /* 赤黒の交互ポケット */
+        repeating-conic-gradient(from 10deg, var(--color-rouge) 0deg 10deg, var(--color-noir) 10deg 20deg);
+    box-shadow:
+        0 0 0 2px rgba(0, 0, 0, 0.35),
+        inset 0 0 10px rgba(0, 0, 0, 0.45);
+    opacity: 0.9;
+    pointer-events: none;
+    /* 36秒/周の等速回転: 視界の端でゆっくり回る分には酔いを誘発しない */
+    animation: roulette-spin 36s linear infinite;
+}
+
+/* ヘッダー下端: ルーレットの赤黒ポケット帯 */
+header::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 12px;
+    background: repeating-linear-gradient(
+        90deg,
+        var(--color-rouge)     0,
+        var(--color-rouge)     28px,
+        var(--color-gold-pale) 28px,
+        var(--color-gold-pale) 29px,
+        var(--color-noir)      29px,
+        var(--color-noir)      57px,
+        var(--color-gold-pale) 57px,
+        var(--color-gold-pale) 58px
+    );
+    border-top: 1px solid var(--color-gold);
 }
 
 header h1 {
@@ -216,23 +299,27 @@ header h1::after  { right: 8px; }
     margin-top: 12px;
 }
 
-/* --- メインレイアウト --- */
+/* --- メインレイアウト (フェルト盤面 + マホガニーレール) --- */
 main {
     max-width: 1000px;
-    margin: 36px auto;
+    width: min(1000px, calc(100% - 48px));
+    margin: 40px auto;
     padding: 36px 32px;
-    background-color: var(--color-cream);
-    border-radius: 2px;
+    background-color: var(--color-felt-mid);
+    background-image: radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.08), transparent 60%);
+    border: 2px solid var(--color-gold);
+    border-radius: 14px;
     box-shadow:
-        0 0 0 1px var(--color-gold),
-        0 0 0 4px var(--color-indigo),
-        0 0 0 5px var(--color-gold),
-        0 20px 60px rgba(0, 0, 0, 0.4);
+        0 0 0 12px var(--color-wood),
+        0 0 0 13px var(--color-gold),
+        0 0 0 14px rgba(0, 0, 0, 0.4),
+        0 24px 60px rgba(0, 0, 0, 0.55),
+        inset 0 0 60px rgba(0, 0, 0, 0.22);
     animation: fadeInUp 0.6s ease-out forwards;
     position: relative;
 }
 
-/* 四隅のアールデコ装飾 */
+/* 四隅のブラス装飾 */
 main::before,
 main::after {
     content: '';
@@ -258,7 +345,7 @@ main > h2 {
     font-size: 1.15em;
     font-weight: 600;
     letter-spacing: 4px;
-    color: var(--color-indigo);
+    color: var(--color-gold-pale);
     text-align: center;
     text-transform: uppercase;
     margin-bottom: 24px;
@@ -344,6 +431,15 @@ h2, h3 {
     gap: 16px;
 }
 
+/* PCでは宝くじとスポーツくじを横並びに */
+@media (min-width: 900px) {
+    .home-events-section {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+        column-gap: 24px;
+    }
+}
+
 .home-event-group h4 {
     margin: 0 0 10px;
     color: var(--color-indigo);
@@ -398,7 +494,7 @@ h2, h3 {
 
 .mypage-quick-nav a:active,
 .mypage-quick-nav a:hover {
-    background-color: var(--color-indigo);
+    background-color: var(--color-rouge);
     color: var(--color-gold-pale);
     border-color: var(--color-gold);
 }
@@ -464,6 +560,13 @@ h2, h3 {
 .mypage-accordion[open] > :not(summary) {
     margin-left: 24px;
     margin-right: 24px;
+    animation: accordion-reveal 0.25s ease-out;
+}
+
+/* クイックナビからの移動時、固定ナビに隠れないようオフセットを確保 */
+#mypage-content .tool-box,
+#mypage-content .mypage-accordion {
+    scroll-margin-top: 84px;
 }
 
 .tool-box h3,
@@ -486,7 +589,7 @@ button[type="submit"],
 #daily-tax-button {
     position: relative;
     overflow: hidden;
-    background: linear-gradient(135deg, var(--color-indigo-mid) 0%, var(--color-indigo) 100%);
+    background: linear-gradient(135deg, var(--color-rouge) 0%, var(--color-rouge-dark) 100%);
     color: var(--color-gold-pale);
     border: 1px solid var(--color-gold);
     padding: 14px 20px;
@@ -500,7 +603,7 @@ button[type="submit"],
     letter-spacing: 3px;
     text-transform: uppercase;
     border-radius: 1px;
-    box-shadow: 0 4px 16px rgba(13, 27, 75, 0.25), inset 0 1px 0 rgba(201, 168, 76, 0.2);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 /* ゴールドシマーエフェクト */
@@ -519,23 +622,88 @@ button[type="submit"]::after,
 
 button[type="submit"]:hover,
 .action-button:hover {
-    background: linear-gradient(135deg, var(--color-indigo-light) 0%, var(--color-indigo-mid) 100%);
+    background: linear-gradient(135deg, var(--color-rouge-light) 0%, var(--color-rouge) 100%);
     color: var(--color-gold-light);
-    box-shadow: 0 6px 22px rgba(13, 27, 75, 0.35), 0 0 0 1px var(--color-gold-light);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--color-gold-light);
     transform: translateY(-1px);
 }
 
 .secondary-button {
     background: transparent !important;
-    color: var(--color-indigo) !important;
-    border: 1px solid var(--color-indigo) !important;
+    color: var(--color-noir) !important;
+    border: 1px solid var(--color-noir) !important;
     box-shadow: none !important;
 }
 
 .secondary-button:hover {
-    background: var(--color-indigo) !important;
+    background: var(--color-noir) !important;
     color: var(--color-gold-pale) !important;
-    border-color: var(--color-indigo) !important;
+    border-color: var(--color-noir) !important;
+}
+
+/* 役割別ボタン (緑=獲得・申請系 / 金=特別系 / 黒=終了系) */
+.btn-green {
+    background: linear-gradient(135deg, var(--color-felt-light) 0%, var(--color-felt-mid) 100%) !important;
+}
+
+.btn-green:hover {
+    filter: brightness(1.12);
+}
+
+.btn-gold {
+    background: linear-gradient(135deg, var(--color-gold-light) 0%, #a5832e 100%) !important;
+    color: #2b1d06 !important;
+}
+
+.btn-gold:hover {
+    filter: brightness(1.06);
+}
+
+.btn-black {
+    background: linear-gradient(135deg, var(--color-noir-light) 0%, var(--color-noir) 100%) !important;
+}
+
+.btn-black:hover {
+    filter: brightness(1.3);
+}
+
+/* 処理中・無効状態のボタン */
+button:disabled,
+.action-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+button:disabled::after,
+.action-button:disabled::after {
+    animation: none;
+}
+
+button[aria-busy="true"] {
+    cursor: progress;
+}
+
+/* タップ反応の最適化 */
+button,
+.action-button,
+summary,
+.footer-nav .input-link,
+.mypage-quick-nav a {
+    -webkit-tap-highlight-color: rgba(201, 168, 76, 0.25);
+    touch-action: manipulation;
+}
+
+/* キーボード操作時のフォーカス表示 */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
 }
 
 /* --- ランキング項目 --- */
@@ -549,9 +717,14 @@ button[type="submit"]:hover,
     margin-bottom: 10px;
     background-color: #fff;
     border: 1px solid rgba(201, 168, 76, 0.25);
-    border-left: 4px solid rgba(201, 168, 76, 0.3);
+    border-left: 5px solid var(--color-noir);
     border-radius: 1px;
     transition: all 0.25s ease;
+}
+
+/* ルーレットポケット風に赤黒交互 */
+.ranking-item:nth-child(even) {
+    border-left-color: var(--color-rouge);
 }
 
 .ranking-item:hover {
@@ -588,19 +761,19 @@ button[type="submit"]:hover,
 }
 
 /* 1位 */
-.rank-1 {
+.ranking-item.rank-1 {
     background: linear-gradient(to right, #fffbf0, #fff);
-    border-left: 4px solid var(--color-gold);
+    border-left-color: var(--color-gold);
     box-shadow: 0 3px 12px rgba(201, 168, 76, 0.15);
 }
 .rank-1 .rank-num { color: var(--color-gold); font-size: 1.3em; }
 
 /* 2位 */
-.rank-2 { border-left-color: #b0b8c8; }
+.ranking-item.rank-2 { border-left-color: #b0b8c8; }
 .rank-2 .rank-num { color: #8090a8; }
 
 /* 3位 */
-.rank-3 { border-left-color: #c8a878; }
+.ranking-item.rank-3 { border-left-color: #c8a878; }
 .rank-3 .rank-num { color: #b08050; }
 
 /* Luxury会員 */
@@ -996,6 +1169,18 @@ button[type="submit"]:hover,
         padding-left: 10px;
     }
 
+    header::before {
+        width: 42px;
+        height: 42px;
+        margin-top: -23px;
+        right: 12px;
+        border-width: 2px;
+        background:
+            radial-gradient(circle at center, var(--color-gold-pale) 0 4px, var(--color-wood-mid) 4px 10px, transparent 10px),
+            conic-gradient(var(--color-felt-light) 0deg 10deg, transparent 10deg 360deg),
+            repeating-conic-gradient(from 10deg, var(--color-rouge) 0deg 10deg, var(--color-noir) 10deg 20deg);
+    }
+
     .info-box {
         padding: 14px 12px;
         margin-bottom: 14px;
@@ -1156,7 +1341,7 @@ footer {
     bottom: 0;
     left: 0;
     width: 100%;
-    background: linear-gradient(to top, rgba(13, 27, 75, 0.96), rgba(13, 27, 75, 0.72), transparent);
+    background: linear-gradient(to top, rgba(21, 12, 5, 0.96), rgba(21, 12, 5, 0.7), transparent);
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
     z-index: 1000;
     pointer-events: none;
@@ -1184,10 +1369,10 @@ footer {
     margin: 0 auto;
     gap: 4px;
     padding: 5px;
-    border: 1px solid rgba(201, 168, 76, 0.42);
+    border: 1px solid rgba(201, 168, 76, 0.55);
     border-radius: 18px;
-    background: rgba(250, 246, 236, 0.96);
-    box-shadow: 0 10px 26px rgba(13, 27, 75, 0.34);
+    background: linear-gradient(180deg, var(--color-wood-mid) 0%, var(--color-wood) 85%);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.14);
     pointer-events: auto;
 }
 
@@ -1201,7 +1386,7 @@ footer {
     min-height: 54px;
     text-align: center;
     padding: 7px 5px 6px;
-    color: #566076;
+    color: #d9c69a;
     background-color: transparent;
     border: 1px solid transparent;
     text-decoration: none;
@@ -1216,10 +1401,10 @@ footer {
 
 .footer-nav .input-link:hover,
 .footer-nav .input-link[aria-current="page"] {
-    background: linear-gradient(135deg, var(--color-indigo-mid) 0%, var(--color-indigo) 100%);
+    background: linear-gradient(135deg, var(--color-rouge) 0%, var(--color-rouge-dark) 100%);
     color: var(--color-gold-pale);
-    border-color: rgba(201, 168, 76, 0.55);
-    box-shadow: 0 5px 14px rgba(13, 27, 75, 0.22);
+    border-color: rgba(201, 168, 76, 0.6);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.35);
 }
 
 .footer-nav .input-link:active {
@@ -1309,14 +1494,61 @@ label {
     margin-bottom: 18px;
 }
 
-/* --- 更新情報テキスト --- */
+/* --- 更新情報テキスト (フェルト上) --- */
 .update-info {
     font-size: 0.82em;
-    color: #8090a8;
+    color: rgba(245, 230, 184, 0.78);
     text-align: right;
     letter-spacing: 0.5px;
     font-style: italic;
     margin: 4px 0 16px;
+}
+
+/* --- スケルトンローディング --- */
+.loading-placeholder {
+    display: grid;
+    gap: 10px;
+    padding: 4px 0;
+}
+
+/* 読み込み中はミニルーレットが回る (完了とともに消える) */
+.loading-placeholder::before {
+    content: '';
+    justify-self: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--color-gold);
+    background:
+        radial-gradient(circle at center, var(--color-gold-pale) 0 3px, var(--color-wood-mid) 3px 7px, transparent 7px),
+        conic-gradient(var(--color-felt-light) 0deg 12deg, transparent 12deg 360deg),
+        repeating-conic-gradient(from 12deg, var(--color-rouge) 0deg 12deg, var(--color-noir) 12deg 24deg);
+    animation: roulette-spin 1.6s linear infinite;
+}
+
+.skeleton {
+    position: relative;
+    overflow: hidden;
+    min-height: 14px;
+    background-color: rgba(201, 168, 76, 0.14);
+    border-radius: 2px;
+}
+
+.skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+    animation: skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+.skeleton-row  { min-height: 48px; }
+.skeleton-text { min-height: 14px; width: 60%; }
+
+/* 暗い背景 (フェルト・陣取り盤) 上のスケルトン */
+.ranking-panel .skeleton,
+.territory-section .skeleton {
+    background-color: rgba(255, 255, 255, 0.16);
 }
 
 /* --- メッセージ --- */
@@ -1327,6 +1559,7 @@ label {
     font-size: 0.9em;
     letter-spacing: 0.3px;
     border-left: 4px solid;
+    animation: message-in 0.25s ease-out;
 }
 
 .message.success {
@@ -1345,6 +1578,68 @@ label {
     background-color: #f0f4fa;
     border-left-color: var(--color-info);
     color: var(--color-info);
+}
+
+/* エラーメッセージの✕ボタン */
+.message.error {
+    position: relative;
+    padding-right: 40px;
+}
+
+.message-close {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: 0.95em;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.message-close:hover {
+    opacity: 0.65;
+}
+
+/* --- トースト通知 --- */
+#toast-container {
+    position: fixed;
+    left: 50%;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: min(92vw, 420px);
+    z-index: 2000;
+    pointer-events: none;
+}
+
+.toast {
+    padding: 11px 16px;
+    border: 1px solid rgba(201, 168, 76, 0.6);
+    border-left: 4px solid var(--color-gold);
+    border-radius: 4px;
+    background: rgba(23, 24, 28, 0.94);
+    color: var(--color-gold-pale);
+    font-size: 0.92em;
+    letter-spacing: 0.3px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    animation: message-in 0.25s ease-out;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.toast.success { border-left-color: #2ecc71; }
+.toast.error   { border-left-color: #e74c3c; }
+
+.toast.toast-hide {
+    opacity: 0;
+    transform: translateY(6px);
 }
 
 /* --- ユーティリティ --- */
@@ -1447,7 +1742,27 @@ html.auth-pending #auth-section { display: none !important; }
     margin-bottom: 0;
 }
 
-/* --- 認証セクション --- */
+/* --- 認証セクション (フェルト上のカード) --- */
+#auth-section {
+    background-color: #fff;
+    border: 1px solid rgba(201, 168, 76, 0.35);
+    border-top: 3px solid var(--color-gold);
+    border-radius: 2px;
+    padding: 22px 24px;
+    margin-bottom: 28px;
+}
+
+/* フェルト上に直接置かれるセクション見出し */
+#admin-tools > h2 {
+    color: var(--color-gold-pale);
+    text-align: center;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    font-size: 1.05em;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(201, 168, 76, 0.45);
+}
+
 #auth-section h2 {
     font-family: var(--font-display);
     font-size: 1em;
@@ -1507,7 +1822,7 @@ html.auth-pending #auth-section { display: none !important; }
 
 .attendance-button {
     display: inline-block;
-    background: linear-gradient(135deg, var(--color-indigo-mid) 0%, var(--color-indigo) 100%);
+    background: linear-gradient(135deg, var(--color-rouge) 0%, var(--color-rouge-dark) 100%);
     color: var(--color-gold-pale);
     border: 1px solid var(--color-gold);
     padding: 6px 14px;
@@ -1518,13 +1833,13 @@ html.auth-pending #auth-section { display: none !important; }
     border-radius: 1px;
     text-decoration: none;
     transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(13, 27, 75, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .attendance-button:hover {
-    background: linear-gradient(135deg, var(--color-indigo-light) 0%, var(--color-indigo-mid) 100%);
+    background: linear-gradient(135deg, var(--color-rouge-light) 0%, var(--color-rouge) 100%);
     color: var(--color-gold-light);
-    box-shadow: 0 4px 14px rgba(13, 27, 75, 0.3), 0 0 0 1px var(--color-gold-light);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--color-gold-light);
     transform: translateY(-1px);
 }
 
@@ -1549,7 +1864,7 @@ html.auth-pending #auth-section { display: none !important; }
     font-size: 1.05em;
     font-weight: 600;
     letter-spacing: 4px;
-    color: var(--color-indigo);
+    color: var(--color-gold-pale);
     text-align: center;
     text-transform: uppercase;
     margin-bottom: 16px;
@@ -1876,8 +2191,8 @@ html.auth-pending #auth-section { display: none !important; }
         margin-right: -24px;
         margin-left: -24px;
         padding: 8px 24px 10px;
-        background: linear-gradient(to bottom, var(--color-cream) 0%, rgba(250, 246, 236, 0.94) 100%);
-        border-bottom: 1px solid rgba(201, 168, 76, 0.28);
+        background: linear-gradient(to bottom, var(--color-felt-mid) 0%, rgba(14, 92, 56, 0.95) 100%);
+        border-bottom: 1px solid rgba(201, 168, 76, 0.35);
     }
 
     .mypage-quick-nav a {
@@ -1937,5 +2252,18 @@ html.auth-pending #auth-section { display: none !important; }
 
     .spi-stats {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* --- モーション低減設定への対応 --- */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    html {
+        scroll-behavior: auto;
     }
 }

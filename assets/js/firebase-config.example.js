@@ -8,5 +8,7 @@ window.QJONG_FIREBASE_CONFIG = {
     functionsRegion: "asia-northeast1",
     storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
     messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_FIREBASE_WEB_APP_ID"
+    appId: "YOUR_FIREBASE_WEB_APP_ID",
+    // Firebase Console > Project settings > Cloud Messaging > Web Push certificates
+    messagingVapidKey: "YOUR_WEB_PUSH_VAPID_KEY"
 };

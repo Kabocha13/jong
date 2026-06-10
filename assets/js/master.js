@@ -1535,8 +1535,8 @@ async function loadExerciseReports() {
                     <strong>${r.player}</strong>　${date}<br>
                     距離: ${r.distance}km　ペース: ${r.pace}　獲得予定: <strong>${r.points}P</strong>${warning}<br>
                     <img src="${r.imageUrl}" style="max-width:100%;margin:8px 0;border-radius:4px;display:block;">
-                    <button onclick="handleExerciseAction('${r.id}','approve')" style="background-color:#28a745;color:white;border:none;padding:6px 14px;border-radius:4px;margin-right:8px;cursor:pointer;">承認 (+${r.points}P)</button>
-                    <button onclick="handleExerciseAction('${r.id}','reject')"  style="background-color:#dc3545;color:white;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;">却下</button>
+                    <button onclick="handleExerciseAction('${r.id}','approve')" class="action-button w-auto btn-green" style="padding:6px 14px;margin-right:8px;">承認 (+${r.points}P)</button>
+                    <button onclick="handleExerciseAction('${r.id}','reject')" class="action-button w-auto btn-black" style="padding:6px 14px;">却下</button>
                 </div>`;
         }).join('');
     } catch (err) {

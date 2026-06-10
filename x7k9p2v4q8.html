@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4f2d18">
     <title>マスター管理ページ</title>
     <link rel="icon" type="image/png" href="assets/icon.png">
     <link rel="stylesheet" href="assets/css/style.css">
@@ -34,7 +35,10 @@
                 
                 <form id="mahjong-form">
                     <div id="mahjong-player-inputs">
-                        <p>プレイヤーリストをロード中...</p>
+                        <div class="loading-placeholder" role="status" aria-label="プレイヤーリストをロード中">
+                            <div class="skeleton skeleton-row"></div>
+                            <div class="skeleton skeleton-row"></div>
+                        </div>
                     </div>
                     
                     <button type="submit" id="mahjong-submit-button">結果を反映する</button>
@@ -93,7 +97,7 @@
                         <input type="number" id="lottery-prize-prob-5" step="0.0000001" placeholder="確率 (%)" class="flex-1">
                     </div>
 
-                    <button type="submit" class="action-button" style="background-color: #38c172;">宝くじを開催</button>
+                    <button type="submit" class="action-button">宝くじを開催</button>
                     <p id="create-lottery-message" class="hidden"></p>
                 </form>
             </div>
@@ -118,21 +122,31 @@
                 <div class="p-0 border-none mt-20">
                     <h3>現在のくじ一覧・管理</h3>
                     <div id="bet-list-container">
-                        <p>くじデータを読み込み中...</p>
+                        <div class="loading-placeholder" role="status" aria-label="くじデータを読み込み中">
+                            <div class="skeleton skeleton-row"></div>
+                        </div>
                     </div>
                 </div>
             </div>
             
             <div class="tool-box">
                 <h3>🏃 運動申請 承認</h3>
-                <div id="exercise-reports-container"><p>ロード中...</p></div>
+                <div id="exercise-reports-container">
+                    <div class="loading-placeholder" role="status" aria-label="運動申請をロード中">
+                        <div class="skeleton skeleton-row"></div>
+                    </div>
+                </div>
                 <p id="exercise-action-message" class="hidden"></p>
             </div>
 
             <div class="tool-box">
                 <h3>SPI 正答率分析</h3>
                 <p class="instruction">現行問題集の回答ログから、全体・区分別・分野別の正答率を表示します。</p>
-                <div id="spi-analysis-container"><p>ロード中...</p></div>
+                <div id="spi-analysis-container">
+                    <div class="loading-placeholder" role="status" aria-label="正答率を集計中">
+                        <div class="skeleton skeleton-row"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="tool-box">
@@ -166,7 +180,7 @@
                         <label for="gift-code-max-uses">全利用合計回数:</label>
                         <input type="number" id="gift-code-max-uses" min="0" value="1" required>
                     </div>
-                    <button type="submit" class="action-button w-auto" style="background-color: #ffc107;">コードを発行</button>
+                    <button type="submit" class="action-button w-auto btn-gold">コードを発行</button>
                 </form>
                 <p id="create-gift-code-message" class="hidden"></p>
             </div>
@@ -182,7 +196,7 @@
                         <label for="transfer-amount">送金ポイント:</label>
                         <input type="number" id="transfer-amount" step="0.1" min="0.1" required>
                     </div>
-                    <button type="submit" class="action-button" style="background-color: #28a745;">送金を実行</button>
+                    <button type="submit" class="action-button">送金を実行</button>
                 </form>
                 <p id="transfer-message" class="hidden"></p>
             </div>
@@ -207,7 +221,7 @@
                         </div>
                     </div>
                     <div style="display:flex;gap:10px;">
-                        <button type="submit" class="action-button" style="background-color:#4a90d9;">設定を保存</button>
+                        <button type="submit" class="action-button">設定を保存</button>
                         <button type="button" id="clear-theme-button" class="action-button secondary-button">テーマを解除</button>
                     </div>
                 </form>
@@ -218,7 +232,7 @@
                 <h3>📋 出席登録の表示設定</h3>
                 <p class="instruction">出席登録ボタンを表示するユーザーを選択します。</p>
                 <div id="attendance-access-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:12px 0;"></div>
-                <button type="button" id="attendance-access-save-button" class="action-button w-auto" style="background-color:#4a90d9;">
+                <button type="button" id="attendance-access-save-button" class="action-button w-auto">
                     表示ユーザーを保存
                 </button>
                 <p id="attendance-access-message" class="hidden"></p>
@@ -232,7 +246,7 @@
                         <label for="daily-tax-rate">徴収率 (%):</label>
                         <input type="number" id="daily-tax-rate" step="0.1" min="0" max="100" required>
                     </div>
-                    <button type="submit" class="action-button w-auto" style="background-color: #DAA520;">
+                    <button type="submit" class="action-button w-auto btn-gold">
                         徴収率を保存
                     </button>
                 </form>
@@ -242,7 +256,7 @@
             <div class="tool-box">
                 <h3>🏁 陣取り合戦シーズン終了</h3>
                 <p id="territory-season-status" class="instruction">戦況を確認中...</p>
-                <button type="button" id="territory-season-end-button" class="action-button w-auto" style="background-color: #7b4ab8;" disabled>
+                <button type="button" id="territory-season-end-button" class="action-button w-auto btn-black" disabled>
                     シーズン終了
                 </button>
                 <p id="territory-season-message" class="hidden"></p>

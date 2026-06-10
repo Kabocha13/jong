@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4f2d18">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Q-Jong">
     <title>マイページ</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png">
     <script>
         if (localStorage.getItem('authUsername') && localStorage.getItem('authPassword')) {
@@ -23,15 +29,15 @@
             <form id="auth-form">
                 <div class="form-group">
                     <label for="username">ユーザー名:</label>
-                    <input type="text" id="username" required>
+                    <input type="text" id="username" required autocomplete="username" autocapitalize="off" spellcheck="false">
                 </div>
                 <div class="form-group">
                     <label for="password">パスワード:</label>
-                    <input type="password" id="password" required>
+                    <input type="password" id="password" required autocomplete="current-password">
                 </div>
-                <button type="submit">ログイン</button>
+                <button type="submit" id="auth-submit-button">ログイン</button>
             </form>
-            <p id="auth-message" class="hidden"></p>
+            <p id="auth-message" class="hidden" aria-live="polite"></p>
         </section>
 
         <section id="mypage-content" class="hidden">
@@ -80,7 +86,7 @@
                 <summary><span>⭐ ログインボーナスポイント</span></summary>
                 <p class="instruction" id="pro-bonus-instruction">特典ロード中...</p>
                 <p id="pro-bonus-probability" class="text-small"></p>
-                <button type="button" id="pro-bonus-button" class="action-button w-auto" style="background-color: #38c172;">
+                <button type="button" id="pro-bonus-button" class="action-button w-auto btn-green">
                     ボーナスを受け取る
                 </button>
                 <p id="pro-bonus-message" class="hidden"></p>
@@ -115,18 +121,22 @@
                     <div class="form-group flex gap-10 items-end">
                         <div class="flex-1">
                             <label for="lottery-ticket-count">購入枚数:</label>
-                            <input type="number" id="lottery-ticket-count" min="1" value="1" required>
+                            <input type="number" id="lottery-ticket-count" min="1" value="1" required inputmode="numeric">
                         </div>
                         <div style="flex: 0 0 140px;">
                             <strong id="lottery-total-price" class="text-small" style="color: var(--color-primary);">合計: - P</strong>
                         </div>
                     </div>
-                    <button type="submit" class="action-button" style="background-color: #38c172;">宝くじを購入する</button>
+                    <button type="submit" class="action-button">宝くじを購入する</button>
                 </form>
                 <p id="lottery-purchase-message" class="hidden"></p>
 
                 <h3 class="mt-20">宝くじ結果発表</h3>
-                <div id="lottery-results-container"><p>ロード中...</p></div>
+                <div id="lottery-results-container">
+                    <div class="loading-placeholder" role="status" aria-label="結果をロード中">
+                        <div class="skeleton skeleton-row"></div>
+                    </div>
+                </div>
             </details>
             
             <details class="tool-box mypage-accordion" id="gift-code-section">
@@ -134,9 +144,9 @@
                 <form id="apply-gift-code-form">
                     <div class="form-group">
                         <label for="gift-code-input">プレゼントコード:</label>
-                        <input type="text" id="gift-code-input" required placeholder="コードを入力">
+                        <input type="text" id="gift-code-input" required placeholder="コードを入力" autocomplete="off" autocapitalize="off" spellcheck="false">
                     </div>
-                    <button type="submit" class="action-button w-auto" style="background-color: #ffc107;">コードを適用</button>
+                    <button type="submit" class="action-button w-auto btn-gold">コードを適用</button>
                 </form>
                 <p id="apply-gift-code-message" class="hidden"></p>
             </details>
@@ -166,7 +176,7 @@
                 <form id="exercise-form">
                     <div class="form-group">
                         <label for="exercise-distance">距離 (km):</label>
-                        <input type="number" id="exercise-distance" step="0.01" min="0.1" required placeholder="例: 5.2">
+                        <input type="number" id="exercise-distance" step="0.01" min="0.1" required placeholder="例: 5.2" inputmode="decimal">
                     </div>
                     <div class="form-group">
                         <label for="exercise-pace">ペース (分/km):</label>
@@ -176,7 +186,7 @@
                         <label for="exercise-image">スクリーンショット:</label>
                         <input type="file" id="exercise-image" accept="image/*" required>
                     </div>
-                    <button type="submit" class="action-button w-auto" style="background-color: #20c997;">申請する</button>
+                    <button type="submit" class="action-button w-auto btn-green">申請する</button>
                 </form>
                 <p id="exercise-message" class="hidden"></p>
                 <div class="mt-20">
@@ -191,11 +201,21 @@
                 <form id="transfer-form-mypage">
                     <div class="form-group flex gap-10">
                         <select id="receiver-player-mypage" required class="flex-1"><option value="" disabled selected>送金先を選択</option></select>
-                        <input type="number" id="transfer-amount-mypage" step="0.1" min="0.1" placeholder="P" required style="flex: 0 0 100px;">
+                        <input type="number" id="transfer-amount-mypage" step="0.1" min="0.1" placeholder="P" required inputmode="decimal" style="flex: 0 0 100px;">
                     </div>
-                    <button type="submit" class="action-button w-auto" style="background-color: #28a745;">送金を実行</button>
+                    <button type="submit" class="action-button w-auto">送金を実行</button>
                 </form>
                 <p id="transfer-message-mypage" class="hidden"></p>
+            </details>
+
+            <details class="tool-box mypage-accordion" id="notification-section">
+                <summary><span>🔔 締切通知</span></summary>
+                <p class="instruction">
+                    manabaの未提出課題が締切2日前になると、この端末にプッシュ通知でお知らせします（毎朝9時に判定）。<br>
+                    iPhone/iPadでは「ホーム画面に追加」したQ-Jongから開いて設定してください。
+                </p>
+                <button type="button" id="enable-notifications-button" class="action-button w-auto btn-green">この端末で通知を受け取る</button>
+                <p id="notification-message" class="hidden" aria-live="polite"></p>
             </details>
         </section>
     </main>
@@ -211,6 +231,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
     <script src="assets/js/common.js"></script>
     <script>window.JOB_QUIZ_EMBEDDED = true;</script>
