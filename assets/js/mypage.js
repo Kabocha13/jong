@@ -36,6 +36,14 @@ const LOTTERY_PURCHASE_MESSAGE = document.getElementById('lottery-purchase-messa
 const LOTTERY_TOTAL_PRICE_DISPLAY = document.getElementById('lottery-total-price');
 const LOTTERY_RESULTS_CONTAINER = document.getElementById('lottery-results-container');
 
+const RANKING_DECORATION_PURCHASE_FORM = document.getElementById('ranking-decoration-purchase-form');
+const RANKING_DECORATION_DAYS_INPUT = document.getElementById('ranking-decoration-days');
+const RANKING_DECORATION_TOTAL = document.getElementById('ranking-decoration-total');
+const RANKING_DECORATION_STATUS = document.getElementById('ranking-decoration-status');
+const RANKING_DECORATION_MESSAGE = document.getElementById('ranking-decoration-message');
+const RANKING_DECORATION_PRICE_PER_DAY = 1;
+const RANKING_DECORATION_MAX_PURCHASE_DAYS = 3650;
+
 const APPLY_GIFT_CODE_FORM = document.getElementById('apply-gift-code-form');
 const GIFT_CODE_INPUT = document.getElementById('gift-code-input');
 const APPLY_GIFT_CODE_MESSAGE = document.getElementById('apply-gift-code-message');
@@ -252,6 +260,7 @@ async function initializeMyPageContent() {
     initializeWagerInputs();
 
     initializeMemberBonusFeature(); 
+    initializeRankingDecorationFeature();
 
     if (window.initializeJobQuizForUser) {
         await window.initializeJobQuizForUser(authenticatedUser);
@@ -273,6 +282,141 @@ async function initializeMyPageContent() {
     controlTargetContinueFormDisplay();
 
     initExercise();
+}
+
+
+// -----------------------------------------------------------------
+// ランキング装飾購入
+// -----------------------------------------------------------------
+
+function formatRankingDecorationExpiresAt(value) {
+    const date = new Date(value || '');
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function updateRankingDecorationTotal() {
+    if (!RANKING_DECORATION_DAYS_INPUT || !RANKING_DECORATION_TOTAL) return;
+    const days = Number(RANKING_DECORATION_DAYS_INPUT.value);
+    const total = Number.isInteger(days) && days > 0
+        ? days * RANKING_DECORATION_PRICE_PER_DAY
+        : null;
+    RANKING_DECORATION_TOTAL.textContent = total === null ? '合計: - P' : `合計: ${total.toFixed(1)} P`;
+}
+
+function updateRankingDecorationStatus() {
+    if (!RANKING_DECORATION_STATUS || !authenticatedUser) return;
+    const decoration = String(authenticatedUser.rankingDecoration || authenticatedUser.equippedDecoration || '');
+    const expiresAt = authenticatedUser.rankingDecorationExpiresAt || authenticatedUser.decorationExpiresAt;
+    const expiresAtMs = new Date(expiresAt || '').getTime();
+
+    if (decoration === 'rainbow' && Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()) {
+        const remainingDays = Math.ceil((expiresAtMs - Date.now()) / (24 * 60 * 60 * 1000));
+        RANKING_DECORATION_STATUS.textContent = `利用中：${formatRankingDecorationExpiresAt(expiresAt)}まで（残り約${remainingDays}日）`;
+        return;
+    }
+
+    RANKING_DECORATION_STATUS.textContent = '現在、ランキング装飾は利用していません。';
+}
+
+function initializeRankingDecorationFeature() {
+    updateRankingDecorationTotal();
+    updateRankingDecorationStatus();
+}
+
+async function requestRankingDecorationPurchase(player, days) {
+    const token = await getFirebaseIdToken();
+    if (!token) throw new Error('ログイン情報を確認できませんでした。');
+
+    const response = await fetch(`${getFunctionsBaseUrl()}/purchaseRankingDecoration`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ player, days })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.status !== 'success') {
+        throw new Error(result.message || `購入処理に失敗しました (${response.status})`);
+    }
+    invalidateFetchCache();
+    return result;
+}
+
+if (RANKING_DECORATION_DAYS_INPUT) {
+    RANKING_DECORATION_DAYS_INPUT.addEventListener('input', updateRankingDecorationTotal);
+}
+
+if (RANKING_DECORATION_PURCHASE_FORM) {
+    RANKING_DECORATION_PURCHASE_FORM.addEventListener('submit', async event => {
+        event.preventDefault();
+
+        if (!authenticatedUser) {
+            showMessage(RANKING_DECORATION_MESSAGE, '❌ 認証エラーが発生しました。', 'error');
+            return;
+        }
+
+        const days = Number(RANKING_DECORATION_DAYS_INPUT.value);
+        if (!Number.isInteger(days) || days < 1 || days > RANKING_DECORATION_MAX_PURCHASE_DAYS) {
+            showMessage(RANKING_DECORATION_MESSAGE, '❌ 購入日数を1日以上で入力してください。', 'error');
+            return;
+        }
+
+        const cost = days * RANKING_DECORATION_PRICE_PER_DAY;
+        if (Number(authenticatedUser.score || 0) < cost) {
+            showMessage(
+                RANKING_DECORATION_MESSAGE,
+                `❌ ポイント残高 (${Number(authenticatedUser.score || 0).toFixed(1)} P) が不足しています (必要: ${cost.toFixed(1)} P)。`,
+                'error'
+            );
+            return;
+        }
+
+        const submitButton = RANKING_DECORATION_PURCHASE_FORM.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        submitButton.setAttribute('aria-busy', 'true');
+        showMessage(RANKING_DECORATION_MESSAGE, `${days}日分のレインボー装飾を購入中...`, 'info');
+
+        try {
+            const result = await requestRankingDecorationPurchase(authenticatedUser.name, days);
+            authenticatedUser.score = Number(result.score);
+            authenticatedUser.rankingDecoration = 'rainbow';
+            authenticatedUser.rankingDecorationExpiresAt = result.expiresAt;
+            CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1);
+
+            if (latestAllData && Array.isArray(latestAllData.scores)) {
+                latestAllData.scores = latestAllData.scores.map(player => player.name === authenticatedUser.name
+                    ? {
+                        ...player,
+                        score: authenticatedUser.score,
+                        rankingDecoration: 'rainbow',
+                        rankingDecorationExpiresAt: result.expiresAt
+                    }
+                    : player);
+            }
+
+            updateRankingDecorationStatus();
+            showMessage(
+                RANKING_DECORATION_MESSAGE,
+                `✅ レインボー装飾を${days}日分購入しました。${formatRankingDecorationExpiresAt(result.expiresAt)}まで利用できます。`,
+                'success'
+            );
+        } catch (error) {
+            console.error('ランキング装飾購入エラー:', error);
+            showMessage(RANKING_DECORATION_MESSAGE, `❌ 購入エラー: ${error.message}`, 'error');
+        } finally {
+            submitButton.disabled = false;
+            submitButton.removeAttribute('aria-busy');
+        }
+    });
 }
 
 

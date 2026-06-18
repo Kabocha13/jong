@@ -9,7 +9,7 @@ const FIREBASE_COLLECTIONS = {
     exercise_reports: 'exercise_reports',
     career_posts: 'career_posts'
 };
-const DAILY_POINT_TAX_DEFAULT_RATE = 0.11;
+const DAILY_POINT_TAX_DEFAULT_RATE = 0.05;
 const DAILY_POINT_TAX_EXCLUDED_PLAYERS = ['3mahjong'];
 let _firebaseFirestoreSettingsApplied = false;
 let _dailyPointTaxCheckedDate = '';

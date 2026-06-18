@@ -52,6 +52,7 @@
             <nav class="mypage-quick-nav" aria-label="マイページ内メニュー">
                 <a href="#pro-bonus-tool">ボーナス</a>
                 <a href="#spi-tool">問題集</a>
+                <a href="#ranking-decoration-section">装飾</a>
                 <a href="#lottery-section">宝くじ</a>
                 <a href="#sports-wager-section">スポーツ</a>
                 <a href="#exercise-section">運動</a>
@@ -108,6 +109,29 @@
                     <button type="button" id="spi-next-button" class="action-button secondary-button hidden">次の問題へ</button>
                 </div>
                 <p id="spi-message" class="hidden"></p>
+            </details>
+
+            <details class="tool-box mypage-accordion" id="ranking-decoration-section">
+                <summary><span>🌈 ランキング装飾</span></summary>
+                <div class="ranking-decoration-product-card">
+                    <span class="ranking-decoration-product-bar" aria-hidden="true"></span>
+                    <div>
+                        <strong>レインボーライン</strong>
+                        <p>ランキング左端の縦線だけをレインボーにします。</p>
+                    </div>
+                </div>
+                <p id="ranking-decoration-status" class="instruction">利用状況を確認中...</p>
+                <form id="ranking-decoration-purchase-form">
+                    <div class="form-group flex gap-10 items-end">
+                        <div class="flex-1">
+                            <label for="ranking-decoration-days">購入日数（1P / 日）:</label>
+                            <input type="number" id="ranking-decoration-days" min="1" max="3650" step="1" value="7" required inputmode="numeric">
+                        </div>
+                        <output id="ranking-decoration-total" for="ranking-decoration-days" class="ranking-decoration-total">合計: 7.0 P</output>
+                    </div>
+                    <button type="submit" class="action-button w-auto">レインボー装飾を購入する</button>
+                </form>
+                <p id="ranking-decoration-message" class="hidden" aria-live="polite"></p>
             </details>
 
             <details class="tool-box mypage-accordion" id="lottery-section">
@@ -233,9 +257,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js"></script>
+    <script src="assets/js/common.js?v=39.4.2"></script>
     <script>window.JOB_QUIZ_EMBEDDED = true;</script>
     <script src="assets/js/job-quiz.js"></script>
-    <script src="assets/js/mypage.js"></script>
+    <script src="assets/js/mypage.js?v=39.4.2"></script>
 </body>
 </html>

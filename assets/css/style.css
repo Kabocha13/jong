@@ -734,6 +734,93 @@ textarea:focus-visible {
     box-shadow: 2px 4px 12px rgba(13, 27, 75, 0.08);
 }
 
+/* 購入装飾はランキング左端の縦線だけに適用する */
+.ranking-item[class*="ranking-decoration-"] {
+    position: relative;
+    border-left-color: transparent !important;
+}
+
+.ranking-item[class*="ranking-decoration-"]::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    bottom: -1px;
+    left: -1px;
+    width: 5px;
+    border-radius: 1px 0 0 1px;
+    pointer-events: none;
+}
+
+.ranking-decoration-gold::before {
+    background: linear-gradient(180deg, #fff3a0 0%, #c9a84c 32%, #fff8cf 52%, #9b741d 100%);
+}
+
+.ranking-decoration-rainbow::before {
+    background: linear-gradient(180deg, #ff4d6d, #ffb703, #58cc68, #39a9ff, #9b5de5, #ff4d6d);
+    background-size: 100% 220%;
+    animation: ranking-decoration-flow 2.8s linear infinite;
+}
+
+.ranking-decoration-neon::before {
+    background: linear-gradient(180deg, #d9ffff, #00e5ff 35%, #286dff 70%, #d9ffff);
+    background-size: 100% 200%;
+    animation: ranking-decoration-flow 2.2s ease-in-out infinite alternate;
+}
+
+.ranking-decoration-sakura::before {
+    background: repeating-linear-gradient(180deg, #fff0f5 0 7px, #f58bb0 7px 14px, #ffd1df 14px 21px);
+}
+
+.ranking-decoration-flame::before {
+    background: linear-gradient(180deg, #fff176, #ff9f1c 35%, #e63946 70%, #7f1020);
+    background-size: 100% 190%;
+    animation: ranking-decoration-flow 1.4s ease-in-out infinite alternate;
+}
+
+.ranking-decoration-roulette::before {
+    background: repeating-linear-gradient(180deg, #171717 0 9px, #171717 9px 11px, #b4202a 11px 20px, #b4202a 20px 22px);
+}
+
+@keyframes ranking-decoration-flow {
+    from { background-position: 50% 0%; }
+    to { background-position: 50% 100%; }
+}
+
+.ranking-decoration-product-card {
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    margin: 12px 0;
+    padding: 12px 14px 12px 0;
+    border: 1px solid rgba(201, 168, 76, 0.25);
+    background: #fff;
+}
+
+.ranking-decoration-product-bar {
+    flex: 0 0 5px;
+    margin: -13px 0 -13px -1px;
+    background: linear-gradient(180deg, #ff4d6d, #ffb703, #58cc68, #39a9ff, #9b5de5, #ff4d6d);
+    background-size: 100% 220%;
+    animation: ranking-decoration-flow 2.8s linear infinite;
+}
+
+.ranking-decoration-product-card strong {
+    color: var(--color-indigo);
+}
+
+.ranking-decoration-product-card p {
+    margin: 4px 0 0;
+    font-size: 0.9em;
+}
+
+.ranking-decoration-total {
+    flex: 0 0 120px;
+    padding-bottom: 12px;
+    color: var(--color-primary);
+    font-weight: 700;
+    text-align: right;
+}
+
 .rank-num {
     font-family: var(--font-display);
     font-weight: 700;

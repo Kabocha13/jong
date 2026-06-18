@@ -16,8 +16,10 @@ const FIREBASE_COLLECTIONS = {
   exercise_reports: 'exercise_reports',
   career_posts: 'career_posts'
 };
-const DAILY_POINT_TAX_DEFAULT_RATE = 0.11;
+const DAILY_POINT_TAX_DEFAULT_RATE = 0.05;
 const DAILY_POINT_TAX_EXCLUDED_PLAYERS = new Set(['3mahjong']);
+const RANKING_DECORATION_PRICE_PER_DAY = 1;
+const RANKING_DECORATION_MAX_PURCHASE_DAYS = 3650;
 const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
 const DEFAULT_MANABA_LOGIN_PATH = '/ct/login';
 const DEFAULT_MANABA_ASSIGNMENTS_PATH = '/ct/home_library_query';
@@ -60,20 +62,22 @@ function getItemDocId(key, item, index) {
   return toDocId(item.id ?? index);
 }
 
-async function hasWriteAccess(req, body = {}) {
-  if (String(body.masterPin || '') === MASTER_PIN) return true;
-
+async function getVerifiedAuthToken(req) {
   const authHeader = req.get('authorization') || '';
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
-  if (!match) return false;
+  if (!match) return null;
 
   try {
-    await admin.auth().verifyIdToken(match[1]);
-    return true;
+    return await admin.auth().verifyIdToken(match[1]);
   } catch (error) {
     console.warn('IDトークン検証に失敗しました:', error.message);
-    return false;
+    return null;
   }
+}
+
+async function hasWriteAccess(req, body = {}) {
+  if (String(body.masterPin || '') === MASTER_PIN) return true;
+  return Boolean(await getVerifiedAuthToken(req));
 }
 
 function normalizeDailyPointTaxRate(value) {
@@ -763,6 +767,96 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 'error', message: `Firebase書き込み失敗: ${error.message}` });
+  }
+});
+
+export const purchaseRankingDecoration = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const body = req.body || {};
+    const playerName = String(body.player || '').trim();
+    const days = Number(body.days);
+    const authToken = await getVerifiedAuthToken(req);
+
+    if (!authToken) {
+      res.status(401).json({ status: 'error', message: '認証が必要です。' });
+      return;
+    }
+    if (!playerName || authToken.uid !== authUidFromUsername(playerName)) {
+      res.status(403).json({ status: 'error', message: '自分の装飾だけ購入できます。' });
+      return;
+    }
+    if (!Number.isInteger(days) || days < 1 || days > RANKING_DECORATION_MAX_PURCHASE_DAYS) {
+      res.status(400).json({ status: 'error', message: '購入日数を正しく入力してください。' });
+      return;
+    }
+
+    const cost = days * RANKING_DECORATION_PRICE_PER_DAY;
+    const playerRef = db.collection('players').doc(toDocId(playerName));
+    const result = await db.runTransaction(async transaction => {
+      const playerDoc = await transaction.get(playerRef);
+      if (!playerDoc.exists) throw new Error('プレイヤーデータが見つかりません。');
+
+      const player = playerDoc.data();
+      const currentScore = Number(player.score || 0);
+      if (currentScore < cost) throw new Error(`ポイント残高が不足しています。必要: ${cost.toFixed(1)}P`);
+
+      const now = new Date();
+      const currentDecoration = String(player.rankingDecoration || player.equippedDecoration || '');
+      const currentExpiresAt = player.rankingDecorationExpiresAt || player.decorationExpiresAt;
+      const currentExpiresAtMs = new Date(currentExpiresAt || '').getTime();
+      const extensionBaseMs = currentDecoration === 'rainbow' && Number.isFinite(currentExpiresAtMs) && currentExpiresAtMs > now.getTime()
+        ? currentExpiresAtMs
+        : now.getTime();
+      const expiresAt = new Date(extensionBaseMs + days * 24 * 60 * 60 * 1000).toISOString();
+      const nextScore = Number((currentScore - cost).toFixed(1));
+      const purchasedAt = now.toISOString();
+
+      transaction.set(playerRef, {
+        ...player,
+        score: nextScore,
+        rankingDecoration: 'rainbow',
+        rankingDecorationExpiresAt: expiresAt,
+        rankingDecorationPurchasedAt: purchasedAt
+      }, { merge: false });
+
+      const historyId = pointHistoryDocId(playerName, purchasedAt);
+      transaction.set(db.collection('point_history').doc(historyId), {
+        id: historyId,
+        player: playerName,
+        beforeScore: Number(currentScore.toFixed(1)),
+        afterScore: nextScore,
+        delta: Number((-cost).toFixed(1)),
+        source: 'ranking_decoration_purchase',
+        reason: `レインボーランキング装飾 ${days}日`,
+        actor: playerName,
+        createdAt: purchasedAt
+      });
+
+      return { score: nextScore, expiresAt };
+    });
+
+    res.status(200).json({
+      status: 'success',
+      message: 'レインボー装飾を購入しました。',
+      decoration: 'rainbow',
+      days,
+      cost,
+      score: result.score,
+      expiresAt: result.expiresAt
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ status: 'error', message: error.message || '購入処理に失敗しました。' });
   }
 });
 

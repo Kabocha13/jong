@@ -14,6 +14,29 @@ const REFRESH_BUTTON = document.getElementById('refresh-button');
 const EXCLUDED_PLAYERS = ['3mahjong'];
 const LS_DATA_KEY = 'cachedHomeData';
 const HOME_MANABA_SYNC_INTERVAL_MS = 60 * 60 * 1000;
+const RANKING_DECORATION_IDS = new Set([
+    'gold',
+    'rainbow',
+    'neon',
+    'sakura',
+    'flame',
+    'roulette'
+]);
+
+function getRankingDecorationClass(player) {
+    const decorationId = String(player.rankingDecoration || player.equippedDecoration || '')
+        .trim()
+        .toLowerCase();
+    if (!RANKING_DECORATION_IDS.has(decorationId)) return '';
+
+    const expiresAt = player.rankingDecorationExpiresAt || player.decorationExpiresAt;
+    if (expiresAt) {
+        const expiresAtMs = new Date(expiresAt).getTime();
+        if (Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now()) return '';
+    }
+
+    return `ranking-decoration-${decorationId}`;
+}
 
 /**
  * データを受け取って全セクションを描画する
@@ -38,6 +61,7 @@ function renderWithData(allData, isStale = false) {
     sortedScores.forEach((player, index) => {
         const rank = index + 1;
         const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+        const decorationClass = getRankingDecorationClass(player);
         let memberMark = '', nameClass = 'player-name';
         if (player.status === 'luxury') {
             memberMark = '<span class="luxury-mark" title="ラグジュアリー会員">💎</span>';
@@ -46,9 +70,9 @@ function renderWithData(allData, isStale = false) {
             memberMark = '<span class="pro-mark" title="プロ会員">⭐</span>';
         }
         html += `
-            <li class="ranking-item ${rankClass}">
+            <li class="ranking-item ${rankClass} ${decorationClass}">
                 <span class="rank-num">#${rank}</span>
-                <span class="${nameClass}">${player.name} ${memberMark}</span>
+                <span class="${nameClass}">${escapeText(player.name)} ${memberMark}</span>
                 <span class="player-score">${player.score.toFixed(1)} P</span>
             </li>`;
     });
