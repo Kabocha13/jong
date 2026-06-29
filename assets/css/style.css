@@ -294,6 +294,55 @@ header h1::after {
 header h1::before { left: 8px; }
 header h1::after  { right: 8px; }
 
+.trip-countdown {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: min(620px, calc(100vw - 56px));
+    padding: 10px 34px 12px;
+    line-height: 1.15;
+    letter-spacing: 0;
+}
+
+.trip-countdown-label,
+.trip-countdown-date {
+    color: var(--color-gold-pale);
+    background: none;
+    -webkit-text-fill-color: var(--color-gold-pale);
+}
+
+.trip-countdown-label {
+    font-size: 0.42em;
+    letter-spacing: 4px;
+}
+
+.trip-countdown-value {
+    min-height: 1.2em;
+    font-size: 0.82em;
+    letter-spacing: 2px;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    background: linear-gradient(
+        90deg,
+        var(--color-gold-pale) 0%,
+        var(--color-gold-light) 30%,
+        #fff8e1 50%,
+        var(--color-gold-light) 70%,
+        var(--color-gold-pale) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gold-shimmer 5s linear infinite;
+}
+
+.trip-countdown-date {
+    font-size: 0.38em;
+    letter-spacing: 2px;
+}
+
 /* ヘッダー内のボタン */
 #master-header-actions {
     margin-top: 12px;
@@ -447,6 +496,41 @@ h2, h3 {
     font-size: 0.82em;
     letter-spacing: 2px;
     text-transform: uppercase;
+}
+
+/* --- 広告枠 --- */
+.qjong-ad {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    margin: 28px 0 0;
+    padding: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(201, 168, 76, 0.36);
+    background-color: rgba(255, 253, 245, 0.92);
+}
+
+.qjong-ad::before {
+    content: "スポンサーリンク";
+    color: rgba(31, 35, 31, 0.48);
+    font-size: 0.72em;
+    letter-spacing: 1px;
+}
+
+.qjong-ad[data-ad-state="loading"]::before,
+.qjong-ad[data-ad-state="rendered"]::before {
+    content: none;
+}
+
+.qjong-ad[hidden],
+.qjong-ad:has(.adsbygoogle[data-ad-status="unfilled"]) {
+    display: none !important;
+}
+
+.qjong-ad .adsbygoogle {
+    width: 100%;
+    min-height: 90px;
 }
 
 /* --- ツールボックス --- */
@@ -2271,6 +2355,44 @@ html.auth-pending #auth-section { display: none !important; }
 }
 
 @media (max-width: 700px) {
+    header {
+        padding: 24px 14px 34px;
+        overflow: hidden;
+    }
+
+    header::before,
+    header h1::before,
+    header h1::after {
+        display: none;
+    }
+
+    .trip-countdown {
+        width: min(100%, 340px);
+        min-width: 0;
+        max-width: 100%;
+        gap: 3px;
+        padding: 10px 14px 12px;
+    }
+
+    .trip-countdown-label {
+        font-size: 0.34em;
+        letter-spacing: 2px;
+    }
+
+    .trip-countdown-value {
+        display: block;
+        width: 100%;
+        font-size: clamp(0.9em, 6vw, 1.02em);
+        letter-spacing: 0;
+        line-height: 1.15;
+        text-align: center;
+    }
+
+    .trip-countdown-date {
+        font-size: 0.34em;
+        letter-spacing: 1px;
+    }
+
     .mypage-quick-nav {
         position: sticky;
         top: 0;
@@ -2339,6 +2461,11 @@ html.auth-pending #auth-section { display: none !important; }
 
     .spi-stats {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .qjong-ad {
+        min-height: 250px;
+        margin-top: 22px;
     }
 }
 

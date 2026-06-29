@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-adsense-account" content="ca-pub-1895674082198665">
     <meta name="theme-color" content="#4f2d18">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -11,11 +12,18 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png">
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/style.css?v=39.5.2">
+    <script src="assets/js/adsense-config.js" defer></script>
+    <script src="assets/js/adsense.js?v=39.5.3" defer></script>
+    <script src="assets/js/trip-countdown.js?v=39.5.2" defer></script>
 </head>
 <body>
     <header>
-        <h1> Q-Jong </h1>
+        <h1 class="trip-countdown" id="trip-countdown" data-target="2026-08-18T15:10:00+09:00">
+            <span class="trip-countdown-label">旅行まで</span>
+            <span class="trip-countdown-value" data-countdown-value>計算中</span>
+            <span class="trip-countdown-date">8月18日 15:10</span>
+        </h1>
     </header>
 
     <main>
@@ -94,6 +102,7 @@
             </div>
         </div>
 
+        <aside class="qjong-ad" data-ad-slot-key="homeBottom" aria-label="スポンサーリンク"></aside>
 
     </main>
 
