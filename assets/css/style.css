@@ -1567,6 +1567,80 @@ footer {
 /* ------------------------------------------------------------
    23. モーション低減
    ------------------------------------------------------------ */
+/* ------------------------------------------------------------
+   13:13 の金銀財宝
+   ------------------------------------------------------------ */
+.treasure-rain {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    overflow: hidden;
+    /* 出席登録などのタップを絶対に奪わない */
+    pointer-events: none;
+}
+
+.treasure-piece {
+    position: absolute;
+    top: 0;
+    width: var(--size);
+    height: var(--size);
+    will-change: transform, opacity;
+    animation-name: treasure-fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+/* ダブロン金貨。rotateY が横方向の潰れになり、硬貨が回って見える */
+.treasure-coin {
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 34% 28%, #fff7dc 0%, #f4cd68 34%, #c9922f 72%, #7d5411 100%);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 244, 214, 0.55),
+        inset 0 0 6px rgba(94, 60, 8, 0.5),
+        0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.treasure-coin.is-silver {
+    background:
+        radial-gradient(circle at 34% 28%, #ffffff 0%, #e3e8ec 34%, #9ba2a9 72%, #5d656c 100%);
+    box-shadow:
+        inset 0 0 0 1.5px rgba(255, 255, 255, 0.6),
+        inset 0 0 6px rgba(52, 58, 64, 0.45),
+        0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+/* 宝石。菱形に切り抜いて上面に光を乗せる */
+.treasure-gem {
+    clip-path: polygon(50% 0%, 100% 36%, 50% 100%, 0% 36%);
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+}
+
+.treasure-gem.is-ruby {
+    background: linear-gradient(150deg, #ffc4d2 0%, #e0466c 42%, #8c0f2d 100%);
+}
+
+.treasure-gem.is-sapphire {
+    background: linear-gradient(150deg, #c9e8ff 0%, #3f8fe0 42%, #10386f 100%);
+}
+
+.treasure-gem.is-emerald {
+    background: linear-gradient(150deg, #cdf7dc 0%, #3fb573 42%, #0f5a33 100%);
+}
+
+@keyframes treasure-fall {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -14vh, 0) rotate(0deg) rotateY(0deg);
+    }
+    6% { opacity: 1; }
+    90% { opacity: 1; }
+    to {
+        opacity: 0;
+        transform: translate3d(var(--drift), 112vh, 0) rotate(var(--spin)) rotateY(var(--flip));
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
         animation-duration: 0.01ms !important;
