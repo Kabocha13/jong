@@ -9,6 +9,8 @@ const LOTTERY_LIST_CONTAINER = document.getElementById('lottery-list-container')
 const HOME_MANABA_ASSIGNMENT_LIST = document.getElementById('home-manaba-assignment-list');
 const HOME_MANABA_MESSAGE = document.getElementById('home-manaba-message');
 const REFRESH_BUTTON = document.getElementById('refresh-button');
+const HOME_BONUS_BUTTON = document.getElementById('home-bonus-button');
+const DECK_BAR = document.querySelector('.deck-bar');
 
 const EXCLUDED_PLAYERS = ['3mahjong'];
 const LS_DATA_KEY = 'cachedHomeData';
@@ -46,7 +48,7 @@ function renderWithData(allData, isStale = false) {
             <li class="ranking-item ${rankClass}">
                 <span class="rank-num">#${rank}</span>
                 <span class="${nameClass}">${escapeText(player.name)} ${memberMark}</span>
-                <span class="player-score">${player.score.toFixed(1)} P</span>
+                <span class="player-score">${formatRate(player.score)}</span>
             </li>`;
     });
     html += '</ul>';
@@ -54,6 +56,7 @@ function renderWithData(allData, isStale = false) {
 
     renderSportsBets(sportsBets, displayScores);
     renderLotteries(lotteries);
+    updateHomeBonusButton(rawScores);
     const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     LAST_UPDATE_ELEMENT.textContent = isStale ? `キャッシュ表示 (更新中...)` : `最終更新: ${timeStr}`;
 }
@@ -109,16 +112,16 @@ async function ensureHomeFirebaseLogin() {
     const password = localStorage.getItem('authPassword');
     if (!username || !password) return false;
     if (getCurrentFirebaseUidSync()) {
-        await runDailyPointTaxIfNeeded().catch(error => {
-            console.warn('日次ポイント徴収に失敗しました。ホーム表示は継続します。', error);
+        await runDailyRateReversionIfNeeded().catch(error => {
+            console.warn('日次レート補正に失敗しました。ホーム表示は継続します。', error);
         });
         return true;
     }
 
     try {
         await qjongSignIn(username, password);
-        await runDailyPointTaxIfNeeded().catch(error => {
-            console.warn('日次ポイント徴収に失敗しました。ホーム表示は継続します。', error);
+        await runDailyRateReversionIfNeeded().catch(error => {
+            console.warn('日次レート補正に失敗しました。ホーム表示は継続します。', error);
         });
         return true;
     } catch (error) {
@@ -241,7 +244,7 @@ function renderLotteries(lotteries) {
 
         // 当選情報の表を作成
         let prizesTable = '<table class="lottery-prize-table">';
-        prizesTable += '<thead><tr><th>等級</th><th>ポイント</th><th>確率</th></tr></thead>';
+        prizesTable += '<thead><tr><th>等級</th><th>レート</th><th>確率</th></tr></thead>';
         prizesTable += '<tbody>';
         
         let totalProbability = 0;
@@ -252,7 +255,7 @@ function renderLotteries(lotteries) {
             prizesTable += `
                 <tr>
                     <td>${p.rank}等</td>
-                    <td>${p.amount.toFixed(1)} P</td>
+                    <td>${formatRate(p.amount)}</td>
                     <td>${(p.probability * 100).toFixed(3)} %</td>
                 </tr>
             `;
@@ -265,7 +268,7 @@ function renderLotteries(lotteries) {
         prizesTable += `
             <tr style="background-color: #f8d7da;">
                 <td>ハズレ</td>
-                <td>0.0 P</td>
+                <td>0</td>
                 <td>${(lossProbability * 100).toFixed(3)} %</td>
             </tr>
         `;
@@ -279,7 +282,7 @@ function renderLotteries(lotteries) {
             <div class="bet-tile lottery-tile status-open">
                 <h4>🎟️ ${l.name} (#${l.lotteryId})</h4>
                 <div class="odds-info-display">
-                    <p class="bet-deadline">価格: <strong>${l.ticketPrice.toFixed(1)} P /枚</strong></p>
+                    <p class="bet-deadline">価格: <strong>${formatRate(l.ticketPrice)} レート/枚</strong></p>
                     <p class="bet-deadline">購入締切: ${formattedDeadline}</p>
                     <p class="bet-deadline">発表日: ${formattedAnnounce}</p>
                 </div>
@@ -329,14 +332,14 @@ function renderSportsBets(sportsBets, displayScores) {
 
         if (playerTotalWagers > 0) {
             totalWagers = playerTotalWagers;
-            myWagerInfo = `<p class="my-wager-text">✅ 合計賭け金: ${totalWagers} P</p>`;
+            myWagerInfo = `<p class="my-wager-text">✅ 合計賭けレート: ${formatRate(totalWagers)}</p>`;
             myWagerInfo += '<ul class="my-wagers-list">';
             
             // プレイヤーごとの個別の賭けを表示
             playerWagers.forEach(wager => {
                 const itemDisplay = wager.item.length > 30 ? wager.item.substring(0, 30) + '...' : wager.item;
                 // 投票履歴はマイページで確認する形にするため、ここでは簡易表示に
-                myWagerInfo += `<li>${itemDisplay} に ${wager.amount} P</li>`;
+                myWagerInfo += `<li>${itemDisplay} に ${formatRate(wager.amount)}</li>`;
             });
 
             myWagerInfo += '</ul>';
@@ -365,7 +368,7 @@ function renderSportsBets(sportsBets, displayScores) {
                     <!-- <p class="bet-creator">開設者: <strong>${bet.creator || 'N/A'}</strong></p> -->
                 </div>
                 ${myWagerInfo}
-                <p class="total-wager-text">総賭け金: ${bet.wagers.reduce((sum, w) => sum + w.amount, 0)} P</p>
+                <p class="total-wager-text">総賭けレート: ${formatRate(bet.wagers.reduce((sum, w) => sum + w.amount, 0))}</p>
             </div>
         `;
     });
@@ -373,6 +376,65 @@ function renderSportsBets(sportsBets, displayScores) {
     html += '</div>';
     SPORTS_BETS_CONTAINER.innerHTML = html;
 }
+
+
+// -----------------------------------------------------------------
+// ログインボーナス (デッキバー)
+//   マイページと同じ共通処理を呼ぶので、どちらから押しても挙動は同じ。
+// -----------------------------------------------------------------
+
+let homeBonusPlayerName = '';
+
+function updateHomeBonusButton(scores) {
+    if (!HOME_BONUS_BUTTON) return;
+
+    const loginName = localStorage.getItem('authUsername') || '';
+    const player = loginName ? (scores || []).find(p => p.name === loginName) : null;
+    homeBonusPlayerName = player ? player.name : '';
+
+    if (!player) {
+        HOME_BONUS_BUTTON.hidden = true;
+        return;
+    }
+
+    const state = getRateBonusState(player);
+    HOME_BONUS_BUTTON.hidden = false;
+    HOME_BONUS_BUTTON.textContent = `ボーナス +${state.bonusAmount}`;
+    HOME_BONUS_BUTTON.title = `${state.memberLabel}会員 / ペナルティ確率 ${state.total.toFixed(0)}%`;
+}
+
+HOME_BONUS_BUTTON?.addEventListener('click', async () => {
+    if (!homeBonusPlayerName) return;
+
+    const originalLabel = HOME_BONUS_BUTTON.textContent;
+    HOME_BONUS_BUTTON.disabled = true;
+    HOME_BONUS_BUTTON.setAttribute('aria-busy', 'true');
+    HOME_BONUS_BUTTON.textContent = '受取中…';
+
+    try {
+        if (!await ensureHomeFirebaseLogin()) {
+            showToast('マイページでログインするとボーナスを受け取れます。', 'error');
+            return;
+        }
+
+        const result = await claimRateBonus(homeBonusPlayerName);
+        if (result.status !== 'success') {
+            showToast(`❌ ${result.message}`, 'error');
+            return;
+        }
+
+        triggerRateBonusAnimation(DECK_BAR, result.penaltyOccurred ? 'penalty' : 'success', getRateBonusFloatText(result));
+        showToast(describeRateBonusResult(result), result.penaltyOccurred ? 'error' : 'success');
+        await renderScores();
+    } catch (error) {
+        console.error('ボーナス受け取り中にエラー:', error);
+        showToast(`❌ サーバーエラー: ${error.message}`, 'error');
+    } finally {
+        HOME_BONUS_BUTTON.disabled = false;
+        HOME_BONUS_BUTTON.removeAttribute('aria-busy');
+        HOME_BONUS_BUTTON.textContent = originalLabel;
+    }
+});
 
 
 async function renderHomePage() {

@@ -8,10 +8,21 @@ const FIREBASE_COLLECTIONS = {
     gift_codes: 'gift_codes',
     career_posts: 'career_posts'
 };
-const DAILY_POINT_TAX_DEFAULT_RATE = 0.05;
-const DAILY_POINT_TAX_EXCLUDED_PLAYERS = ['3mahjong'];
+// -----------------------------------------------------------------
+// レート制の基本設定
+//   全員 RATE_BASELINE_DEFAULT (5000) から始まり、毎日「基準との差」の
+//   一定割合が基準へ引き戻される。放置すれば約30日で 5000 ちょうどに戻る。
+// -----------------------------------------------------------------
+const RATE_BASELINE_DEFAULT = 5000;          // 基準レート
+const RATE_REVERSION_RATE_DEFAULT = 0.13;    // 1日に戻す割合 (基準との差に対して)
+const RATE_REVERSION_FLAT_DEFAULT = 10;      // 割合ぶんに上乗せする固定分
+const RATE_EXCLUDED_PLAYERS = ['3mahjong'];  // 日次補正の対象外
+const RATE_BONUS_AMOUNTS = { luxury: 10, pro: 5, none: 1 };
+const RATE_BONUS_PENALTY = 10;               // ペナルティ時の減少量
+const RATE_BONUS_SPECIAL = 30;               // 特別ボーナスの加算量
+const RATE_BONUS_SPECIAL_PERCENT = 1;        // 特別ボーナスの発生確率 (%)
 let _firebaseFirestoreSettingsApplied = false;
-let _dailyPointTaxCheckedDate = '';
+let _rateReversionCheckedDate = '';
 
 function isFirebaseConfigured() {
     return Boolean(
@@ -240,10 +251,12 @@ function createEmptyData() {
         lotteries: [],
         gift_codes: [],
         career_posts: [],
-        daily_point_tax_rate: DAILY_POINT_TAX_DEFAULT_RATE,
-        daily_point_tax_last_date: '',
-        daily_point_tax_last_run_at: '',
-        daily_point_tax_last_total: 0,
+        rate_baseline: RATE_BASELINE_DEFAULT,
+        rate_reversion_rate: RATE_REVERSION_RATE_DEFAULT,
+        rate_reversion_flat: RATE_REVERSION_FLAT_DEFAULT,
+        rate_reversion_last_date: '',
+        rate_reversion_last_run_at: '',
+        rate_reversion_last_total: 0,
         special_theme: null,
         attendance_allowed_users: []
     };
@@ -253,25 +266,53 @@ function normalizeFetchedRecord(record) {
     const normalized = { ...createEmptyData(), ...(record || {}) };
     normalized.scores = (normalized.scores || []).map(player => ({
         ...player,
-        score: toFiniteNumber(player.score, 0),
+        score: normalizeRate(player.score),
         status: player.status || 'none',
         dailyProbability: toFiniteNumber(player.dailyProbability, 0),
         accumulatedProbability: toFiniteNumber(player.accumulatedProbability, 0),
         dailyPressCount: Math.max(0, Math.floor(toFiniteNumber(player.dailyPressCount, 0)))
     }));
-    normalized.daily_point_tax_rate = normalizeDailyPointTaxRate(normalized.daily_point_tax_rate);
-    normalized.daily_point_tax_last_date = String(normalized.daily_point_tax_last_date || '');
-    normalized.daily_point_tax_last_run_at = String(normalized.daily_point_tax_last_run_at || '');
-    normalized.daily_point_tax_last_total = toFiniteNumber(normalized.daily_point_tax_last_total, 0);
+    normalized.rate_baseline = normalizeRate(normalized.rate_baseline ?? RATE_BASELINE_DEFAULT);
+    normalized.rate_reversion_rate = normalizeReversionRate(normalized.rate_reversion_rate);
+    normalized.rate_reversion_flat = Math.max(0, Math.round(toFiniteNumber(normalized.rate_reversion_flat, RATE_REVERSION_FLAT_DEFAULT)));
+    normalized.rate_reversion_last_date = String(normalized.rate_reversion_last_date || '');
+    normalized.rate_reversion_last_run_at = String(normalized.rate_reversion_last_run_at || '');
+    normalized.rate_reversion_last_total = toFiniteNumber(normalized.rate_reversion_last_total, 0);
     normalized.attendance_allowed_users = Array.isArray(normalized.attendance_allowed_users)
         ? normalized.attendance_allowed_users.filter(Boolean)
         : [];
     return normalized;
 }
 
-function normalizeDailyPointTaxRate(value) {
-    const rate = toFiniteNumber(value, DAILY_POINT_TAX_DEFAULT_RATE);
+function normalizeReversionRate(value) {
+    const rate = toFiniteNumber(value, RATE_REVERSION_RATE_DEFAULT);
     return Math.min(1, Math.max(0, rate));
+}
+
+/** レートは常に 0 以上の整数として扱う */
+function normalizeRate(value) {
+    return Math.max(0, Math.round(toFiniteNumber(value, 0)));
+}
+
+/** 画面表示用。単位は付けず、桁区切りだけを入れる */
+function formatRate(value) {
+    return normalizeRate(value).toLocaleString('ja-JP');
+}
+
+/**
+ * 基準レートへ1日ぶん近づけたときの増減を返す。
+ *   1日の補正量 = 基準との差 × rate (既定13%) + flat (既定10)
+ * 固定分があるので差は必ず 0 になり、残りの差が補正量を下回った日に
+ * 基準ちょうどへ揃う。上下どちらでも同じ式なので補正は左右対称。
+ * 差 5000 (レート0 または 10000) からちょうど30日、差 2500 から26日、
+ * 差 500 から14日で基準に一致する。
+ */
+function getRateReversionDelta(currentRate, baseline, rate, flat) {
+    const gap = normalizeRate(baseline) - normalizeRate(currentRate);
+    if (gap === 0) return 0;
+    const gapSize = Math.abs(gap);
+    const step = Math.min(gapSize, Math.max(Math.round(gapSize * rate) + flat, 1));
+    return gap > 0 ? step : -step;
 }
 
 function getJstDateKey(date = new Date()) {
@@ -305,18 +346,18 @@ function getItemDocId(key, item, index) {
     return toDocId(item.id ?? index);
 }
 
-function createPointHistoryId(playerName, at = new Date().toISOString()) {
+function createRateHistoryId(playerName, at = new Date().toISOString()) {
     return toDocId(`ph_${at}_${playerName}_${Math.random().toString(36).slice(2, 8)}`);
 }
 
-function getPointHistoryActor() {
+function getRateHistoryActor() {
     return localStorage.getItem('authUsername') || getCurrentFirebaseUidSync() || 'system';
 }
 
-function buildPointHistoryEntries(beforeScores, afterScores, meta = {}) {
+function buildRateHistoryEntries(beforeScores, afterScores, meta = {}) {
     const beforeMap = new Map((beforeScores || []).map(player => [player.name, player]));
-    const actor = meta.actor || getPointHistoryActor();
-    const source = meta.source || 'score_update';
+    const actor = meta.actor || getRateHistoryActor();
+    const source = meta.source || 'rate_update';
     const reason = meta.reason || '';
     const at = meta.at || new Date().toISOString();
 
@@ -324,15 +365,15 @@ function buildPointHistoryEntries(beforeScores, afterScores, meta = {}) {
         if (!player || !player.name) return [];
         const before = beforeMap.get(player.name);
         if (!before) return [];
-        const beforeScore = toFiniteNumber(before.score, 0);
-        const afterScore = toFiniteNumber(player.score, 0);
-        const delta = parseFloat((afterScore - beforeScore).toFixed(1));
+        const beforeScore = normalizeRate(before.score);
+        const afterScore = normalizeRate(player.score);
+        const delta = afterScore - beforeScore;
         if (delta === 0) return [];
         return [{
-            id: createPointHistoryId(player.name, at),
+            id: createRateHistoryId(player.name, at),
             player: player.name,
-            beforeScore: parseFloat(beforeScore.toFixed(1)),
-            afterScore: parseFloat(afterScore.toFixed(1)),
+            beforeScore,
+            afterScore,
             delta,
             source,
             reason,
@@ -342,7 +383,7 @@ function buildPointHistoryEntries(beforeScores, afterScores, meta = {}) {
     });
 }
 
-function addPointHistoryEntriesToBatch(db, batch, entries) {
+function addRateHistoryEntriesToBatch(db, batch, entries) {
     (entries || []).forEach(entry => {
         batch.set(db.collection('point_history').doc(entry.id), entry);
     });
@@ -651,10 +692,12 @@ async function fetchAllDataFromFirebase() {
         lotteries,
         gift_codes: giftCodes,
         career_posts: careerPosts,
-        daily_point_tax_rate: settings.daily_point_tax_rate ?? DAILY_POINT_TAX_DEFAULT_RATE,
-        daily_point_tax_last_date: settings.daily_point_tax_last_date ?? '',
-        daily_point_tax_last_run_at: settings.daily_point_tax_last_run_at ?? '',
-        daily_point_tax_last_total: settings.daily_point_tax_last_total ?? 0,
+        rate_baseline: settings.rate_baseline ?? RATE_BASELINE_DEFAULT,
+        rate_reversion_rate: settings.rate_reversion_rate ?? RATE_REVERSION_RATE_DEFAULT,
+        rate_reversion_flat: settings.rate_reversion_flat ?? RATE_REVERSION_FLAT_DEFAULT,
+        rate_reversion_last_date: settings.rate_reversion_last_date ?? '',
+        rate_reversion_last_run_at: settings.rate_reversion_last_run_at ?? '',
+        rate_reversion_last_total: settings.rate_reversion_last_total ?? 0,
         special_theme: settings.special_theme ?? null,
         attendance_allowed_users: settings.attendance_allowed_users ?? []
     });
@@ -738,11 +781,12 @@ async function updateAllDataInFirebase(newData) {
     try {
         const currentData = _fetchCache || await fetchAllDataFromFirebase();
         const mergedData = normalizeFetchedRecord({ ...currentData, ...(newData || {}) });
-        const pointHistoryEntries = buildPointHistoryEntries(
+        const pointHistoryEntries = buildRateHistoryEntries(
             currentData.scores,
             mergedData.scores,
-            newData?.point_history_meta || {}
+            newData?.rate_history_meta || {}
         );
+        delete mergedData.rate_history_meta;
 
         const functionResult = await updateAllDataViaFunction(mergedData, pointHistoryEntries);
         _fetchCache = mergedData;
@@ -754,92 +798,271 @@ async function updateAllDataInFirebase(newData) {
     }
 }
 
-async function saveDailyPointTaxRate(rate) {
+async function saveRateReversionSettings({ baseline, rate, flat }) {
     const db = getFirestoreDb();
     if (!db) throw new Error('Firebase が設定されていません。');
-    const normalizedRate = normalizeDailyPointTaxRate(rate);
-    await db.collection('settings').doc('app').set({
-        daily_point_tax_rate: normalizedRate,
+    const payload = {
+        rate_baseline: normalizeRate(baseline ?? RATE_BASELINE_DEFAULT),
+        rate_reversion_rate: normalizeReversionRate(rate),
+        rate_reversion_flat: Math.max(0, Math.round(toFiniteNumber(flat, RATE_REVERSION_FLAT_DEFAULT))),
         updatedAt: new Date().toISOString()
-    }, { merge: true });
+    };
+    await db.collection('settings').doc('app').set(payload, { merge: true });
     invalidateFetchCache();
-    return normalizedRate;
+    return payload;
 }
 
-async function runDailyPointTaxIfNeeded() {
+/**
+ * 1日1回、全員のレートを基準へ近づける。
+ * 上がりすぎた人は下げ、下がりすぎた人は上げるので、遊ばなければ約30日で
+ * 全員 5000 に揃う。ログイン時に当日ぶんが未実行なら実行する。
+ */
+async function runDailyRateReversionIfNeeded() {
     const todayKey = getJstDateKey();
-    if (_dailyPointTaxCheckedDate === todayKey) {
-        return { status: 'skipped', message: '本日分の日次ポイント徴収は確認済みです。' };
+    if (_rateReversionCheckedDate === todayKey) {
+        return { status: 'skipped', message: '本日分のレート補正は確認済みです。' };
     }
 
     if (!getCurrentFirebaseUidSync()) {
-        return { status: 'skipped', message: 'ログイン前のため日次ポイント徴収をスキップしました。' };
+        return { status: 'skipped', message: 'ログイン前のためレート補正をスキップしました。' };
     }
 
     const db = getFirestoreDb();
     if (!db) return { status: 'skipped', message: 'Firebase が設定されていません。' };
 
     const currentData = normalizeFetchedRecord(await fetchAllDataFromFirebase());
-    const rate = normalizeDailyPointTaxRate(currentData.daily_point_tax_rate);
 
-    if (currentData.daily_point_tax_last_date === todayKey) {
-        _dailyPointTaxCheckedDate = todayKey;
-        return { status: 'skipped', message: '本日分の日次ポイント徴収は完了済みです。' };
+    if (currentData.rate_reversion_last_date === todayKey) {
+        _rateReversionCheckedDate = todayKey;
+        return { status: 'skipped', message: '本日分のレート補正は完了済みです。' };
     }
 
-    const targetPlayers = currentData.scores.filter(player =>
-        !DAILY_POINT_TAX_EXCLUDED_PLAYERS.includes(player.name)
-    );
+    const baseline = currentData.rate_baseline;
+    const reversionRate = currentData.rate_reversion_rate;
+    const reversionFlat = currentData.rate_reversion_flat;
+
+    let totalMoved = 0;
+    const changedNames = new Set();
     const updatedScores = currentData.scores.map(player => {
-        if (DAILY_POINT_TAX_EXCLUDED_PLAYERS.includes(player.name) || player.score <= 0 || rate <= 0) {
-            return player;
-        }
-        const taxAmount = parseFloat((player.score * rate).toFixed(1));
-        if (taxAmount <= 0) return player;
-        return {
-            ...player,
-            score: parseFloat((player.score - taxAmount).toFixed(1))
-        };
+        if (RATE_EXCLUDED_PLAYERS.includes(player.name)) return player;
+        const delta = getRateReversionDelta(player.score, baseline, reversionRate, reversionFlat);
+        if (delta === 0) return player;
+        totalMoved += Math.abs(delta);
+        changedNames.add(player.name);
+        return { ...player, score: normalizeRate(player.score + delta) };
     });
 
-    const totalCollected = updatedScores.reduce((sum, player) => {
-        const original = currentData.scores.find(item => item.name === player.name);
-        if (!original || !targetPlayers.some(item => item.name === player.name)) return sum;
-        return sum + Math.max(0, (original.score || 0) - (player.score || 0));
-    }, 0);
+    if (changedNames.size === 0) {
+        const nowIso = new Date().toISOString();
+        await db.collection('settings').doc('app').set({
+            rate_reversion_last_date: todayKey,
+            rate_reversion_last_run_at: nowIso,
+            rate_reversion_last_total: 0,
+            updatedAt: nowIso
+        }, { merge: true });
+        _rateReversionCheckedDate = todayKey;
+        invalidateFetchCache();
+        return { status: 'success', message: '補正が必要なプレイヤーはいませんでした。', date: todayKey, totalMoved: 0 };
+    }
 
     const batch = db.batch();
     updatedScores.forEach(player => {
+        if (!changedNames.has(player.name)) return;
         const payload = { ...player };
         delete payload._docId;
         batch.set(db.collection(FIREBASE_COLLECTIONS.scores).doc(getItemDocId('scores', player, 0)), payload);
     });
-    addPointHistoryEntriesToBatch(db, batch, buildPointHistoryEntries(currentData.scores, updatedScores, {
-        source: 'daily_point_tax',
-        reason: `日次ポイント徴収 ${(rate * 100).toFixed(1).replace(/\.0$/, '')}%`,
+    addRateHistoryEntriesToBatch(db, batch, buildRateHistoryEntries(currentData.scores, updatedScores, {
+        source: 'daily_rate_reversion',
+        reason: `日次レート補正 基準${baseline} / ${(reversionRate * 100).toFixed(1).replace(/\.0$/, '')}%`,
         actor: 'system'
     }));
 
     const nowIso = new Date().toISOString();
     batch.set(db.collection('settings').doc('app'), {
-        daily_point_tax_rate: rate,
-        daily_point_tax_last_date: todayKey,
-        daily_point_tax_last_run_at: nowIso,
-        daily_point_tax_last_total: parseFloat(totalCollected.toFixed(1)),
+        rate_baseline: baseline,
+        rate_reversion_rate: reversionRate,
+        rate_reversion_flat: reversionFlat,
+        rate_reversion_last_date: todayKey,
+        rate_reversion_last_run_at: nowIso,
+        rate_reversion_last_total: totalMoved,
         updatedAt: nowIso
     }, { merge: true });
 
     await batch.commit();
-    _dailyPointTaxCheckedDate = todayKey;
+    _rateReversionCheckedDate = todayKey;
     invalidateFetchCache();
 
     return {
         status: 'success',
-        message: `日次ポイント徴収を完了しました。`,
+        message: '日次レート補正を完了しました。',
         date: todayKey,
-        rate,
-        totalCollected: parseFloat(totalCollected.toFixed(1))
+        rate: reversionRate,
+        totalMoved
     };
+}
+
+// -----------------------------------------------------------------
+// ログインボーナス (ホーム／マイページ共通)
+//   押すたびに小さくレートが増えるが、押すほどペナルティ確率が上がる。
+// -----------------------------------------------------------------
+
+function getRateBonusAmount(status) {
+    return RATE_BONUS_AMOUNTS[status] ?? RATE_BONUS_AMOUNTS.none;
+}
+
+function getRateBonusMemberLabel(status) {
+    if (status === 'luxury') return 'Luxury';
+    if (status === 'pro') return 'Pro';
+    return '一般';
+}
+
+function getJstDayNumber(dateText) {
+    const match = String(dateText || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    return Math.floor(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86400000);
+}
+
+function getElapsedBonusDays(lastDate, todayJst) {
+    const lastDay = getJstDayNumber(lastDate);
+    const todayDay = getJstDayNumber(todayJst);
+    if (lastDay === null || todayDay === null) return lastDate === todayJst ? 0 : 1;
+    return Math.max(0, todayDay - lastDay);
+}
+
+function clampBonusProbability(value) {
+    return Math.min(100, Math.max(0, toFiniteNumber(value, 0)));
+}
+
+/** 日付が変わっていた場合の減衰を反映した、いまのボーナス状態 */
+function getRateBonusState(player) {
+    const todayJst = getJstDateKey();
+    let daily = toFiniteNumber(player?.dailyProbability, 0);
+    let accumulated = toFiniteNumber(player?.accumulatedProbability, 0);
+    let pressCount = Math.max(0, Math.floor(toFiniteNumber(player?.dailyPressCount, 0)));
+
+    const elapsedDays = getElapsedBonusDays(player?.lastBonusDate || '', todayJst);
+    if (elapsedDays > 0) {
+        daily = 0;
+        accumulated = Math.max(0, accumulated - 5 * elapsedDays);
+        pressCount = 0;
+    }
+
+    return {
+        todayJst,
+        daily,
+        accumulated,
+        pressCount,
+        total: clampBonusProbability(daily + accumulated),
+        status: player?.status || 'none',
+        bonusAmount: getRateBonusAmount(player?.status || 'none'),
+        memberLabel: getRateBonusMemberLabel(player?.status || 'none')
+    };
+}
+
+/**
+ * ログインボーナスを1回受け取り、結果を返す。
+ * 画面表示はホーム・マイページそれぞれで行う。
+ */
+async function claimRateBonus(playerName) {
+    if (!playerName) return { status: 'error', message: '認証エラーが発生しました。' };
+
+    const currentData = await fetchAllData();
+    const scoresMap = new Map(currentData.scores.map(player => [player.name, player]));
+    const player = scoresMap.get(playerName);
+    if (!player) return { status: 'error', message: `プレイヤー ${playerName} が見つかりません。` };
+
+    const state = getRateBonusState(player);
+    let { daily, accumulated, pressCount } = state;
+
+    const penaltyOccurred = Math.random() * 100 < state.total;
+    let delta = 0;
+
+    if (penaltyOccurred) {
+        delta -= RATE_BONUS_PENALTY;
+        // ペナルティを引いたぶんだけ確率も戻す (会員ほど戻りが大きい)
+        if (state.status === 'luxury') accumulated = Math.max(0, accumulated - 8);
+        else if (state.status === 'pro') accumulated = Math.max(0, accumulated - 5);
+        else daily = Math.max(0, daily - 10);
+    } else {
+        delta += state.bonusAmount;
+        daily += 5;
+        if (pressCount >= 1) accumulated += 10;
+    }
+
+    const specialBonusOccurred = !penaltyOccurred && Math.random() * 100 < RATE_BONUS_SPECIAL_PERCENT;
+    if (specialBonusOccurred) delta += RATE_BONUS_SPECIAL;
+    pressCount += 1;
+
+    const beforeRate = normalizeRate(player.score);
+    const newRate = normalizeRate(beforeRate + delta);
+
+    scoresMap.set(playerName, {
+        ...player,
+        score: newRate,
+        lastBonusDate: state.todayJst,
+        dailyProbability: daily,
+        accumulatedProbability: accumulated,
+        dailyPressCount: pressCount,
+        lastBonusTime: new Date().toISOString()
+    });
+
+    const response = await updateAllData({
+        scores: Array.from(scoresMap.values()),
+        rate_history_meta: { source: 'login_bonus', reason: 'ログインボーナス' }
+    });
+
+    if (response.status !== 'success') {
+        return { status: 'error', message: response.message || 'ボーナスの保存に失敗しました。' };
+    }
+
+    return {
+        status: 'success',
+        penaltyOccurred,
+        specialBonusOccurred,
+        bonusAmount: state.bonusAmount,
+        delta: newRate - beforeRate,
+        newRate,
+        daily,
+        accumulated,
+        pressCount,
+        total: clampBonusProbability(daily + accumulated)
+    };
+}
+
+/** ボーナス結果の文言。ホームとマイページで同じ表現を使う */
+function describeRateBonusResult(result) {
+    if (result.penaltyOccurred) {
+        return `⚠️ ボーナス外れ。ペナルティ -${RATE_BONUS_PENALTY}`;
+    }
+    let message = `✅ ボーナス +${result.bonusAmount} を獲得しました！`;
+    if (result.specialBonusOccurred) {
+        message += ` 🎉 特別ボーナス +${RATE_BONUS_SPECIAL}`;
+    }
+    return message;
+}
+
+/** ボタンから浮き上がる増減表示 */
+function getRateBonusFloatText(result) {
+    const delta = toFiniteNumber(result.delta, 0);
+    return `${delta > 0 ? '+' : ''}${delta}`;
+}
+
+/** ボーナス受け取り時の演出。container は position:relative であること */
+function triggerRateBonusAnimation(container, type, floatText) {
+    if (!container) return;
+
+    const animClass = type === 'success' ? 'bonus-animate-success' : 'bonus-animate-penalty';
+    container.classList.remove('bonus-animate-success', 'bonus-animate-penalty');
+    void container.offsetWidth; // reflow で再トリガー
+    container.classList.add(animClass);
+
+    const floatEl = document.createElement('span');
+    floatEl.className = 'bonus-float-text';
+    floatEl.textContent = floatText;
+    floatEl.style.color = type === 'success' ? '#38c172' : '#e74c3c';
+    container.appendChild(floatEl);
+    floatEl.addEventListener('animationend', () => floatEl.remove());
 }
 
 // -----------------------------------------------------------------

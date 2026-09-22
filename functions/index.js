@@ -14,8 +14,12 @@ const FIREBASE_COLLECTIONS = {
   gift_codes: 'gift_codes',
   career_posts: 'career_posts'
 };
-const DAILY_POINT_TAX_DEFAULT_RATE = 0.05;
-const DAILY_POINT_TAX_EXCLUDED_PLAYERS = new Set(['3mahjong']);
+// レート制: 全員 RATE_BASELINE_DEFAULT から始まり、毎日「基準との差」の
+// 一定割合が基準へ引き戻される。放置すれば約30日で基準ちょうどに戻る。
+const RATE_BASELINE_DEFAULT = 5000;
+const RATE_REVERSION_RATE_DEFAULT = 0.13;
+const RATE_REVERSION_FLAT_DEFAULT = 10;
+const RATE_EXCLUDED_PLAYERS = new Set(['3mahjong']);
 const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
 const DEFAULT_MANABA_LOGIN_PATH = '/ct/login';
 const DEFAULT_MANABA_ASSIGNMENTS_PATH = '/ct/home_library_query';
@@ -77,10 +81,29 @@ async function hasWriteAccess(req, body = {}) {
   return Boolean(await getVerifiedAuthToken(req));
 }
 
-function normalizeDailyPointTaxRate(value) {
+function normalizeReversionRate(value) {
   const rate = Number(value);
-  if (!Number.isFinite(rate)) return DAILY_POINT_TAX_DEFAULT_RATE;
+  if (!Number.isFinite(rate)) return RATE_REVERSION_RATE_DEFAULT;
   return Math.min(1, Math.max(0, rate));
+}
+
+/** レートは常に 0 以上の整数として扱う */
+function normalizeRate(value) {
+  const rate = Number(value);
+  return Number.isFinite(rate) ? Math.max(0, Math.round(rate)) : 0;
+}
+
+/**
+ * 基準レートへ1日ぶん近づけたときの増減。
+ *   1日の補正量 = 基準との差 × rate + flat
+ * 固定分があるので差は必ず 0 になり、差 5000 からちょうど30日で基準に一致する。
+ */
+function getRateReversionDelta(currentRate, baseline, rate, flat) {
+  const gap = normalizeRate(baseline) - normalizeRate(currentRate);
+  if (gap === 0) return 0;
+  const gapSize = Math.abs(gap);
+  const step = Math.min(gapSize, Math.max(Math.round(gapSize * rate) + flat, 1));
+  return gap > 0 ? step : -step;
 }
 
 function getJstDateKey(date = new Date()) {
@@ -92,13 +115,13 @@ function getJstDateKey(date = new Date()) {
   }).format(date);
 }
 
-function pointHistoryDocId(playerName, at = new Date().toISOString()) {
+function rateHistoryDocId(playerName, at = new Date().toISOString()) {
   return encodeURIComponent(`ph_${at}_${playerName}_${Math.random().toString(36).slice(2, 8)}`)
     .replace(/\./g, '%2E')
     .replace(/\//g, '%2F');
 }
 
-async function collectDailyPointTaxForToday() {
+async function applyDailyRateReversionForToday() {
   const todayKey = getJstDateKey();
   const settingsRef = db.collection('settings').doc('app');
 
@@ -106,37 +129,37 @@ async function collectDailyPointTaxForToday() {
     const settingsDoc = await transaction.get(settingsRef);
     const settings = settingsDoc.exists ? settingsDoc.data() : {};
 
-    if (settings.daily_point_tax_last_date === todayKey) {
-      return { status: 'skipped', date: todayKey, reason: 'already_collected' };
+    if (settings.rate_reversion_last_date === todayKey) {
+      return { status: 'skipped', date: todayKey, reason: 'already_applied' };
     }
 
-    const rate = normalizeDailyPointTaxRate(settings.daily_point_tax_rate);
+    const baseline = normalizeRate(settings.rate_baseline ?? RATE_BASELINE_DEFAULT);
+    const rate = normalizeReversionRate(settings.rate_reversion_rate);
+    const flat = Math.max(0, Math.round(Number(settings.rate_reversion_flat ?? RATE_REVERSION_FLAT_DEFAULT) || 0));
     const playersSnapshot = await transaction.get(db.collection('players'));
-    let totalCollected = 0;
+    let totalMoved = 0;
 
     playersSnapshot.docs.forEach(doc => {
       const player = doc.data();
-      const score = Number(player.score || 0);
-      if (DAILY_POINT_TAX_EXCLUDED_PLAYERS.has(player.name) || score <= 0 || rate <= 0) return;
+      if (RATE_EXCLUDED_PLAYERS.has(player.name)) return;
 
-      const taxAmount = Number((score * rate).toFixed(1));
-      if (taxAmount <= 0) return;
+      const before = normalizeRate(player.score);
+      const delta = getRateReversionDelta(before, baseline, rate, flat);
+      if (delta === 0) return;
 
-      totalCollected += taxAmount;
-      const nextScore = Number((score - taxAmount).toFixed(1));
-      transaction.set(doc.ref, {
-        ...player,
-        score: nextScore
-      }, { merge: false });
-      const historyId = pointHistoryDocId(player.name);
+      const after = normalizeRate(before + delta);
+      totalMoved += Math.abs(after - before);
+      transaction.set(doc.ref, { ...player, score: after }, { merge: false });
+
+      const historyId = rateHistoryDocId(player.name);
       transaction.set(db.collection('point_history').doc(historyId), {
         id: historyId,
         player: player.name,
-        beforeScore: Number(score.toFixed(1)),
-        afterScore: nextScore,
-        delta: Number((-taxAmount).toFixed(1)),
-        source: 'daily_point_tax',
-        reason: `日次ポイント徴収 ${(rate * 100).toFixed(1).replace(/\.0$/, '')}%`,
+        beforeScore: before,
+        afterScore: after,
+        delta: after - before,
+        source: 'daily_rate_reversion',
+        reason: `日次レート補正 基準${baseline} / ${(rate * 100).toFixed(1).replace(/\.0$/, '')}%`,
         actor: 'scheduled_function',
         createdAt: new Date().toISOString()
       });
@@ -144,19 +167,16 @@ async function collectDailyPointTaxForToday() {
 
     const nowIso = new Date().toISOString();
     transaction.set(settingsRef, {
-      daily_point_tax_rate: rate,
-      daily_point_tax_last_date: todayKey,
-      daily_point_tax_last_run_at: nowIso,
-      daily_point_tax_last_total: Number(totalCollected.toFixed(1)),
+      rate_baseline: baseline,
+      rate_reversion_rate: rate,
+      rate_reversion_flat: flat,
+      rate_reversion_last_date: todayKey,
+      rate_reversion_last_run_at: nowIso,
+      rate_reversion_last_total: totalMoved,
       updatedAt: nowIso
     }, { merge: true });
 
-    return {
-      status: 'success',
-      date: todayKey,
-      rate,
-      totalCollected: Number(totalCollected.toFixed(1))
-    };
+    return { status: 'success', date: todayKey, rate, totalMoved };
   });
 }
 
@@ -698,13 +718,15 @@ export const sendManabaDeadlineReminders = onSchedule({
   console.log('sendManabaDeadlineReminders results:', JSON.stringify(results));
 });
 
+// 関数名は据え置き。リネームすると Cloud Scheduler のジョブが作り直され、
+// 旧ジョブが消し漏れると同じ日に二重で補正が走るおそれがあるため。
 export const collectDailyPointTax = onSchedule({
   region: 'asia-northeast1',
   schedule: '5 0 * * *',
   timeZone: 'Asia/Tokyo'
 }, async () => {
-  const result = await collectDailyPointTaxForToday();
-  console.log('collectDailyPointTax result:', result);
+  const result = await applyDailyRateReversionForToday();
+  console.log('applyDailyRateReversion result:', result);
 });
 
 export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
@@ -756,10 +778,6 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
 
     batch.set(db.collection('settings').doc('app'), {
       special_theme: data.special_theme ?? null,
-      daily_point_tax_rate: normalizeDailyPointTaxRate(data.daily_point_tax_rate),
-      daily_point_tax_last_date: String(data.daily_point_tax_last_date || ''),
-      daily_point_tax_last_run_at: String(data.daily_point_tax_last_run_at || ''),
-      daily_point_tax_last_total: Number(data.daily_point_tax_last_total || 0),
       attendance_allowed_users: Array.isArray(data.attendance_allowed_users) ? data.attendance_allowed_users : [],
       updatedAt: new Date().toISOString()
     }, { merge: true });

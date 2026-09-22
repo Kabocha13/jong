@@ -21,11 +21,13 @@ const MAHJONG_PLAYER_INPUTS_CONTAINER = document.getElementById('mahjong-player-
 const MAHJONG_MESSAGE_ELEMENT = document.getElementById('mahjong-message');
 const MAHJONG_SUBMIT_BUTTON = document.getElementById('mahjong-submit-button');
 
-// ★ 日次ポイント徴収設定
-const DAILY_TAX_FORM = document.getElementById('daily-tax-form');
-const DAILY_TAX_RATE_INPUT = document.getElementById('daily-tax-rate');
-const DAILY_TAX_STATUS = document.getElementById('daily-tax-status');
-const DAILY_TAX_MESSAGE = document.getElementById('daily-tax-message');
+// ★ 日次レート補正設定
+const RATE_REVERSION_FORM = document.getElementById('rate-reversion-form');
+const RATE_REVERSION_BASELINE_INPUT = document.getElementById('rate-reversion-baseline');
+const RATE_REVERSION_RATE_INPUT = document.getElementById('rate-reversion-rate');
+const RATE_REVERSION_FLAT_INPUT = document.getElementById('rate-reversion-flat');
+const RATE_REVERSION_STATUS = document.getElementById('rate-reversion-status');
+const RATE_REVERSION_MESSAGE = document.getElementById('rate-reversion-message');
 
 const MEMBER_STATUS_LIST = document.getElementById('member-status-list');
 const MEMBER_STATUS_SAVE_BUTTON = document.getElementById('member-status-save-button');
@@ -45,10 +47,13 @@ const CREATE_GIFT_CODE_MESSAGE = document.getElementById('create-gift-code-messa
 // ★★★ 新規追加ここまで ★★★
 
 
-// --- 定数：麻雀ルール (mahjong.jsから移動) ---
-const POINT_RATE = 1000; // 1000点 = 1ポイント
-const UMA_OKA = [30, 10, -10, -20]; // 4位, 3位, 2位, 1位 のボーナス/ペナルティ点 (例: 10-20ウマ)
-const STARTING_SCORE = 30000; // 基準点
+// --- 定数：麻雀レートのルール ---
+// レート変動 = (最終得点 - 30000) / 1000 + ウマ + (卓平均レート - 自分のレート) / 40
+// ウマの合計もレート差補正の合計も 0 なので、1半荘で卓全体のレートは増減しない。
+const MAHJONG_SCORE_UNIT = 1000;              // 1000点 = 1レート
+const MAHJONG_UMA = [30, 10, -10, -30];       // 1位〜4位のウマ (合計0)
+const MAHJONG_STARTING_SCORE = 30000;         // 基準点 (返し点)
+const MAHJONG_RATE_DIFF_DIVISOR = 40;         // レート差補正の分母
 let ALL_PLAYER_NAMES = []; // 全プレイヤー名を保持
 
 // ★ 修正: 認証状態をキャッシュではなく、メモリ上の変数で管理
@@ -112,8 +117,8 @@ async function attemptMasterLogin(username, password, isAuto = false) {
     }
 
     try {
-        await runDailyPointTaxIfNeeded().catch(error => {
-            console.warn('日次ポイント徴収に失敗しました。マスター画面の表示は継続します。', error);
+        await runDailyRateReversionIfNeeded().catch(error => {
+            console.warn('日次レート補正に失敗しました。マスター画面の表示は継続します。', error);
         });
         const allData = await fetchAllData();
         const scores = allData.scores;
@@ -150,7 +155,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         loadSpecialThemeStatus();
         loadAttendanceAccessStatus();
         loadMemberStatusList();
-        loadDailyTaxSettings();
+        loadRateReversionSettings();
         
         if (!isAuto) {
              showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
@@ -242,7 +247,7 @@ async function fetchAndSetPlayerNames() {
     return true;
 }
 
-// ポイント調整用リストのロード（proステータス表示を削除）
+// レート調整用リストのロード（proステータス表示を削除）
 async function loadPlayerList() {
     if (!TARGET_PLAYER_SELECT) return; // 要素がない場合はスキップ
 
@@ -257,7 +262,7 @@ async function loadPlayerList() {
     let options = '<option value="" disabled selected>プレイヤーを選択</option>';
     scores.forEach(player => { 
         // ★ 修正: proステータス表示ロジックを削除
-        options += `<option value="${player.name}">${player.name} (${player.score.toFixed(1)} P)</option>`;
+        options += `<option value="${player.name}">${player.name} (${formatRate(player.score)})</option>`;
     });
 
     TARGET_PLAYER_SELECT.innerHTML = options;
@@ -361,25 +366,33 @@ if (MAHJONG_FORM) {
             let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p])); 
             
             results.sort((a, b) => b.score - a.score);
-            
-            
+
+            // 1人でも欠けていると卓平均が狂い、全員のレートがずれてしまう
+            const missing = results.filter(result => !currentScoresMap.has(result.name)).map(result => result.name);
+            if (missing.length > 0) {
+                showMessage(MAHJONG_MESSAGE_ELEMENT, `❌ プレイヤーデータが見つかりません: ${missing.join(', ')}`, 'error');
+                return;
+            }
+
+            // 卓平均レートは「対局前」のレートで固定する。
+            // 先に計算した人の結果が後の人の補正に影響しないようにするため。
+            const seatRates = results.map(result => normalizeRate(currentScoresMap.get(result.name).score));
+            const tableAverageRate = seatRates.reduce((sum, rate) => sum + rate, 0) / results.length;
+
             for (let i = 0; i < results.length; i++) {
                 const result = results[i];
-                const rankIndex = i;
-    
-                const pointDifference = (result.score - STARTING_SCORE) / POINT_RATE;
-                const bonusPoint = UMA_OKA[rankIndex];
-                const finalPointChange = pointDifference + bonusPoint;
-                
-                
+
+                const scoreDifference = (result.score - MAHJONG_STARTING_SCORE) / MAHJONG_SCORE_UNIT;
+                const uma = MAHJONG_UMA[i];
+                const rateDiffBonus = (tableAverageRate - seatRates[i]) / MAHJONG_RATE_DIFF_DIVISOR;
+                const rateChange = Math.round(scoreDifference + uma + rateDiffBonus);
+
                 const currentPlayer = currentScoresMap.get(result.name);
                 if (currentPlayer) {
-                    const currentScore = currentPlayer.score || 0;
-                    const newScore = currentScore + finalPointChange;
-                    // pass/status/lastBonusTimeフィールドを保持したままscoreを更新
-                    currentScoresMap.set(result.name, { 
-                        ...currentPlayer, 
-                        score: parseFloat(newScore.toFixed(1)) 
+                    // pass/status/lastBonusTimeフィールドを保持したままレートを更新
+                    currentScoresMap.set(result.name, {
+                        ...currentPlayer,
+                        score: normalizeRate(seatRates[i] + rateChange)
                     });
                 }
             }
@@ -399,10 +412,10 @@ if (MAHJONG_FORM) {
             const response = await updateAllData(newData);
     
             if (response.status === 'success') {
-                showMessage(MAHJONG_MESSAGE_ELEMENT, `✅ 成功! ポイントが更新されました。`, 'success');
+                showMessage(MAHJONG_MESSAGE_ELEMENT, `✅ 成功! レートが更新されました。`, 'success');
                 // フォームをリセットして再ロード
                 MAHJONG_FORM.reset();
-                loadPlayerList(); // ポイント調整リストを更新
+                loadPlayerList(); // レート調整リストを更新
                 loadTransferPlayerLists(); // 送金リストを更新
                 loadMahjongForm(); // 麻雀フォームをリセット
             } else {
@@ -463,7 +476,7 @@ async function loadBettingData() {
 }
 
 
-// --- 3. ポイント送金機能 (履歴削除) ---
+// --- 3. レート送金機能 (履歴削除) ---
 // ★ 修正: TRANSFER_FORM が存在しないページもあるため、nullチェック
 if (TRANSFER_FORM) {
     TRANSFER_FORM.addEventListener('submit', async (e) => {
@@ -471,10 +484,10 @@ if (TRANSFER_FORM) {
         const messageEl = document.getElementById('transfer-message');
         const sender = SENDER_PLAYER_SELECT.value;
         const receiver = RECEIVER_PLAYER_SELECT.value;
-        const amount = parseFloat(document.getElementById('transfer-amount').value);
+        const amount = Math.round(parseFloat(document.getElementById('transfer-amount').value));
     
-        if (!sender || !receiver || isNaN(amount) || amount <= 0) {
-            showMessage(messageEl, 'エラー: 送金元、送金先、および有効なポイントを入力してください。', 'error');
+        if (!sender || !receiver || !Number.isFinite(amount) || amount < 1) {
+            showMessage(messageEl, 'エラー: 送金元、送金先、および有効なレートを入力してください。', 'error');
             return;
         }
         if (sender === receiver) {
@@ -482,7 +495,7 @@ if (TRANSFER_FORM) {
             return;
         }
     
-        showMessage(messageEl, 'ポイント送金を処理中...', 'info');
+        showMessage(messageEl, 'レート送金を処理中...', 'info');
     
         try {
             const currentData = await fetchAllData();
@@ -500,7 +513,7 @@ if (TRANSFER_FORM) {
             const senderScore = senderPlayer.score || 0;
             
             if (senderScore < amount) {
-                showMessage(messageEl, `エラー: ${sender} の残高 (${senderScore.toFixed(1)} P) が不足しています。`, 'error');
+                showMessage(messageEl, `エラー: ${sender} の残りレート (${formatRate(senderScore)}) が不足しています。`, 'error');
                 return;
             }
     
@@ -508,7 +521,7 @@ if (TRANSFER_FORM) {
             // ★ status/lastBonusTimeを保持
             currentScoresMap.set(sender, { 
                 ...senderPlayer, 
-                score: parseFloat((senderScore - amount).toFixed(1)) 
+                score: normalizeRate(senderScore - amount) 
             });
             
             // 受信先スコアを更新（存在しない場合は初期化）
@@ -517,7 +530,7 @@ if (TRANSFER_FORM) {
                 // ★ status/lastBonusTimeを保持
                 currentScoresMap.set(receiver, { 
                     ...receiverPlayer, 
-                    score: parseFloat((receiverScore + amount).toFixed(1)) 
+                    score: normalizeRate(receiverScore + amount) 
                 });
             } else {
                  // 存在しないプレイヤーに送金しようとした場合はエラーとするか、新規登録として扱う。
@@ -542,7 +555,7 @@ if (TRANSFER_FORM) {
             const response = await updateAllData(newData);
     
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ ${sender} から ${receiver} へ ${amount.toFixed(1)} P の送金を完了しました。`, 'success');
+                showMessage(messageEl, `✅ ${sender} から ${receiver} へ レート ${formatRate(amount)} の送金を完了しました。`, 'success');
                 
                 TRANSFER_FORM.reset();
                 loadPlayerList();
@@ -784,7 +797,7 @@ function renderBetList(allBets) {
                     winStatus = ' (?)';
                 }
                 const playerInitials = w.player.substring(0, 3);
-                return `<li class="wager-item" title="${w.item}">${playerInitials}: ${w.amount} P - ${w.item} ${winStatus}</li>`;
+                return `<li class="wager-item" title="${w.item}">${playerInitials}: ${formatRate(w.amount)} - ${w.item} ${winStatus}</li>`;
             }).join('') :
             '<li>まだ投票はありません。</li>';
 
@@ -797,7 +810,7 @@ function renderBetList(allBets) {
                 </div>
                 <p class="status-label">ステータス: <span class="${statusClass}">${statusText}</span></p>
                 <div class="wager-info">
-                    <strong>合計投票:</strong> ${totalWagers} P (${bet.wagers.length}件)
+                    <strong>合計投票:</strong> レート ${formatRate(totalWagers)} (${bet.wagers.length}件)
                 </div>
                 <ul class="wagers-list" style="font-size: 0.9em;">${wagersHtml}</ul>
                 <div class="management-tools">
@@ -849,7 +862,7 @@ function generateWagerResultInputs(bet) {
         html += `
             <div class="wager-result-row" style="padding: 5px 0; border-bottom: 1px dotted #ddd;">
                 <p style="margin: 5px 0;">
-                    <strong>${wager.player}:</strong> ${wager.amount} P / ${wager.item}
+                    <strong>${wager.player}:</strong> レート ${formatRate(wager.amount)} / ${wager.item}
                 </p>
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <label style="flex: 0 0 auto;"><input type="radio" name="result-${uniqueId}" value="win" class="wager-result-radio" data-wager-index="${index}"> 当選</label>
@@ -884,7 +897,7 @@ function generateWagerResultInputs(bet) {
     });
 }
 
-// --- イベントハンドラ: 個別投票結果の確定とポイント反映 (履歴削除) ---
+// --- イベントハンドラ: 個別投票結果の確定とレート反映 (履歴削除) ---
 
 async function handleSettleWagers(e) {
     e.preventDefault();
@@ -939,7 +952,7 @@ async function handleSettleWagers(e) {
 
             let isWin = null;
             let appliedOdds = null;
-            let pointChange = 0; // 反映するポイントの増減
+            let rateChange = 0; // 反映するレートの増減
 
             if (radioWin && radioWin.checked) {
                 isWin = true;
@@ -950,13 +963,13 @@ async function handleSettleWagers(e) {
                     // メッセージはループの外で表示されるため、ここでは return
                     return; 
                 }
-                // ポイント計算: 掛け金 * オッズ (利益分)
-                pointChange = originalWagers[originalWagerIndex].amount * appliedOdds;
+                // レート計算: 賭けたレート * オッズ (払い戻し)
+                rateChange = originalWagers[originalWagerIndex].amount * appliedOdds;
                 
             } else if (radioLose && radioLose.checked) {
                 isWin = false;
                 appliedOdds = 0; // 外れの場合はオッズなし
-                pointChange = 0; // 既に購入時に減算済みのため、追加の増減なし
+                rateChange = 0; // 既に投票時に減算済みのため、追加の増減なし
             } else {
                 // 結果が選択されていない場合はスキップ
                 return;
@@ -975,7 +988,7 @@ async function handleSettleWagers(e) {
                 // pass/status/lastBonusTimeフィールドを保持したままscoreを更新
                 currentScoresMap.set(player, { 
                     ...currentPlayer, 
-                    score: parseFloat((currentScore + pointChange).toFixed(1)) 
+                    score: normalizeRate(currentScore + rateChange) 
                 });
             }
             
@@ -1015,13 +1028,13 @@ async function handleSettleWagers(e) {
         const response = await updateAllData(newData);
 
         if (response.status === 'success') {
-            showMessage(messageEl, `✅ ${updatedWagersCount}件の結果を確定し、ポイントを反映しました。`, 'success');
+            showMessage(messageEl, `✅ ${updatedWagersCount}件の結果を確定し、レートを反映しました。`, 'success');
             loadBettingData(); // リストを再ロードして更新されたフォームを表示
             loadPlayerList();
             loadTransferPlayerLists();
             loadMahjongForm();
         } else {
-            showMessage(messageEl, `❌ ポイント反映エラー: ${response.message}`, 'error');
+            showMessage(messageEl, `❌ レート反映エラー: ${response.message}`, 'error');
         }
 
     } catch (error) {
@@ -1089,17 +1102,17 @@ async function handleFinalizeBet(e) {
 }
 
 
-// --- 特殊ポイント調整機能 (履歴削除) ---
+// --- 特殊レート調整機能 (履歴削除) ---
 // ★ 修正: adjustment-form が存在しないページもあるため、nullチェック
 if (document.getElementById('adjustment-form')) {
     document.getElementById('adjustment-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const messageEl = document.getElementById('adjustment-message');
         const targetPlayerName = document.getElementById('target-player').value;
-        const adjustAmount = parseFloat(document.getElementById('adjust-amount').value);
+        const adjustAmount = Math.round(parseFloat(document.getElementById('adjust-amount').value));
     
-        if (!targetPlayerName || isNaN(adjustAmount) || adjustAmount === 0) {
-            showMessage(messageEl, 'エラー: 対象プレイヤーと有効な調整ポイントを入力してください。', 'error');
+        if (!targetPlayerName || !Number.isFinite(adjustAmount) || adjustAmount === 0) {
+            showMessage(messageEl, 'エラー: 対象プレイヤーと有効な調整レートを入力してください。', 'error');
             return;
         }
     
@@ -1120,7 +1133,7 @@ if (document.getElementById('adjustment-form')) {
             // pass/status/lastBonusTimeフィールドを保持したままscoreを更新
             currentScoresMap.set(targetPlayerName, { 
                 ...player, 
-                score: parseFloat(newScore.toFixed(1)) 
+                score: normalizeRate(newScore) 
             });
             
             // 削除: 履歴エントリーの生成と追加を削除
@@ -1139,7 +1152,7 @@ if (document.getElementById('adjustment-form')) {
             const response = await updateAllData(newData);
     
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ ${targetPlayerName} のポイントを ${adjustAmount.toFixed(1)} P 調整しました。`, 'success');
+                showMessage(messageEl, `✅ ${targetPlayerName} のレートを ${adjustAmount > 0 ? '+' : ''}${adjustAmount} 調整しました。`, 'success');
                 document.getElementById('adjustment-form').reset();
                 loadPlayerList();
             } else {
@@ -1153,44 +1166,83 @@ if (document.getElementById('adjustment-form')) {
     });
 }
 
-// --- 日次ポイント徴収設定 ---
-async function loadDailyTaxSettings() {
-    if (!DAILY_TAX_RATE_INPUT || !DAILY_TAX_STATUS) return;
+// --- 日次レート補正設定 ---
+// 毎日1回、全員のレートを基準へ近づける。上がりすぎた人は下げ、
+// 下がりすぎた人は上げるので、遊ばなければ約30日で全員が基準に揃う。
+async function loadRateReversionSettings() {
+    if (!RATE_REVERSION_RATE_INPUT || !RATE_REVERSION_STATUS) return;
 
     try {
         const data = await fetchAllData();
-        const ratePercent = (data.daily_point_tax_rate * 100).toFixed(1).replace(/\.0$/, '');
-        DAILY_TAX_RATE_INPUT.value = ratePercent;
-        const lastDate = data.daily_point_tax_last_date || '未実行';
-        const lastTotal = Number(data.daily_point_tax_last_total || 0).toFixed(1);
-        DAILY_TAX_STATUS.textContent = `毎日ログイン時に自動徴収します。最終徴収日: ${lastDate} / 前回徴収: ${lastTotal}P`;
+        const ratePercent = (data.rate_reversion_rate * 100).toFixed(1).replace(/\.0$/, '');
+        if (RATE_REVERSION_BASELINE_INPUT) RATE_REVERSION_BASELINE_INPUT.value = data.rate_baseline;
+        RATE_REVERSION_RATE_INPUT.value = ratePercent;
+        if (RATE_REVERSION_FLAT_INPUT) RATE_REVERSION_FLAT_INPUT.value = data.rate_reversion_flat;
+
+        const lastDate = data.rate_reversion_last_date || '未実行';
+        const lastTotal = formatRate(data.rate_reversion_last_total);
+        const days = estimateDaysToBaseline(data.rate_baseline, data.rate_reversion_rate, data.rate_reversion_flat);
+        RATE_REVERSION_STATUS.textContent =
+            `毎日0時5分に自動実行します。基準との差が最大 (${formatRate(data.rate_baseline)}) でも約${days}日で基準ちょうどに戻ります。`
+            + ` 最終実行日: ${lastDate} / 前回の移動量合計: ${lastTotal}`;
     } catch (error) {
         console.error(error);
-        DAILY_TAX_STATUS.textContent = '日次ポイント徴収設定を読み込めませんでした。';
+        RATE_REVERSION_STATUS.textContent = '日次レート補正の設定を読み込めませんでした。';
     }
 }
 
-if (DAILY_TAX_FORM) {
-    DAILY_TAX_FORM.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const submitButton = DAILY_TAX_FORM.querySelector('button[type="submit"]');
-        const ratePercent = parseFloat(DAILY_TAX_RATE_INPUT.value);
+/** 基準から最大に離れた状態 (レート0) から基準に戻るまでの日数の目安 */
+function estimateDaysToBaseline(baseline, rate, flat) {
+    let current = 0;
+    for (let day = 1; day <= 400; day++) {
+        const delta = getRateReversionDelta(current, baseline, rate, flat);
+        if (delta === 0) return day - 1;
+        current += delta;
+        if (current === baseline) return day;
+    }
+    return 400;
+}
 
+if (RATE_REVERSION_FORM) {
+    RATE_REVERSION_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitButton = RATE_REVERSION_FORM.querySelector('button[type="submit"]');
+        const baseline = parseFloat(RATE_REVERSION_BASELINE_INPUT?.value);
+        const ratePercent = parseFloat(RATE_REVERSION_RATE_INPUT.value);
+        const flat = parseFloat(RATE_REVERSION_FLAT_INPUT?.value);
+
+        if (!Number.isFinite(baseline) || baseline < 0) {
+            showMessage(RATE_REVERSION_MESSAGE, '基準レートは0以上で入力してください。', 'error');
+            return;
+        }
         if (!Number.isFinite(ratePercent) || ratePercent < 0 || ratePercent > 100) {
-            showMessage(DAILY_TAX_MESSAGE, '徴収率は0〜100%で入力してください。', 'error');
+            showMessage(RATE_REVERSION_MESSAGE, '1日に戻す割合は0〜100%で入力してください。', 'error');
+            return;
+        }
+        if (!Number.isFinite(flat) || flat < 0) {
+            showMessage(RATE_REVERSION_MESSAGE, '固定加算は0以上で入力してください。', 'error');
             return;
         }
 
         submitButton.disabled = true;
-        showMessage(DAILY_TAX_MESSAGE, '徴収率を保存中...', 'info');
+        showMessage(RATE_REVERSION_MESSAGE, '設定を保存中...', 'info');
 
         try {
-            const savedRate = await saveDailyPointTaxRate(ratePercent / 100);
-            showMessage(DAILY_TAX_MESSAGE, `✅ 日次ポイント徴収率を${(savedRate * 100).toFixed(1).replace(/\.0$/, '')}%に保存しました。`, 'success');
-            await loadDailyTaxSettings();
+            const saved = await saveRateReversionSettings({
+                baseline,
+                rate: ratePercent / 100,
+                flat
+            });
+            const days = estimateDaysToBaseline(saved.rate_baseline, saved.rate_reversion_rate, saved.rate_reversion_flat);
+            showMessage(
+                RATE_REVERSION_MESSAGE,
+                `✅ 保存しました (基準 ${formatRate(saved.rate_baseline)} / ${(saved.rate_reversion_rate * 100).toFixed(1).replace(/\.0$/, '')}% + ${saved.rate_reversion_flat})。最大でも約${days}日で基準に戻ります。`,
+                'success'
+            );
+            await loadRateReversionSettings();
         } catch (error) {
             console.error(error);
-            showMessage(DAILY_TAX_MESSAGE, `❌ 保存エラー: ${error.message}`, 'error');
+            showMessage(RATE_REVERSION_MESSAGE, `❌ 保存エラー: ${error.message}`, 'error');
         } finally {
             submitButton.disabled = false;
         }
@@ -1212,7 +1264,7 @@ if (CREATE_GIFT_CODE_FORM) {
         const maxUses = parseInt(document.getElementById('gift-code-max-uses').value, 10);
 
         if (!codeName || isNaN(points) || isNaN(maxUses) || maxUses < 0) {
-            showMessage(messageEl, '❌ エラー: コード名、ポイント、全利用合計回数をすべて正しく入力してください。', 'error');
+            showMessage(messageEl, '❌ エラー: コード名、レート、全利用合計回数をすべて正しく入力してください。', 'error');
             return;
         }
 
@@ -1232,7 +1284,7 @@ if (CREATE_GIFT_CODE_FORM) {
 
             const newGiftCode = {
                 code: codeName,
-                points: parseFloat(points.toFixed(1)), // 小数点第一位に丸める
+                points: Math.round(points), // レートは整数で扱う
                 maxUses: maxUses,
                 currentUses: 0,
                 // usedBy: [], <- ログは残さないため削除
@@ -1254,7 +1306,7 @@ if (CREATE_GIFT_CODE_FORM) {
             });
 
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ コード「${codeName}」を発行しました (${newGiftCode.points.toFixed(1)} P、合計${maxUses === 0 ? '無制限' : maxUses}回)。`, 'success');
+                showMessage(messageEl, `✅ コード「${codeName}」を発行しました (レート ${newGiftCode.points}、合計${maxUses === 0 ? '無制限' : maxUses}回)。`, 'success');
                 CREATE_GIFT_CODE_FORM.reset();
                 document.getElementById('gift-code-max-uses').value = 1; // フォームリセット後にデフォルト値に戻す
             } else {
@@ -1317,11 +1369,11 @@ if (CREATE_LOTTERY_FORM) {
         const submitButton = CREATE_LOTTERY_FORM.querySelector('button[type="submit"]');
 
         const lotteryName = document.getElementById('lottery-name').value.trim();
-        const ticketPrice = parseFloat(document.getElementById('lottery-ticket-price').value);
+        const ticketPrice = Math.round(parseFloat(document.getElementById('lottery-ticket-price').value));
         const purchaseDeadline = document.getElementById('lottery-purchase-deadline').value;
         const resultAnnounceDate = document.getElementById('lottery-result-announce').value;
 
-        if (!lotteryName || isNaN(ticketPrice) || ticketPrice <= 0 || !purchaseDeadline || !resultAnnounceDate) {
+        if (!lotteryName || !Number.isFinite(ticketPrice) || ticketPrice <= 0 || !purchaseDeadline || !resultAnnounceDate) {
             showMessage(messageEl, '❌ エラー: 基本情報 (名前, 価格, 期限, 発表日) をすべて正しく入力してください。', 'error');
             return;
         }
@@ -1340,10 +1392,10 @@ if (CREATE_LOTTERY_FORM) {
         let validPrizes = 0;
 
         for (let i = 1; i <= 5; i++) {
-            const amount = parseFloat(document.getElementById(`lottery-prize-amount-${i}`).value);
+            const amount = Math.round(parseFloat(document.getElementById(`lottery-prize-amount-${i}`).value));
             const probPercent = parseFloat(document.getElementById(`lottery-prize-prob-${i}`).value);
 
-            if (!isNaN(amount) && amount > 0 && !isNaN(probPercent) && probPercent > 0) {
+            if (Number.isFinite(amount) && amount > 0 && !isNaN(probPercent) && probPercent > 0) {
                 const probability = probPercent / 100.0; // 1% -> 0.01
                 prizes.push({
                     rank: i,

@@ -16,7 +16,7 @@
             document.documentElement.classList.add('auth-pending');
         }
     </script>
-    <link rel="stylesheet" href="assets/css/style.css?v=42.6.1">
+    <link rel="stylesheet" href="assets/css/style.css?v=43.0">
 </head>
 <body>
     <header class="hero hero-compact" data-scene="treasure">
@@ -48,7 +48,7 @@
             <div class="tool-box flex-between">
                 <div>
                     <h3>ようこそ、<span id="authenticated-user-name"></span>様！</h3>
-                    <p>現在のポイント残高: <strong id="current-score" class="text-large" style="color: var(--color-accent);"></strong> P</p>
+                    <p>現在のレート: <strong id="current-score" class="text-large" style="color: var(--color-accent);"></strong></p>
                 </div>
                 <button type="button" id="logout-button" class="action-button secondary-button mt-10">ログアウト</button>
             </div>
@@ -85,7 +85,7 @@
             </div>
 
             <details id="pro-bonus-tool" class="tool-box mypage-accordion hidden" open>
-                <summary><span>⭐ ログインボーナスポイント</span></summary>
+                <summary><span>⭐ ログインボーナス</span></summary>
                 <p class="instruction" id="pro-bonus-instruction">特典ロード中...</p>
                 <p id="pro-bonus-probability" class="text-small"></p>
                 <button type="button" id="pro-bonus-button" class="action-button w-auto btn-green">
@@ -108,7 +108,7 @@
                             <input type="number" id="lottery-ticket-count" min="1" value="1" required inputmode="numeric">
                         </div>
                         <div style="flex: 0 0 140px;">
-                            <strong id="lottery-total-price" class="text-small" style="color: var(--color-primary);">合計: - P</strong>
+                            <strong id="lottery-total-price" class="text-small" style="color: var(--color-primary);">合計: -</strong>
                         </div>
                     </div>
                     <button type="submit" class="action-button">宝くじを購入する</button>
@@ -155,12 +155,12 @@
             </details>
 
             <details class="tool-box mypage-accordion" id="transfer-section">
-                <summary><span>💸 ポイント送金</span></summary>
+                <summary><span>💸 レート送金</span></summary>
                 <p class="instruction">送金元: <strong id="authenticated-user-transfer"></strong></p>
                 <form id="transfer-form-mypage">
                     <div class="form-group flex gap-10">
                         <select id="receiver-player-mypage" required class="flex-1"><option value="" disabled selected>送金先を選択</option></select>
-                        <input type="number" id="transfer-amount-mypage" step="0.1" min="0.1" placeholder="P" required inputmode="decimal" style="flex: 0 0 100px;">
+                        <input type="number" id="transfer-amount-mypage" step="1" min="1" placeholder="レート" required inputmode="numeric" style="flex: 0 0 100px;">
                     </div>
                     <button type="submit" class="action-button w-auto">送金を実行</button>
                 </form>
@@ -193,7 +193,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=42.6.1"></script>
-    <script src="assets/js/mypage.js?v=42.6.1"></script>
+    <script src="assets/js/common.js?v=43.0"></script>
+    <script src="assets/js/mypage.js?v=43.0"></script>
 </body>
 </html>

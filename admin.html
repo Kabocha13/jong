@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#060d16">
     <title>マスター管理ページ</title>
     <link rel="icon" type="image/png" href="assets/icon.png">
-    <link rel="stylesheet" href="assets/css/style.css?v=42.6.1">
+    <link rel="stylesheet" href="assets/css/style.css?v=43.0">
 </head>
 <body>
     <header class="hero hero-compact" data-scene="jail">
@@ -39,7 +39,12 @@
             
             <div class="tool-box">
                 <h3>🀄 麻雀結果入力</h3>
-                <p class="instruction">4人の最終得点を入力(30000点越え3000点で1P, 1位3P, 2位1P, 3位-1P, 4位-2P)</p>
+                <p class="instruction">
+                    4人の最終得点を入力します。<br>
+                    レート変動 = (最終得点 − 30000) ÷ 1000 ＋ ウマ(1位 +30 / 2位 +10 / 3位 −10 / 4位 −30)
+                    ＋ (卓の平均レート − 本人のレート) ÷ 40<br>
+                    <span class="text-small">格上に勝つほど大きく上がり、卓全体の合計は増減しません。</span>
+                </p>
                 
                 <form id="mahjong-form">
                     <div id="mahjong-player-inputs">
@@ -63,8 +68,8 @@
                         <input type="text" id="lottery-name" required placeholder="例: サマーJongボ 2025">
                     </div>
                     <div class="form-group">
-                        <label for="lottery-ticket-price">一口の購入額 (P):</label>
-                        <input type="number" id="lottery-ticket-price" step="0.1" min="0.1" required>
+                        <label for="lottery-ticket-price">一口の購入レート:</label>
+                        <input type="number" id="lottery-ticket-price" step="1" min="1" required>
                     </div>
                     <div class="form-group">
                         <label for="lottery-purchase-deadline">購入締切:</label>
@@ -75,33 +80,33 @@
                         <input type="datetime-local" id="lottery-result-announce" required>
                     </div>
 
-                    <h4 class="mt-20">当選設定 (1等〜5等)</h4>
+                    <h4 class="mt-20">当選設定 (1等〜5等・当選額はレート)</h4>
                     <p class="instruction text-xs">※ 確率は合計で100%以下にしてください。</p>
                     
                     <div class="form-group flex gap-10 items-end">
                         <label class="flex-1">1等:</label>
-                        <input type="number" id="lottery-prize-amount-1" placeholder="当選額 (P)" class="flex-1">
+                        <input type="number" id="lottery-prize-amount-1" step="1" placeholder="当選レート" class="flex-1">
                         <input type="number" id="lottery-prize-prob-1" step="0.0000001" placeholder="確率 (%)" class="flex-1">
                     </div>
                     <!-- 同様の構成で2等〜5等 (master.jsで対応) -->
                     <div class="form-group flex gap-10 items-end">
                         <label class="flex-1">2等:</label>
-                        <input type="number" id="lottery-prize-amount-2" placeholder="当選額 (P)" class="flex-1">
+                        <input type="number" id="lottery-prize-amount-2" step="1" placeholder="当選レート" class="flex-1">
                         <input type="number" id="lottery-prize-prob-2" step="0.0000001" placeholder="確率 (%)" class="flex-1">
                     </div>
                     <div class="form-group flex gap-10 items-end">
                         <label class="flex-1">3等:</label>
-                        <input type="number" id="lottery-prize-amount-3" placeholder="当選額 (P)" class="flex-1">
+                        <input type="number" id="lottery-prize-amount-3" step="1" placeholder="当選レート" class="flex-1">
                         <input type="number" id="lottery-prize-prob-3" step="0.0000001" placeholder="確率 (%)" class="flex-1">
                     </div>
                     <div class="form-group flex gap-10 items-end">
                         <label class="flex-1">4等:</label>
-                        <input type="number" id="lottery-prize-amount-4" placeholder="当選額 (P)" class="flex-1">
+                        <input type="number" id="lottery-prize-amount-4" step="1" placeholder="当選レート" class="flex-1">
                         <input type="number" id="lottery-prize-prob-4" step="0.0000001" placeholder="確率 (%)" class="flex-1">
                     </div>
                     <div class="form-group flex gap-10 items-end">
                         <label class="flex-1">5等:</label>
-                        <input type="number" id="lottery-prize-amount-5" placeholder="当選額 (P)" class="flex-1">
+                        <input type="number" id="lottery-prize-amount-5" step="1" placeholder="当選レート" class="flex-1">
                         <input type="number" id="lottery-prize-prob-5" step="0.0000001" placeholder="確率 (%)" class="flex-1">
                     </div>
 
@@ -138,17 +143,17 @@
             </div>
             
             <div class="tool-box">
-                <h3>± 特殊ポイント調整</h3>
+                <h3>± 特殊レート調整</h3>
                 <form id="adjustment-form">
                     <div class="form-group">
                         <label for="target-player">対象プレイヤー:</label>
                         <select id="target-player" required><option value="" disabled selected>ロード中...</option></select>
                     </div>
                     <div class="form-group">
-                        <label for="adjust-amount">増減ポイント:</label>
-                        <input type="number" id="adjust-amount" step="0.1" required>
+                        <label for="adjust-amount">増減レート:</label>
+                        <input type="number" id="adjust-amount" step="1" required>
                     </div>
-                    <button type="submit">ポイントを調整</button>
+                    <button type="submit">レートを調整</button>
                 </form>
                 <p id="adjustment-message" class="hidden"></p>
             </div>
@@ -161,8 +166,8 @@
                         <input type="text" id="gift-code-name" required pattern="[a-zA-Z0-9]+">
                     </div>
                     <div class="form-group">
-                        <label for="gift-code-amount">付与ポイント (P):</label>
-                        <input type="number" id="gift-code-amount" step="0.1" required>
+                        <label for="gift-code-amount">付与レート:</label>
+                        <input type="number" id="gift-code-amount" step="1" required>
                     </div>
                     <div class="form-group">
                         <label for="gift-code-max-uses">全利用合計回数:</label>
@@ -174,15 +179,15 @@
             </div>
             
             <div class="tool-box">
-                <h3>💸 ポイント送金 (プレイヤー間)</h3>
+                <h3>💸 レート送金 (プレイヤー間)</h3>
                 <form id="transfer-form">
                     <div class="form-group flex gap-10">
                         <select id="sender-player" required class="flex-1"><option value="" disabled selected>送金元</option></select>
                         <select id="receiver-player" required class="flex-1"><option value="" disabled selected>送金先</option></select>
                     </div>
                     <div class="form-group">
-                        <label for="transfer-amount">送金ポイント:</label>
-                        <input type="number" id="transfer-amount" step="0.1" min="0.1" required>
+                        <label for="transfer-amount">送金レート:</label>
+                        <input type="number" id="transfer-amount" step="1" min="1" required>
                     </div>
                     <button type="submit" class="action-button">送金を実行</button>
                 </form>
@@ -237,18 +242,33 @@
             </div>
 
             <div class="tool-box">
-                <h3>💰 日次ポイント徴収設定</h3>
-                <p class="instruction" id="daily-tax-status">設定を読み込み中...</p>
-                <form id="daily-tax-form">
-                    <div class="form-group">
-                        <label for="daily-tax-rate">徴収率 (%):</label>
-                        <input type="number" id="daily-tax-rate" step="0.1" min="0" max="100" required>
+                <h3>⚖️ 日次レート補正設定</h3>
+                <p class="instruction">
+                    毎日1回、全員のレートを基準へ近づけます。基準より高い人は下がり、低い人は上がるので、
+                    遊ばなければ全員が基準に戻ります。<br>
+                    1日の補正量 = 基準との差 × 割合 ＋ 固定加算
+                </p>
+                <p class="instruction" id="rate-reversion-status">設定を読み込み中...</p>
+                <form id="rate-reversion-form">
+                    <div class="form-group flex gap-10">
+                        <div class="flex-1">
+                            <label for="rate-reversion-baseline">基準レート:</label>
+                            <input type="number" id="rate-reversion-baseline" step="1" min="0" required>
+                        </div>
+                        <div class="flex-1">
+                            <label for="rate-reversion-rate">1日に戻す割合 (%):</label>
+                            <input type="number" id="rate-reversion-rate" step="0.1" min="0" max="100" required>
+                        </div>
+                        <div class="flex-1">
+                            <label for="rate-reversion-flat">固定加算:</label>
+                            <input type="number" id="rate-reversion-flat" step="1" min="0" required>
+                        </div>
                     </div>
                     <button type="submit" class="action-button w-auto btn-gold">
-                        徴収率を保存
+                        補正設定を保存
                     </button>
                 </form>
-                <p id="daily-tax-message" class="hidden"></p>
+                <p id="rate-reversion-message" class="hidden"></p>
             </div>
 
         </section>
@@ -267,7 +287,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=42.6.1"></script>
-    <script src="assets/js/master.js?v=42.6.1"></script>
+    <script src="assets/js/common.js?v=43.0"></script>
+    <script src="assets/js/master.js?v=43.0"></script>
 </body>
 </html>

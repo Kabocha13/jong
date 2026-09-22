@@ -98,7 +98,7 @@ window.updateMyPageAuthenticatedUser = (user) => {
     if (!user) return;
     authenticatedUser = { ...authenticatedUser, ...user };
     if (CURRENT_SCORE_ELEMENT && Number.isFinite(Number(authenticatedUser.score))) {
-        CURRENT_SCORE_ELEMENT.textContent = Number(authenticatedUser.score).toFixed(1);
+        CURRENT_SCORE_ELEMENT.textContent = formatRate(authenticatedUser.score);
     }
 };
 
@@ -116,8 +116,8 @@ async function attemptLogin(username, password, isAuto = false) {
     
     try {
         await qjongSignIn(username, password);
-        await runDailyPointTaxIfNeeded().catch(error => {
-            console.warn('日次ポイント徴収に失敗しました。ログイン処理は継続します。', error);
+        await runDailyRateReversionIfNeeded().catch(error => {
+            console.warn('日次レート補正に失敗しました。ログイン処理は継続します。', error);
         });
     } catch (error) {
         showMessage(AUTH_MESSAGE, `❌ Firebase認証エラー: ${error.message}`, 'error');
@@ -245,7 +245,7 @@ async function initializeMyPageContent() {
     if (!authenticatedUser) return;
 
     AUTHENTICATED_USER_NAME.textContent = authenticatedUser.name;
-    CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1);
+    CURRENT_SCORE_ELEMENT.textContent = formatRate(authenticatedUser.score);
     FIXED_PLAYER_NAME.textContent = authenticatedUser.name;
     WAGER_PLAYER_INPUT.value = authenticatedUser.name; 
     AUTHENTICATED_USER_TRANSFER.textContent = authenticatedUser.name; 
@@ -286,7 +286,9 @@ function controlTargetContinueFormDisplay() {
 
 
 // -----------------------------------------------------------------
-// ★★★ 会員ボーナス機能 ★★★
+// ★★★ ログインボーナス ★★★
+//   抽選と保存は common.js の claimRateBonus に置いてある。
+//   ホームのデッキバーにあるボーナスボタンも同じ処理を呼ぶ。
 // -----------------------------------------------------------------
 
 function initializeMemberBonusFeature() {
@@ -295,100 +297,36 @@ function initializeMemberBonusFeature() {
     updateMemberBonusDisplay();
 }
 
-function triggerBonusAnimation(type, floatText) {
-    if (!PRO_BONUS_TOOL) return;
-    const animClass = type === 'success' ? 'bonus-animate-success' : 'bonus-animate-penalty';
-    PRO_BONUS_TOOL.classList.remove('bonus-animate-success', 'bonus-animate-penalty');
-    void PRO_BONUS_TOOL.offsetWidth; // reflow で再トリガー
-    PRO_BONUS_TOOL.classList.add(animClass);
-
-    const floatEl = document.createElement('span');
-    floatEl.className = 'bonus-float-text';
-    floatEl.textContent = floatText;
-    floatEl.style.color = type === 'success' ? '#38c172' : '#e74c3c';
-    PRO_BONUS_TOOL.appendChild(floatEl);
-    floatEl.addEventListener('animationend', () => floatEl.remove());
-}
-
-function getTodayJST() {
-    const nowJST = new Date(Date.now() + 9 * 60 * 60 * 1000);
-    return nowJST.toISOString().slice(0, 10);
-}
-
-function getJSTDateDayNumber(dateText) {
-    const match = String(dateText || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!match) return null;
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    return Math.floor(Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000));
-}
-
-function getElapsedBonusDays(lastDate, todayJST) {
-    const lastDay = getJSTDateDayNumber(lastDate);
-    const todayDay = getJSTDateDayNumber(todayJST);
-    if (lastDay === null || todayDay === null) return lastDate === todayJST ? 0 : 1;
-    return Math.max(0, todayDay - lastDay);
-}
-
-function getBonusNumber(value, fallback = 0) {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : fallback;
-}
-
-function clampBonusProbability(value) {
-    return Math.min(100, Math.max(0, value));
-}
-
-function updateMemberBonusDisplay() {
+function updateMemberBonusDisplay({ keepMessage = false } = {}) {
     if (!authenticatedUser) return;
 
-    const status = authenticatedUser.status || 'none';
-    let bonusAmount, memberType;
-    if (status === 'luxury') {
-        bonusAmount = 30.0;
-        memberType = 'Luxury';
-    } else if (status === 'pro') {
-        bonusAmount = 20.0;
-        memberType = 'Pro';
-    } else {
-        bonusAmount = 1.0;
-        memberType = '一般';
-    }
-
-    // 日付変更時は表示上のリセット・減衰を反映（実DB更新はボタン押下時）
-    const todayJST = getTodayJST();
-    const lastDate = authenticatedUser.lastBonusDate || '';
-    let daily = getBonusNumber(authenticatedUser.dailyProbability);
-    let accumulated = getBonusNumber(authenticatedUser.accumulatedProbability);
-    const elapsedDays = getElapsedBonusDays(lastDate, todayJST);
-    if (elapsedDays > 0) {
-        daily = 0;
-        accumulated = Math.max(0, accumulated - 5 * elapsedDays);
-    }
-    const total = clampBonusProbability(daily + accumulated);
+    // 日付が変わっていれば減衰後の値で表示する (DBへの反映はボタン押下時)
+    const state = getRateBonusState(authenticatedUser);
 
     if (PRO_BONUS_INSTRUCTION) {
-        PRO_BONUS_INSTRUCTION.innerHTML = `${memberType}会員: ボタンを押すたびに <strong>+${bonusAmount.toFixed(1)} P</strong>（1日何回でも押せます）`;
+        PRO_BONUS_INSTRUCTION.innerHTML =
+            `${state.memberLabel}会員: ボタンを押すたびに <strong>+${state.bonusAmount}</strong>（1日何回でも押せます）`;
     }
     if (PRO_BONUS_PROBABILITY) {
         let probColor;
-        if (total === 0) {
+        if (state.total === 0) {
             probColor = '#888';
-        } else if (total <= 30) {
+        } else if (state.total <= 30) {
             probColor = 'var(--color-gold)';
-        } else if (total <= 60) {
+        } else if (state.total <= 60) {
             probColor = '#e67e22';
         } else {
             probColor = 'var(--color-error)';
         }
-        PRO_BONUS_PROBABILITY.innerHTML = `ペナルティ確率: <strong style="color:${probColor}">${total.toFixed(0)}%</strong>（日次: ${daily.toFixed(0)}% + 蓄積: ${accumulated.toFixed(0)}%）`;
+        PRO_BONUS_PROBABILITY.innerHTML =
+            `ペナルティ確率: <strong style="color:${probColor}">${state.total.toFixed(0)}%</strong>`
+            + `（日次: ${state.daily.toFixed(0)}% + 蓄積: ${state.accumulated.toFixed(0)}%）`;
     }
     if (PRO_BONUS_BUTTON) {
         PRO_BONUS_BUTTON.disabled = false;
-        PRO_BONUS_BUTTON.textContent = `ボーナス (+${bonusAmount.toFixed(1)} P) を受け取る`;
+        PRO_BONUS_BUTTON.textContent = `ボーナス (+${state.bonusAmount}) を受け取る`;
     }
-    if (PRO_BONUS_MESSAGE) {
+    if (PRO_BONUS_MESSAGE && !keepMessage) {
         PRO_BONUS_MESSAGE.classList.add('hidden');
     }
 }
@@ -400,139 +338,42 @@ if (PRO_BONUS_BUTTON) {
             return;
         }
 
-        const status = authenticatedUser.status || 'none';
-        let bonusAmount;
-        if (status === 'luxury') {
-            bonusAmount = 30.0;
-        } else if (status === 'pro') {
-            bonusAmount = 20.0;
-        } else {
-            bonusAmount = 1.0;
-        }
-
-        const player = authenticatedUser.name;
-        const messageEl = PRO_BONUS_MESSAGE;
-
-        if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = true;
-        showMessage(messageEl, 'ポイントを付与中...', 'info');
+        PRO_BONUS_BUTTON.disabled = true;
+        showMessage(PRO_BONUS_MESSAGE, 'レートを付与中...', 'info');
 
         try {
-            const currentData = await fetchAllData();
-            latestAllData = currentData;
-            let currentScoresMap = new Map(currentData.scores.map(p => [p.name, p]));
-            const targetPlayer = currentScoresMap.get(player);
+            const result = await claimRateBonus(authenticatedUser.name);
 
-            if (!targetPlayer) {
-                showMessage(messageEl, `❌ プレイヤー ${player} が見つかりません。`, 'error');
-                if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
+            if (result.status !== 'success') {
+                showMessage(PRO_BONUS_MESSAGE, `❌ ${result.message}`, 'error');
+                PRO_BONUS_BUTTON.disabled = false;
                 return;
             }
 
-            const todayJST = getTodayJST();
-            const lastDate = targetPlayer.lastBonusDate || '';
+            authenticatedUser.score = result.newRate;
+            authenticatedUser.lastBonusDate = getJstDateKey();
+            authenticatedUser.dailyProbability = result.daily;
+            authenticatedUser.accumulatedProbability = result.accumulated;
+            authenticatedUser.dailyPressCount = result.pressCount;
+            authenticatedUser.lastBonusTime = new Date().toISOString();
+            CURRENT_SCORE_ELEMENT.textContent = formatRate(result.newRate);
+            latestAllData = await fetchAllData();
 
-            // 日付変更時は0時リセット処理
-            let daily = getBonusNumber(targetPlayer.dailyProbability);
-            let accumulated = getBonusNumber(targetPlayer.accumulatedProbability);
-            let pressCount = Math.max(0, Math.floor(getBonusNumber(targetPlayer.dailyPressCount)));
-            const elapsedDays = getElapsedBonusDays(lastDate, todayJST);
-            if (elapsedDays > 0) {
-                daily = 0;
-                accumulated = Math.max(0, accumulated - 5 * elapsedDays);
-                pressCount = 0;
-            }
-
-            // ペナルティ判定（合計確率）
-            const totalProbability = clampBonusProbability(daily + accumulated);
-            const penaltyOccurred = Math.random() * 100 < totalProbability;
-            let newScore = targetPlayer.score;
-            if (penaltyOccurred) {
-                newScore -= 50;
-                if (status === 'luxury') {
-                    accumulated = Math.max(0, accumulated - 8);
-                } else if (status === 'pro') {
-                    accumulated = Math.max(0, accumulated - 5);
-                } else {
-                    daily = Math.max(0, daily - 10);
-                }
-            } else {
-                newScore += bonusAmount;
-            }
-
-            // 特別ボーナス判定（全会員共通 1%。ペナルティ発生時は付与しない）
-            const specialBonusOccurred = !penaltyOccurred && Math.random() * 100 < 1;
-            if (specialBonusOccurred) {
-                newScore += 100;
-            }
-
-            // 確率更新（ペナルティ発生時は加算なし）
-            if (!penaltyOccurred) {
-                daily += 5;
-                if (pressCount >= 1) {
-                    accumulated += 10;
-                }
-            }
-            pressCount++;
-
-            currentScoresMap.set(player, {
-                ...targetPlayer,
-                score: parseFloat(newScore.toFixed(1)),
-                lastBonusDate: todayJST,
-                dailyProbability: daily,
-                accumulatedProbability: accumulated,
-                dailyPressCount: pressCount,
-                lastBonusTime: new Date().toISOString()
-            });
-
-            const newScores = Array.from(currentScoresMap.values());
-            const newData = {
-                scores: newScores,
-                sports_bets: currentData.sports_bets,
-                speedstorm_records: currentData.speedstorm_records || [],
-                lotteries: currentData.lotteries || [],
-                gift_codes: currentData.gift_codes || []
-            };
-
-            const response = await updateAllData(newData);
-
-            if (response.status === 'success') {
-                if (penaltyOccurred) {
-                    showMessage(messageEl, `⚠️ ボーナス外れ。ペナルティ -50 P`, 'error');
-                } else {
-                    let resultMsg = `✅ ボーナス +${bonusAmount.toFixed(1)} P を獲得しました！`;
-                    if (specialBonusOccurred) {
-                        resultMsg += ` 🎉 特別ボーナス！ +100 P`;
-                    }
-                    showMessage(messageEl, resultMsg, 'success');
-                }
-
-                if (penaltyOccurred) {
-                    triggerBonusAnimation('penalty', `-50 P`);
-                } else if (specialBonusOccurred) {
-                    triggerBonusAnimation('success', `+100 P`);
-                } else {
-                    triggerBonusAnimation('success', `+${bonusAmount.toFixed(1)} P`);
-                }
-
-                authenticatedUser.score = newScore;
-                authenticatedUser.lastBonusDate = todayJST;
-                authenticatedUser.dailyProbability = daily;
-                authenticatedUser.accumulatedProbability = accumulated;
-                authenticatedUser.dailyPressCount = pressCount;
-                authenticatedUser.lastBonusTime = new Date().toISOString();
-                CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
-                latestAllData = newData;
-
-                updateMemberBonusDisplay();
-            } else {
-                showMessage(messageEl, `❌ ボーナス付与エラー: ${response.message}`, 'error');
-                if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
-            }
-
+            updateMemberBonusDisplay({ keepMessage: true });
+            showMessage(
+                PRO_BONUS_MESSAGE,
+                describeRateBonusResult(result),
+                result.penaltyOccurred ? 'error' : 'success'
+            );
+            triggerRateBonusAnimation(
+                PRO_BONUS_TOOL,
+                result.penaltyOccurred ? 'penalty' : 'success',
+                getRateBonusFloatText(result)
+            );
         } catch (error) {
             console.error(error);
-            showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
-            if (PRO_BONUS_BUTTON) PRO_BONUS_BUTTON.disabled = false;
+            showMessage(PRO_BONUS_MESSAGE, `❌ サーバーエラー: ${error.message}`, 'error');
+            PRO_BONUS_BUTTON.disabled = false;
         }
     });
 }
@@ -600,7 +441,7 @@ async function handleApplyGiftCode(e) {
              return;
         }
 
-        const newScore = parseFloat((targetPlayer.score + pointsToApply).toFixed(1));
+        const newScore = normalizeRate(targetPlayer.score + pointsToApply);
         
         currentScoresMap.set(player, { 
             ...targetPlayer, 
@@ -632,14 +473,14 @@ async function handleApplyGiftCode(e) {
         if (response.status === 'success') {
             const actionText = pointsToApply >= 0 ? '獲得' : '消費';
             
-            let successMessage = `✅ コード適用成功! ${pointsToApply.toFixed(1)} P を${actionText}しました。`;
+            let successMessage = `✅ コード適用成功! レート ${formatRate(Math.abs(pointsToApply))} を${actionText}しました。`;
             if (isFullyUsed) {
                 successMessage += ' (このコードは期限切れとなり削除されました)';
             }
             showMessage(messageEl, successMessage, 'success');
             
             authenticatedUser.score = newScore;
-            CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
+            CURRENT_SCORE_ELEMENT.textContent = formatRate(newScore);
             
             GIFT_CODE_INPUT.value = '';
         } else {
@@ -693,11 +534,11 @@ if (TRANSFER_FORM_MYPAGE) {
         const messageEl = document.getElementById('transfer-message-mypage');
         const sender = authenticatedUser.name; 
         const receiver = RECEIVER_PLAYER_SELECT_MYPAGE.value;
-        const amount = parseFloat(document.getElementById('transfer-amount-mypage').value);
+        const amount = Math.round(parseFloat(document.getElementById('transfer-amount-mypage').value));
         const submitButton = TRANSFER_FORM_MYPAGE.querySelector('button[type=\"submit\"]');
     
-        if (!receiver || isNaN(amount) || amount <= 0) {
-            showMessage(messageEl, 'エラー: 送金先と有効なポイント (0.1P以上) を入力してください。', 'error');
+        if (!receiver || !Number.isFinite(amount) || amount < 1) {
+            showMessage(messageEl, 'エラー: 送金先と有効なレート (1以上の整数) を入力してください。', 'error');
             return;
         }
     
@@ -707,7 +548,7 @@ if (TRANSFER_FORM_MYPAGE) {
         }
     
         submitButton.disabled = true;
-        showMessage(messageEl, 'ポイント送金を処理中...', 'info');
+        showMessage(messageEl, 'レート送金を処理中...', 'info');
     
         try {
             const currentData = await fetchAllData();
@@ -728,18 +569,18 @@ if (TRANSFER_FORM_MYPAGE) {
             const senderScore = senderPlayer.score || 0;
             
             if (senderScore < amount) {
-                showMessage(messageEl, `エラー: ポイント残高 (${senderScore.toFixed(1)} P) が不足しています。`, 'error');
+                showMessage(messageEl, `エラー: 残りレート (${formatRate(senderScore)}) が不足しています。`, 'error');
                 return;
             }
     
-            const newSenderScore = parseFloat((senderScore - amount).toFixed(1));
+            const newSenderScore = normalizeRate(senderScore - amount);
             currentScoresMap.set(sender, { 
                 ...senderPlayer, 
                 score: newSenderScore
             });
             
             const receiverScore = receiverPlayer.score || 0;
-            const newReceiverScore = parseFloat((receiverScore + amount).toFixed(1));
+            const newReceiverScore = normalizeRate(receiverScore + amount);
             currentScoresMap.set(receiver, { 
                 ...receiverPlayer, 
                 score: newReceiverScore
@@ -758,10 +599,10 @@ if (TRANSFER_FORM_MYPAGE) {
             const response = await updateAllData(newData);
     
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ ${receiver} へ ${amount.toFixed(1)} P の送金を完了しました。`, 'success');
+                showMessage(messageEl, `✅ ${receiver} へ レート ${formatRate(amount)} の送金を完了しました。`, 'success');
                 
                 authenticatedUser.score = newSenderScore; 
-                CURRENT_SCORE_ELEMENT.textContent = newSenderScore.toFixed(1); 
+                CURRENT_SCORE_ELEMENT.textContent = formatRate(newSenderScore); 
                 
                 TRANSFER_FORM_MYPAGE.reset();
                 loadTransferReceiverList(); 
@@ -799,7 +640,7 @@ function addWagerRow(item = '', amount = '') {
                 <input type=\"text\" class=\"wager-item-input\" id=\"wager-item-${rowCount}\" value=\"${item}\" placeholder=\"例: A選手優勝 or 満貫和了\" required>
             </div>
             <div style=\"width: 120px;\">
-                <label for=\"wager-amount-${rowCount}\">掛け金 (P):</label>
+                <label for=\"wager-amount-${rowCount}\">賭けるレート:</label>
                 <input type=\"number\" class=\"wager-amount-input\" id=\"wager-amount-${rowCount}\" value=\"${amount}\" step=\"1\" min=\"1\" placeholder=\"例: 10\" required>
             </div>
             <button type=\"button\" class=\"remove-wager-row-button remove-button\" style=\"width: auto; margin-bottom: 0;\">×</button>
@@ -890,10 +731,10 @@ function renderWagerHistory(allBets) {
         
         if (w.betStatus === 'SETTLED') {
              if (w.isWin === true) {
-                resultText = `✅ 当選 (x${w.appliedOdds.toFixed(1)}) / 獲得: ${(w.amount * w.appliedOdds).toFixed(1)} P`;
+                resultText = `✅ 当選 (x${w.appliedOdds.toFixed(1)}) / 獲得: ${formatRate(w.amount * w.appliedOdds)}`;
                 resultClass = 'status-open'; 
             } else if (w.isWin === false) {
-                resultText = '❌ 外れ / 損失: 0 P (購入時に減算済み)';
+                resultText = '❌ 外れ (投票時に減算済み)';
                 resultClass = 'status-settled'; 
             } else {
                  resultText = '結果未確定（くじ完了済みだが投票結果が不明）';
@@ -907,7 +748,7 @@ function renderWagerHistory(allBets) {
             <li style=\"border-bottom: 1px dotted #ccc; padding: 5px 0;\">
                 <p style=\"margin: 0; font-size: 0.9em; color: #6c757d;\">${timestamp} - くじ #${w.betId}: ${w.matchName}</p>
                 <p style=\"margin: 2px 0 0 0;\">
-                    ${w.amount} P を <strong>「${w.item}」</strong> に投票
+                    レート ${formatRate(w.amount)} を <strong>「${w.item}」</strong> に投票
                 </p>
                 <p style=\"margin: 2px 0 0 10px; font-weight: bold;\" class=\"${resultClass}\">${resultText}</p>
             </li>
@@ -939,9 +780,9 @@ if (WAGER_FORM) {
         if (WAGER_INPUTS_CONTAINER) {
             WAGER_INPUTS_CONTAINER.querySelectorAll('.wager-row').forEach(row => {
                 const itemInput = row.querySelector('.wager-item-input').value.trim();
-                const amountInput = parseFloat(row.querySelector('.wager-amount-input').value);
+                const amountInput = Math.round(parseFloat(row.querySelector('.wager-amount-input').value));
                 
-                if (itemInput && !isNaN(amountInput) && amountInput >= 1) {
+                if (itemInput && Number.isFinite(amountInput) && amountInput >= 1) {
                     wagersToSubmit.push({
                         item: itemInput,
                         amount: amountInput,
@@ -952,20 +793,20 @@ if (WAGER_FORM) {
                     });
                     totalWagerAmount += amountInput;
                     hasAtLeastOneValid = true;
-                } else if (itemInput || !isNaN(amountInput)) {
+                } else if (itemInput || Number.isFinite(amountInput)) {
                     allValid = false;
                 }
             });
         }
 
         if (!betId || !allValid || !hasAtLeastOneValid) {
-            showMessage(messageEl, '❌ 対象くじを選択し、少なくとも一つの有効な「かけるもの」と「掛け金 (1P以上)」を入力してください。', 'error');
+            showMessage(messageEl, '❌ 対象くじを選択し、少なくとも一つの有効な「かけるもの」と「賭けるレート (1以上)」を入力してください。', 'error');
             return;
         }
 
         const submitButton = WAGER_FORM.querySelector('button[type=\"submit\"]');
         submitButton.disabled = true;
-        showMessage(messageEl, `投票 (${totalWagerAmount} P) を処理中...`, 'info');
+        showMessage(messageEl, `投票 (レート ${formatRate(totalWagerAmount)}) を処理中...`, 'info');
         
         try {
             const currentData = await fetchAllData();
@@ -981,7 +822,7 @@ if (WAGER_FORM) {
             }
 
             if (targetPlayer.score < totalWagerAmount) {
-                showMessage(messageEl, `❌ ポイント残高 (${targetPlayer.score.toFixed(1)} P) が不足しているため、合計 ${totalWagerAmount} Pの投票はできません。`, 'error');
+                showMessage(messageEl, `❌ 残りレート (${formatRate(targetPlayer.score)}) が不足しているため、合計 ${formatRate(totalWagerAmount)} の投票はできません。`, 'error');
                 return;
             }
 
@@ -992,7 +833,7 @@ if (WAGER_FORM) {
                 return;
             }
 
-            const newScore = parseFloat((targetPlayer.score - totalWagerAmount).toFixed(1));
+            const newScore = normalizeRate(targetPlayer.score - totalWagerAmount);
 
             currentScoresMap.set(player, { 
                 ...targetPlayer, 
@@ -1014,11 +855,11 @@ if (WAGER_FORM) {
 
             const response = await updateAllData(newData);
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ ${player}様の ${totalWagerAmount} P の投票 (${wagersToSubmit.length}件) を登録し、ポイントを減算しました。`, 'success');
+                showMessage(messageEl, `✅ ${player}様の レート ${formatRate(totalWagerAmount)} の投票 (${wagersToSubmit.length}件) を登録し、レートを減算しました。`, 'success');
                 WAGER_FORM.reset();
                 
                 authenticatedUser.score = newScore; 
-                CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1); 
+                CURRENT_SCORE_ELEMENT.textContent = formatRate(authenticatedUser.score); 
                 
                 loadBettingDataAndHistory(); 
                 initializeWagerInputs(); 
@@ -1060,20 +901,20 @@ function initializeLotteryPurchaseForm() {
                 const originalPrice = lottery.ticketPrice * count;
                 const discountedPrice = originalPrice * DISCOUNT_RATE;
                 
-                const finalPrice = parseFloat(discountedPrice.toFixed(1)); 
+                const finalPrice = normalizeRate(discountedPrice);
 
                 if (DISCOUNT_RATE < 1.0) {
-                    discountText = `(Luxury特典: ${originalPrice.toFixed(1)} P → ${finalPrice.toFixed(1)} P)`;
-                    LOTTERY_TOTAL_PRICE_DISPLAY.innerHTML = `合計: <strong style=\"color: #28a745;\">${finalPrice.toFixed(1)} P</strong> ${discountText}`;
+                    discountText = `(Luxury特典: ${formatRate(originalPrice)} → ${formatRate(finalPrice)})`;
+                    LOTTERY_TOTAL_PRICE_DISPLAY.innerHTML = `合計: <strong style=\"color: #28a745;\">${formatRate(finalPrice)}</strong> ${discountText}`;
                 } else {
-                    LOTTERY_TOTAL_PRICE_DISPLAY.textContent = `合計: ${finalPrice.toFixed(1)} P`;
+                    LOTTERY_TOTAL_PRICE_DISPLAY.textContent = `合計: ${formatRate(finalPrice)}`;
                 }
 
             } else {
-                LOTTERY_TOTAL_PRICE_DISPLAY.textContent = '合計: - P';
+                LOTTERY_TOTAL_PRICE_DISPLAY.textContent = '合計: -';
             }
         } else {
-            LOTTERY_TOTAL_PRICE_DISPLAY.textContent = '合計: - P';
+            LOTTERY_TOTAL_PRICE_DISPLAY.textContent = '合計: -';
         }
     };
 
@@ -1105,7 +946,7 @@ async function loadLotteryData() {
         let options = '<option value=\"\" disabled selected>購入する宝くじを選択</option>';
         openLotteries.forEach(l => {
             const deadline = new Date(l.purchaseDeadline).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-            options += `<option value=\"${l.lotteryId}\">${l.name} (${l.ticketPrice} P/枚) - 締切: ${deadline}</option>`;
+            options += `<option value=\"${l.lotteryId}\">${l.name} (${formatRate(l.ticketPrice)}/枚) - 締切: ${deadline}</option>`;
         });
         LOTTERY_SELECT.innerHTML = options;
         availableLotteries = openLotteries; 
@@ -1178,7 +1019,7 @@ async function loadLotteryData() {
                     `;
                 } else {
                     if (winnings > 0) {
-                        statusHtml = `<p class=\"status-label status-open\">✅ 結果確認済み (合計当選: ${winnings.toFixed(1)} P)</p>`;
+                        statusHtml = `<p class=\"status-label status-open\">✅ 結果確認済み (合計当選: ${formatRate(winnings)})</p>`;
                     } else {
                         statusHtml = `<p class=\"status-label status-settled\">❌ 結果確認済み</p>`;
                     }
@@ -1230,15 +1071,15 @@ if (LOTTERY_PURCHASE_FORM) {
         const DISCOUNT_RATE = authenticatedUser.status === 'luxury' ? 0.8 : 1.0;
         const originalPrice = lottery.ticketPrice * count;
         const discountedPrice = originalPrice * DISCOUNT_RATE;
-        const finalPrice = parseFloat(discountedPrice.toFixed(1)); 
-        
+        const finalPrice = normalizeRate(discountedPrice);
+
         if (authenticatedUser.score < finalPrice) {
-            showMessage(LOTTERY_PURCHASE_MESSAGE, `❌ ポイント残高 (${authenticatedUser.score.toFixed(1)} P) が不足しています (必要: ${finalPrice.toFixed(1)} P)。`, 'error');
+            showMessage(LOTTERY_PURCHASE_MESSAGE, `❌ 残りレート (${formatRate(authenticatedUser.score)}) が不足しています (必要: ${formatRate(finalPrice)})。`, 'error');
             return;
         }
 
         submitButton.disabled = true;
-        showMessage(LOTTERY_PURCHASE_MESSAGE, `${count}枚 (${finalPrice.toFixed(1)} P) の宝くじを購入し、抽選処理中...`, 'info');
+        showMessage(LOTTERY_PURCHASE_MESSAGE, `${count}枚 (レート ${formatRate(finalPrice)}) の宝くじを購入し、抽選処理中...`, 'info');
 
         try {
             const currentData = await fetchAllData();
@@ -1248,7 +1089,7 @@ if (LOTTERY_PURCHASE_FORM) {
             
             let targetPlayer = currentScoresMap.get(authenticatedUser.name);
             if (!targetPlayer || targetPlayer.score < finalPrice || typeof targetPlayer.status === 'undefined') {
-                showMessage(LOTTERY_PURCHASE_MESSAGE, `❌ 最新のポイント残高 (${targetPlayer.score.toFixed(1)} P) が不足しているか、ユーザーデータが不完全です。`, 'error');
+                showMessage(LOTTERY_PURCHASE_MESSAGE, `❌ 最新の残りレート (${formatRate(targetPlayer?.score)}) が不足しているか、ユーザーデータが不完全です。`, 'error');
                 submitButton.disabled = false;
                 return;
             }
@@ -1305,7 +1146,7 @@ if (LOTTERY_PURCHASE_FORM) {
                 newTickets.push(newTicket);
             });
 
-            const newScore = parseFloat((targetPlayer.score - finalPrice).toFixed(1));
+            const newScore = normalizeRate(targetPlayer.score - finalPrice);
 
             currentScoresMap.set(authenticatedUser.name, { 
                 ...targetPlayer, 
@@ -1326,13 +1167,13 @@ if (LOTTERY_PURCHASE_FORM) {
             const response = await updateAllData(newData);
             
             if (response.status === 'success') {
-                showMessage(LOTTERY_PURCHASE_MESSAGE, `✅ ${count}枚の購入が完了しました (ポイント ${finalPrice.toFixed(1)} P 減算)。${DISCOUNT_RATE < 1.0 ? ' Luxury割引が適用されました！' : ''}`, 'success');
+                showMessage(LOTTERY_PURCHASE_MESSAGE, `✅ ${count}枚の購入が完了しました (レート ${formatRate(finalPrice)} 減算)。${DISCOUNT_RATE < 1.0 ? ' Luxury割引が適用されました！' : ''}`, 'success');
                 
                 authenticatedUser.score = newScore;
-                CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
+                CURRENT_SCORE_ELEMENT.textContent = formatRate(newScore);
                 
                 LOTTERY_PURCHASE_FORM.reset();
-                LOTTERY_TOTAL_PRICE_DISPLAY.textContent = '合計: - P';
+                LOTTERY_TOTAL_PRICE_DISPLAY.textContent = '合計: -';
                 await loadLotteryData(); 
 
             } else {
@@ -1374,7 +1215,7 @@ async function handleCheckLotteryResult(e) {
     if (!messageEl) return;
     
     button.disabled = true;
-    showMessage(messageEl, '結果を確認し、ポイントを反映中...', 'info');
+    showMessage(messageEl, '結果を確認し、レートを反映中...', 'info');
 
     try {
         const currentData = await fetchAllData();
@@ -1427,14 +1268,14 @@ async function handleCheckLotteryResult(e) {
         if (totalWinnings > 0) {
             let targetPlayer = currentScoresMap.get(player);
             if (targetPlayer) {
-                const newScore = parseFloat((targetPlayer.score + totalWinnings).toFixed(1));
+                const newScore = normalizeRate(targetPlayer.score + totalWinnings);
                 currentScoresMap.set(player, { 
                     ...targetPlayer, 
                     score: newScore
                 });
                 
                 authenticatedUser.score = newScore;
-                CURRENT_SCORE_ELEMENT.textContent = newScore.toFixed(1);
+                CURRENT_SCORE_ELEMENT.textContent = formatRate(newScore);
             }
         }
         
@@ -1461,7 +1302,7 @@ async function handleCheckLotteryResult(e) {
                     return `${rankName}: ${winRankCounts[rank]}枚`;
                 }).join(', ');
 
-                resultMessage += ` ${winCount}枚が当選し、合計 ${totalWinnings.toFixed(1)} P を獲得！ (${prizeDetails})`;
+                resultMessage += ` ${winCount}枚が当選し、合計レート ${formatRate(totalWinnings)} を獲得！ (${prizeDetails})`;
                 
                 showMessage(messageEl, resultMessage, 'success');
             } else {

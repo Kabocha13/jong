@@ -1029,6 +1029,7 @@ html.auth-pending #auth-section { visibility: hidden; }
 
 /* 甲板の板を渡したような操作バー */
 .deck-bar {
+    position: relative;
     padding: 9px 12px;
     background:
         repeating-linear-gradient(90deg,
@@ -1047,7 +1048,40 @@ html.auth-pending #auth-section { visibility: hidden; }
 .deck-bar-slot { flex: 1 1 auto; min-width: 0; }
 .deck-bar-slot:empty { display: none; }
 
-.deck-bar #refresh-button { margin-left: auto; }
+.deck-bar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* ボーナスは更新の隣。更新と同じ小札だが、ランタンの金で一段明るく */
+.deck-bar-bonus {
+    width: auto;
+    min-width: 0;
+    min-height: 34px;
+    margin: 0;
+    padding: 6px 16px;
+    font-size: 0.74em;
+    letter-spacing: 0.14em;
+    color: var(--lantern-soft);
+    background: rgba(74, 45, 12, 0.42);
+    border: 1px solid var(--brass);
+    border-radius: 999px;
+    box-shadow: none;
+}
+
+.deck-bar-bonus:hover {
+    filter: none;
+    color: var(--parchment);
+    background: rgba(96, 60, 16, 0.56);
+    box-shadow: 0 0 12px var(--lantern-glow);
+    transform: none;
+}
+
+.deck-bar-bonus:disabled { opacity: 0.45; }
+.deck-bar-bonus[hidden] { display: none; }
 
 .attendance-button {
     display: inline-block;

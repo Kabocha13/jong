@@ -11,8 +11,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png">
-    <link rel="stylesheet" href="assets/css/style.css?v=42.6.1">
-    <script src="assets/js/header-clock.js?v=42.6.1" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=43.0">
+    <script src="assets/js/header-clock.js?v=43.0" defer></script>
 </head>
 <body>
     <header class="hero" data-scene="battle">
@@ -29,12 +29,15 @@
     <main>
         <div class="deck-bar">
             <div id="attendance-bar" class="deck-bar-slot"></div>
-            <button type="button" id="refresh-button">更新</button>
+            <div class="deck-bar-actions">
+                <button type="button" id="home-bonus-button" class="deck-bar-bonus" hidden>ボーナス</button>
+                <button type="button" id="refresh-button">更新</button>
+            </div>
         </div>
 
         <div class="ranking-scroll-wrapper">
             <div class="ranking-panel" data-scene="treasure">
-                <h2> 現在のスコアランキング </h2>
+                <h2> 現在のレートランキング </h2>
                 <div id="scores-container">
                     <div class="loading-placeholder" role="status" aria-label="ランキングを読み込み中">
                         <div class="skeleton skeleton-row"></div>
@@ -109,7 +112,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=42.6.1"></script>
-    <script src="assets/js/main.js?v=42.6.1"></script>
+    <script src="assets/js/common.js?v=43.0"></script>
+    <script src="assets/js/main.js?v=43.0"></script>
 </body>
 </html>
