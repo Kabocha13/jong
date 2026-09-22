@@ -1064,7 +1064,10 @@ html.auth-pending #auth-section { visibility: hidden; }
     margin: 0;
     padding: 6px 16px;
     font-size: 0.74em;
-    letter-spacing: 0.14em;
+    /* 「ログボ ペナ100%」まで入るよう字間は詰め、桁が増えても幅が跳ねないようにする */
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
     color: var(--lantern-soft);
     background: rgba(74, 45, 12, 0.42);
     border: 1px solid var(--brass);

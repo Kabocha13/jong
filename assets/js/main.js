@@ -383,30 +383,38 @@ function renderSportsBets(sportsBets, displayScores) {
 //   マイページと同じ共通処理を呼ぶので、どちらから押しても挙動は同じ。
 // -----------------------------------------------------------------
 
-let homeBonusPlayerName = '';
+let homeBonusPlayer = null;
 
 function updateHomeBonusButton(scores) {
     if (!HOME_BONUS_BUTTON) return;
 
     const loginName = localStorage.getItem('authUsername') || '';
-    const player = loginName ? (scores || []).find(p => p.name === loginName) : null;
-    homeBonusPlayerName = player ? player.name : '';
+    homeBonusPlayer = loginName ? (scores || []).find(p => p.name === loginName) || null : null;
+    renderHomeBonusLabel();
+}
 
-    if (!player) {
+/**
+ * ペナルティ確率はボタン本体に出す。
+ * スマホではツールチップが開けず、押すまで危険度が分からないため。
+ */
+function renderHomeBonusLabel() {
+    if (!HOME_BONUS_BUTTON) return;
+
+    if (!homeBonusPlayer) {
         HOME_BONUS_BUTTON.hidden = true;
         return;
     }
 
-    const state = getRateBonusState(player);
+    const state = getRateBonusState(homeBonusPlayer);
     HOME_BONUS_BUTTON.hidden = false;
-    HOME_BONUS_BUTTON.textContent = `ボーナス +${state.bonusAmount}`;
-    HOME_BONUS_BUTTON.title = `${state.memberLabel}会員 / ペナルティ確率 ${state.total.toFixed(0)}%`;
+    HOME_BONUS_BUTTON.textContent = `ログボ ペナ${Math.round(state.total)}%`;
+    HOME_BONUS_BUTTON.title = `${state.memberLabel}会員 / 当たり +${state.bonusAmount} / 外れ -${RATE_BONUS_PENALTY}`;
 }
 
 HOME_BONUS_BUTTON?.addEventListener('click', async () => {
-    if (!homeBonusPlayerName) return;
+    if (!homeBonusPlayer) return;
 
-    const originalLabel = HOME_BONUS_BUTTON.textContent;
+    const playerName = homeBonusPlayer.name;
     HOME_BONUS_BUTTON.disabled = true;
     HOME_BONUS_BUTTON.setAttribute('aria-busy', 'true');
     HOME_BONUS_BUTTON.textContent = '受取中…';
@@ -417,7 +425,7 @@ HOME_BONUS_BUTTON?.addEventListener('click', async () => {
             return;
         }
 
-        const result = await claimRateBonus(homeBonusPlayerName);
+        const result = await claimRateBonus(playerName);
         if (result.status !== 'success') {
             showToast(`❌ ${result.message}`, 'error');
             return;
@@ -432,7 +440,8 @@ HOME_BONUS_BUTTON?.addEventListener('click', async () => {
     } finally {
         HOME_BONUS_BUTTON.disabled = false;
         HOME_BONUS_BUTTON.removeAttribute('aria-busy');
-        HOME_BONUS_BUTTON.textContent = originalLabel;
+        // 押すとペナルティ確率が上がるので、ラベルは最新の状態から引き直す
+        renderHomeBonusLabel();
     }
 });
 
