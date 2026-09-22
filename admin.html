@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#060d16">
     <title>マスター管理ページ</title>
     <link rel="icon" type="image/png" href="assets/icon.png">
-    <link rel="stylesheet" href="assets/css/style.css?v=43.0">
+    <link rel="stylesheet" href="assets/css/style.css?v=43.1">
 </head>
 <body>
     <header class="hero hero-compact" data-scene="jail">
@@ -39,14 +39,16 @@
             
             <div class="tool-box">
                 <h3>🀄 麻雀結果入力</h3>
-                <p class="instruction">
-                    4人の最終得点を入力します。<br>
-                    レート変動 = (最終得点 − 30000) ÷ 1000 ＋ ウマ(1位 +30 / 2位 +10 / 3位 −10 / 4位 −30)
-                    ＋ (卓の平均レート − 本人のレート) ÷ 40<br>
-                    <span class="text-small">格上に勝つほど大きく上がり、卓全体の合計は増減しません。</span>
-                </p>
-                
+
                 <form id="mahjong-form">
+                    <div class="form-group">
+                        <label for="mahjong-player-count">ルール:</label>
+                        <select id="mahjong-player-count">
+                            <option value="4" selected>四人麻雀 (原点30000)</option>
+                            <option value="3">三人麻雀 (原点35000)</option>
+                        </select>
+                    </div>
+                    <p class="instruction" id="mahjong-rule-note">ルールを読み込み中...</p>
                     <div id="mahjong-player-inputs">
                         <div class="loading-placeholder" role="status" aria-label="プレイヤーリストをロード中">
                             <div class="skeleton skeleton-row"></div>
@@ -287,7 +289,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=43.0"></script>
-    <script src="assets/js/master.js?v=43.0"></script>
+    <script src="assets/js/common.js?v=43.1"></script>
+    <script src="assets/js/master.js?v=43.1"></script>
 </body>
 </html>

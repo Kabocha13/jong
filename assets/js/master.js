@@ -18,6 +18,8 @@ const CREATE_BET_FORM = document.getElementById('create-bet-form');
 // ★★★ 麻雀結果入力機能 (新規追加) ★★★
 const MAHJONG_FORM = document.getElementById('mahjong-form');
 const MAHJONG_PLAYER_INPUTS_CONTAINER = document.getElementById('mahjong-player-inputs');
+const MAHJONG_PLAYER_COUNT_SELECT = document.getElementById('mahjong-player-count');
+const MAHJONG_RULE_NOTE = document.getElementById('mahjong-rule-note');
 const MAHJONG_MESSAGE_ELEMENT = document.getElementById('mahjong-message');
 const MAHJONG_SUBMIT_BUTTON = document.getElementById('mahjong-submit-button');
 
@@ -48,12 +50,24 @@ const CREATE_GIFT_CODE_MESSAGE = document.getElementById('create-gift-code-messa
 
 
 // --- 定数：麻雀レートのルール ---
-// レート変動 = (最終得点 - 30000) / 1000 + ウマ + (卓平均レート - 自分のレート) / 40
-// ウマの合計もレート差補正の合計も 0 なので、1半荘で卓全体のレートは増減しない。
+// レート変動 = (最終得点 - 原点) / 1000 + ウマ + (卓平均レート - 自分のレート) / 40
+// ウマの合計もレート差補正の合計も 0 なので、人数が何人でも卓全体のレートは増減しない。
 const MAHJONG_SCORE_UNIT = 1000;              // 1000点 = 1レート
-const MAHJONG_UMA = [30, 10, -10, -30];       // 1位〜4位のウマ (合計0)
-const MAHJONG_STARTING_SCORE = 30000;         // 基準点 (返し点)
 const MAHJONG_RATE_DIFF_DIVISOR = 40;         // レート差補正の分母
+const MAHJONG_TOTAL_TOLERANCE = 100;          // 合計点のズレをどこまで黙認するか
+const MAHJONG_RULES = {
+    4: { label: '四人麻雀', startingScore: 30000, uma: [30, 10, -10, -30] },
+    3: { label: '三人麻雀', startingScore: 35000, uma: [30, 0, -30] }
+};
+
+function getMahjongPlayerCount() {
+    const count = parseInt(MAHJONG_PLAYER_COUNT_SELECT?.value, 10);
+    return MAHJONG_RULES[count] ? count : 4;
+}
+
+function getMahjongRule() {
+    return MAHJONG_RULES[getMahjongPlayerCount()];
+}
 let ALL_PLAYER_NAMES = []; // 全プレイヤー名を保持
 
 // ★ 修正: 認証状態をキャッシュではなく、メモリ上の変数で管理
@@ -294,10 +308,28 @@ async function loadTransferPlayerLists() {
 }
 
 // --- 麻雀結果フォーム生成/処理 ---
+function renderMahjongRuleNote() {
+    if (!MAHJONG_RULE_NOTE) return;
+    const count = getMahjongPlayerCount();
+    const rule = MAHJONG_RULES[count];
+    const umaText = rule.uma
+        .map((value, index) => `${index + 1}位 ${value >= 0 ? '+' : ''}${value}`)
+        .join(' / ');
+
+    MAHJONG_RULE_NOTE.innerHTML = `
+        ${count}人の最終得点を入力します (合計 ${formatRate(rule.startingScore * count)} 点)。<br>
+        レート変動 = (最終得点 − ${formatRate(rule.startingScore)}) ÷ ${MAHJONG_SCORE_UNIT}
+        ＋ ウマ(${escapeAdminText(umaText)})
+        ＋ (卓の平均レート − 本人のレート) ÷ ${MAHJONG_RATE_DIFF_DIVISOR}<br>
+        <span class="text-small">格上に勝つほど大きく上がり、卓全体の合計は増減しません。</span>`;
+}
+
 async function loadMahjongForm() {
     // ★ 修正: MAHJONG_PLAYER_INPUTS_CONTAINER が存在しないページ (master_sports等) もあるため、nullチェック
     if (!MAHJONG_PLAYER_INPUTS_CONTAINER) return;
-    
+
+    renderMahjongRuleNote();
+
     const success = await fetchAndSetPlayerNames();
 
     if (!success) {
@@ -305,14 +337,17 @@ async function loadMahjongForm() {
         return;
     }
 
+    // 三人麻雀のダミー席として使っていた 3mahjong は、卓平均レートを狂わせるので選ばせない
+    const selectableNames = ALL_PLAYER_NAMES.filter(name => !RATE_EXCLUDED_PLAYERS.includes(name));
+
     let html = '';
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= getMahjongPlayerCount(); i++) {
         html += `
             <div class="form-group player-input-row">
                 <label for="mahjong-player-${i}-name">プレイヤー${i}:</label>
                 <select id="mahjong-player-${i}-name" required>
                     <option value="" disabled selected>名前を選択</option>
-                    ${ALL_PLAYER_NAMES.map(name => `<option value="${name}">${name}</option>`).join('')}
+                    ${selectableNames.map(name => `<option value="${name}">${name}</option>`).join('')}
                 </select>
                 <input type="number" id="mahjong-player-${i}-score" placeholder="最終得点 (例: 32500)" required>
             </div>
@@ -321,27 +356,35 @@ async function loadMahjongForm() {
     MAHJONG_PLAYER_INPUTS_CONTAINER.innerHTML = html;
 }
 
+MAHJONG_PLAYER_COUNT_SELECT?.addEventListener('change', () => {
+    loadMahjongForm();
+    if (MAHJONG_MESSAGE_ELEMENT) MAHJONG_MESSAGE_ELEMENT.classList.add('hidden');
+});
+
 // ★ 修正: MAHJONG_FORM が存在しないページもあるため、nullチェック
 if (MAHJONG_FORM) {
     MAHJONG_FORM.addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        const playerCount = getMahjongPlayerCount();
+        const rule = MAHJONG_RULES[playerCount];
         const results = [];
         const selectedNames = new Set();
         let totalScore = 0;
-    
-        for (let i = 1; i <= 4; i++) {
+
+        for (let i = 1; i <= playerCount; i++) {
             const nameElement = document.getElementById(`mahjong-player-${i}-name`);
             const scoreElement = document.getElementById(`mahjong-player-${i}-score`);
-    
+
             const name = nameElement.value;
+            // 飛んだ人はマイナス点で終わるので、負の得点も受け付ける
             const score = parseInt(scoreElement.value, 10);
-            
-            if (!name || isNaN(score) || score < 0) {
+
+            if (!name || !Number.isFinite(score)) {
                 showMessage(MAHJONG_MESSAGE_ELEMENT, 'エラー: 名前を選択し、有効な得点を入力してください。', 'error');
                 return;
             }
-    
+
             if (selectedNames.has(name)) {
                 showMessage(MAHJONG_MESSAGE_ELEMENT, 'エラー: 参加者が重複しています。', 'error');
                 return;
@@ -350,11 +393,20 @@ if (MAHJONG_FORM) {
             results.push({ name, score });
             totalScore += score;
         }
-        
-        if (totalScore < 119900 || totalScore > 120100) { 
-            showMessage(MAHJONG_MESSAGE_ELEMENT, `警告: 合計点が ${totalScore} です。120000点周辺ではありません。計算を再確認してください。`, 'error');
+
+        // 合計がずれているとゼロサムが崩れ、卓の外のレートまで動いてしまう
+        const expectedTotal = rule.startingScore * playerCount;
+        if (Math.abs(totalScore - expectedTotal) > MAHJONG_TOTAL_TOLERANCE) {
+            const proceed = window.confirm(
+                `合計点が ${totalScore} 点です (${rule.label}は ${expectedTotal} 点)。\n`
+                + 'このまま反映すると卓全体のレート合計が増減します。続けますか？'
+            );
+            if (!proceed) {
+                showMessage(MAHJONG_MESSAGE_ELEMENT, '反映を中止しました。得点を確認してください。', 'info');
+                return;
+            }
         }
-    
+
         
         MAHJONG_SUBMIT_BUTTON.disabled = true;
         MAHJONG_SUBMIT_BUTTON.textContent = '送信中...';
@@ -382,8 +434,8 @@ if (MAHJONG_FORM) {
             for (let i = 0; i < results.length; i++) {
                 const result = results[i];
 
-                const scoreDifference = (result.score - MAHJONG_STARTING_SCORE) / MAHJONG_SCORE_UNIT;
-                const uma = MAHJONG_UMA[i];
+                const scoreDifference = (result.score - rule.startingScore) / MAHJONG_SCORE_UNIT;
+                const uma = rule.uma[i];
                 const rateDiffBonus = (tableAverageRate - seatRates[i]) / MAHJONG_RATE_DIFF_DIVISOR;
                 const rateChange = Math.round(scoreDifference + uma + rateDiffBonus);
 
@@ -412,7 +464,7 @@ if (MAHJONG_FORM) {
             const response = await updateAllData(newData);
     
             if (response.status === 'success') {
-                showMessage(MAHJONG_MESSAGE_ELEMENT, `✅ 成功! レートが更新されました。`, 'success');
+                showMessage(MAHJONG_MESSAGE_ELEMENT, `✅ 成功! ${rule.label}の結果でレートが更新されました。`, 'success');
                 // フォームをリセットして再ロード
                 MAHJONG_FORM.reset();
                 loadPlayerList(); // レート調整リストを更新
