@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="google-adsense-account" content="ca-pub-1895674082198665">
-    <meta name="theme-color" content="#4f2d18">
+    <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Q-Jong">
@@ -17,13 +16,15 @@
             document.documentElement.classList.add('auth-pending');
         }
     </script>
-    <link rel="stylesheet" href="assets/css/style.css?v=39.5.2">
-    <script src="assets/js/adsense-config.js" defer></script>
-    <script src="assets/js/adsense.js?v=39.5.3" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=42.6.1">
 </head>
 <body>
-    <header>
-        <h1>マイページ</h1>
+    <header class="hero hero-compact" data-scene="treasure">
+        <div class="hero-scene" aria-hidden="true"></div>
+        <div class="hero-veil" aria-hidden="true"></div>
+        <div class="hero-inner">
+            <h1>マイページ</h1>
+        </div>
     </header>
 
     <main id="main-content">
@@ -54,11 +55,8 @@
 
             <nav class="mypage-quick-nav" aria-label="マイページ内メニュー">
                 <a href="#pro-bonus-tool">ボーナス</a>
-                <a href="#spi-tool">問題集</a>
-                <a href="#ranking-decoration-section">装飾</a>
                 <a href="#lottery-section">宝くじ</a>
                 <a href="#sports-wager-section">スポーツ</a>
-                <a href="#exercise-section">運動</a>
                 <a href="#transfer-section">送金</a>
             </nav>
 
@@ -94,47 +92,6 @@
                     ボーナスを受け取る
                 </button>
                 <p id="pro-bonus-message" class="hidden"></p>
-            </details>
-
-            <details class="tool-box mypage-accordion" id="spi-tool">
-                <summary><span>就活問題集</span></summary>
-                <div class="spi-header">
-                    <div id="spi-progress" class="spi-progress">0 / 200</div>
-                </div>
-                <div id="spi-stats" class="spi-stats"></div>
-                <div id="spi-question-card" class="spi-question-card">
-                    <div class="spi-question-meta" id="spi-question-meta"></div>
-                    <p id="spi-question-text" class="spi-question-text">ロード中...</p>
-                    <form id="spi-answer-form">
-                        <div id="spi-choice-list" class="spi-choice-list"></div>
-                        <button type="submit" class="action-button">回答する</button>
-                    </form>
-                    <button type="button" id="spi-next-button" class="action-button secondary-button hidden">次の問題へ</button>
-                </div>
-                <p id="spi-message" class="hidden"></p>
-            </details>
-
-            <details class="tool-box mypage-accordion" id="ranking-decoration-section">
-                <summary><span>🌈 ランキング装飾</span></summary>
-                <div class="ranking-decoration-product-card">
-                    <span class="ranking-decoration-product-bar" aria-hidden="true"></span>
-                    <div>
-                        <strong>レインボーライン</strong>
-                        <p>ランキング左端の縦線だけをレインボーにします。</p>
-                    </div>
-                </div>
-                <p id="ranking-decoration-status" class="instruction">利用状況を確認中...</p>
-                <form id="ranking-decoration-purchase-form">
-                    <div class="form-group flex gap-10 items-end">
-                        <div class="flex-1">
-                            <label for="ranking-decoration-days">購入日数（1P / 日）:</label>
-                            <input type="number" id="ranking-decoration-days" min="1" max="3650" step="1" value="7" required inputmode="numeric">
-                        </div>
-                        <output id="ranking-decoration-total" for="ranking-decoration-days" class="ranking-decoration-total">合計: 7.0 P</output>
-                    </div>
-                    <button type="submit" class="action-button w-auto">レインボー装飾を購入する</button>
-                </form>
-                <p id="ranking-decoration-message" class="hidden" aria-live="polite"></p>
             </details>
 
             <details class="tool-box mypage-accordion" id="lottery-section">
@@ -197,31 +154,6 @@
                 <p id="wager-message" class="hidden"></p>
             </details>
 
-            <details class="tool-box mypage-accordion" id="exercise-section">
-                <summary><span>🏃 運動申請</span></summary>
-                <p class="instruction">ASICSアプリのスクリーンショットを添付してください。<br>付与P = 距離(km) × 10 × min(1.75, 1 + (e^(距離(km)/6) - 1) × 0.35)（マスター承認後）</p>
-                <form id="exercise-form">
-                    <div class="form-group">
-                        <label for="exercise-distance">距離 (km):</label>
-                        <input type="number" id="exercise-distance" step="0.01" min="0.1" required placeholder="例: 5.2" inputmode="decimal">
-                    </div>
-                    <div class="form-group">
-                        <label for="exercise-pace">ペース (分/km):</label>
-                        <input type="text" id="exercise-pace" required placeholder="例: 6'30&quot;">
-                    </div>
-                    <div class="form-group">
-                        <label for="exercise-image">スクリーンショット:</label>
-                        <input type="file" id="exercise-image" accept="image/*" required>
-                    </div>
-                    <button type="submit" class="action-button w-auto btn-green">申請する</button>
-                </form>
-                <p id="exercise-message" class="hidden"></p>
-                <div class="mt-20">
-                    <h4>申請履歴 (最新5件)</h4>
-                    <ul id="exercise-history-list"><li>ロード中...</li></ul>
-                </div>
-            </details>
-
             <details class="tool-box mypage-accordion" id="transfer-section">
                 <summary><span>💸 ポイント送金</span></summary>
                 <p class="instruction">送金元: <strong id="authenticated-user-transfer"></strong></p>
@@ -244,15 +176,14 @@
                 <button type="button" id="enable-notifications-button" class="action-button w-auto btn-green">この端末で通知を受け取る</button>
                 <p id="notification-message" class="hidden" aria-live="polite"></p>
             </details>
-
-            <aside class="qjong-ad" data-ad-slot-key="mypageBottom" aria-label="スポンサーリンク"></aside>
         </section>
     </main>
 
     <footer>
         <nav class="footer-nav" aria-label="メインメニュー">
-            <a href="index.html"  class="input-link"><span class="nav-icon">⌂</span><span>ホーム</span></a>
-            <a href="mypage.html" class="input-link" aria-current="page"><span class="nav-icon">◉</span><span>マイページ</span></a>
+            <a href="index.html"  class="input-link"><span class="nav-icon" data-icon="home" aria-hidden="true"></span><span>ホーム</span></a>
+            <a href="mypage.html" class="input-link" aria-current="page"><span class="nav-icon" data-icon="mypage" aria-hidden="true"></span><span>マイページ</span></a>
+            <a href="admin.html" class="input-link" data-master-only hidden><span class="nav-icon" data-icon="admin" aria-hidden="true"></span><span>管理</span></a>
         </nav>
     </footer>
 
@@ -262,9 +193,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=39.4.2"></script>
-    <script>window.JOB_QUIZ_EMBEDDED = true;</script>
-    <script src="assets/js/job-quiz.js"></script>
-    <script src="assets/js/mypage.js?v=39.4.2"></script>
+    <script src="assets/js/common.js?v=42.6.1"></script>
+    <script src="assets/js/mypage.js?v=42.6.1"></script>
 </body>
 </html>

@@ -5,7 +5,6 @@ const ADMIN_TOOLS = document.getElementById('admin-tools');
 const AUTH_MESSAGE = document.getElementById('auth-message');
 const TARGET_PLAYER_SELECT = document.getElementById('target-player');
 const MASTER_LOGOUT_BUTTON = document.getElementById('master-logout-button');
-const MASTER_PIN = '5513';
 
 // ★ 送金機能 (既存)
 const TRANSFER_FORM = document.getElementById('transfer-form');
@@ -28,15 +27,10 @@ const DAILY_TAX_RATE_INPUT = document.getElementById('daily-tax-rate');
 const DAILY_TAX_STATUS = document.getElementById('daily-tax-status');
 const DAILY_TAX_MESSAGE = document.getElementById('daily-tax-message');
 
-// ★ 陣取り合戦シーズン終了
-const TERRITORY_SEASON_END_BUTTON = document.getElementById('territory-season-end-button');
-const TERRITORY_SEASON_STATUS = document.getElementById('territory-season-status');
-const TERRITORY_SEASON_MESSAGE = document.getElementById('territory-season-message');
+const MEMBER_STATUS_LIST = document.getElementById('member-status-list');
+const MEMBER_STATUS_SAVE_BUTTON = document.getElementById('member-status-save-button');
+const MEMBER_STATUS_MESSAGE = document.getElementById('member-status-message');
 
-// SPI分析
-const SPI_ANALYSIS_CONTAINER = document.getElementById('spi-analysis-container');
-
-// ★ 出席登録の表示設定
 const ATTENDANCE_ACCESS_LIST = document.getElementById('attendance-access-list');
 const ATTENDANCE_ACCESS_SAVE_BUTTON = document.getElementById('attendance-access-save-button');
 const ATTENDANCE_ACCESS_MESSAGE = document.getElementById('attendance-access-message');
@@ -60,6 +54,21 @@ let ALL_PLAYER_NAMES = []; // 全プレイヤー名を保持
 // ★ 修正: 認証状態をキャッシュではなく、メモリ上の変数で管理
 let isAuthenticatedAsMaster = false;
 
+/**
+ * 管理画面に差し込む文字列のエスケープ。
+ * main.js の escapeText と同じ処理だが、main.js は管理画面では読み込まれないため
+ * ここに定義する (未定義のまま呼ばれていて出席表示設定が動作していなかった)
+ */
+function escapeAdminText(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    }[char]));
+}
+
 function finishAuthPending() {
     document.documentElement.classList.remove('auth-pending');
 }
@@ -70,24 +79,39 @@ function finishAuthPending() {
 // -----------------------------------------------------------------
 
 /**
- * PINでマスター画面を開く処理
- * @param {string} pin - 入力されたPIN
+ * マスターアカウントのID/パスワードで管理画面を開く処理
+ * @param {string} username - 入力されたID (MASTER_USERNAME と一致する必要がある)
+ * @param {string} password - 入力されたパスワード
  * @param {boolean} isAuto - 自動ログインかどうか
  * @returns {Promise<boolean>} 認証成功ならtrue
  */
-async function attemptMasterLogin(pin, isAuto = false) {
+async function attemptMasterLogin(username, password, isAuto = false) {
     if (!isAuto) {
         showMessage(AUTH_MESSAGE, '確認中...', 'info');
     }
 
-    if (pin !== MASTER_PIN) {
-        showMessage(AUTH_MESSAGE, '❌ PINが違います。', 'error');
+    // 管理画面はマスターアカウント専用。他のユーザーのログインは受け付けない
+    if (username !== MASTER_USERNAME) {
+        showMessage(AUTH_MESSAGE, '❌ 管理者アカウントではありません。', 'error');
         finishAuthPending();
         return false;
     }
 
     try {
-        window.QJONG_MASTER_PIN_FOR_WRITES = MASTER_PIN;
+        // マイページと同じ認証を通す。以降の書き込みは Firebase の IDトークンで認可される
+        await qjongSignIn(username, password);
+    } catch (error) {
+        if (isAuto) {
+            localStorage.removeItem('authUsername');
+            localStorage.removeItem('authPassword');
+        } else {
+            showMessage(AUTH_MESSAGE, '❌ IDまたはパスワードが違います。', 'error');
+        }
+        finishAuthPending();
+        return false;
+    }
+
+    try {
         await runDailyPointTaxIfNeeded().catch(error => {
             console.warn('日次ポイント徴収に失敗しました。マスター画面の表示は継続します。', error);
         });
@@ -106,6 +130,9 @@ async function attemptMasterLogin(pin, isAuto = false) {
 
         // ★ 認証成功ロジック
         isAuthenticatedAsMaster = true;
+        localStorage.setItem('authUsername', username);
+        localStorage.setItem('authPassword', password);
+        if (window.refreshMasterNavLinks) window.refreshMasterNavLinks();
         if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
         // UIの切り替え
@@ -120,11 +147,9 @@ async function attemptMasterLogin(pin, isAuto = false) {
         initializeSportsMasterTools();
         loadMahjongForm();
         initializeLotteryForm();
-        loadExerciseReports();
-        loadSpiAnalysis();
         loadSpecialThemeStatus();
         loadAttendanceAccessStatus();
-        loadTerritorySeasonStatus();
+        loadMemberStatusList();
         loadDailyTaxSettings();
         
         if (!isAuto) {
@@ -154,8 +179,10 @@ function handleMasterLogout() {
     
     // 1. 状態をリセット
     isAuthenticatedAsMaster = false;
-    delete window.QJONG_MASTER_PIN_FOR_WRITES;
+    localStorage.removeItem('authUsername');
+    localStorage.removeItem('authPassword');
     qjongSignOut();
+    if (window.refreshMasterNavLinks) window.refreshMasterNavLinks();
     if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
     // 2. 状態をリセットし、UIを切り替える
@@ -171,6 +198,14 @@ function handleMasterLogout() {
  * ページロード時の自動ログイン処理
  */
 async function autoLogin() {
+    const username = localStorage.getItem('authUsername');
+    const password = localStorage.getItem('authPassword');
+
+    if (username === MASTER_USERNAME && password) {
+        const success = await attemptMasterLogin(username, password, true);
+        if (!success) finishAuthPending();
+        return;
+    }
     finishAuthPending();
 }
 
@@ -180,8 +215,9 @@ async function autoLogin() {
 if (AUTH_FORM) {
     AUTH_FORM.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const pin = document.getElementById('master-pin').value.trim();
-        await attemptMasterLogin(pin, false);
+        const username = document.getElementById('master-username').value.trim();
+        const password = document.getElementById('master-password').value;
+        await attemptMasterLogin(username, password, false);
     });
 }
 
@@ -1161,123 +1197,6 @@ if (DAILY_TAX_FORM) {
     });
 }
 
-// --- 陣取り合戦シーズン終了 ---
-
-function getTerritorySeasonWinner(battle) {
-    const normalized = normalizeTerritoryBattle(battle);
-    const owners = normalized.tiles.map(tile => tile.owner).filter(Boolean);
-    if (owners.length !== normalized.tiles.length) return null;
-    const firstOwner = owners[0];
-    return owners.every(owner => owner === firstOwner) ? firstOwner : null;
-}
-
-async function loadTerritorySeasonStatus() {
-    if (!TERRITORY_SEASON_END_BUTTON || !TERRITORY_SEASON_STATUS) return;
-
-    TERRITORY_SEASON_END_BUTTON.disabled = true;
-    TERRITORY_SEASON_STATUS.textContent = '戦況を確認中...';
-
-    try {
-        const currentData = await fetchAllData();
-        const battle = normalizeTerritoryBattle(currentData.territory_battle);
-        const winner = getTerritorySeasonWinner(battle);
-        const occupiedCount = battle.tiles.filter(tile => tile.owner).length;
-        const seasonNumber = getTerritorySeasonNumber(battle);
-
-        if (winner) {
-            TERRITORY_SEASON_STATUS.textContent = `第${seasonNumber}シーズン制覇: ${winner}。終了できます。`;
-            TERRITORY_SEASON_END_BUTTON.disabled = false;
-        } else {
-            TERRITORY_SEASON_STATUS.textContent = `第${seasonNumber}シーズン進行中: ${occupiedCount}/${battle.tiles.length}区制圧。全区を1ユーザーが制覇すると終了できます。`;
-        }
-    } catch (error) {
-        console.error('陣取り戦況の取得に失敗:', error);
-        TERRITORY_SEASON_STATUS.textContent = `戦況の取得に失敗しました: ${error.message}`;
-    }
-}
-
-async function handleTerritorySeasonEnd() {
-    if (!TERRITORY_SEASON_END_BUTTON || !TERRITORY_SEASON_MESSAGE) return;
-
-    TERRITORY_SEASON_END_BUTTON.disabled = true;
-    showMessage(TERRITORY_SEASON_MESSAGE, '陣取りシーズンを終了中...', 'info');
-
-    try {
-        const currentData = await fetchAllData();
-        const battle = normalizeTerritoryBattle(currentData.territory_battle);
-        const winner = getTerritorySeasonWinner(battle);
-
-        if (!winner) {
-            showMessage(TERRITORY_SEASON_MESSAGE, '❌ まだ1ユーザーが全区を制覇していません。', 'error');
-            await loadTerritorySeasonStatus();
-            return;
-        }
-
-        if (!window.confirm(`${winner} に1000Pを付与し、次シーズンでは各プレイヤーにランダムな初期地点を1区ずつ割り当てます。よろしいですか？`)) {
-            await loadTerritorySeasonStatus();
-            return;
-        }
-
-        const scoresMap = new Map((currentData.scores || []).map(player => [player.name, player]));
-        const winnerData = scoresMap.get(winner);
-        if (!winnerData) {
-            showMessage(TERRITORY_SEASON_MESSAGE, `❌ 勝者 ${winner} のプレイヤーデータが見つかりません。`, 'error');
-            await loadTerritorySeasonStatus();
-            return;
-        }
-
-        scoresMap.set(winner, {
-            ...winnerData,
-            score: parseFloat(((winnerData.score || 0) + 1000).toFixed(1))
-        });
-
-        const currentSeasonNumber = getTerritorySeasonNumber(battle);
-        const nextSeasonNumber = currentSeasonNumber + 1;
-        const nextBattle = createTerritoryBattleWithInitialOwners(nextSeasonNumber, Array.from(scoresMap.values()));
-        const initialOwnerCount = nextBattle.tiles.filter(tile => tile.owner).length;
-        nextBattle.actions = [
-            ...(battle.actions || []),
-            {
-                at: new Date().toISOString(),
-                player: winner,
-                tileId: 'season',
-                tileName: `第${currentSeasonNumber}シーズン`,
-                amount: 1000,
-                previousOwner: winner,
-                owner: null,
-                result: `${winner} が全区制覇。1000Pを獲得し、第${nextSeasonNumber}シーズンへ移行しました。`
-            },
-            ...(nextBattle.actions || [])
-        ].slice(-30);
-
-        const response = await updateAllData({
-            ...currentData,
-            scores: Array.from(scoresMap.values()),
-            territory_battle: nextBattle
-        });
-
-        if (response.status === 'success') {
-            invalidateFetchCache();
-            showMessage(TERRITORY_SEASON_MESSAGE, `✅ ${winner} に1000Pを付与し、第${nextSeasonNumber}シーズンを開始しました。初期地点を${initialOwnerCount}人に割り当てました。`, 'success');
-            await loadPlayerList();
-            await loadTransferPlayerLists();
-            await loadTerritorySeasonStatus();
-        } else {
-            showMessage(TERRITORY_SEASON_MESSAGE, `❌ シーズン終了エラー: ${response.message}`, 'error');
-            await loadTerritorySeasonStatus();
-        }
-    } catch (error) {
-        console.error('陣取りシーズン終了中にエラー:', error);
-        showMessage(TERRITORY_SEASON_MESSAGE, `❌ サーバーエラー: ${error.message}`, 'error');
-        await loadTerritorySeasonStatus();
-    }
-}
-
-if (TERRITORY_SEASON_END_BUTTON) {
-    TERRITORY_SEASON_END_BUTTON.addEventListener('click', handleTerritorySeasonEnd);
-}
-
-
 // -----------------------------------------------------------------
 // ★★★ 新規追加: プレゼントコード発行機能 ★★★
 // -----------------------------------------------------------------
@@ -1510,236 +1429,6 @@ if (CREATE_LOTTERY_FORM) {
     });
 }
 
-// ============================================================
-// 運動申請 承認
-// ============================================================
-
-async function loadExerciseReports() {
-    const container = document.getElementById('exercise-reports-container');
-    if (!container) return;
-
-    try {
-        const currentData = await fetchAllData();
-        const pending = (currentData.exercise_reports || []).filter(r => r.status === 'pending');
-
-        if (pending.length === 0) {
-            container.innerHTML = '<p>未承認の申請はありません。</p>';
-            return;
-        }
-
-        container.innerHTML = pending.map(r => {
-            const date    = new Date(r.submittedAt).toLocaleDateString('ja-JP');
-            const warning = r.suspicious ? ' <span style="color:#dc3545;font-weight:bold;">⚠️ ペースが速すぎます（要確認）</span>' : '';
-            return `
-                <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px;">
-                    <strong>${r.player}</strong>　${date}<br>
-                    距離: ${r.distance}km　ペース: ${r.pace}　獲得予定: <strong>${r.points}P</strong>${warning}<br>
-                    <img src="${r.imageUrl}" style="max-width:100%;margin:8px 0;border-radius:4px;display:block;">
-                    <button onclick="handleExerciseAction('${r.id}','approve')" class="action-button w-auto btn-green" style="padding:6px 14px;margin-right:8px;">承認 (+${r.points}P)</button>
-                    <button onclick="handleExerciseAction('${r.id}','reject')" class="action-button w-auto btn-black" style="padding:6px 14px;">却下</button>
-                </div>`;
-        }).join('');
-    } catch (err) {
-        container.innerHTML = '<p>申請の読み込みに失敗しました。</p>';
-    }
-}
-
-// ============================================================
-// SPI正答率分析
-// ============================================================
-
-async function loadSpiAnalysis() {
-    if (!SPI_ANALYSIS_CONTAINER) return;
-    SPI_ANALYSIS_CONTAINER.innerHTML = '<p>読み込み中...</p>';
-
-    try {
-        const currentBankVersion = window.SPI_BANK_VERSION || 'spi-v8';
-        const [questionStats, currentData] = await Promise.all([
-            fetchSpiQuestionStats(),
-            fetchAllData()
-        ]);
-        const players = currentData.scores || [];
-        const playerSummary = summarizeSpiPlayerStats(players, currentBankVersion);
-        const answerStats = summarizeSpiAnswerRecords(players, currentBankVersion);
-        const savedQuestionStats = questionStats
-            .filter(item => isCurrentSpiQuestionStat(item, currentBankVersion))
-            .filter(item => Number(item.attempts || 0) > 0)
-            .map(item => {
-                const attempts = Number(item.attempts || 0);
-                const correct = Number(item.correct || 0);
-                return {
-                    ...item,
-                    attempts,
-                    correct,
-                    accuracy: attempts > 0 ? (correct / attempts) * 100 : 0
-                };
-            })
-            .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
-        const stats = answerStats.length > 0 ? answerStats : savedQuestionStats;
-
-        if (playerSummary.attempts === 0 && stats.length === 0) {
-            SPI_ANALYSIS_CONTAINER.innerHTML = '<p>現行SPI問題集の回答データはまだありません。</p>';
-            return;
-        }
-
-        const detailTotalAttempts = stats.reduce((sum, item) => sum + item.attempts, 0);
-        const detailTotalCorrect = stats.reduce((sum, item) => sum + item.correct, 0);
-        const usePlayerSummary = playerSummary.attempts > 0;
-        const totalAttempts = usePlayerSummary ? playerSummary.attempts : detailTotalAttempts;
-        const totalCorrect = usePlayerSummary ? playerSummary.correct : detailTotalCorrect;
-        const totalAccuracy = totalAttempts > 0 ? (totalCorrect / totalAttempts) * 100 : 0;
-        const domainRows = summarizeSpiItems(stats, 'domain');
-        const categoryRows = summarizeSpiItems(stats, 'category');
-        const detailNotice = detailTotalAttempts !== totalAttempts
-            ? `<p class="instruction">区分別・分野別の内訳は${detailTotalAttempts}問分から表示しています。</p>`
-            : '';
-
-        SPI_ANALYSIS_CONTAINER.innerHTML = `
-            <div class="spi-analysis-summary">
-                <strong>全体正答率 ${totalAccuracy.toFixed(1)}%</strong>
-                <span>${escapeAdminText(currentBankVersion)}: ${totalAttempts}問回答 / ${totalCorrect}問正解 / ${playerSummary.players}人</span>
-            </div>
-            ${detailNotice}
-            ${stats.length > 0
-                ? `<div style="overflow-x:auto;">
-                    ${renderSpiSummaryTable('区分別', domainRows)}
-                    ${renderSpiSummaryTable('分野別', categoryRows)}
-                </div>`
-                : '<p>区分別・分野別の内訳データはまだありません。</p>'}
-        `;
-    } catch (err) {
-        SPI_ANALYSIS_CONTAINER.innerHTML = `<p>SPI分析の読み込みに失敗しました: ${escapeAdminText(err.message)}</p>`;
-    }
-}
-
-function summarizeSpiAnswerRecords(players, currentBankVersion) {
-    const questionMap = new Map();
-    (players || []).forEach(player => {
-        const records = player && player.spiStats && Array.isArray(player.spiStats.answerRecords)
-            ? player.spiStats.answerRecords
-            : [];
-        records.forEach(record => {
-            if (!isCurrentSpiAnswerRecord(record, currentBankVersion)) return;
-            const questionId = record.questionId || record.id;
-            if (!questionId) return;
-
-            const current = questionMap.get(questionId) || {
-                id: questionId,
-                domain: record.domain || '-',
-                category: record.category || '-',
-                prompt: record.prompt || questionId,
-                attempts: 0,
-                correct: 0
-            };
-            current.domain = record.domain || current.domain;
-            current.category = record.category || current.category;
-            current.prompt = record.prompt || current.prompt;
-            current.attempts += 1;
-            current.correct += record.isCorrect ? 1 : 0;
-            questionMap.set(questionId, current);
-        });
-    });
-
-    return Array.from(questionMap.values())
-        .map(item => ({
-            ...item,
-            accuracy: item.attempts > 0 ? (item.correct / item.attempts) * 100 : 0
-        }))
-        .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
-}
-
-function isCurrentSpiAnswerRecord(record, currentBankVersion) {
-    if (!record) return false;
-    if (record.bankVersion) return record.bankVersion === currentBankVersion;
-    const questionId = record.questionId || record.id;
-    return String(questionId || '').startsWith(`${currentBankVersion}-`);
-}
-
-function summarizeSpiPlayerStats(players, currentBankVersion) {
-    return (players || []).reduce((summary, player) => {
-        const stats = player && player.spiStats ? player.spiStats : null;
-        if (!isCurrentSpiPlayerStats(stats, currentBankVersion)) return summary;
-
-        const answeredIds = Array.isArray(stats.answeredQuestionIds) ? stats.answeredQuestionIds : [];
-        const attempted = Number(stats.attempted || answeredIds.length || 0);
-        const correct = Number(stats.correct || 0);
-        if (attempted <= 0) return summary;
-
-        summary.players += 1;
-        summary.attempts += attempted;
-        summary.correct += correct;
-        return summary;
-    }, { players: 0, attempts: 0, correct: 0 });
-}
-
-function isCurrentSpiPlayerStats(stats, currentBankVersion) {
-    if (!stats) return false;
-    if (stats.bankVersion) return stats.bankVersion === currentBankVersion;
-    const answeredIds = Array.isArray(stats.answeredQuestionIds) ? stats.answeredQuestionIds : [];
-    return answeredIds.some(id => String(id).startsWith(`${currentBankVersion}-`));
-}
-
-function isCurrentSpiQuestionStat(item, currentBankVersion) {
-    if (!item || !item.id) return false;
-    if (item.bankVersion) return item.bankVersion === currentBankVersion;
-    return String(item.id).startsWith(`${currentBankVersion}-`);
-}
-
-// ============================================================
-// スペシャルテーマ設定
-// ============================================================
-
-function escapeAdminText(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    }[char]));
-}
-
-function summarizeSpiItems(items, key) {
-    const summaryMap = new Map();
-    items.forEach(item => {
-        const label = item[key] || '-';
-        const current = summaryMap.get(label) || { label, attempts: 0, correct: 0 };
-        current.attempts += item.attempts;
-        current.correct += item.correct;
-        summaryMap.set(label, current);
-    });
-    return Array.from(summaryMap.values())
-        .map(item => ({
-            ...item,
-            accuracy: item.attempts > 0 ? (item.correct / item.attempts) * 100 : 0
-        }))
-        .sort((a, b) => a.accuracy - b.accuracy || b.attempts - a.attempts);
-}
-
-function renderSpiSummaryTable(title, rows) {
-    return `
-        <h4>${escapeAdminText(title)}</h4>
-        <table class="career-table">
-            <thead>
-                <tr>
-                    <th>分野</th>
-                    <th>正答率</th>
-                    <th>正解/回答</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${rows.map(row => `
-                    <tr>
-                        <td>${escapeAdminText(row.label)}</td>
-                        <td><strong>${row.accuracy.toFixed(1)}%</strong></td>
-                        <td>${row.correct}/${row.attempts}</td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-}
-
 async function loadSpecialThemeStatus() {
     const el = document.getElementById('special-theme-current');
     if (!el) return;
@@ -1765,7 +1454,6 @@ async function saveSpecialTheme(themeData) {
             speedstorm_records:   currentData.speedstorm_records    || [],
             lotteries:            currentData.lotteries             || [],
             gift_codes:           currentData.gift_codes            || [],
-            exercise_reports:     currentData.exercise_reports      || [],
             career_posts:         currentData.career_posts          || [],
             special_theme:        themeData,
         };
@@ -1868,13 +1556,95 @@ if (ATTENDANCE_ACCESS_SAVE_BUTTON) {
     ATTENDANCE_ACCESS_SAVE_BUTTON.addEventListener('click', saveAttendanceAccessStatus);
 }
 
-async function handleExerciseAction(reportId, action) {
-    const messageEl = document.getElementById('exercise-action-message');
+
+// -----------------------------------------------------------------
+// ★★★ 会員ステータス (一般 / プロ / ラグジュアリー) の変更 ★★★
+// -----------------------------------------------------------------
+
+// ランキングの表示に使われる値。main.js の判定と一致させること
+const MEMBER_STATUS_OPTIONS = [
+    { value: 'none',    label: '一般' },
+    { value: 'pro',     label: 'プロ ⭐' },
+    { value: 'luxury',  label: 'ラグジュアリー 💎' }
+];
+
+async function loadMemberStatusList() {
+    if (!MEMBER_STATUS_LIST) return;
+
+    MEMBER_STATUS_LIST.innerHTML = '<p>読み込み中...</p>';
     try {
-        const data = await handleExerciseActionInFirebase(reportId, action);
-        showMessage(messageEl, data.message, data.status === 'success' ? 'success' : 'error');
-        await loadExerciseReports();
-    } catch (err) {
-        showMessage(messageEl, `❌ エラー: ${err.message}`, 'error');
+        const currentData = await fetchAllData();
+        const players = currentData.scores || [];
+
+        if (players.length === 0) {
+            MEMBER_STATUS_LIST.innerHTML = '<p>プレイヤーが見つかりません。</p>';
+            return;
+        }
+
+        MEMBER_STATUS_LIST.innerHTML = players.map(player => {
+            const name = escapeAdminText(player.name);
+            const current = player.status || 'none';
+            const options = MEMBER_STATUS_OPTIONS.map(option => {
+                const selected = option.value === current ? ' selected' : '';
+                return `<option value="${option.value}"${selected}>${option.label}</option>`;
+            }).join('');
+            return `
+                <label class="member-status-row">
+                    <span class="member-status-name">${name}</span>
+                    <select class="member-status-select" data-player="${name}">${options}</select>
+                </label>
+            `;
+        }).join('');
+    } catch (error) {
+        MEMBER_STATUS_LIST.innerHTML = `<p>読み込みに失敗しました: ${escapeAdminText(error.message)}</p>`;
     }
+}
+
+async function saveMemberStatuses() {
+    if (!MEMBER_STATUS_LIST || !MEMBER_STATUS_MESSAGE) return;
+
+    const selected = new Map();
+    MEMBER_STATUS_LIST.querySelectorAll('.member-status-select').forEach(select => {
+        selected.set(select.dataset.player, select.value);
+    });
+
+    if (MEMBER_STATUS_SAVE_BUTTON) MEMBER_STATUS_SAVE_BUTTON.disabled = true;
+    showMessage(MEMBER_STATUS_MESSAGE, 'ステータスを保存中...', 'info');
+
+    try {
+        const currentData = await fetchAllData();
+        let changed = 0;
+
+        // 取得しなおしたデータに対して差分だけ当てる。
+        // 画面を開いている間に他の値が更新されていても巻き戻さないため
+        const scores = (currentData.scores || []).map(player => {
+            const next = selected.get(player.name);
+            if (next === undefined || next === (player.status || 'none')) return player;
+            changed += 1;
+            return { ...player, status: next };
+        });
+
+        if (changed === 0) {
+            showMessage(MEMBER_STATUS_MESSAGE, '変更はありませんでした。', 'info');
+            return;
+        }
+
+        const response = await updateAllData({ ...currentData, scores });
+
+        if (response.status === 'success') {
+            invalidateFetchCache();
+            showMessage(MEMBER_STATUS_MESSAGE, `✅ ${changed}人のステータスを更新しました。`, 'success');
+            await loadMemberStatusList();
+        } else {
+            showMessage(MEMBER_STATUS_MESSAGE, `❌ 保存エラー: ${response.message}`, 'error');
+        }
+    } catch (error) {
+        showMessage(MEMBER_STATUS_MESSAGE, `❌ サーバーエラー: ${error.message}`, 'error');
+    } finally {
+        if (MEMBER_STATUS_SAVE_BUTTON) MEMBER_STATUS_SAVE_BUTTON.disabled = false;
+    }
+}
+
+if (MEMBER_STATUS_SAVE_BUTTON) {
+    MEMBER_STATUS_SAVE_BUTTON.addEventListener('click', saveMemberStatuses);
 }

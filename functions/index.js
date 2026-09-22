@@ -6,20 +6,16 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 const app = admin.initializeApp();
 const db = getFirestore(app, 'q-jong');
 const MASTER_USERNAME = 'Kabocha';
-const MASTER_PIN = '5513';
 const FIREBASE_COLLECTIONS = {
   scores: 'players',
   sports_bets: 'sports_bets',
   speedstorm_records: 'speedstorm_records',
   lotteries: 'lotteries',
   gift_codes: 'gift_codes',
-  exercise_reports: 'exercise_reports',
   career_posts: 'career_posts'
 };
 const DAILY_POINT_TAX_DEFAULT_RATE = 0.05;
 const DAILY_POINT_TAX_EXCLUDED_PLAYERS = new Set(['3mahjong']);
-const RANKING_DECORATION_PRICE_PER_DAY = 1;
-const RANKING_DECORATION_MAX_PURCHASE_DAYS = 3650;
 const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
 const DEFAULT_MANABA_LOGIN_PATH = '/ct/login';
 const DEFAULT_MANABA_ASSIGNMENTS_PATH = '/ct/home_library_query';
@@ -56,7 +52,6 @@ function getItemDocId(key, item, index) {
   if (key === 'sports_bets') return toDocId(item.betId ?? item.id ?? `bet_${index}`);
   if (key === 'lotteries') return toDocId(item.lotteryId ?? item.id ?? `lottery_${index}`);
   if (key === 'gift_codes') return toDocId(item.code ?? item.name ?? item.id ?? `gift_${index}`);
-  if (key === 'exercise_reports') return toDocId(item.id ?? `exercise_${index}`);
   if (key === 'career_posts') return toDocId(item.id ?? `career_${index}`);
   if (key === 'speedstorm_records') return toDocId(item.id ?? item.player ?? `speedstorm_${index}`);
   return toDocId(item.id ?? index);
@@ -76,7 +71,9 @@ async function getVerifiedAuthToken(req) {
 }
 
 async function hasWriteAccess(req, body = {}) {
-  if (String(body.masterPin || '') === MASTER_PIN) return true;
+  // 以前は body.masterPin が固定PINと一致すれば書き込みを許可していたが、
+  // そのPINは公開JSに直書きされて配信されていたため廃止した。
+  // 書き込みは Firebase の IDトークン検証のみで認可する
   return Boolean(await getVerifiedAuthToken(req));
 }
 
@@ -284,6 +281,9 @@ function findLinkByClass(rowHtml, className, baseUrl) {
   return { text: stripTags(linkMatch[5] || ''), url };
 }
 
+// manaba の見出し・絞り込み UI に出る文言。これらを含む塊は課題ではない
+const MANABA_UI_NOISE = /(課題一覧|非表示に設定中|全課題|受付終了まで|絞り込|一覧に戻る|コースメニュー|マイページ)/;
+
 function parseManabaLibraryAssignments(html, baseUrl) {
   if (!/未提出の課題一覧|myassignments-title/.test(String(html || ''))) return [];
   const rows = String(html || '').match(/<tr\b[\s\S]*?<\/tr>/gi) || [];
@@ -359,8 +359,15 @@ function parseManabaAssignmentBlocks(html, baseUrl) {
     const block = match[0];
     const text = stripTags(block);
     if (text.length < 8 || !pendingWords.test(text) || doneWords.test(text)) continue;
+    // 見出しや絞り込みパネルは「未提出の課題一覧」を含むため pendingWords に引っかかる。
+    // これを課題として登録しないように、画面部品の文言と長すぎる本文を弾く
+    if (MANABA_UI_NOISE.test(text)) continue;
+    if (text.length > 200) continue;
     const url = findFirstLink(block, baseUrl);
+    if (!url) continue;
     const deadlineText = (text.match(/20\d{2}[\/.-]\d{1,2}[\/.-]\d{1,2}[^\s　]*/)?.[0]) || '';
+    // 実際の課題には必ず受付終了日時が入る。日付が取れない塊は課題ではない
+    if (!deadlineText) continue;
     const sourceKey = `${text.slice(0, 100)}|${url}`;
     assignments.push({
       id: `manaba_${Buffer.from(sourceKey).toString('base64url').slice(0, 40)}`,
@@ -402,6 +409,7 @@ function parseManabaAssignments(html, baseUrl) {
 
     const deadlineText = cells.find(cell => /20\d{2}[\/.-]\d{1,2}[\/.-]\d{1,2}/.test(cell)) || '';
     const status = cells.find(cell => pendingWords.test(cell)) || '未提出';
+    if (MANABA_UI_NOISE.test(text)) return;
     const title = cells.find(cell => !pendingWords.test(cell) && cell !== deadlineText) || text.slice(0, 80);
     const course = cells.length >= 3 ? cells[0] : '';
     const url = findFirstLink(row, baseUrl);
@@ -425,7 +433,8 @@ function parseManabaAssignments(html, baseUrl) {
   [...assignments, ...blockAssignments].forEach(item => {
     merged.set(item.id, item);
   });
-  return [...merged.values()];
+  // 解析漏れの保険。画面部品の文言がタイトルに残っているものは最後に落とす
+  return [...merged.values()].filter(item => !MANABA_UI_NOISE.test(item.title));
 }
 
 function getHtmlTitle(html) {
@@ -755,108 +764,11 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
-    if (data.territory_battle) {
-      batch.set(db.collection('territory_battle').doc('current'), {
-        ...data.territory_battle,
-        updatedAt: new Date().toISOString()
-      });
-    }
-
     await batch.commit();
     res.status(200).json({ status: 'success', message: 'データをFirebaseに保存しました。' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 'error', message: `Firebase書き込み失敗: ${error.message}` });
-  }
-});
-
-export const purchaseRankingDecoration = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
-  setCors(req, res);
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-  if (req.method !== 'POST') {
-    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
-    return;
-  }
-
-  try {
-    const body = req.body || {};
-    const playerName = String(body.player || '').trim();
-    const days = Number(body.days);
-    const authToken = await getVerifiedAuthToken(req);
-
-    if (!authToken) {
-      res.status(401).json({ status: 'error', message: '認証が必要です。' });
-      return;
-    }
-    if (!playerName || authToken.uid !== authUidFromUsername(playerName)) {
-      res.status(403).json({ status: 'error', message: '自分の装飾だけ購入できます。' });
-      return;
-    }
-    if (!Number.isInteger(days) || days < 1 || days > RANKING_DECORATION_MAX_PURCHASE_DAYS) {
-      res.status(400).json({ status: 'error', message: '購入日数を正しく入力してください。' });
-      return;
-    }
-
-    const cost = days * RANKING_DECORATION_PRICE_PER_DAY;
-    const playerRef = db.collection('players').doc(toDocId(playerName));
-    const result = await db.runTransaction(async transaction => {
-      const playerDoc = await transaction.get(playerRef);
-      if (!playerDoc.exists) throw new Error('プレイヤーデータが見つかりません。');
-
-      const player = playerDoc.data();
-      const currentScore = Number(player.score || 0);
-      if (currentScore < cost) throw new Error(`ポイント残高が不足しています。必要: ${cost.toFixed(1)}P`);
-
-      const now = new Date();
-      const currentDecoration = String(player.rankingDecoration || player.equippedDecoration || '');
-      const currentExpiresAt = player.rankingDecorationExpiresAt || player.decorationExpiresAt;
-      const currentExpiresAtMs = new Date(currentExpiresAt || '').getTime();
-      const extensionBaseMs = currentDecoration === 'rainbow' && Number.isFinite(currentExpiresAtMs) && currentExpiresAtMs > now.getTime()
-        ? currentExpiresAtMs
-        : now.getTime();
-      const expiresAt = new Date(extensionBaseMs + days * 24 * 60 * 60 * 1000).toISOString();
-      const nextScore = Number((currentScore - cost).toFixed(1));
-      const purchasedAt = now.toISOString();
-
-      transaction.set(playerRef, {
-        ...player,
-        score: nextScore,
-        rankingDecoration: 'rainbow',
-        rankingDecorationExpiresAt: expiresAt,
-        rankingDecorationPurchasedAt: purchasedAt
-      }, { merge: false });
-
-      const historyId = pointHistoryDocId(playerName, purchasedAt);
-      transaction.set(db.collection('point_history').doc(historyId), {
-        id: historyId,
-        player: playerName,
-        beforeScore: Number(currentScore.toFixed(1)),
-        afterScore: nextScore,
-        delta: Number((-cost).toFixed(1)),
-        source: 'ranking_decoration_purchase',
-        reason: `レインボーランキング装飾 ${days}日`,
-        actor: playerName,
-        createdAt: purchasedAt
-      });
-
-      return { score: nextScore, expiresAt };
-    });
-
-    res.status(200).json({
-      status: 'success',
-      message: 'レインボー装飾を購入しました。',
-      decoration: 'rainbow',
-      days,
-      cost,
-      score: result.score,
-      expiresAt: result.expiresAt
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(400).json({ status: 'error', message: error.message || '購入処理に失敗しました。' });
   }
 });
 
@@ -890,8 +802,7 @@ export const qjongLogin = onRequest({ region: 'asia-northeast1' }, async (req, r
     const playerDoc = snapshot.docs[0];
     const player = playerDoc.data();
     const storedPassword = await getStoredPassword(playerDoc, player);
-    const isMasterPinLogin = cleanUsername === MASTER_USERNAME && cleanPassword === MASTER_PIN;
-    if (storedPassword !== cleanPassword && !isMasterPinLogin) {
+    if (storedPassword !== cleanPassword) {
       res.status(401).json({ status: 'error', message: 'ユーザー名またはパスワードが違います。' });
       return;
     }

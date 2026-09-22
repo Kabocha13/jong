@@ -1,5 +1,8 @@
 {
   "hosting": {
+    "predeploy": [
+      "node tools/check-hosting-secrets.mjs"
+    ],
     "public": ".",
     "ignore": [
       "firebase.json",
@@ -8,6 +11,7 @@
       ".gitignore",
       ".firebaserc",
       "**/node_modules/**",
+      "assets/img/src/**",
       "functions/**",
       "tools/**",
       "package.json",

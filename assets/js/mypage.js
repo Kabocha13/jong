@@ -36,13 +36,6 @@ const LOTTERY_PURCHASE_MESSAGE = document.getElementById('lottery-purchase-messa
 const LOTTERY_TOTAL_PRICE_DISPLAY = document.getElementById('lottery-total-price');
 const LOTTERY_RESULTS_CONTAINER = document.getElementById('lottery-results-container');
 
-const RANKING_DECORATION_PURCHASE_FORM = document.getElementById('ranking-decoration-purchase-form');
-const RANKING_DECORATION_DAYS_INPUT = document.getElementById('ranking-decoration-days');
-const RANKING_DECORATION_TOTAL = document.getElementById('ranking-decoration-total');
-const RANKING_DECORATION_STATUS = document.getElementById('ranking-decoration-status');
-const RANKING_DECORATION_MESSAGE = document.getElementById('ranking-decoration-message');
-const RANKING_DECORATION_PRICE_PER_DAY = 1;
-const RANKING_DECORATION_MAX_PURCHASE_DAYS = 3650;
 
 const APPLY_GIFT_CODE_FORM = document.getElementById('apply-gift-code-form');
 const GIFT_CODE_INPUT = document.getElementById('gift-code-input');
@@ -147,6 +140,7 @@ async function attemptLogin(username, password, isAuto = false) {
         // 1. 認証情報をlocalStorageに保存 (自動ログイン用)
         localStorage.setItem('authUsername', username);
         localStorage.setItem('authPassword', password);
+        if (window.refreshMasterNavLinks) window.refreshMasterNavLinks();
         if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
         // 2. UIの切り替え
@@ -202,6 +196,7 @@ function handleLogout() {
     localStorage.removeItem('authUsername');
     localStorage.removeItem('authPassword');
     if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
+    if (window.refreshMasterNavLinks) window.refreshMasterNavLinks();
     qjongSignOut();
 
     authenticatedUser = null;
@@ -260,15 +255,6 @@ async function initializeMyPageContent() {
     initializeWagerInputs();
 
     initializeMemberBonusFeature(); 
-    initializeRankingDecorationFeature();
-
-    if (window.initializeJobQuizForUser) {
-        await window.initializeJobQuizForUser(authenticatedUser);
-    } else {
-        window.addEventListener('job-quiz-ready', () => {
-            window.initializeJobQuizForUser(authenticatedUser);
-        }, { once: true });
-    }
 
     loadTransferReceiverList(); 
     
@@ -281,142 +267,6 @@ async function initializeMyPageContent() {
 
     controlTargetContinueFormDisplay();
 
-    initExercise();
-}
-
-
-// -----------------------------------------------------------------
-// ランキング装飾購入
-// -----------------------------------------------------------------
-
-function formatRankingDecorationExpiresAt(value) {
-    const date = new Date(value || '');
-    if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleString('ja-JP', {
-        timeZone: 'Asia/Tokyo',
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-}
-
-function updateRankingDecorationTotal() {
-    if (!RANKING_DECORATION_DAYS_INPUT || !RANKING_DECORATION_TOTAL) return;
-    const days = Number(RANKING_DECORATION_DAYS_INPUT.value);
-    const total = Number.isInteger(days) && days > 0
-        ? days * RANKING_DECORATION_PRICE_PER_DAY
-        : null;
-    RANKING_DECORATION_TOTAL.textContent = total === null ? '合計: - P' : `合計: ${total.toFixed(1)} P`;
-}
-
-function updateRankingDecorationStatus() {
-    if (!RANKING_DECORATION_STATUS || !authenticatedUser) return;
-    const decoration = String(authenticatedUser.rankingDecoration || authenticatedUser.equippedDecoration || '');
-    const expiresAt = authenticatedUser.rankingDecorationExpiresAt || authenticatedUser.decorationExpiresAt;
-    const expiresAtMs = new Date(expiresAt || '').getTime();
-
-    if (decoration === 'rainbow' && Number.isFinite(expiresAtMs) && expiresAtMs > Date.now()) {
-        const remainingDays = Math.ceil((expiresAtMs - Date.now()) / (24 * 60 * 60 * 1000));
-        RANKING_DECORATION_STATUS.textContent = `利用中：${formatRankingDecorationExpiresAt(expiresAt)}まで（残り約${remainingDays}日）`;
-        return;
-    }
-
-    RANKING_DECORATION_STATUS.textContent = '現在、ランキング装飾は利用していません。';
-}
-
-function initializeRankingDecorationFeature() {
-    updateRankingDecorationTotal();
-    updateRankingDecorationStatus();
-}
-
-async function requestRankingDecorationPurchase(player, days) {
-    const token = await getFirebaseIdToken();
-    if (!token) throw new Error('ログイン情報を確認できませんでした。');
-
-    const response = await fetch(`${getFunctionsBaseUrl()}/purchaseRankingDecoration`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ player, days })
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result.status !== 'success') {
-        throw new Error(result.message || `購入処理に失敗しました (${response.status})`);
-    }
-    invalidateFetchCache();
-    return result;
-}
-
-if (RANKING_DECORATION_DAYS_INPUT) {
-    RANKING_DECORATION_DAYS_INPUT.addEventListener('input', updateRankingDecorationTotal);
-}
-
-if (RANKING_DECORATION_PURCHASE_FORM) {
-    RANKING_DECORATION_PURCHASE_FORM.addEventListener('submit', async event => {
-        event.preventDefault();
-
-        if (!authenticatedUser) {
-            showMessage(RANKING_DECORATION_MESSAGE, '❌ 認証エラーが発生しました。', 'error');
-            return;
-        }
-
-        const days = Number(RANKING_DECORATION_DAYS_INPUT.value);
-        if (!Number.isInteger(days) || days < 1 || days > RANKING_DECORATION_MAX_PURCHASE_DAYS) {
-            showMessage(RANKING_DECORATION_MESSAGE, '❌ 購入日数を1日以上で入力してください。', 'error');
-            return;
-        }
-
-        const cost = days * RANKING_DECORATION_PRICE_PER_DAY;
-        if (Number(authenticatedUser.score || 0) < cost) {
-            showMessage(
-                RANKING_DECORATION_MESSAGE,
-                `❌ ポイント残高 (${Number(authenticatedUser.score || 0).toFixed(1)} P) が不足しています (必要: ${cost.toFixed(1)} P)。`,
-                'error'
-            );
-            return;
-        }
-
-        const submitButton = RANKING_DECORATION_PURCHASE_FORM.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.setAttribute('aria-busy', 'true');
-        showMessage(RANKING_DECORATION_MESSAGE, `${days}日分のレインボー装飾を購入中...`, 'info');
-
-        try {
-            const result = await requestRankingDecorationPurchase(authenticatedUser.name, days);
-            authenticatedUser.score = Number(result.score);
-            authenticatedUser.rankingDecoration = 'rainbow';
-            authenticatedUser.rankingDecorationExpiresAt = result.expiresAt;
-            CURRENT_SCORE_ELEMENT.textContent = authenticatedUser.score.toFixed(1);
-
-            if (latestAllData && Array.isArray(latestAllData.scores)) {
-                latestAllData.scores = latestAllData.scores.map(player => player.name === authenticatedUser.name
-                    ? {
-                        ...player,
-                        score: authenticatedUser.score,
-                        rankingDecoration: 'rainbow',
-                        rankingDecorationExpiresAt: result.expiresAt
-                    }
-                    : player);
-            }
-
-            updateRankingDecorationStatus();
-            showMessage(
-                RANKING_DECORATION_MESSAGE,
-                `✅ レインボー装飾を${days}日分購入しました。${formatRankingDecorationExpiresAt(result.expiresAt)}まで利用できます。`,
-                'success'
-            );
-        } catch (error) {
-            console.error('ランキング装飾購入エラー:', error);
-            showMessage(RANKING_DECORATION_MESSAGE, `❌ 購入エラー: ${error.message}`, 'error');
-        } finally {
-            submitButton.disabled = false;
-            submitButton.removeAttribute('aria-busy');
-        }
-    });
 }
 
 
@@ -516,8 +366,7 @@ function updateMemberBonusDisplay() {
         daily = 0;
         accumulated = Math.max(0, accumulated - 5 * elapsedDays);
     }
-    const territoryReduction = getPlayerTerritoryStats(authenticatedUser.name, latestAllData && latestAllData.territory_battle).reduction;
-    const total = clampBonusProbability(daily + accumulated - territoryReduction);
+    const total = clampBonusProbability(daily + accumulated);
 
     if (PRO_BONUS_INSTRUCTION) {
         PRO_BONUS_INSTRUCTION.innerHTML = `${memberType}会員: ボタンを押すたびに <strong>+${bonusAmount.toFixed(1)} P</strong>（1日何回でも押せます）`;
@@ -533,7 +382,7 @@ function updateMemberBonusDisplay() {
         } else {
             probColor = 'var(--color-error)';
         }
-        PRO_BONUS_PROBABILITY.innerHTML = `ペナルティ確率: <strong style="color:${probColor}">${total.toFixed(0)}%</strong>（日次: ${daily.toFixed(0)}% + 蓄積: ${accumulated.toFixed(0)}% - 陣地: ${territoryReduction.toFixed(1)}%）`;
+        PRO_BONUS_PROBABILITY.innerHTML = `ペナルティ確率: <strong style="color:${probColor}">${total.toFixed(0)}%</strong>（日次: ${daily.toFixed(0)}% + 蓄積: ${accumulated.toFixed(0)}%）`;
     }
     if (PRO_BONUS_BUTTON) {
         PRO_BONUS_BUTTON.disabled = false;
@@ -594,8 +443,7 @@ if (PRO_BONUS_BUTTON) {
             }
 
             // ペナルティ判定（合計確率）
-            const territoryReduction = getPlayerTerritoryStats(player, currentData.territory_battle).reduction;
-            const totalProbability = clampBonusProbability(daily + accumulated - territoryReduction);
+            const totalProbability = clampBonusProbability(daily + accumulated);
             const penaltyOccurred = Math.random() * 100 < totalProbability;
             let newScore = targetPlayer.score;
             if (penaltyOccurred) {
@@ -642,8 +490,7 @@ if (PRO_BONUS_BUTTON) {
                 sports_bets: currentData.sports_bets,
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [],
-                gift_codes: currentData.gift_codes || [],
-                territory_battle: currentData.territory_battle || null
+                gift_codes: currentData.gift_codes || []
             };
 
             const response = await updateAllData(newData);
@@ -1765,83 +1612,6 @@ function manabaEscapeHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
-// ============================================================
-// 運動申請
-// ============================================================
-
-function initExercise() {
-    const form = document.getElementById('exercise-form');
-    if (!form) return;
-
-    loadExerciseHistory();
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const messageEl = document.getElementById('exercise-message');
-        const distance  = parseFloat(document.getElementById('exercise-distance').value);
-        const pace      = document.getElementById('exercise-pace').value.trim();
-        const imageFile = document.getElementById('exercise-image').files[0];
-
-        if (!imageFile) {
-            showMessage(messageEl, '❌ スクリーンショットを選択してください。', 'error');
-            return;
-        }
-
-        const submitBtn = form.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        showMessage(messageEl, '⏳ アップロード中...', 'info');
-
-        try {
-            const data = await submitExerciseReportToFirebase({
-                player: authenticatedUser.name,
-                distance,
-                pace,
-                imageFile
-            });
-
-            if (data.status === 'success') {
-                showMessage(messageEl, `✅ 申請を送信しました。承認後 ${data.points}P が付与されます。`, 'success');
-                form.reset();
-                await loadExerciseHistory();
-            } else {
-                showMessage(messageEl, `❌ ${data.message}`, 'error');
-            }
-        } catch (err) {
-            showMessage(messageEl, `❌ サーバーエラー: ${err.message}`, 'error');
-        } finally {
-            submitBtn.disabled = false;
-        }
-    });
-}
-
-async function loadExerciseHistory() {
-    const listEl = document.getElementById('exercise-history-list');
-    if (!listEl || !authenticatedUser) return;
-
-    try {
-        const currentData = await fetchAllData();
-        const reports = (currentData.exercise_reports || [])
-            .filter(r => r.player === authenticatedUser.name)
-            .sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
-            .slice(0, 5);
-
-        if (reports.length === 0) {
-            listEl.innerHTML = '<li>申請履歴はありません。</li>';
-            return;
-        }
-
-        listEl.innerHTML = reports.map(r => {
-            const date       = new Date(r.submittedAt).toLocaleDateString('ja-JP');
-            const statusIcon = r.status === 'approved' ? '✅' : r.status === 'rejected' ? '❌' : '⏳';
-            const statusText = r.status === 'approved' ? `承認済 (+${r.points}P)` :
-                               r.status === 'rejected' ? '却下' : '審査中';
-            return `<li>${statusIcon} ${date}　${r.distance}km　ペース: ${r.pace}　— ${statusText}</li>`;
-        }).join('');
-    } catch (err) {
-        listEl.innerHTML = '<li>履歴の読み込みに失敗しました。</li>';
-    }
-}
-
 // -----------------------------------------------------------------
 // ★★★ manaba締切プッシュ通知 (締切2日前にFCMでお知らせ) ★★★
 // -----------------------------------------------------------------
@@ -1955,4 +1725,44 @@ if (ENABLE_NOTIFICATIONS_BUTTON) {
             console.warn('フォアグラウンド通知の初期化に失敗しました:', error);
         }
     }
+}
+
+
+// -----------------------------------------------------------------
+// ★★★ 就活ロードマップ: 今月の項目をハイライト ★★★
+// (元は job-quiz.js にあった処理。就活問題集を削除した際に一緒に消えていた)
+// -----------------------------------------------------------------
+
+function scrollRoadmapItemIntoView(item) {
+    const list = item.closest('.roadmap-list');
+    if (!list) return;
+
+    const targetLeft = item.offsetLeft - (list.clientWidth - item.offsetWidth) / 2;
+    list.scrollTo({
+        left: Math.max(0, targetLeft),
+        behavior: 'auto'
+    });
+}
+
+function highlightCurrentRoadmapMonth() {
+    const roadmapItems = document.querySelectorAll('[data-roadmap-month]');
+    if (!roadmapItems.length) return;
+
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    let currentItem = null;
+    roadmapItems.forEach(item => {
+        const isCurrent = item.dataset.roadmapMonth === currentMonth;
+        item.classList.toggle('is-current', isCurrent);
+        if (isCurrent) currentItem = item;
+    });
+    if (currentItem) {
+        requestAnimationFrame(() => scrollRoadmapItemIntoView(currentItem));
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', highlightCurrentRoadmapMonth, { once: true });
+} else {
+    highlightCurrentRoadmapMonth();
 }

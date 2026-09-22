@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="google-adsense-account" content="ca-pub-1895674082198665">
-    <meta name="theme-color" content="#4f2d18">
+    <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Q-Jong">
@@ -12,28 +11,29 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png">
-    <link rel="stylesheet" href="assets/css/style.css?v=39.5.2">
-    <script src="assets/js/adsense-config.js" defer></script>
-    <script src="assets/js/adsense.js?v=39.5.3" defer></script>
-    <script src="assets/js/trip-countdown.js?v=39.5.2" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=42.6.1">
+    <script src="assets/js/header-clock.js?v=42.6.1" defer></script>
 </head>
 <body>
-    <header>
-        <h1 class="trip-countdown" id="trip-countdown" data-target="2026-08-18T15:10:00+09:00">
-            <span class="trip-countdown-label">旅行まで</span>
-            <span class="trip-countdown-value" data-countdown-value>計算中</span>
-            <span class="trip-countdown-date">8月18日 15:10</span>
-        </h1>
+    <header class="hero" data-scene="battle">
+        <div class="hero-scene" aria-hidden="true"></div>
+        <div class="hero-veil" aria-hidden="true"></div>
+        <div class="hero-inner">
+            <h1 class="header-clock" id="header-clock">
+                <span class="header-clock-time" data-clock-time>--:--:--</span>
+                <span class="header-clock-date" data-clock-date>読み込み中</span>
+            </h1>
+        </div>
     </header>
 
     <main>
-        <div class="attendance-bar">
+        <div class="deck-bar">
+            <div id="attendance-bar" class="deck-bar-slot"></div>
             <button type="button" id="refresh-button">更新</button>
-            <div id="attendance-bar"></div>
         </div>
 
         <div class="ranking-scroll-wrapper">
-            <div class="ranking-panel">
+            <div class="ranking-panel" data-scene="treasure">
                 <h2> 現在のスコアランキング </h2>
                 <div id="scores-container">
                     <div class="loading-placeholder" role="status" aria-label="ランキングを読み込み中">
@@ -47,19 +47,21 @@
         </div>
 
         <div class="home-campus-grid mt-20">
-            <div class="info-box home-campus-box home-cafeteria-box">
+            <div class="info-box home-campus-box home-cafeteria-box" data-scene="tavern">
                 <h3 class="icon-title">📷 学生食堂情報</h3>
                 <div class="cafeteria-layout">
                     <div class="cafeteria-panel">
                         <p class="cafeteria-label">今週のメニュー</p>
-                        <img alt="津田沼 学生食堂メニュー" id="tsudanuma-menu"
-                             loading="lazy" decoding="async"
-                             style="width:100%; border-radius:2px; display:block;">
+                        <iframe id="tsudanuma-menu" class="cafeteria-pdf"
+                                title="津田沼 学生食堂メニュー" loading="lazy"></iframe>
+                        <a id="tsudanuma-menu-link" class="cafeteria-pdf-link"
+                           href="https://www.cit-s.com/wp/wp-content/themes/cit/syokudo/t.pdf"
+                           target="_blank" rel="noopener">PDFを開く</a>
                     </div>
                 </div>
             </div>
 
-            <div class="info-box home-campus-box" id="home-manaba-section">
+            <div class="info-box home-campus-box" id="home-manaba-section" data-scene="jail">
                 <h3 class="icon-title">manaba 未提出課題</h3>
                 <p id="home-manaba-message" class="hidden" aria-live="polite"></p>
                 <div id="home-manaba-assignment-list">
@@ -72,7 +74,7 @@
             </div>
         </div>
 
-        <div class="info-box mt-20 home-events-section">
+        <div class="info-box mt-20 home-events-section" data-scene="auction">
             <h3 class="icon-title">開催中のイベント</h3>
             <div class="home-event-group">
                 <h4>宝くじ</h4>
@@ -92,26 +94,14 @@
             </div>
         </div>
 
-        <div class="info-box mt-20 territory-section">
-            <h3 class="territory-title">東京19区 陣取り合戦</h3>
-            <div id="territory-battle-container">
-                <div class="loading-placeholder" role="status" aria-label="戦況を読み込み中">
-                    <div class="skeleton skeleton-row"></div>
-                    <div class="skeleton skeleton-row"></div>
-                </div>
-            </div>
-        </div>
-
-        <aside class="qjong-ad" data-ad-slot-key="homeBottom" aria-label="スポンサーリンク"></aside>
-
     </main>
 
     <footer>
         <nav class="footer-nav" aria-label="メインメニュー">
-            <a href="index.html"  class="input-link" aria-current="page"><span class="nav-icon">⌂</span><span>ホーム</span></a>
-            <a href="mypage.html" class="input-link"><span class="nav-icon">◉</span><span>マイページ</span></a>
+            <a href="index.html"  class="input-link" aria-current="page"><span class="nav-icon" data-icon="home" aria-hidden="true"></span><span>ホーム</span></a>
+            <a href="mypage.html" class="input-link"><span class="nav-icon" data-icon="mypage" aria-hidden="true"></span><span>マイページ</span></a>
+            <a href="admin.html" class="input-link" data-master-only hidden><span class="nav-icon" data-icon="admin" aria-hidden="true"></span><span>管理</span></a>
         </nav>
-        <a href="x7k9p2v4q8.html" class="footer-edge-hit" aria-label=" "></a>
     </footer>
 
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
@@ -119,7 +109,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=39.4.2"></script>
-    <script src="assets/js/main.js?v=39.4.2"></script>
+    <script src="assets/js/common.js?v=42.6.1"></script>
+    <script src="assets/js/main.js?v=42.6.1"></script>
 </body>
 </html>

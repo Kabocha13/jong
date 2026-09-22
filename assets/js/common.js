@@ -6,7 +6,6 @@ const FIREBASE_COLLECTIONS = {
     speedstorm_records: 'speedstorm_records',
     lotteries: 'lotteries',
     gift_codes: 'gift_codes',
-    exercise_reports: 'exercise_reports',
     career_posts: 'career_posts'
 };
 const DAILY_POINT_TAX_DEFAULT_RATE = 0.05;
@@ -240,13 +239,11 @@ function createEmptyData() {
         speedstorm_records: [],
         lotteries: [],
         gift_codes: [],
-        exercise_reports: [],
         career_posts: [],
         daily_point_tax_rate: DAILY_POINT_TAX_DEFAULT_RATE,
         daily_point_tax_last_date: '',
         daily_point_tax_last_run_at: '',
         daily_point_tax_last_total: 0,
-        territory_battle: createDefaultTerritoryBattle(),
         special_theme: null,
         attendance_allowed_users: []
     };
@@ -262,7 +259,6 @@ function normalizeFetchedRecord(record) {
         accumulatedProbability: toFiniteNumber(player.accumulatedProbability, 0),
         dailyPressCount: Math.max(0, Math.floor(toFiniteNumber(player.dailyPressCount, 0)))
     }));
-    normalized.territory_battle = normalizeTerritoryBattle(normalized.territory_battle);
     normalized.daily_point_tax_rate = normalizeDailyPointTaxRate(normalized.daily_point_tax_rate);
     normalized.daily_point_tax_last_date = String(normalized.daily_point_tax_last_date || '');
     normalized.daily_point_tax_last_run_at = String(normalized.daily_point_tax_last_run_at || '');
@@ -304,7 +300,6 @@ function getItemDocId(key, item, index) {
     if (key === 'sports_bets') return toDocId(item.betId ?? item.id ?? `bet_${index}`);
     if (key === 'lotteries') return toDocId(item.lotteryId ?? item.id ?? `lottery_${index}`);
     if (key === 'gift_codes') return toDocId(item.code ?? item.name ?? item.id ?? `gift_${index}`);
-    if (key === 'exercise_reports') return toDocId(item.id ?? `exercise_${index}`);
     if (key === 'career_posts') return toDocId(item.id ?? `career_${index}`);
     if (key === 'speedstorm_records') return toDocId(item.id ?? item.player ?? `speedstorm_${index}`);
     return toDocId(item.id ?? index);
@@ -541,98 +536,6 @@ function createFirestoreRestDb(config) {
     };
 }
 
-const TOKYO_WARDS = [
-    { id: 'nerima', name: '練馬区', area: 48.08, row: 1, col: 1 },
-    { id: 'toshima', name: '豊島区', area: 13.01, row: 1, col: 2 },
-    { id: 'bunkyo', name: '文京区', area: 11.29, row: 1, col: 3 },
-    { id: 'arakawa', name: '荒川区', area: 10.16, row: 1, col: 4 },
-    { id: 'adachi', name: '足立区', area: 53.25, row: 1, col: 5 },
-    { id: 'katsushika', name: '葛飾区', area: 34.80, row: 1, col: 6 },
-    { id: 'shinjuku', name: '新宿区', area: 18.22, row: 2, col: 2 },
-    { id: 'chiyoda', name: '千代田区', area: 11.66, row: 2, col: 3 },
-    { id: 'taito', name: '台東区', area: 10.11, row: 2, col: 4 },
-    { id: 'sumida', name: '墨田区', area: 13.77, row: 2, col: 5 },
-    { id: 'edogawa', name: '江戸川区', area: 49.90, row: 2, col: 6 },
-    { id: 'setagaya', name: '世田谷区', area: 58.05, row: 3, col: 1 },
-    { id: 'shibuya', name: '渋谷区', area: 15.11, row: 3, col: 2 },
-    { id: 'minato', name: '港区', area: 20.37, row: 3, col: 3 },
-    { id: 'chuo', name: '中央区', area: 10.21, row: 3, col: 4 },
-    { id: 'koto', name: '江東区', area: 40.16, row: 3, col: 5 },
-    { id: 'meguro', name: '目黒区', area: 14.67, row: 4, col: 1 },
-    { id: 'shinagawa', name: '品川区', area: 22.84, row: 4, col: 2 },
-    { id: 'ota', name: '大田区', area: 60.66, row: 5, col: 2 }
-];
-
-const TERRITORY_AVERAGE_WARD_AREA = TOKYO_WARDS.reduce((sum, ward) => sum + ward.area, 0) / TOKYO_WARDS.length;
-const TERRITORY_DAILY_DEFENSE_GROWTH_RATE = 0.01;
-const TERRITORY_DAY_MS = 24 * 60 * 60 * 1000;
-const TERRITORY_ACTION_LIMIT_PER_HOUR = 3;
-const TERRITORY_ACTION_WINDOW_MS = 60 * 60 * 1000;
-
-function getNeutralTerritoryDefense(area, multiplier = 1) {
-    return parseFloat((Math.min(15, Math.max(5, area / TERRITORY_AVERAGE_WARD_AREA * 7)) * multiplier).toFixed(1));
-}
-
-function getTerritorySeasonNumber(battle) {
-    const explicitSeason = parseInt(battle && battle.seasonNumber, 10);
-    if (Number.isFinite(explicitSeason) && explicitSeason > 0) return explicitSeason;
-
-    const seasonMatch = String((battle && battle.seasonId) || '').match(/-(\d+)$/);
-    const parsedSeason = seasonMatch ? parseInt(seasonMatch[1], 10) : 1;
-    return Number.isFinite(parsedSeason) && parsedSeason > 0 ? parsedSeason : 1;
-}
-
-function getTerritoryNeutralDefenseMultiplier(seasonNumber) {
-    return parseFloat(Math.pow(1.05, Math.max(0, seasonNumber - 1)).toFixed(4));
-}
-
-function addDaysIso(isoDate, days) {
-    const baseTime = Date.parse(isoDate);
-    if (!Number.isFinite(baseTime)) return new Date().toISOString();
-    return new Date(baseTime + days * TERRITORY_DAY_MS).toISOString();
-}
-
-function normalizeTerritoryActionLimits(actionLimits, fallbackActions = [], now = Date.now()) {
-    const cutoff = now - TERRITORY_ACTION_WINDOW_MS;
-    const normalized = {};
-
-    const addActionTime = (playerName, at) => {
-        const player = String(playerName || '').trim();
-        const time = Date.parse(at);
-        if (!player || !Number.isFinite(time) || time <= cutoff || time > now + 60000) return;
-        if (!normalized[player]) normalized[player] = [];
-        normalized[player].push(new Date(time).toISOString());
-    };
-
-    if (actionLimits && typeof actionLimits === 'object' && !Array.isArray(actionLimits)) {
-        Object.entries(actionLimits).forEach(([playerName, times]) => {
-            if (!Array.isArray(times)) return;
-            times.forEach(at => addActionTime(playerName, at));
-        });
-    }
-
-    if (Array.isArray(fallbackActions)) {
-        fallbackActions.forEach(action => addActionTime(action && action.player, action && action.at));
-    }
-
-    Object.keys(normalized).forEach(playerName => {
-        normalized[playerName] = [...new Set(normalized[playerName])]
-            .sort((a, b) => Date.parse(a) - Date.parse(b))
-            .slice(-TERRITORY_ACTION_LIMIT_PER_HOUR);
-    });
-
-    return normalized;
-}
-
-function getTerritoryRecentActionTimes(battle, playerName, now = Date.now()) {
-    const limits = normalizeTerritoryActionLimits(
-        battle && battle.actionLimits,
-        [],
-        now
-    );
-    return limits[String(playerName || '').trim()] || [];
-}
-
 // -----------------------------------------------------------------
 // データ取得 (GET)
 // -----------------------------------------------------------------
@@ -718,23 +621,6 @@ async function fetchOptionalCollection(db, key) {
     }
 }
 
-async function fetchSpiQuestionStats() {
-    const db = getFirestoreDb();
-    if (!db) return [];
-    const snapshot = await db.collection('settings').get();
-    return snapshot.docs
-        .map(doc => ({ ...doc.data(), _docId: doc.id }))
-        .filter(item => item.kind === 'spi_question_stat');
-}
-
-async function saveSpiQuestionStat(stat) {
-    const db = getFirestoreDb();
-    if (!db || !stat || !stat.id) return;
-    const payload = { ...stat, kind: 'spi_question_stat' };
-    delete payload._docId;
-    await db.collection('settings').doc(toDocId(`spi_stat_${stat.id}`)).set(payload);
-}
-
 async function fetchAllDataFromFirebase() {
     const db = getFirestoreDb();
     if (!db) return createEmptyData();
@@ -745,20 +631,16 @@ async function fetchAllDataFromFirebase() {
         speedstormRecords,
         lotteries,
         giftCodes,
-        exerciseReports,
         careerPosts,
         settingsDoc,
-        territoryDoc
     ] = await Promise.all([
         fetchCollection(db, 'scores'),
         fetchCollection(db, 'sports_bets'),
         fetchCollection(db, 'speedstorm_records'),
         fetchCollection(db, 'lotteries'),
         fetchCollection(db, 'gift_codes'),
-        fetchCollection(db, 'exercise_reports'),
         fetchCollection(db, 'career_posts'),
         db.collection('settings').doc('app').get(),
-        db.collection('territory_battle').doc('current').get()
     ]);
 
     const settings = settingsDoc.exists ? settingsDoc.data() : {};
@@ -768,13 +650,11 @@ async function fetchAllDataFromFirebase() {
         speedstorm_records: speedstormRecords,
         lotteries,
         gift_codes: giftCodes,
-        exercise_reports: exerciseReports,
         career_posts: careerPosts,
         daily_point_tax_rate: settings.daily_point_tax_rate ?? DAILY_POINT_TAX_DEFAULT_RATE,
         daily_point_tax_last_date: settings.daily_point_tax_last_date ?? '',
         daily_point_tax_last_run_at: settings.daily_point_tax_last_run_at ?? '',
         daily_point_tax_last_total: settings.daily_point_tax_last_total ?? 0,
-        territory_battle: territoryDoc.exists ? territoryDoc.data() : null,
         special_theme: settings.special_theme ?? null,
         attendance_allowed_users: settings.attendance_allowed_users ?? []
     });
@@ -841,9 +721,6 @@ async function updateAllDataViaFunction(data, pointHistoryEntries) {
         data,
         pointHistoryEntries
     };
-    if (window.QJONG_MASTER_PIN_FOR_WRITES) {
-        body.masterPin = window.QJONG_MASTER_PIN_FOR_WRITES;
-    }
 
     const response = await fetch(`${getFunctionsBaseUrl()}/updateAllData`, {
         method: 'POST',
@@ -965,246 +842,6 @@ async function runDailyPointTaxIfNeeded() {
     };
 }
 
-async function submitExerciseReportToFirebase({ player, distance, pace, imageFile }) {
-    const storage = getFirebaseStorage();
-    const db = getFirestoreDb();
-    if (!storage || !db) {
-        throw new Error('Firebase Storage が設定されていません。');
-    }
-
-    const distanceNum = parseFloat(distance);
-    const paceMatch = String(pace).match(/(\d+)'(\d+)/);
-    let suspicious = false;
-    if (paceMatch) {
-        const paceMin = parseInt(paceMatch[1], 10) + parseInt(paceMatch[2], 10) / 60;
-        suspicious = paceMin < 4.0;
-    }
-
-    const reportId = `ex_${Date.now()}`;
-    const extension = (imageFile.name.split('.').pop() || 'jpg').toLowerCase();
-    const imagePath = `exercise_reports/${reportId}.${extension}`;
-    const imageRef = storage.ref().child(imagePath);
-    await imageRef.put(imageFile, { contentType: imageFile.type || 'image/jpeg' });
-    const imageUrl = await imageRef.getDownloadURL();
-    const points = calculateExercisePoints(distanceNum);
-
-    const report = {
-        id: reportId,
-        player,
-        submittedAt: new Date().toISOString(),
-        distance: distanceNum,
-        pace,
-        imageUrl,
-        storagePath: imagePath,
-        status: 'pending',
-        points,
-        suspicious
-    };
-
-    await db.collection(FIREBASE_COLLECTIONS.exercise_reports).doc(reportId).set(report);
-    invalidateFetchCache();
-    return { status: 'success', message: '運動申請を送信しました。', points, suspicious };
-}
-
-function calculateExercisePoints(distance) {
-    const distanceNum = Math.max(0, parseFloat(distance) || 0);
-    const basePoints = distanceNum * 10;
-    const exponentialBonus = Math.exp(distanceNum / 6) - 1;
-    const multiplier = Math.min(1.75, 1 + exponentialBonus * 0.35);
-
-    return parseFloat((basePoints * multiplier).toFixed(1));
-}
-
-async function handleExerciseActionInFirebase(reportId, action) {
-    const db = getFirestoreDb();
-    if (!db) throw new Error('Firebase が設定されていません。');
-    if (!['approve', 'reject'].includes(action)) throw new Error('不正な操作です。');
-
-    let message = '';
-    await db.runTransaction(async transaction => {
-        const reportRef = db.collection(FIREBASE_COLLECTIONS.exercise_reports).doc(toDocId(reportId));
-        const reportDoc = await transaction.get(reportRef);
-        if (!reportDoc.exists) throw new Error('申請が見つかりません。');
-
-        const report = reportDoc.data();
-        if (action === 'approve') {
-            const playerRef = db.collection(FIREBASE_COLLECTIONS.scores).doc(toDocId(report.player));
-            const playerDoc = await transaction.get(playerRef);
-            if (!playerDoc.exists) throw new Error('プレイヤーが見つかりません。');
-            const player = playerDoc.data();
-            const nextScore = parseFloat(((player.score || 0) + report.points).toFixed(1));
-            transaction.update(playerRef, { score: nextScore });
-            const historyRef = db.collection('point_history').doc(createPointHistoryId(report.player));
-            transaction.set(historyRef, {
-                id: historyRef.id,
-                player: report.player,
-                beforeScore: parseFloat(toFiniteNumber(player.score, 0).toFixed(1)),
-                afterScore: nextScore,
-                delta: parseFloat(report.points.toFixed(1)),
-                source: 'exercise_report',
-                reason: `運動申請承認 ${report.distance}km`,
-                actor: getPointHistoryActor(),
-                createdAt: new Date().toISOString()
-            });
-            message = `✅ ${report.player} の申請を承認し、${report.points}P を付与しました。`;
-        } else {
-            message = `❌ ${report.player} の申請を却下しました。`;
-        }
-        transaction.delete(reportRef);
-    });
-
-    invalidateFetchCache();
-    return { status: 'success', message };
-}
-
-// -----------------------------------------------------------------
-// 東京19区 陣取り合戦
-// -----------------------------------------------------------------
-
-function createDefaultTerritoryBattle(seasonNumber = 1) {
-    const normalizedSeasonNumber = Math.max(1, parseInt(seasonNumber, 10) || 1);
-    const neutralDefenseMultiplier = getTerritoryNeutralDefenseMultiplier(normalizedSeasonNumber);
-    return {
-        seasonId: `tokyo-19-${normalizedSeasonNumber}`,
-        seasonNumber: normalizedSeasonNumber,
-        neutralDefenseMultiplier,
-        status: 'open',
-        updatedAt: new Date().toISOString(),
-        tiles: TOKYO_WARDS.map(ward => ({
-            id: ward.id,
-            name: ward.name,
-            area: ward.area,
-            owner: null,
-            ownerSince: null,
-            defenseGrowthAt: new Date().toISOString(),
-            defense: getNeutralTerritoryDefense(ward.area, neutralDefenseMultiplier)
-        })),
-        actions: [],
-        actionLimits: {}
-    };
-}
-
-function shuffleTerritoryItems(items) {
-    const shuffled = [...items];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-}
-
-function createTerritoryBattleWithInitialOwners(seasonNumber, players = []) {
-    const battle = createDefaultTerritoryBattle(seasonNumber);
-    const playerNames = shuffleTerritoryItems(
-        (players || [])
-            .map(player => String(player && player.name || '').trim())
-            .filter(Boolean)
-    ).slice(0, battle.tiles.length);
-    const shuffledTileIds = shuffleTerritoryItems(battle.tiles.map(tile => tile.id));
-    const assignedAt = new Date().toISOString();
-    const assignmentActions = [];
-
-    playerNames.forEach((playerName, index) => {
-        const tileId = shuffledTileIds[index];
-        const tile = battle.tiles.find(item => item.id === tileId);
-        if (!tile) return;
-        tile.owner = playerName;
-        tile.ownerSince = assignedAt;
-        tile.defenseGrowthAt = assignedAt;
-        assignmentActions.push({
-            at: assignedAt,
-            player: playerName,
-            tileId: tile.id,
-            tileName: tile.name,
-            amount: 0,
-            previousOwner: null,
-            owner: playerName,
-            result: `${playerName} の初期地点として ${tile.name} が割り当てられました。`
-        });
-    });
-
-    battle.actions = assignmentActions.slice(-30);
-    return battle;
-}
-
-function normalizeTerritoryBattle(battle) {
-    const normalized = battle && Array.isArray(battle.tiles) ? battle : createDefaultTerritoryBattle();
-    const seasonNumber = getTerritorySeasonNumber(normalized);
-    const existingMultiplier = parseFloat(normalized.neutralDefenseMultiplier);
-    const neutralDefenseMultiplier = Number.isFinite(existingMultiplier) && existingMultiplier > 0
-        ? existingMultiplier
-        : getTerritoryNeutralDefenseMultiplier(seasonNumber);
-    const tileMap = new Map(normalized.tiles.map(tile => [tile.id, tile]));
-
-    return {
-        seasonId: normalized.seasonId || `tokyo-19-${seasonNumber}`,
-        seasonNumber,
-        neutralDefenseMultiplier,
-        status: normalized.status || 'open',
-        updatedAt: normalized.updatedAt || new Date().toISOString(),
-        tiles: TOKYO_WARDS.map(ward => {
-            const existing = tileMap.get(ward.id) || {};
-            const existingDefense = parseFloat(existing.defense);
-            const hasExistingDefense = Number.isFinite(existingDefense);
-            let defense = hasExistingDefense
-                ? Math.max(0, existingDefense)
-                : getNeutralTerritoryDefense(ward.area, neutralDefenseMultiplier);
-            const owner = existing.owner || null;
-            let ownerSince = owner ? (existing.ownerSince || normalized.updatedAt || new Date().toISOString()) : null;
-            let defenseGrowthAt = existing.defenseGrowthAt || ownerSince || normalized.updatedAt || new Date().toISOString();
-            if (defenseGrowthAt) {
-                const elapsedDays = Math.floor((Date.now() - Date.parse(defenseGrowthAt)) / TERRITORY_DAY_MS);
-                if (elapsedDays > 0) {
-                    defense = defense * Math.pow(1 + TERRITORY_DAILY_DEFENSE_GROWTH_RATE, elapsedDays);
-                    defense = parseFloat(defense.toFixed(1));
-                    defenseGrowthAt = addDaysIso(defenseGrowthAt, elapsedDays);
-                }
-            }
-            return {
-                id: ward.id,
-                name: ward.name,
-                area: ward.area,
-                owner,
-                ownerSince,
-                defenseGrowthAt,
-                defense
-            };
-        }),
-        actions: Array.isArray(normalized.actions) ? normalized.actions.slice(-30) : [],
-        actionLimits: normalizeTerritoryActionLimits(normalized.actionLimits)
-    };
-}
-
-function getTerritoryTileMeta(tileId) {
-    return TOKYO_WARDS.find(ward => ward.id === tileId) || null;
-}
-
-function getGridAdjacentTerritoryIds(tileId) {
-    const target = getTerritoryTileMeta(tileId);
-    if (!target) return [];
-
-    return TOKYO_WARDS
-        .filter(ward => Math.abs(ward.row - target.row) + Math.abs(ward.col - target.col) === 1)
-        .map(ward => ward.id);
-}
-
-function getPlayerTerritoryStats(playerName, battle) {
-    const normalized = normalizeTerritoryBattle(battle);
-    const ownedTiles = normalized.tiles.filter(tile => tile.owner === playerName);
-    const area = ownedTiles.reduce((sum, tile) => sum + tile.area, 0);
-    const reduction = area > 0
-        ? Math.max(0.5, (area / TERRITORY_AVERAGE_WARD_AREA) * 3)
-        : 0;
-
-    return {
-        count: ownedTiles.length,
-        area: parseFloat(area.toFixed(2)),
-        reduction: parseFloat(reduction.toFixed(1)),
-        tiles: ownedTiles
-    };
-}
-
-
 // -----------------------------------------------------------------
 // 共通ヘルパー関数
 // -----------------------------------------------------------------
@@ -1285,8 +922,6 @@ function showMessage(element, message, type) {
 // ★ 修正: ハードコードされたパスワードを削除し、マスターユーザー名に置き換える
 const MASTER_USERNAME = "Kabocha";
 
-// SPI問題集の現行バージョン (job-quiz.jsとmaster.jsで使用)
-window.SPI_BANK_VERSION = 'spi-v8';
 
 // -----------------------------------------------------------------
 // スペシャルテーマ適用
@@ -1340,3 +975,22 @@ function applySpecialTheme(themeData) {
         if (cached) applySpecialTheme(JSON.parse(cached));
     } catch (e) { /* キャッシュ破損時は無視 */ }
 })();
+
+/**
+ * 管理画面へのリンクは、マスターアカウントでログインしているときだけ表示する。
+ * [hidden] だけでは .footer-nav .input-link の display: flex に負けるため、
+ * style.css 側に .footer-nav .input-link[hidden] { display: none } を置いてある。
+ */
+function refreshMasterNavLinks() {
+    const isMaster = localStorage.getItem('authUsername') === MASTER_USERNAME;
+    document.querySelectorAll('[data-master-only]').forEach(element => {
+        element.hidden = !isMaster;
+    });
+}
+window.refreshMasterNavLinks = refreshMasterNavLinks;
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', refreshMasterNavLinks, { once: true });
+} else {
+    refreshMasterNavLinks();
+}

@@ -3,25 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#4f2d18">
+    <meta name="theme-color" content="#060d16">
     <title>マスター管理ページ</title>
     <link rel="icon" type="image/png" href="assets/icon.png">
-    <link rel="stylesheet" href="assets/css/style.css?v=39.5.2">
+    <link rel="stylesheet" href="assets/css/style.css?v=42.6.1">
 </head>
 <body>
-    <header>
-        <h1>管理画面</h1>
+    <header class="hero hero-compact" data-scene="jail">
+        <div class="hero-scene" aria-hidden="true"></div>
+        <div class="hero-veil" aria-hidden="true"></div>
+        <div class="hero-inner">
+            <h1>管理画面</h1>
+        </div>
     </header>
 
     <main id="main-content">
         <section id="auth-section" class="info-box">
-            <h2>PIN</h2>
-            <form id="auth-form" autocomplete="off">
+            <h2>管理者ログイン</h2>
+            <form id="auth-form">
                 <div class="form-group">
-                    <label for="master-pin">PIN:</label>
-                    <input type="password" id="master-pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required autocomplete="one-time-code">
+                    <label for="master-username">ID:</label>
+                    <input type="text" id="master-username" required autocomplete="username">
                 </div>
-                <button type="submit">OPEN</button>
+                <div class="form-group">
+                    <label for="master-password">パスワード:</label>
+                    <input type="password" id="master-password" required autocomplete="current-password">
+                </div>
+                <button type="submit">ログイン</button>
             </form>
             <p id="auth-message" class="hidden"></p>
         </section>
@@ -130,26 +138,6 @@
             </div>
             
             <div class="tool-box">
-                <h3>🏃 運動申請 承認</h3>
-                <div id="exercise-reports-container">
-                    <div class="loading-placeholder" role="status" aria-label="運動申請をロード中">
-                        <div class="skeleton skeleton-row"></div>
-                    </div>
-                </div>
-                <p id="exercise-action-message" class="hidden"></p>
-            </div>
-
-            <div class="tool-box">
-                <h3>SPI 正答率分析</h3>
-                <p class="instruction">現行問題集の回答ログから、全体・区分別・分野別の正答率を表示します。</p>
-                <div id="spi-analysis-container">
-                    <div class="loading-placeholder" role="status" aria-label="正答率を集計中">
-                        <div class="skeleton skeleton-row"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="tool-box">
                 <h3>± 特殊ポイント調整</h3>
                 <form id="adjustment-form">
                     <div class="form-group">
@@ -229,6 +217,16 @@
             </div>
 
             <div class="tool-box">
+                <h3>⭐ 会員ステータス変更</h3>
+                <p class="instruction">プレイヤーごとに 一般 / プロ(⭐) / ラグジュアリー(💎) を切り替えます。</p>
+                <div id="member-status-list" class="member-status-list"></div>
+                <button type="button" id="member-status-save-button" class="action-button w-auto">
+                    ステータスを保存
+                </button>
+                <p id="member-status-message" class="hidden"></p>
+            </div>
+
+            <div class="tool-box">
                 <h3>📋 出席登録の表示設定</h3>
                 <p class="instruction">出席登録ボタンを表示するユーザーを選択します。</p>
                 <div id="attendance-access-list" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:12px 0;"></div>
@@ -253,25 +251,23 @@
                 <p id="daily-tax-message" class="hidden"></p>
             </div>
 
-            <div class="tool-box">
-                <h3>🏁 陣取り合戦シーズン終了</h3>
-                <p id="territory-season-status" class="instruction">戦況を確認中...</p>
-                <button type="button" id="territory-season-end-button" class="action-button w-auto btn-black" disabled>
-                    シーズン終了
-                </button>
-                <p id="territory-season-message" class="hidden"></p>
-            </div>
-            
-
         </section>
     </main>
+
+    <footer>
+        <nav class="footer-nav" aria-label="メインメニュー">
+            <a href="index.html"  class="input-link"><span class="nav-icon" data-icon="home" aria-hidden="true"></span><span>ホーム</span></a>
+            <a href="mypage.html" class="input-link"><span class="nav-icon" data-icon="mypage" aria-hidden="true"></span><span>マイページ</span></a>
+            <a href="admin.html" class="input-link" data-master-only hidden aria-current="page"><span class="nav-icon" data-icon="admin" aria-hidden="true"></span><span>管理</span></a>
+        </nav>
+    </footer>
 
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=39.4.2"></script>
-    <script src="assets/js/master.js"></script>
+    <script src="assets/js/common.js?v=42.6.1"></script>
+    <script src="assets/js/master.js?v=42.6.1"></script>
 </body>
 </html>
