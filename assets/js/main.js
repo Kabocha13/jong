@@ -602,10 +602,10 @@ loadCafeteriaMenu();
             return;
         }
 
-        // レート不足のときだけ理由を出す。授業時間外は何も出さない
+        // レート不足のときは授業時間外と同じく何も出さない
         const rate = await getLoginPlayerRate(loginName);
         if (rate !== null && rate < ATTENDANCE_MIN_RATE) {
-            bar.innerHTML = `<p class="attendance-locked">🔒 出席登録はレート ${formatRate(ATTENDANCE_MIN_RATE)} 以上で使えます (現在 ${formatRate(rate)})</p>`;
+            bar.innerHTML = '';
             return;
         }
 
