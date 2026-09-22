@@ -21,7 +21,8 @@
       "firestore.rules",
       "storage.rules",
       "FIREBASE_MIGRATION.md",
-      "README.md"
+      "README.md",
+      "assets/**/README.md"
     ],
     "headers": [
       {

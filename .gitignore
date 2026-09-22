@@ -1,6 +1,11 @@
 node_modules/
 *.log
 .firebase/
+
+# macOS が勝手に作るメタデータ。中身に意味はなく、開くたびに差分が出る
+.DS_Store
+**/.DS_Store
+
 *-backup.json
 assets/js/firebase-config.js
 assets/js/adsense-config.js
