@@ -221,6 +221,11 @@ a { color: var(--color-accent); }
 header.hero {
     position: relative;
     isolation: isolate;
+    /* ダブルタップで拡大したり文字が選択されたりしないようにする
+       (画像のダブルタップを隠し要素の操作に使っているため) */
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
     display: flex;
     align-items: flex-end;
     justify-content: center;

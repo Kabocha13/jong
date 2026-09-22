@@ -499,6 +499,61 @@ function loadCafeteriaMenu() {
 
 loadCafeteriaMenu();
 
+// ヒーロー画像のダブルタップで音を鳴らす (隠し要素)
+// 音源は assets/audio/ に置く。ファイルが無い場合は何も起きない。
+(function () {
+    const HERO_AUDIO_SRC = 'assets/audio/hero.mp3';
+    const DOUBLE_TAP_MS = 400;       // 2回目までの猶予
+    const DOUBLE_TAP_SLOP_PX = 40;   // 指のぶれをどこまで同じ位置とみなすか
+
+    const hero = document.querySelector('header.hero');
+    if (!hero) return;
+
+    let audio = null;
+    let lastTapAt = 0;
+    let lastTapX = 0;
+    let lastTapY = 0;
+
+    function toggleHeroSound() {
+        // 最初にダブルタップされるまで mp3 は取りに行かない
+        if (!audio) {
+            audio = new Audio(HERO_AUDIO_SRC);
+            audio.preload = 'none';
+        }
+
+        // 鳴っている最中のダブルタップは停止にする
+        if (!audio.paused) {
+            audio.pause();
+            audio.currentTime = 0;
+            return;
+        }
+
+        audio.currentTime = 0;
+        audio.play().catch(error => {
+            console.warn(`${HERO_AUDIO_SRC} を再生できませんでした:`, error);
+        });
+    }
+
+    hero.addEventListener('click', event => {
+        const now = Date.now();
+        const isQuick = now - lastTapAt < DOUBLE_TAP_MS;
+        const isSamePlace =
+            Math.abs(event.clientX - lastTapX) < DOUBLE_TAP_SLOP_PX &&
+            Math.abs(event.clientY - lastTapY) < DOUBLE_TAP_SLOP_PX;
+
+        if (isQuick && isSamePlace) {
+            // 3回目が次のダブルタップの1回目に化けないよう、ここで区切る
+            lastTapAt = 0;
+            toggleHeroSound();
+            return;
+        }
+
+        lastTapAt = now;
+        lastTapX = event.clientX;
+        lastTapY = event.clientY;
+    });
+}());
+
 // 出席登録ボタン
 (function () {
     // 曜日(1=月〜4=木) → 授業スケジュール
