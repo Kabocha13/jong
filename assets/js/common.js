@@ -10,10 +10,10 @@ const FIREBASE_COLLECTIONS = {
 };
 // -----------------------------------------------------------------
 // レート制の基本設定
-//   全員 RATE_BASELINE_DEFAULT (5000) から始まり、毎日「基準との差」の
-//   一定割合が基準へ引き戻される。放置すれば約30日で 5000 ちょうどに戻る。
+//   毎日「基準との差」の一定割合が基準へ引き戻されるので、放置すれば
+//   全員が RATE_BASELINE_DEFAULT (3000) ちょうどに収束する。
 // -----------------------------------------------------------------
-const RATE_BASELINE_DEFAULT = 5000;          // 基準レート
+const RATE_BASELINE_DEFAULT = 3000;          // 基準レート
 const RATE_REVERSION_RATE_DEFAULT = 0.13;    // 1日に戻す割合 (基準との差に対して)
 const RATE_REVERSION_FLAT_DEFAULT = 10;      // 割合ぶんに上乗せする固定分
 const RATE_EXCLUDED_PLAYERS = ['3mahjong'];  // 日次補正の対象外
@@ -304,8 +304,7 @@ function formatRate(value) {
  *   1日の補正量 = 基準との差 × rate (既定13%) + flat (既定10)
  * 固定分があるので差は必ず 0 になり、残りの差が補正量を下回った日に
  * 基準ちょうどへ揃う。上下どちらでも同じ式なので補正は左右対称。
- * 差 5000 (レート0 または 10000) からちょうど30日、差 2500 から26日、
- * 差 500 から14日で基準に一致する。
+ * 基準3000なら、レート0から27日・6000から27日・4000から19日で一致する。
  */
 function getRateReversionDelta(currentRate, baseline, rate, flat) {
     const gap = normalizeRate(baseline) - normalizeRate(currentRate);

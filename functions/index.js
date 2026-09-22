@@ -14,9 +14,9 @@ const FIREBASE_COLLECTIONS = {
   gift_codes: 'gift_codes',
   career_posts: 'career_posts'
 };
-// レート制: 全員 RATE_BASELINE_DEFAULT から始まり、毎日「基準との差」の
-// 一定割合が基準へ引き戻される。放置すれば約30日で基準ちょうどに戻る。
-const RATE_BASELINE_DEFAULT = 5000;
+// レート制: 毎日「基準との差」の一定割合が基準へ引き戻されるので、
+// 放置すれば全員が RATE_BASELINE_DEFAULT ちょうどに収束する。
+const RATE_BASELINE_DEFAULT = 3000;
 const RATE_REVERSION_RATE_DEFAULT = 0.13;
 const RATE_REVERSION_FLAT_DEFAULT = 10;
 const RATE_EXCLUDED_PLAYERS = new Set(['3mahjong']);
@@ -96,7 +96,7 @@ function normalizeRate(value) {
 /**
  * 基準レートへ1日ぶん近づけたときの増減。
  *   1日の補正量 = 基準との差 × rate + flat
- * 固定分があるので差は必ず 0 になり、差 5000 からちょうど30日で基準に一致する。
+ * 固定分があるので差は必ず 0 になり、有限日で基準ちょうどに一致する。
  */
 function getRateReversionDelta(currentRate, baseline, rate, flat) {
   const gap = normalizeRate(baseline) - normalizeRate(currentRate);

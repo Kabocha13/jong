@@ -13,6 +13,9 @@ const HOME_BONUS_BUTTON = document.getElementById('home-bonus-button');
 const DECK_BAR = document.querySelector('.deck-bar');
 
 const EXCLUDED_PLAYERS = ['3mahjong'];
+// 出席登録はこのレート以上でないと表示しない (基準レートと同じ値にしてある)
+const ATTENDANCE_MIN_RATE = 3000;
+let homeLatestScores = [];
 const LS_DATA_KEY = 'cachedHomeData';
 const HOME_MANABA_SYNC_INTERVAL_MS = 60 * 60 * 1000;
 /**
@@ -22,6 +25,7 @@ function renderWithData(allData, isStale = false) {
     if (!SCORES_CONTAINER || !SPORTS_BETS_CONTAINER || !LAST_UPDATE_ELEMENT || !LOTTERY_LIST_CONTAINER) return;
 
     const rawScores = allData.scores || [];
+    homeLatestScores = rawScores;
     const sportsBets = allData.sports_bets || [];
     const lotteries = allData.lotteries || [];
 
@@ -556,6 +560,25 @@ loadCafeteriaMenu();
         return attendanceAllowedUsers;
     }
 
+    /**
+     * 自分のレートを引く。ランキング描画で取得済みのスコアを使い回し、
+     * まだ無いときだけ取りに行く (この関数は1分おきに呼ばれるため)。
+     * 取れなかった場合は null を返し、呼び出し側では出席を止めない。
+     */
+    async function getLoginPlayerRate(loginName) {
+        let player = homeLatestScores.find(p => p.name === loginName);
+        if (!player) {
+            try {
+                const allData = await fetchAllData();
+                player = (allData.scores || []).find(p => p.name === loginName);
+            } catch (error) {
+                console.error('レートの取得に失敗:', error);
+                return null;
+            }
+        }
+        return player ? normalizeRate(player.score) : null;
+    }
+
     async function renderAttendanceButton() {
         const bar = document.getElementById('attendance-bar');
         if (!bar) return;
@@ -574,11 +597,19 @@ loadCafeteriaMenu();
         const slots = ATTENDANCE_SCHEDULE[dow] || [];
         const slot = slots.find(s => Math.abs(current - toMinutes(s.start)) <= ATTENDANCE_WINDOW_MINUTES);
         const room = override ? override.room : (slot ? slot.room : null);
-        if (room) {
-            bar.innerHTML = `<a href="https://attendance.is.chibatech.ac.jp/attendance/class_room/${room}" target="_blank" class="attendance-button">📋 出席登録</a>`;
-        } else {
+        if (!room) {
             bar.innerHTML = '';
+            return;
         }
+
+        // レート不足のときだけ理由を出す。授業時間外は何も出さない
+        const rate = await getLoginPlayerRate(loginName);
+        if (rate !== null && rate < ATTENDANCE_MIN_RATE) {
+            bar.innerHTML = `<p class="attendance-locked">🔒 出席登録はレート ${formatRate(ATTENDANCE_MIN_RATE)} 以上で使えます (現在 ${formatRate(rate)})</p>`;
+            return;
+        }
+
+        bar.innerHTML = `<a href="https://attendance.is.chibatech.ac.jp/attendance/class_room/${room}" target="_blank" class="attendance-button">📋 出席登録</a>`;
     }
 
     renderAttendanceButton();

@@ -1101,6 +1101,19 @@ html.auth-pending #auth-section { visibility: hidden; }
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* レート不足で出席登録が使えないときの表示。鍵のかかった船倉の札 */
+.attendance-locked {
+    margin: 0;
+    padding: 9px 14px;
+    font-size: 0.74em;
+    letter-spacing: 0.04em;
+    color: var(--brass-pale);
+    background: rgba(12, 9, 6, 0.38);
+    border: 1px dashed rgba(201, 146, 47, 0.5);
+    border-radius: var(--radius-sm);
+    font-variant-numeric: tabular-nums;
+}
+
 .attendance-button:hover {
     filter: brightness(1.1);
     box-shadow: 0 5px 16px rgba(0, 0, 0, 0.45), 0 0 14px var(--lantern-glow);
