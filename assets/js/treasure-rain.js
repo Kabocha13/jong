@@ -13,6 +13,9 @@
     if (reducedMotion && reducedMotion.matches) return;
 
     let container = null;
+    // preview() で降らせているあいだの終了時刻。
+    // これが無いと、1秒ごとの監視が「今は13:13ではない」と判断して即座に止めてしまう。
+    let previewUntil = 0;
 
     function isTreasureMinute(now = new Date()) {
         return now.getHours() === TREASURE_HOUR && now.getMinutes() === TREASURE_MINUTE;
@@ -49,7 +52,7 @@
         return piece;
     }
 
-    function start() {
+    function startRain() {
         if (container) return;
 
         container = document.createElement('div');
@@ -65,17 +68,17 @@
         document.body.appendChild(container);
     }
 
-    function stop() {
+    function stopRain() {
         if (!container) return;
         container.remove();
         container = null;
     }
 
     function tick() {
-        if (isTreasureMinute()) {
-            start();
+        if (isTreasureMinute() || Date.now() < previewUntil) {
+            startRain();
         } else {
-            stop();
+            stopRain();
         }
     }
 
@@ -86,14 +89,15 @@
 
     // 13:13 を待たずに見た目を確認するための入口。
     // コンソールで qjongTreasureRain.preview() と打つと8秒だけ降る。
+    // 終了は1秒ごとの監視に任せるので、別途タイマーを持たない。
     window.qjongTreasureRain = {
-        start,
-        stop,
         preview(durationMs = 8000) {
-            start();
-            setTimeout(() => {
-                if (!isTreasureMinute()) stop();
-            }, durationMs);
+            previewUntil = Date.now() + durationMs;
+            tick();
+        },
+        stop() {
+            previewUntil = 0;
+            stopRain();
         }
     };
 
