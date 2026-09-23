@@ -129,7 +129,8 @@ function rateHistoryDocId(playerName, at = new Date().toISOString()) {
 //   point_history を直接読ませる必要がない。
 // -----------------------------------------------------------------
 const RATE_CHART_DAYS = 13;          // グラフに出す日数 (古い日から消えていく)
-const RATE_CHART_START_DATE = '2026-09-23';  // これより前の日はグラフに出さない (43.x 以前の計算式の期間)
+const RATE_CHART_START_DATE = '2026-09-22';  // これより前の日はグラフに出さない
+const RATE_CHART_START_RATE = 5000;          // 初日は全員この値から始める (実際のログは見ない)
 const RATE_CHART_COLLECTION = 'rate_chart';
 const RATE_CHART_DOC = 'daily';
 
@@ -204,6 +205,10 @@ async function rebuildRateChartFromHistory() {
       // 今日ぶんは players の現在値をそのまま使う。
       // 増減ログを通さずレートが書き換わった場合でも、グラフの右端が
       // ホームのランキングとずれないようにするため。
+      if (date === RATE_CHART_START_DATE && !isToday) {
+        rates[name] = RATE_CHART_START_RATE;
+        return;
+      }
       rates[name] = isToday
         ? currentRate
         : rateAtEndOfDay(entriesByPlayer.get(name) || [], date, currentRate);
