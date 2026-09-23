@@ -128,15 +128,17 @@ function rateHistoryDocId(playerName, at = new Date().toISOString()) {
 //   ホームはこの1件を読むだけでグラフを描けるので、公開ページから
 //   point_history を直接読ませる必要がない。
 // -----------------------------------------------------------------
-const RATE_CHART_DAYS = 30;          // グラフに出す日数
+const RATE_CHART_DAYS = 13;          // グラフに出す日数 (古い日から消えていく)
+const RATE_CHART_START_DATE = '2026-09-23';  // これより前の日はグラフに出さない (43.x 以前の計算式の期間)
 const RATE_CHART_COLLECTION = 'rate_chart';
 const RATE_CHART_DOC = 'daily';
 
-/** 今日を含む直近 days 日ぶんの JST 日付キーを古い順で返す */
+/** 今日を含む直近 days 日ぶん (RATE_CHART_START_DATE 以降) の JST 日付キーを古い順で返す */
 function recentJstDateKeys(days = RATE_CHART_DAYS) {
   const keys = [];
   for (let i = days - 1; i >= 0; i--) {
-    keys.push(getJstDateKey(new Date(Date.now() - i * 86400000)));
+    const key = getJstDateKey(new Date(Date.now() - i * 86400000));
+    if (key >= RATE_CHART_START_DATE) keys.push(key);
   }
   return keys;
 }

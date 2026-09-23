@@ -50,10 +50,13 @@ const CREATE_GIFT_CODE_MESSAGE = document.getElementById('create-gift-code-messa
 
 
 // --- 定数：麻雀レートのルール ---
-// レート変動 = (最終得点 - 原点) / 1000 + ウマ + (卓平均レート - 自分のレート) / 40
+// レート変動 = { (最終得点 - 原点) / 1000 + ウマ + (卓平均レート - 自分のレート) / 40 } × 1.75
 // ウマの合計もレート差補正の合計も 0 なので、人数が何人でも卓全体のレートは増減しない。
+// ただし1位は最低でも +1 にするので、その底上げ分だけ卓の合計が増えることがある。
 const MAHJONG_SCORE_UNIT = 1000;              // 1000点 = 1レート
 const MAHJONG_RATE_DIFF_DIVISOR = 40;         // レート差補正の分母
+const MAHJONG_RATE_MULTIPLIER = 1.75;         // 変動全体にかける倍率
+const MAHJONG_TOP_MIN_RATE_CHANGE = 1;       // 1位の最低増加量
 const MAHJONG_TOTAL_TOLERANCE = 100;          // 合計点のズレをどこまで黙認するか
 const MAHJONG_RULES = {
     4: { label: '四人麻雀', startingScore: 30000, uma: [30, 10, -10, -30] },
@@ -315,10 +318,11 @@ function renderMahjongRuleNote() {
 
     MAHJONG_RULE_NOTE.innerHTML = `
         ${count}人の最終得点を入力します (合計 ${formatRate(rule.startingScore * count)} 点)。<br>
-        レート変動 = (最終得点 − ${formatRate(rule.startingScore)}) ÷ ${MAHJONG_SCORE_UNIT}
+        レート変動 = { (最終得点 − ${formatRate(rule.startingScore)}) ÷ ${MAHJONG_SCORE_UNIT}
         ＋ ウマ(${escapeAdminText(umaText)})
-        ＋ (卓の平均レート − 本人のレート) ÷ ${MAHJONG_RATE_DIFF_DIVISOR}<br>
-        <span class="text-small">格上に勝つほど大きく上がり、卓全体の合計は増減しません。</span><br>
+        ＋ (卓の平均レート − 本人のレート) ÷ ${MAHJONG_RATE_DIFF_DIVISOR} } × ${MAHJONG_RATE_MULTIPLIER}<br>
+        <span class="text-small">格上に勝つほど大きく上がり、卓全体の合計は増減しません。
+        ただし1位は格下の卓でも最低 +${MAHJONG_TOP_MIN_RATE_CHANGE} になります (その分だけ合計が増えます)。</span><br>
         <span class="text-small">CPUを入れて打ったときは「${escapeAdminText(MAHJONG_CPU_NAME)} (CPU)」を選んでください。
         CPUのレートは ${formatRate(MAHJONG_CPU_RATE)} 固定で増減せず、1卓に${MAHJONG_CPU_MAX_SEATS}人まで入れられます
         (そのぶん卓の合計レートはゼロサムになりません)。</span>`;
@@ -470,7 +474,12 @@ if (MAHJONG_FORM) {
                 const scoreDifference = (result.score - rule.startingScore) / MAHJONG_SCORE_UNIT;
                 const uma = rule.uma[i];
                 const rateDiffBonus = (tableAverageRate - seatRates[i]) / MAHJONG_RATE_DIFF_DIVISOR;
-                const rateChange = Math.round(scoreDifference + uma + rateDiffBonus);
+                const rawRateChange = Math.round((scoreDifference + uma + rateDiffBonus) * MAHJONG_RATE_MULTIPLIER);
+                // トップ (同点トップ含む) は格下の卓でも必ず増えるようにする
+                const isTop = result.score === results[0].score;
+                const rateChange = isTop
+                    ? Math.max(rawRateChange, MAHJONG_TOP_MIN_RATE_CHANGE)
+                    : rawRateChange;
 
                 const currentPlayer = currentScoresMap.get(result.name);
                 if (currentPlayer) {
