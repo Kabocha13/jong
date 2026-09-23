@@ -152,7 +152,6 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         localStorage.setItem('authUsername', username);
         localStorage.setItem('authPassword', password);
         if (window.refreshMasterNavLinks) window.refreshMasterNavLinks();
-        if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
         // UIの切り替え
         document.getElementById('auth-section').classList.add('hidden');
@@ -166,7 +165,6 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         initializeSportsMasterTools();
         loadMahjongForm();
         initializeLotteryForm();
-        loadSpecialThemeStatus();
         loadAttendanceAccessStatus();
         loadMemberStatusList();
         loadRateReversionSettings();
@@ -202,7 +200,6 @@ function handleMasterLogout() {
     localStorage.removeItem('authPassword');
     qjongSignOut();
     if (window.refreshMasterNavLinks) window.refreshMasterNavLinks();
-    if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
     // 2. 状態をリセットし、UIを切り替える
     finishAuthPending();
@@ -321,7 +318,10 @@ function renderMahjongRuleNote() {
         レート変動 = (最終得点 − ${formatRate(rule.startingScore)}) ÷ ${MAHJONG_SCORE_UNIT}
         ＋ ウマ(${escapeAdminText(umaText)})
         ＋ (卓の平均レート − 本人のレート) ÷ ${MAHJONG_RATE_DIFF_DIVISOR}<br>
-        <span class="text-small">格上に勝つほど大きく上がり、卓全体の合計は増減しません。</span>`;
+        <span class="text-small">格上に勝つほど大きく上がり、卓全体の合計は増減しません。</span><br>
+        <span class="text-small">CPUを入れて打ったときは「${escapeAdminText(MAHJONG_CPU_NAME)} (CPU)」を選んでください。
+        CPUのレートは ${formatRate(MAHJONG_CPU_RATE)} 固定で増減せず、1卓に${MAHJONG_CPU_MAX_SEATS}人まで入れられます
+        (そのぶん卓の合計レートはゼロサムになりません)。</span>`;
 }
 
 async function loadMahjongForm() {
@@ -337,8 +337,9 @@ async function loadMahjongForm() {
         return;
     }
 
-    // 三人麻雀のダミー席として使っていた 3mahjong は、卓平均レートを狂わせるので選ばせない
-    const selectableNames = ALL_PLAYER_NAMES.filter(name => !RATE_EXCLUDED_PLAYERS.includes(name));
+    // 実プレイヤーの一覧。CPU席は別枠で常に末尾に足す (players に居なくても選べるようにするため)
+    const selectableNames = ALL_PLAYER_NAMES.filter(name => !isMahjongCpu(name));
+    const cpuOption = `<option value="${MAHJONG_CPU_NAME}">${MAHJONG_CPU_NAME} (CPU・レート${formatRate(MAHJONG_CPU_RATE)}固定)</option>`;
 
     let html = '';
     for (let i = 1; i <= getMahjongPlayerCount(); i++) {
@@ -348,6 +349,7 @@ async function loadMahjongForm() {
                 <select id="mahjong-player-${i}-name" required>
                     <option value="" disabled selected>名前を選択</option>
                     ${selectableNames.map(name => `<option value="${name}">${name}</option>`).join('')}
+                    ${cpuOption}
                 </select>
                 <input type="number" id="mahjong-player-${i}-score" placeholder="最終得点 (例: 32500)" required>
             </div>
@@ -385,13 +387,28 @@ if (MAHJONG_FORM) {
                 return;
             }
 
-            if (selectedNames.has(name)) {
+            // CPUはレート固定で区別する必要がないので、上限まで重複を許す
+            if (!isMahjongCpu(name) && selectedNames.has(name)) {
                 showMessage(MAHJONG_MESSAGE_ELEMENT, 'エラー: 参加者が重複しています。', 'error');
                 return;
             }
             selectedNames.add(name);
             results.push({ name, score });
             totalScore += score;
+        }
+
+        const cpuSeats = results.filter(result => isMahjongCpu(result.name)).length;
+        if (cpuSeats > MAHJONG_CPU_MAX_SEATS) {
+            showMessage(
+                MAHJONG_MESSAGE_ELEMENT,
+                `エラー: CPUは1卓に${MAHJONG_CPU_MAX_SEATS}人までです。`,
+                'error'
+            );
+            return;
+        }
+        if (cpuSeats === results.length) {
+            showMessage(MAHJONG_MESSAGE_ELEMENT, 'エラー: CPUだけの卓は反映できません。', 'error');
+            return;
         }
 
         // 合計がずれているとゼロサムが崩れ、卓の外のレートまで動いてしまう
@@ -420,7 +437,9 @@ if (MAHJONG_FORM) {
             results.sort((a, b) => b.score - a.score);
 
             // 1人でも欠けていると卓平均が狂い、全員のレートがずれてしまう
-            const missing = results.filter(result => !currentScoresMap.has(result.name)).map(result => result.name);
+            const missing = results
+                .filter(result => !isMahjongCpu(result.name) && !currentScoresMap.has(result.name))
+                .map(result => result.name);
             if (missing.length > 0) {
                 showMessage(MAHJONG_MESSAGE_ELEMENT, `❌ プレイヤーデータが見つかりません: ${missing.join(', ')}`, 'error');
                 return;
@@ -428,11 +447,25 @@ if (MAHJONG_FORM) {
 
             // 卓平均レートは「対局前」のレートで固定する。
             // 先に計算した人の結果が後の人の補正に影響しないようにするため。
-            const seatRates = results.map(result => normalizeRate(currentScoresMap.get(result.name).score));
+            // CPU席は保存値ではなく常に MAHJONG_CPU_RATE (基準レート) として数える。
+            const seatRates = results.map(result => (
+                isMahjongCpu(result.name)
+                    ? MAHJONG_CPU_RATE
+                    : normalizeRate(currentScoresMap.get(result.name).score)
+            ));
             const tableAverageRate = seatRates.reduce((sum, rate) => sum + rate, 0) / results.length;
 
             for (let i = 0; i < results.length; i++) {
                 const result = results[i];
+
+                // CPUのレートは固定。players にレコードがあれば基準レートへ戻すだけにする。
+                if (isMahjongCpu(result.name)) {
+                    const cpuPlayer = currentScoresMap.get(result.name);
+                    if (cpuPlayer && normalizeRate(cpuPlayer.score) !== MAHJONG_CPU_RATE) {
+                        currentScoresMap.set(result.name, { ...cpuPlayer, score: MAHJONG_CPU_RATE });
+                    }
+                    continue;
+                }
 
                 const scoreDifference = (result.score - rule.startingScore) / MAHJONG_SCORE_UNIT;
                 const uma = rule.uma[i];
@@ -458,7 +491,12 @@ if (MAHJONG_FORM) {
                 sports_bets: currentData.sports_bets || [],
                 speedstorm_records: currentData.speedstorm_records || [],
                 lotteries: currentData.lotteries || [], // ★ 宝くじデータを保持
-                gift_codes: currentData.gift_codes || [] // ★ 新規追加: gift_codes
+                gift_codes: currentData.gift_codes || [], // ★ 新規追加: gift_codes
+                // 増減ログ (point_history) に何の対局だったかを残す
+                rate_history_meta: {
+                    source: 'mahjong',
+                    reason: `${rule.label} ${results.map(result => `${result.name} ${result.score}`).join(' / ')}`
+                }
             };
     
             const response = await updateAllData(newData);
@@ -483,6 +521,27 @@ if (MAHJONG_FORM) {
         }
     });
 }
+// --- レート推移グラフの再構築 ---
+const REBUILD_RATE_CHART_BUTTON = document.getElementById('rebuild-rate-chart-button');
+const REBUILD_RATE_CHART_MESSAGE = document.getElementById('rebuild-rate-chart-message');
+
+REBUILD_RATE_CHART_BUTTON?.addEventListener('click', async () => {
+    const originalLabel = REBUILD_RATE_CHART_BUTTON.textContent;
+    REBUILD_RATE_CHART_BUTTON.disabled = true;
+    REBUILD_RATE_CHART_BUTTON.textContent = '再構築中...';
+    showMessage(REBUILD_RATE_CHART_MESSAGE, 'レートの増減ログから組み立て直しています...', 'info');
+
+    try {
+        const result = await rebuildRateChartNow();
+        showMessage(REBUILD_RATE_CHART_MESSAGE, `✅ ${result.message}`, 'success');
+    } catch (error) {
+        showMessage(REBUILD_RATE_CHART_MESSAGE, `❌ ${error.message}`, 'error');
+    } finally {
+        REBUILD_RATE_CHART_BUTTON.disabled = false;
+        REBUILD_RATE_CHART_BUTTON.textContent = originalLabel;
+    }
+});
+
 // --- 麻雀結果フォーム処理 終了 ---
 
 
@@ -1532,64 +1591,6 @@ if (CREATE_LOTTERY_FORM) {
         }
     });
 }
-
-async function loadSpecialThemeStatus() {
-    const el = document.getElementById('special-theme-current');
-    if (!el) return;
-    const currentData = await fetchAllData();
-    const theme = currentData.special_theme;
-    if (theme && theme.startDate) {
-        el.innerHTML = `<p style="color:#27ae60;">✅ 現在の設定: <strong>${theme.label || '(ラベルなし)'}</strong>　${theme.startDate} 〜 ${theme.endDate}</p>`;
-        document.getElementById('theme-label').value  = theme.label    || '';
-        document.getElementById('theme-start').value  = theme.startDate;
-        document.getElementById('theme-end').value    = theme.endDate;
-    } else {
-        el.innerHTML = '<p style="color:#888;">現在スペシャルテーマは設定されていません。</p>';
-    }
-}
-
-async function saveSpecialTheme(themeData) {
-    const messageEl = document.getElementById('special-theme-message');
-    try {
-        const currentData = await fetchAllData();
-        const newData = {
-            scores:               currentData.scores,
-            sports_bets:          currentData.sports_bets          || [],
-            speedstorm_records:   currentData.speedstorm_records    || [],
-            lotteries:            currentData.lotteries             || [],
-            gift_codes:           currentData.gift_codes            || [],
-            career_posts:         currentData.career_posts          || [],
-            special_theme:        themeData,
-        };
-        const res = await updateAllData(newData);
-        if (res.status === 'success') {
-            showMessage(messageEl, themeData ? `✅ テーマを設定しました。` : '✅ テーマを解除しました。', 'success');
-            applySpecialTheme(themeData);
-            await loadSpecialThemeStatus();
-        } else {
-            showMessage(messageEl, `❌ エラー: ${res.message}`, 'error');
-        }
-    } catch (err) {
-        showMessage(messageEl, `❌ サーバーエラー: ${err.message}`, 'error');
-    }
-}
-
-document.getElementById('special-theme-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const label = document.getElementById('theme-label').value.trim();
-    const start = document.getElementById('theme-start').value;
-    const end   = document.getElementById('theme-end').value;
-    if (start > end) {
-        showMessage(document.getElementById('special-theme-message'), '❌ 終了日は開始日以降にしてください。', 'error');
-        return;
-    }
-    await saveSpecialTheme({ label, startDate: start, endDate: end });
-});
-
-document.getElementById('clear-theme-button').addEventListener('click', async () => {
-    if (!window.confirm('スペシャルテーマを解除しますか？')) return;
-    await saveSpecialTheme(null);
-});
 
 // ============================================================
 // 出席登録の表示設定

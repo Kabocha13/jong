@@ -1503,14 +1503,143 @@ footer {
 .result-button { margin-top: 8px; }
 
 /* ------------------------------------------------------------
-   19. スクロールバー
+   19. レート推移グラフ — 航海日誌の折れ線
+   系列の色 (assets/js/rate-chart.js) は羊皮紙の上で検証済み。
+   文字は系列色を着ず、色は線とキーだけが持つ。
+   ------------------------------------------------------------ */
+.rate-chart-figure {
+    position: relative;
+    margin-top: 4px;
+}
+
+.rate-chart-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    /* 縦スクロールは殺さずに、横方向のなぞりで日付を選べるようにする */
+    touch-action: pan-y;
+}
+
+.rate-chart-svg:focus-visible {
+    outline: 2px solid var(--brass);
+    outline-offset: 3px;
+}
+
+.rate-chart-grid      { stroke: rgba(109, 98, 82, 0.3); stroke-width: 1; }
+.rate-chart-baseline  { stroke: rgba(43, 30, 16, 0.45); stroke-width: 1; }
+.rate-chart-crosshair { stroke: rgba(43, 30, 16, 0.5); stroke-width: 1; pointer-events: none; }
+.rate-chart-leader    { fill: none; stroke: rgba(93, 74, 50, 0.55); stroke-width: 1; }
+.rate-chart-hover-dots { pointer-events: none; }
+
+.rate-chart-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+.rate-chart-end-dot {
+    stroke: var(--parchment);
+    stroke-width: 2;
+}
+
+.rate-chart-axis-text,
+.rate-chart-baseline-text,
+.rate-chart-end-text {
+    font-family: var(--font-body);
+    fill: var(--ink-soft);
+}
+
+.rate-chart-axis-text     { font-size: 11px; font-variant-numeric: tabular-nums; }
+/* 折れ線と重なっても読めるように、羊皮紙色で縁取ってから塗る */
+.rate-chart-baseline-text {
+    font-size: 10px;
+    paint-order: stroke;
+    stroke: var(--parchment);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+}
+.rate-chart-end-text      { font-size: 12px; fill: var(--ink); }
+
+.rate-chart-tooltip {
+    position: absolute;
+    top: 4px;
+    transform: translateX(-50%);
+    min-width: 108px;
+    padding: 7px 10px 8px;
+    color: var(--ink);
+    background: var(--parchment-warm);
+    border: 1px solid rgba(var(--brass-rgb), 0.55);
+    border-radius: 3px;
+    box-shadow: 0 4px 12px rgba(6, 13, 17, 0.28);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.rate-chart-tooltip-date {
+    margin: 0 0 5px;
+    font-size: 0.76em;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+}
+
+.rate-chart-tooltip-row {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin: 0 0 3px;
+    font-size: 0.84em;
+}
+
+.rate-chart-tooltip-row:last-child { margin-bottom: 0; }
+.rate-chart-tooltip-row strong { font-variant-numeric: tabular-nums; }
+.rate-chart-tooltip-name { color: var(--ink-soft); }
+
+.rate-chart-tooltip-key {
+    flex: none;
+    width: 12px;
+    height: 2px;
+    border-radius: 2px;
+    transform: translateY(-3px);
+}
+
+.rate-chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.88em;
+}
+
+.rate-chart-legend li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.rate-chart-legend-key {
+    width: 16px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+.rate-chart-legend-value {
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------
+   20. スクロールバー
    ------------------------------------------------------------ */
 ::-webkit-scrollbar { width: 9px; height: 6px; }
 ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.25); }
 ::-webkit-scrollbar-thumb { background: rgba(201, 146, 47, 0.55); border-radius: 999px; }
 
 /* ------------------------------------------------------------
-   20. ユーティリティ
+   21. ユーティリティ
    ------------------------------------------------------------ */
 .hidden { display: none !important; }
 .flex { display: flex; }
@@ -1528,7 +1657,7 @@ footer {
 .text-xs { font-size: 0.76em; }
 
 /* ------------------------------------------------------------
-   21. タブレット (720px〜)
+   22. タブレット (720px〜)
    ------------------------------------------------------------ */
 @media (min-width: 720px) {
     :root { --gutter: 24px; }
@@ -1551,7 +1680,7 @@ footer {
 }
 
 /* ------------------------------------------------------------
-   22. PC (1040px〜)
+   23. PC (1040px〜)
    ------------------------------------------------------------ */
 @media (min-width: 1040px) {
     /* 以前ここにあった header の padding-block と header::after は、
@@ -1570,7 +1699,7 @@ footer {
 }
 
 /* ------------------------------------------------------------
-   23. モーション低減
+   24. モーション低減
    ------------------------------------------------------------ */
 /* ------------------------------------------------------------
    13:13 の金銀財宝

@@ -121,6 +121,112 @@ function rateHistoryDocId(playerName, at = new Date().toISOString()) {
     .replace(/\//g, '%2F');
 }
 
+// -----------------------------------------------------------------
+// レート推移グラフ用の日別データ
+//   point_history (増減ログ) と players の現在値から「その日の終値」を組み立て、
+//   rate_chart/daily に1ドキュメントとしてまとめて置く。
+//   ホームはこの1件を読むだけでグラフを描けるので、公開ページから
+//   point_history を直接読ませる必要がない。
+// -----------------------------------------------------------------
+const RATE_CHART_DAYS = 30;          // グラフに出す日数
+const RATE_CHART_COLLECTION = 'rate_chart';
+const RATE_CHART_DOC = 'daily';
+
+/** 今日を含む直近 days 日ぶんの JST 日付キーを古い順で返す */
+function recentJstDateKeys(days = RATE_CHART_DAYS) {
+  const keys = [];
+  for (let i = days - 1; i >= 0; i--) {
+    keys.push(getJstDateKey(new Date(Date.now() - i * 86400000)));
+  }
+  return keys;
+}
+
+/**
+ * その日の終わり時点のレート。
+ *   - その日までに増減があれば、最後の増減の afterScore
+ *   - まだ何も無ければ、その後に来る最初の増減の beforeScore (= 変わる前の値)
+ *   - 増減が1件も無ければ現在値
+ * entries は createdAt の古い順。
+ */
+function rateAtEndOfDay(entries, dateKey, currentRate) {
+  let closing = null;
+  for (const entry of entries) {
+    if (entry.date <= dateKey) {
+      closing = entry.afterScore;
+    } else if (closing === null) {
+      return entry.beforeScore;
+    } else {
+      break;
+    }
+  }
+  return closing === null ? currentRate : closing;
+}
+
+/** point_history と現在のレートから rate_chart/daily を作り直す */
+async function rebuildRateChartFromHistory() {
+  const playersSnapshot = await db.collection('players').get();
+  const currentRates = new Map();
+  playersSnapshot.docs.forEach(doc => {
+    const player = doc.data();
+    if (!player || !player.name || RATE_EXCLUDED_PLAYERS.has(player.name)) return;
+    currentRates.set(player.name, normalizeRate(player.score));
+  });
+
+  const dates = recentJstDateKeys();
+  // 期間の先頭より1日ぶん多めに取り、期間開始時点の値も beforeScore から拾えるようにする
+  const since = new Date(Date.now() - (RATE_CHART_DAYS + 1) * 86400000).toISOString();
+  const historySnapshot = await db.collection('point_history')
+    .where('createdAt', '>=', since)
+    .get();
+
+  const entriesByPlayer = new Map();
+  historySnapshot.docs.forEach(doc => {
+    const entry = doc.data();
+    if (!entry || !entry.player || !currentRates.has(entry.player)) return;
+    const createdAt = String(entry.createdAt || '');
+    if (!createdAt) return;
+    if (!entriesByPlayer.has(entry.player)) entriesByPlayer.set(entry.player, []);
+    entriesByPlayer.get(entry.player).push({
+      createdAt,
+      date: getJstDateKey(new Date(createdAt)),
+      beforeScore: normalizeRate(entry.beforeScore),
+      afterScore: normalizeRate(entry.afterScore)
+    });
+  });
+  entriesByPlayer.forEach(entries => entries.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
+
+  const days = dates.map((date, index) => {
+    const isToday = index === dates.length - 1;
+    const rates = {};
+    currentRates.forEach((currentRate, name) => {
+      // 今日ぶんは players の現在値をそのまま使う。
+      // 増減ログを通さずレートが書き換わった場合でも、グラフの右端が
+      // ホームのランキングとずれないようにするため。
+      rates[name] = isToday
+        ? currentRate
+        : rateAtEndOfDay(entriesByPlayer.get(name) || [], date, currentRate);
+    });
+    return { date, rates };
+  });
+
+  const payload = {
+    days,
+    players: Array.from(currentRates.keys()),
+    updatedAt: new Date().toISOString()
+  };
+  await db.collection(RATE_CHART_COLLECTION).doc(RATE_CHART_DOC).set(payload);
+  return payload;
+}
+
+/** グラフ更新は本体の処理を巻き込んで失敗させない */
+async function rebuildRateChartQuietly(context) {
+  try {
+    await rebuildRateChartFromHistory();
+  } catch (error) {
+    console.error(`rate_chart の更新に失敗しました (${context}):`, error);
+  }
+}
+
 async function applyDailyRateReversionForToday() {
   const todayKey = getJstDateKey();
   const settingsRef = db.collection('settings').doc('app');
@@ -899,6 +1005,7 @@ export const collectDailyPointTax = onSchedule({
 }, async () => {
   const result = await applyDailyRateReversionForToday();
   console.log('applyDailyRateReversion result:', result);
+  await rebuildRateChartQuietly('daily_rate_reversion');
 });
 
 export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
@@ -949,16 +1056,51 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
     });
 
     batch.set(db.collection('settings').doc('app'), {
-      special_theme: data.special_theme ?? null,
       attendance_allowed_users: Array.isArray(data.attendance_allowed_users) ? data.attendance_allowed_users : [],
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
     await batch.commit();
+
+    // レートが動いたときだけグラフ用データを作り直す (失敗しても保存自体は成功扱い)
+    if (pointHistoryEntries.length > 0) {
+      await rebuildRateChartQuietly('updateAllData');
+    }
+
     res.status(200).json({ status: 'success', message: 'データをFirebaseに保存しました。' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 'error', message: `Firebase書き込み失敗: ${error.message}` });
+  }
+});
+
+export const rebuildRateChart = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    if (!await hasWriteAccess(req, req.body || {})) {
+      res.status(401).json({ status: 'error', message: '認証が必要です。' });
+      return;
+    }
+
+    const payload = await rebuildRateChartFromHistory();
+    res.status(200).json({
+      status: 'success',
+      message: `レート推移を${payload.days.length}日ぶん組み立てました。`,
+      days: payload.days.length,
+      players: payload.players.length
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `レート推移の再構築に失敗しました: ${error.message}` });
   }
 });
 

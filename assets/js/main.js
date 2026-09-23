@@ -12,7 +12,7 @@ const REFRESH_BUTTON = document.getElementById('refresh-button');
 const HOME_BONUS_BUTTON = document.getElementById('home-bonus-button');
 const DECK_BAR = document.querySelector('.deck-bar');
 
-const EXCLUDED_PLAYERS = ['3mahjong'];
+const EXCLUDED_PLAYERS = [MAHJONG_CPU_NAME];  // CPU席はランキングに出さない (common.js で定義)
 // 出席登録はこのレート以上でないと表示しない (基準レートと同じ値にしてある)
 const ATTENDANCE_MIN_RATE = 3000;
 let homeLatestScores = [];
@@ -138,6 +138,8 @@ async function renderHomeManabaAssignments() {
     if (!HOME_MANABA_ASSIGNMENT_LIST) return;
 
     const isLoggedIn = await ensureHomeFirebaseLogin();
+    // ログインできたタイミングで、レート推移グラフが空のままなら作り直させる
+    if (isLoggedIn) window.qjongRateChart?.healIfEmpty();
     if (!isLoggedIn) {
         HOME_MANABA_ASSIGNMENT_LIST.innerHTML = '<p class="info-text">マイページでログインすると未提出課題を表示できます。</p>';
         return;
@@ -405,12 +407,17 @@ function renderHomeBonusLabel() {
     if (!HOME_BONUS_BUTTON) return;
 
     if (!homeBonusPlayer) {
-        HOME_BONUS_BUTTON.hidden = true;
+        // 未ログインでも枠は残して、押せない理由が分かるようにする
+        HOME_BONUS_BUTTON.hidden = false;
+        HOME_BONUS_BUTTON.disabled = true;
+        HOME_BONUS_BUTTON.textContent = '未ログイン';
+        HOME_BONUS_BUTTON.title = 'マイページでログインするとログインボーナスを受け取れます。';
         return;
     }
 
     const state = getRateBonusState(homeBonusPlayer);
     HOME_BONUS_BUTTON.hidden = false;
+    HOME_BONUS_BUTTON.disabled = false;
     HOME_BONUS_BUTTON.textContent = `ログボ ペナ${Math.round(state.total)}%`;
     HOME_BONUS_BUTTON.title = `${state.memberLabel}会員 / 当たり +${state.bonusAmount} / 外れ -${RATE_BONUS_PENALTY}`;
 }
@@ -468,6 +475,7 @@ REFRESH_BUTTON?.addEventListener('click', async () => {
     try {
         loadCafeteriaMenu();
         await renderScores();
+        await window.qjongRateChart?.load();
         const isLoggedIn = await ensureHomeFirebaseLogin();
         if (isLoggedIn) {
             await syncHomeManabaFromServer(true);

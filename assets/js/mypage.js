@@ -141,7 +141,6 @@ async function attemptLogin(username, password, isAuto = false) {
         localStorage.setItem('authUsername', username);
         localStorage.setItem('authPassword', password);
         if (window.refreshMasterNavLinks) window.refreshMasterNavLinks();
-        if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
 
         // 2. UIの切り替え
         document.getElementById('auth-section').classList.add('hidden');
@@ -195,7 +194,6 @@ function handleLogout() {
     
     localStorage.removeItem('authUsername');
     localStorage.removeItem('authPassword');
-    if (window.refreshSpecialThemeDisplayToggle) window.refreshSpecialThemeDisplayToggle();
     if (window.refreshMasterNavLinks) window.refreshMasterNavLinks();
     qjongSignOut();
 

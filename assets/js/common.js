@@ -16,11 +16,24 @@ const FIREBASE_COLLECTIONS = {
 const RATE_BASELINE_DEFAULT = 3000;          // 基準レート
 const RATE_REVERSION_RATE_DEFAULT = 0.13;    // 1日に戻す割合 (基準との差に対して)
 const RATE_REVERSION_FLAT_DEFAULT = 10;      // 割合ぶんに上乗せする固定分
-const RATE_EXCLUDED_PLAYERS = ['3mahjong'];  // 日次補正の対象外
+// CPUを入れて打ったとき用の仮想プレイヤー。麻雀の結果入力でだけ選べる席で、
+// レートは常に基準レート(3000)に固定する。勝っても負けても本人のレートは動かさず、
+// 卓平均レートの計算にもこの3000をそのまま使うので、実プレイヤーのレートを吸わない。
+const MAHJONG_CPU_NAME = '3mahjong';
+const MAHJONG_CPU_RATE = RATE_BASELINE_DEFAULT;
+const MAHJONG_CPU_MAX_SEATS = 2;            // 1卓に入れられるCPUの人数 (三麻・四麻とも)
+const RATE_EXCLUDED_PLAYERS = [MAHJONG_CPU_NAME];  // 日次補正の対象外
 const RATE_BONUS_AMOUNTS = { luxury: 10, pro: 5, none: 1 };
 const RATE_BONUS_PENALTY = 10;               // ペナルティ時の減少量
 const RATE_BONUS_SPECIAL = 30;               // 特別ボーナスの加算量
 const RATE_BONUS_SPECIAL_PERCENT = 1;        // 特別ボーナスの発生確率 (%)
+const RATE_CHART_COLLECTION = 'rate_chart';  // レート推移グラフ用 (日別の終値)
+const RATE_CHART_DOC = 'daily';
+const RATE_CHART_DAYS = 30;                 // グラフに出す日数
+
+function isMahjongCpu(name) {
+    return name === MAHJONG_CPU_NAME;
+}
 let _firebaseFirestoreSettingsApplied = false;
 let _rateReversionCheckedDate = '';
 
@@ -257,7 +270,6 @@ function createEmptyData() {
         rate_reversion_last_date: '',
         rate_reversion_last_run_at: '',
         rate_reversion_last_total: 0,
-        special_theme: null,
         attendance_allowed_users: []
     };
 }
@@ -697,14 +709,8 @@ async function fetchAllDataFromFirebase() {
         rate_reversion_last_date: settings.rate_reversion_last_date ?? '',
         rate_reversion_last_run_at: settings.rate_reversion_last_run_at ?? '',
         rate_reversion_last_total: settings.rate_reversion_last_total ?? 0,
-        special_theme: settings.special_theme ?? null,
         attendance_allowed_users: settings.attendance_allowed_users ?? []
     });
-
-    if (record.special_theme !== undefined) {
-        localStorage.setItem('specialTheme', JSON.stringify(record.special_theme || null));
-        applySpecialTheme(record.special_theme);
-    }
 
     return record;
 }
@@ -794,6 +800,61 @@ async function updateAllDataInFirebase(newData) {
     } catch (error) {
         console.error("Firebase書き込み中にエラー:", error);
         return { status: "error", message: `Firebase書き込み失敗: ${error.message}`, totalChange: 0 };
+    }
+}
+
+/**
+ * ホームのレート推移グラフ用データ。
+ * Cloud Function が point_history から組み立てた1ドキュメントを読むだけなので、
+ * 未ログインのホームからでも1リクエストで済む。
+ * @returns {Promise<{days: Array, players: Array, updatedAt: string}|null>}
+ */
+async function fetchRateChart() {
+    const db = getFirestoreDb();
+    if (!db) return null;
+    const doc = await db.collection(RATE_CHART_COLLECTION).doc(RATE_CHART_DOC).get();
+    if (!doc.exists) return null;
+    const data = doc.data() || {};
+    const days = Array.isArray(data.days) ? data.days : [];
+    return {
+        days: days.filter(day => day && typeof day.date === 'string' && day.rates),
+        players: Array.isArray(data.players) ? data.players : [],
+        updatedAt: String(data.updatedAt || '')
+    };
+}
+
+/**
+ * グラフ用データ (rate_chart/daily) を point_history から組み立て直させる。
+ * 管理画面のボタンから呼ぶ。失敗したら例外を投げる。
+ */
+async function rebuildRateChartNow() {
+    const token = await getFirebaseIdToken();
+    if (!token) throw new Error('Firebaseログインが必要です。');
+
+    const response = await fetch(`${getFunctionsBaseUrl()}/rebuildRateChart`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.status !== 'success') {
+        throw new Error(result.message || `Cloud Function Error ${response.status}`);
+    }
+    return result;
+}
+
+/**
+ * Cloud Function を経由せずに players を書き換えたとき用。
+ * 失敗しても呼び出し元の処理は続ける。
+ */
+async function requestRateChartRebuild() {
+    try {
+        await rebuildRateChartNow();
+    } catch (error) {
+        console.error('レート推移の再構築に失敗しました:', error);
     }
 }
 
@@ -891,6 +952,7 @@ async function runDailyRateReversionIfNeeded() {
     await batch.commit();
     _rateReversionCheckedDate = todayKey;
     invalidateFetchCache();
+    await requestRateChartRebuild();
 
     return {
         status: 'success',
@@ -1144,59 +1206,6 @@ function showMessage(element, message, type) {
 // ★ 修正: ハードコードされたパスワードを削除し、マスターユーザー名に置き換える
 const MASTER_USERNAME = "Kabocha";
 
-
-// -----------------------------------------------------------------
-// スペシャルテーマ適用
-// -----------------------------------------------------------------
-
-let latestSpecialThemeData = null;
-
-function isSpecialThemeActive(themeData) {
-    if (!themeData || !themeData.startDate || !themeData.endDate) return false;
-    const now   = new Date();
-    const start = new Date(themeData.startDate + 'T00:00:00');
-    const end   = new Date(themeData.endDate   + 'T23:59:59');
-    return now >= start && now <= end;
-}
-
-function ensureSpecialThemeStylesheet() {
-    if (document.getElementById('special-theme-css')) return;
-    const link = document.createElement('link');
-    link.id   = 'special-theme-css';
-    link.rel  = 'stylesheet';
-    link.href = 'assets/css/special.css';
-    document.head.appendChild(link);
-}
-
-function refreshSpecialThemeDisplayToggle() {
-    applySpecialTheme(latestSpecialThemeData);
-}
-
-window.refreshSpecialThemeDisplayToggle = refreshSpecialThemeDisplayToggle;
-
-/**
- * special_theme データを元に special.css を動的に読み込む
- * @param {object|null} themeData - { startDate, endDate, label } または null
- */
-function applySpecialTheme(themeData) {
-    latestSpecialThemeData = themeData;
-    if (isSpecialThemeActive(themeData)) {
-        ensureSpecialThemeStylesheet();
-        document.documentElement.classList.add('special-theme');
-    } else {
-        document.documentElement.classList.remove('special-theme');
-        const existing = document.getElementById('special-theme-css');
-        if (existing) existing.remove();
-    }
-}
-
-// ページ読み込み時にキャッシュから即時適用（フラッシュ防止）
-(function () {
-    try {
-        const cached = localStorage.getItem('specialTheme');
-        if (cached) applySpecialTheme(JSON.parse(cached));
-    } catch (e) { /* キャッシュ破損時は無視 */ }
-})();
 
 /**
  * 管理画面へのリンクは、マスターアカウントでログインしているときだけ表示する。
