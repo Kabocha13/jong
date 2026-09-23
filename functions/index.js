@@ -165,6 +165,47 @@ function rateAtEndOfDay(entries, dateKey, currentRate) {
   return closing === null ? currentRate : closing;
 }
 
+const RATE_CHART_EVENT_GAP_MS = 5000;   // 同じ source/reason でこれ以内の増減は1回の出来事とみなす
+
+/**
+ * 全員の増減ログを時刻順に並べ、同時に保存されたもの (1局ぶん・1回の補正) を1件にまとめる。
+ * 戻り値は JST 日付キー → イベント配列 (古い順)。
+ */
+function groupRateChartEvents(entriesByPlayer) {
+  const all = [];
+  entriesByPlayer.forEach((entries, player) => {
+    entries.forEach(entry => all.push({ ...entry, player }));
+  });
+  all.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+  const eventsByDate = new Map();
+  let current = null;
+  all.forEach(entry => {
+    const time = Date.parse(entry.createdAt);
+    const sameEvent = current
+      && current.date === entry.date
+      && current.source === entry.source
+      && current.reason === entry.reason
+      && time - current.lastTime <= RATE_CHART_EVENT_GAP_MS
+      && !current.changes.some(change => change.player === entry.player);
+    if (!sameEvent) {
+      current = {
+        at: entry.createdAt,
+        date: entry.date,
+        source: entry.source,
+        reason: entry.reason,
+        lastTime: time,
+        changes: []
+      };
+      if (!eventsByDate.has(entry.date)) eventsByDate.set(entry.date, []);
+      eventsByDate.get(entry.date).push(current);
+    }
+    current.lastTime = time;
+    current.changes.push({ player: entry.player, afterScore: entry.afterScore });
+  });
+  return eventsByDate;
+}
+
 /** point_history と現在のレートから rate_chart/daily を作り直す */
 async function rebuildRateChartFromHistory() {
   const playersSnapshot = await db.collection('players').get();
@@ -193,7 +234,9 @@ async function rebuildRateChartFromHistory() {
       createdAt,
       date: getJstDateKey(new Date(createdAt)),
       beforeScore: normalizeRate(entry.beforeScore),
-      afterScore: normalizeRate(entry.afterScore)
+      afterScore: normalizeRate(entry.afterScore),
+      source: String(entry.source || ''),
+      reason: String(entry.reason || '')
     });
   });
   entriesByPlayer.forEach(entries => entries.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
@@ -214,6 +257,28 @@ async function rebuildRateChartFromHistory() {
         : rateAtEndOfDay(entriesByPlayer.get(name) || [], date, currentRate);
     });
     return { date, rates };
+  });
+
+  // 日ごとの変動 (対局1回・日次補正1回 = 1イベント) を、各イベント直後の全員のレートつきで並べる
+  const eventsByDate = groupRateChartEvents(entriesByPlayer);
+  days.forEach((day, index) => {
+    if (day.date === RATE_CHART_START_DATE) {
+      day.events = [];
+      return;
+    }
+    const state = { ...(index > 0 ? days[index - 1].rates : day.rates) };
+    if (index === 0) {
+      // 先頭の日は前日の終値を知らないので、その日最初の増減の beforeScore から起こす
+      currentRates.forEach((currentRate, name) => {
+        const first = (entriesByPlayer.get(name) || []).find(entry => entry.date >= day.date);
+        state[name] = first && first.date === day.date ? first.beforeScore : day.rates[name];
+      });
+      day.open = { ...state };
+    }
+    day.events = (eventsByDate.get(day.date) || []).map(event => {
+      event.changes.forEach(change => { state[change.player] = change.afterScore; });
+      return { at: event.at, source: event.source, reason: event.reason, rates: { ...state } };
+    });
   });
 
   const payload = {
