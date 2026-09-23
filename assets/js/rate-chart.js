@@ -2,6 +2,7 @@
 // ホーム下部の「レートの推移」グラフ。
 // Cloud Function が point_history (レート増減ログ) から組み立てた日別データ
 // rate_chart/daily を1件読んで、その場で SVG を組み立てる。外部ライブラリは使わない。
+// 横軸は1日 = 等幅の1区間。その日の変動 (対局・日次補正) を区間の中に1列ずつ並べる。
 
 const RATE_CHART_CONTAINER = document.getElementById('rate-chart');
 
@@ -22,7 +23,7 @@ const RATE_CHART_PAD = { top: 16, right: 68, bottom: 30, left: 48 };
 const RATE_CHART_TICK_STEPS = [10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000];
 const RATE_CHART_SURFACE = '#f1e3c4';   // 羊皮紙 (マーカーの縁取り用)
 
-let rateChartState = { days: [], series: [], hoverIndex: -1, loaded: false };
+let rateChartState = { days: [], points: [], series: [], hoverIndex: -1, loaded: false };
 let rateChartLoadPromise = null;
 
 function svgEl(name, attrs = {}) {
@@ -45,21 +46,58 @@ function rateChartTickStep(span) {
     return RATE_CHART_TICK_STEPS.find(step => step >= target) || RATE_CHART_TICK_STEPS[RATE_CHART_TICK_STEPS.length - 1];
 }
 
+function rateChartTimeLabel(iso) {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
+}
+
 /**
- * 日別データを系列 (プレイヤー1人 = 1本の線) に組み替える。
+ * 日別データを「点」の列に展開する。x は日の番号 + その日の中での位置 (0〜1)。
+ *   - 先頭の日だけ、区間の左端に始値の点を置く
+ *   - その日の変動 n 件は区間を n 等分した右端に1件ずつ置く (最後の変動 = 区間の右端)
+ *   - 変動が無い日は右端に終値の点を1つだけ置く (横ばい)
+ */
+function buildRateChartPoints(days) {
+    const points = [];
+    days.forEach((day, dayIndex) => {
+        const events = Array.isArray(day.events) ? day.events.filter(event => event && event.rates) : [];
+        if (dayIndex === 0) {
+            points.push({ x: 0, dayIndex, date: day.date, label: '開始', rates: day.open || day.rates });
+        }
+        if (!events.length) {
+            points.push({ x: dayIndex + 1, dayIndex, date: day.date, label: '変動なし', rates: day.rates });
+            return;
+        }
+        events.forEach((event, eventIndex) => {
+            const time = rateChartTimeLabel(event.at);
+            points.push({
+                x: dayIndex + (eventIndex + 1) / events.length,
+                dayIndex,
+                date: day.date,
+                label: [time, event.reason].filter(Boolean).join(' '),
+                rates: event.rates
+            });
+        });
+    });
+    return points;
+}
+
+/**
+ * 点の列を系列 (プレイヤー1人 = 1本の線) に組み替える。
  * 人数が色数を超えたら、直近のレートが高い順に上位だけ描く。
  */
-function buildRateChartSeries(days) {
+function buildRateChartSeries(points) {
     const names = [];
-    days.forEach(day => {
-        Object.keys(day.rates || {}).forEach(name => {
+    points.forEach(point => {
+        Object.keys(point.rates || {}).forEach(name => {
             if (!names.includes(name)) names.push(name);
         });
     });
 
     const lastRate = name => {
-        for (let i = days.length - 1; i >= 0; i--) {
-            const value = days[i].rates?.[name];
+        for (let i = points.length - 1; i >= 0; i--) {
+            const value = points[i].rates?.[name];
             if (Number.isFinite(value)) return value;
         }
         return null;
@@ -69,8 +107,8 @@ function buildRateChartSeries(days) {
         .map(name => ({
             name,
             last: lastRate(name),
-            values: days.map(day => {
-                const value = day.rates?.[name];
+            values: points.map(point => {
+                const value = point.rates?.[name];
                 return Number.isFinite(value) ? value : null;
             })
         }))
@@ -136,9 +174,9 @@ function spreadRateChartLabels(labels, top, bottom, minGap = 14) {
 
 function renderRateChart() {
     if (!RATE_CHART_CONTAINER) return;
-    const { days } = rateChartState;
+    const { days, points } = rateChartState;
 
-    if (!days.length) {
+    if (!days.length || !points.length) {
         RATE_CHART_CONTAINER.replaceChildren();
         const message = document.createElement('p');
         message.className = 'info-text';
@@ -158,9 +196,9 @@ function renderRateChart() {
     const plotLeft = RATE_CHART_PAD.left;
     const plotRight = width - RATE_CHART_PAD.right;
     const plotBottom = height - RATE_CHART_PAD.bottom;
-    const x = index => (days.length === 1
-        ? (plotLeft + plotRight) / 2
-        : plotLeft + (plotRight - plotLeft) * (index / (days.length - 1)));
+    const dayWidth = (plotRight - plotLeft) / days.length;
+    const xAt = value => plotLeft + dayWidth * value;
+    const x = index => xAt(points[index].x);
 
     const svg = svgEl('svg', {
         class: 'rate-chart-svg',
@@ -169,7 +207,7 @@ function renderRateChart() {
         height,
         role: 'img',
         tabindex: '0',
-        'aria-label': `直近${days.length}日のレート推移。${series.map(item => item.name).join('、')}`
+        'aria-label': `直近${days.length}日のレート推移 (変動${points.length}件)。${series.map(item => item.name).join('、')}`
     });
 
     // --- 目盛り線と軸ラベル (背景側) ---
@@ -194,19 +232,21 @@ function renderRateChart() {
         svg.appendChild(label);
     }
 
-    // --- 日付ラベル (最大5個、両端は必ず出す) ---
-    const labelCount = Math.min(5, days.length);
-    const labelIndexes = new Set([0, days.length - 1]);
-    for (let i = 1; i < labelCount - 1; i++) {
-        labelIndexes.add(Math.round((days.length - 1) * (i / (labelCount - 1))));
+    // --- 日の区切り線と日付ラベル (区間の中央。狭いときは間引く、最新日は必ず出す) ---
+    for (let i = 0; i <= days.length; i++) {
+        svg.appendChild(svgEl('line', {
+            class: 'rate-chart-day-divider',
+            x1: xAt(i), x2: xAt(i), y1: RATE_CHART_PAD.top, y2: plotBottom
+        }));
     }
-    [...labelIndexes].sort((a, b) => a - b).forEach(index => {
-        const anchor = index === 0 ? 'start' : (index === days.length - 1 ? 'end' : 'middle');
+    const labelEvery = Math.max(1, Math.ceil(36 / dayWidth));
+    days.forEach((day, index) => {
+        if ((days.length - 1 - index) % labelEvery !== 0) return;
         const label = svgEl('text', {
             class: 'rate-chart-axis-text',
-            x: x(index), y: plotBottom + 18, 'text-anchor': anchor
+            x: xAt(index + 0.5), y: plotBottom + 18, 'text-anchor': 'middle'
         });
-        label.textContent = rateChartDateLabel(days[index].date);
+        label.textContent = rateChartDateLabel(day.date);
         svg.appendChild(label);
     });
 
@@ -273,7 +313,7 @@ function renderRateChart() {
     RATE_CHART_CONTAINER.appendChild(figure);
     RATE_CHART_CONTAINER.appendChild(buildRateChartLegend(series));
 
-    attachRateChartHover({ svg, figure, tooltip, crosshair, hoverDots, series, days, scale, x, plotLeft, plotRight });
+    attachRateChartHover({ svg, figure, tooltip, crosshair, hoverDots, series, points, scale, x, plotLeft, plotRight });
 }
 
 /** 系列が2本以上あるときは凡例を必ず出す (色だけに意味を持たせない) */
@@ -297,11 +337,11 @@ function buildRateChartLegend(series) {
 }
 
 /**
- * 縦線 + ツールチップ。線の上を狙わなくても、その日の全員の数値が出る。
+ * 縦線 + ツールチップ。線の上を狙わなくても、その変動の直後の全員の数値が出る。
  * マウス・タッチ・キーボード (←→) のどれでも同じ内容を出す。
  */
 function attachRateChartHover(context) {
-    const { svg, figure, tooltip, crosshair, hoverDots, series, days, scale, x, plotLeft, plotRight } = context;
+    const { svg, figure, tooltip, crosshair, hoverDots, series, points, scale, x, plotLeft, plotRight } = context;
 
     const hide = () => {
         crosshair.setAttribute('visibility', 'hidden');
@@ -311,7 +351,7 @@ function attachRateChartHover(context) {
     };
 
     const show = index => {
-        const clamped = Math.min(days.length - 1, Math.max(0, index));
+        const clamped = Math.min(points.length - 1, Math.max(0, index));
         rateChartState.hoverIndex = clamped;
         const pointX = x(clamped);
 
@@ -335,8 +375,14 @@ function attachRateChartHover(context) {
         tooltip.replaceChildren();
         const dateRow = document.createElement('p');
         dateRow.className = 'rate-chart-tooltip-date';
-        dateRow.textContent = rateChartDateLabel(days[clamped].date);
+        dateRow.textContent = rateChartDateLabel(points[clamped].date);
         tooltip.appendChild(dateRow);
+        if (points[clamped].label) {
+            const eventRow = document.createElement('p');
+            eventRow.className = 'rate-chart-tooltip-event';
+            eventRow.textContent = points[clamped].label;
+            tooltip.appendChild(eventRow);
+        }
 
         series.forEach(item => {
             const value = item.values[clamped];
@@ -364,8 +410,12 @@ function attachRateChartHover(context) {
         const rect = svg.getBoundingClientRect();
         const ratio = (event.clientX - rect.left) / rect.width;
         const position = ratio * svg.viewBox.baseVal.width;
-        const step = days.length === 1 ? 1 : (plotRight - plotLeft) / (days.length - 1);
-        return Math.round((position - plotLeft) / step);
+        // 一番近い変動の点を選ぶ
+        let nearest = 0;
+        points.forEach((point, index) => {
+            if (Math.abs(x(index) - position) < Math.abs(x(nearest) - position)) nearest = index;
+        });
+        return nearest;
     };
 
     svg.addEventListener('pointermove', event => show(indexFromEvent(event)));
@@ -373,11 +423,11 @@ function attachRateChartHover(context) {
     svg.addEventListener('pointerleave', hide);
     svg.addEventListener('pointercancel', hide);   // スクロールに取られたとき
     svg.addEventListener('blur', hide);
-    svg.addEventListener('focus', () => show(rateChartState.hoverIndex < 0 ? days.length - 1 : rateChartState.hoverIndex));
+    svg.addEventListener('focus', () => show(rateChartState.hoverIndex < 0 ? points.length - 1 : rateChartState.hoverIndex));
     svg.addEventListener('keydown', event => {
         if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
             event.preventDefault();
-            const base = rateChartState.hoverIndex < 0 ? days.length - 1 : rateChartState.hoverIndex;
+            const base = rateChartState.hoverIndex < 0 ? points.length - 1 : rateChartState.hoverIndex;
             show(base + (event.key === 'ArrowLeft' ? -1 : 1));
         } else if (event.key === 'Escape') {
             hide();
@@ -407,15 +457,17 @@ async function loadRateChart() {
     try {
         const chart = typeof fetchRateChart === 'function' ? await fetchRateChart() : null;
         const days = chart?.days || [];
+        const points = buildRateChartPoints(days);
         rateChartState = {
             days,
-            series: buildRateChartSeries(days),
+            points,
+            series: buildRateChartSeries(points),
             hoverIndex: -1,
             loaded: true
         };
     } catch (error) {
         console.error('レート推移の取得に失敗しました:', error);
-        rateChartState = { days: [], series: [], hoverIndex: -1, loaded: true };
+        rateChartState = { days: [], points: [], series: [], hoverIndex: -1, loaded: true };
     }
     renderRateChart();
 }

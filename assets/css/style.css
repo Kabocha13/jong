@@ -1527,6 +1527,7 @@ footer {
 }
 
 .rate-chart-grid      { stroke: rgba(109, 98, 82, 0.3); stroke-width: 1; }
+.rate-chart-day-divider { stroke: rgba(109, 98, 82, 0.22); stroke-width: 1; stroke-dasharray: 2 3; }
 .rate-chart-baseline  { stroke: rgba(43, 30, 16, 0.45); stroke-width: 1; }
 .rate-chart-crosshair { stroke: rgba(43, 30, 16, 0.5); stroke-width: 1; pointer-events: none; }
 .rate-chart-leader    { fill: none; stroke: rgba(93, 74, 50, 0.55); stroke-width: 1; }
@@ -1582,6 +1583,13 @@ footer {
     font-size: 0.76em;
     letter-spacing: 0.08em;
     color: var(--ink-soft);
+}
+
+.rate-chart-tooltip-event {
+    max-width: 220px;
+    margin: -2px 0 6px;
+    font-size: 0.78em;
+    color: var(--ink);
 }
 
 .rate-chart-tooltip-row {
