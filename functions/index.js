@@ -914,7 +914,7 @@ const ATTENDANCE_SCHEDULE = {
   ],
   4: [
     { name: 'データマイニング', start: '09:00', room: 611 },
-    { name: '国際社会論', start: '11:00', room: 432 }
+    { name: '国際社会論', start: '11:00', room: 435 }
   ]
 };
 const ATTENDANCE_USER_OVERRIDES = {

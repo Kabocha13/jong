@@ -582,7 +582,7 @@ loadCafeteriaMenu();
         ],
         4: [ // 木曜
             { name: 'データマイニング', start: '09:00', end: '11:00', room: 611 },
-            { name: '国際社会論', start: '11:00', end: '13:00', room: 432 },
+            { name: '国際社会論', start: '11:00', end: '13:00', room: 435 },
         ],
     };
 
