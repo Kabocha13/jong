@@ -11,8 +11,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=46.1">
-    <script src="assets/js/treasure-rain.js?v=46.1" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=47.0">
+    <script src="assets/js/treasure-rain.js?v=47.0" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -35,13 +35,13 @@
             <a href="mypage.html" class="action-button">マイページでログイン</a>
         </section>
 
-        <nav class="casino-back hidden" data-view="lobby roulette blackjack" aria-label="ゲームの切り替え">
+        <nav class="casino-back hidden" data-view="lobby roulette blackjack slot" aria-label="ゲームの切り替え">
             <a href="#">ゲーム一覧へ</a>
         </nav>
 
         <p id="casino-message" class="hidden" aria-live="polite"></p>
 
-        <!-- ゲームの選択。タイルはそのまま #blackjack / #roulette へのリンク -->
+        <!-- ゲームの選択。タイルはそのまま #blackjack / #roulette / #slot へのリンク -->
         <section id="casino-menu" class="casino-menu hidden" data-view="menu" aria-labelledby="casino-menu-title">
             <h2 id="casino-menu-title">ゲームを選ぶ</h2>
             <p class="casino-menu-rate" id="casino-menu-rate">現在のレート <strong id="casino-menu-score"></strong></p>
@@ -70,6 +70,20 @@
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
+                <a class="game-tile" href="#slot" data-game="slot">
+                    <!-- 絵柄は game-slot.js が入れる -->
+                    <span class="game-tile-art is-slot" aria-hidden="true">
+                        <span class="mini-reel" data-symbol="chest"></span>
+                        <span class="mini-reel" data-symbol="chest"></span>
+                        <span class="mini-reel" data-symbol="chest"></span>
+                    </span>
+                    <span class="game-tile-body">
+                        <span class="game-tile-name">スロット</span>
+                        <span class="game-tile-sub">Treasure Reels</span>
+                        <span class="game-tile-desc">5ラインの3リール。宝箱がそろえば100倍</span>
+                    </span>
+                    <span class="game-tile-badge hidden"></span>
+                </a>
             </div>
         </section>
 
@@ -77,12 +91,15 @@
             <h3 class="icon-title" id="casino-lobby-title"></h3>
             <p>現在のレート: <strong id="casino-lobby-score" class="text-large"></strong></p>
             <ul class="casino-rules">
-                <li>持ち込んだレートをチップにして賭けます。勝ち負けがレートに反映されるのは<strong>精算したとき</strong>だけです。チップはブラックジャックとルーレットで共通です。</li>
+                <li>持ち込んだレートをチップにして賭けます。勝ち負けがレートに反映されるのは<strong>精算したとき</strong>だけです。チップはどのゲームでも共通です。</li>
                 <li>最後の操作から30分操作がないか、入場から3時間たつと自動で精算されます。チップが0になったときもその場で精算されます。</li>
                 <li data-rules="roulette">0〜36のシングルゼロ。配当は 1目 ×36、ダズン・カラム ×3、赤黒・偶奇・前後半 ×2 (賭け金込み)。</li>
                 <li data-rules="blackjack">6デッキを毎回シャッフル。ディーラーはソフト17を含む17以上でスタンド。払い戻しは 勝ち ×2、ブラックジャック ×2.5 (端数切り捨て)、引き分け ×1 (賭け金込み)。</li>
                 <li data-rules="blackjack">ダブルは最初の2枚で (スプリット後も可)。スプリットは同じ点数の2枚で4手まで、Aは1枚ずつ。インシュランス・サレンダーはありません。</li>
                 <li data-rules="blackjack">卓は全員共通の1つで、最大4人まで座れます。全員が賭けるか、最初の人が賭けてから15秒で配ります。</li>
+                <li data-rules="slot">3リール × 3段で、ラインは 中段・上段・下段・斜め2本 の5本。賭け金1つで5本すべてに賭けます。</li>
+                <li data-rules="slot">1本のラインに同じ絵柄が3つ並ぶと、その絵柄の倍率 × 賭け金 が戻ります (賭け金込み。複数のラインで当たれば合計)。宝箱 ×100、金貨 ×30、羅針盤 ×15、宝の地図 ×8、ラム酒 ×5、オウム ×3、錨 ×2。</li>
+                <li data-rules="slot">ドクロ旗は真ん中のリールにだけ出て、どの絵柄の代わりにもなります。還元率は約96%です。</li>
                 <li data-rules="blackjack">操作は席順に1人ずつ、持ち時間は1回20秒。時間切れの人は残りの手をスタンドにして次の人へ回します。3回続けて賭けなかった人は席を空けます。</li>
             </ul>
             <form id="casino-enter-form">
@@ -101,7 +118,7 @@
             </form>
         </section>
 
-        <!-- 手元のチップ。ブラックジャックとルーレットで共通 -->
+        <!-- 手元のチップ。どのゲームでも共通 -->
         <section id="casino-wallet" class="info-box casino-status hidden" aria-label="手元のチップ">
             <dl class="casino-stats">
                 <div><dt>手元チップ</dt><dd id="casino-chips"></dd></div>
@@ -204,6 +221,43 @@
                 </div>
             </div>
         </section>
+
+        <section id="slot-table" class="hidden" data-view="slot" aria-label="スロット">
+            <div class="slot-cabinet">
+                <p class="slot-marquee" aria-hidden="true"><span>Treasure Reels</span></p>
+                <div class="slot-window-frame">
+                    <!-- 3本のリール。当たったラインは上の svg に線で引く (1マス = 100) -->
+                    <div class="slot-window" id="slot-window" role="img" aria-label="スロットのリール">
+                        <div class="slot-reel"><div class="slot-strip"></div></div>
+                        <div class="slot-reel"><div class="slot-strip"></div></div>
+                        <div class="slot-reel"><div class="slot-strip"></div></div>
+                        <svg class="slot-lines" id="slot-lines" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true"></svg>
+                    </div>
+                </div>
+                <div class="slot-readout">
+                    <p id="slot-result" class="slot-result" aria-live="polite"></p>
+                    <p id="slot-result-detail" class="slot-result-detail"></p>
+                </div>
+                <div class="slot-controls">
+                    <div class="slot-bet" role="group" aria-label="賭け金 (5ラインすべてに)">
+                        <button type="button" id="slot-bet-down" aria-label="賭け金を下げる">−</button>
+                        <p><span>BET</span><strong id="slot-bet">1</strong></p>
+                        <button type="button" id="slot-bet-up" aria-label="賭け金を上げる">＋</button>
+                    </div>
+                    <button type="button" id="slot-spin-button" class="slot-spin-button">スピン</button>
+                    <label class="slot-auto"><input type="checkbox" id="slot-auto"> オート</label>
+                </div>
+                <p id="slot-message" class="hidden" aria-live="polite"></p>
+            </div>
+
+            <div class="info-box slot-info">
+                <h3 class="icon-title">配当</h3>
+                <p class="info-text">賭け金1つで5本のラインすべてに賭けます。倍率は賭け金に対する払い戻し (賭け金込み)。</p>
+                <ul id="slot-paytable" class="slot-paytable"></ul>
+                <ul id="slot-line-shapes" class="slot-line-shapes" aria-label="5本のライン"></ul>
+                <ol id="slot-recent" class="casino-recent" aria-label="直近のスピン"></ol>
+            </div>
+        </section>
     </main>
 
     <!-- 自分に配られたカードを絞る画面。中身は game-blackjack.js が作る -->
@@ -232,9 +286,10 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=46.1"></script>
-    <script src="assets/js/game-roulette.js?v=46.1"></script>
-    <script src="assets/js/game-blackjack.js?v=46.1"></script>
-    <script src="assets/js/game.js?v=46.1"></script>
+    <script src="assets/js/common.js?v=47.0"></script>
+    <script src="assets/js/game-roulette.js?v=47.0"></script>
+    <script src="assets/js/game-blackjack.js?v=47.0"></script>
+    <script src="assets/js/game-slot.js?v=47.0"></script>
+    <script src="assets/js/game.js?v=47.0"></script>
 </body>
 </html>

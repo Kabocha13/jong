@@ -125,3 +125,39 @@ Gemini などが出力した元ファイルは、名前のまま **`assets/img/s
 変換は「図形は輝度235以上、焼き込まれた市松模様は180以下」で切り分けています。
 この2つの帯が重なるような画像 (図形がグレー、背景が明るい等) だと分離できないので、
 **図形は必ず純白**にしてください。
+
+---
+
+## スロットの絵柄 (assets/img/slot/)
+
+ゲームタブのスロットで、リールに並ぶ絵柄。**`assets/img/slot/<ファイル名>` に置くだけで差し替わります**
+(置いていない絵柄は絵文字で代わりに出ます)。
+
+- 形式: **JPEG (拡張子 .jpeg)、正方形 (1:1)**。いまは 2048×2048
+- 表示: 角丸のタイルいっぱいに `object-fit: cover` で敷きます。**枠・角丸・文字は CSS 側で付ける**ので、画像には入れない
+- 背景: 透過にはせず、**全部の絵柄で同じ深い青緑のグラデーション**にする (タイルの下地 `#1f5560 → #0b2227` と同じ)
+- 大きさ: スマホでは 1マス約 80px まで縮むので、**シルエットと色だけで見分けがつく**こと。絵柄は画面の7割ほどの大きさで中央に
+- 格: 高い絵柄 (宝箱・金貨・羅針盤) ほど光と輝きを強く、低い絵柄 (オウム・錨) は落ち着かせる
+
+### 全カット共通で末尾に付ける指定
+
+> square 1:1 image, a single slot machine reel symbol, one object centered and filling about 70% of the
+> frame, rich painterly game-icon illustration with a crisp readable silhouette, warm lantern rim light,
+> pirate treasure theme, background: smooth deep teal radial gradient (#1f5560 in the center fading to
+> #0b2227 at the edges) filling the whole square, no border, no frame, no rounded corners, no text,
+> no letters, no numbers, no watermark
+
+### 絵柄ごとの前半
+
+| ファイル | 絵柄 (倍率) | プロンプト |
+|---|---|---|
+| chest.jpeg | 宝箱 (×100・最高) | An open iron-bound wooden pirate treasure chest overflowing with gleaming gold doubloons, pearls and red and green jewels, strong golden light bursting out of the chest, sparkles |
+| coin.jpeg | 金貨 (×30) | One large gold doubloon coin seen at a slight three-quarter angle, embossed with a crown and cross, thick polished rim, bright gold shine with a star glint |
+| compass.jpeg | 羅針盤 (×15) | An antique brass navigation compass with an open hinged lid, ivory dial with a red and black needle, polished brass reflecting warm light |
+| map.jpeg | 宝の地図 (×8) | A half-unrolled old parchment treasure map with a bold red X mark and a dotted path over a small island, curled torn edges, tied with a red wax seal |
+| rum.jpeg | ラム酒 (×5) | A squat dark green glass rum bottle with a cork and dripping red wax seal, amber rum glowing inside, a strong warm rim light outlining the bottle so it stands out from the dark background |
+| parrot.jpeg | オウム (×3) | A scarlet macaw parrot, head and upper body in profile, vivid red, yellow and blue feathers, bright eye, friendly look |
+| anchor.jpeg | 錨 (×2・最低) | A heavy iron ship anchor with a thick hemp rope wrapped around the shank, weathered steel grey with soft highlights |
+| wild.jpeg | ドクロ旗 (ワイルド) | A fluttering black Jolly Roger pirate flag with a white skull and crossed cutlasses, surrounded by a glowing golden aura and small embers so the black flag stands out from the dark background, magical and special |
+
+ドクロ旗には CSS で下に小さく「WILD」の札を重ねるので、画像の下端 15% ほどには大事なものを置かないでください。

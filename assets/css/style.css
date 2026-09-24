@@ -2933,6 +2933,502 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
 }
 
 /* ------------------------------------------------------------
+   19e. ゲーム — スロット
+   ------------------------------------------------------------ */
+/* ゲーム一覧のタイル: 羊皮紙の胴に絵柄を3つ */
+.game-tile-art.is-slot { gap: 6px; }
+
+.mini-reel {
+    display: grid;
+    place-items: center;
+    padding: 4px;
+    font-size: clamp(38px, 10.5vw, 54px);
+    background: linear-gradient(180deg, #d9c9a2, var(--parchment-warm) 30%, var(--parchment-warm) 70%, #d9c9a2);
+    border: 1px solid var(--brass);
+    border-radius: 6px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.45);
+    transition: transform 0.25s ease;
+}
+
+.game-tile:hover .mini-reel:nth-child(1) { transform: translateY(-4px); }
+.game-tile:hover .mini-reel:nth-child(2) { transform: translateY(-4px); transition-delay: 0.06s; }
+.game-tile:hover .mini-reel:nth-child(3) { transform: translateY(-4px); transition-delay: 0.12s; }
+
+/* 絵柄のタイル。大きさは置き場所の font-size (1em = 1マス) で決める。画像はタイルいっぱいに敷く */
+.slot-symbol {
+    display: grid;
+    place-items: center;
+    width: 0.88em;
+    height: 0.88em;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 38%, #1f5560 0%, #0b2227 74%);
+    border-radius: 14%;
+    box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.35), 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+.slot-symbol { position: relative; }
+
+/* ドクロ旗はどの絵柄の代わりにもなる印を下に付ける */
+.slot-symbol.is-wild::after {
+    content: 'WILD';
+    position: absolute;
+    left: 50%;
+    bottom: 5%;
+    padding: 0 0.3em;
+    font-family: var(--font-display);
+    font-size: 0.16em;
+    line-height: 1.3;
+    letter-spacing: 0.08em;
+    color: #2b1d06;
+    background: linear-gradient(135deg, var(--brass-light), #96690f);
+    border-radius: 999px;
+    transform: translateX(-50%);
+}
+
+.slot-pay-icons .slot-symbol.is-wild::after { display: none; }
+
+.slot-symbol img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    -webkit-user-drag: none;
+}
+
+.slot-symbol-emoji {
+    font-size: 0.54em;
+    line-height: 1;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+
+/* 台: 木の筐体に真鍮の縁 */
+.slot-cabinet {
+    --cell: clamp(68px, 23vw, 118px);
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto clamp(14px, 2.4vw, 24px);
+    padding: 12px 12px 16px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 30%),
+        var(--img-wood),
+        linear-gradient(180deg, var(--timber-light), var(--timber) 45%, var(--pitch-light));
+    background-size: auto, 260px, auto;
+    background-blend-mode: normal, multiply, normal;
+    border: 2px solid var(--brass);
+    border-radius: 20px 20px 10px 10px;
+    box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), inset 0 2px 0 rgba(255, 238, 196, 0.25), var(--shadow-deep);
+}
+
+/* 看板。縁の電球はふだんゆっくり、大当たりで速く瞬く */
+.slot-marquee {
+    position: relative;
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    text-align: center;
+    background: linear-gradient(180deg, var(--rum-dark), #3a0908);
+    border: 1px solid var(--brass-light);
+    border-radius: 12px 12px 4px 4px;
+    box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.6);
+}
+
+.slot-marquee::before,
+.slot-marquee::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    height: 6px;
+    background: radial-gradient(circle, var(--lantern-soft) 0 2px, transparent 2.6px) 0 50% / 14px 6px repeat-x;
+    animation: slot-bulbs 1.6s steps(2) infinite;
+}
+
+.slot-marquee::before { top: 3px; }
+.slot-marquee::after  { bottom: 3px; animation-delay: -0.8s; }
+
+.slot-marquee span {
+    font-family: var(--font-display);
+    font-size: clamp(1.4em, 6vw, 1.9em);
+    letter-spacing: 0.06em;
+    color: var(--brass-light);
+    text-shadow: 0 0 10px rgba(255, 182, 72, 0.7), 0 2px 0 #3a0908;
+}
+
+@keyframes slot-bulbs {
+    0%   { opacity: 1; background-position-x: 0; }
+    100% { opacity: 0.55; background-position-x: 7px; }
+}
+
+.slot-cabinet:has(.slot-window.is-big) .slot-marquee::before,
+.slot-cabinet:has(.slot-window.is-big) .slot-marquee::after { animation-duration: 0.3s; }
+
+.slot-window-frame {
+    padding: 6px;
+    background: linear-gradient(135deg, var(--brass-light), #96690f 45%, var(--brass-light) 70%, #7d5411);
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.slot-window {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, var(--cell));
+    gap: 5px;
+    padding: 5px;
+    background: var(--pitch);
+    border-radius: 6px;
+}
+
+/* リールは羊皮紙の胴。上下を暗くして丸みを出す */
+.slot-reel {
+    position: relative;
+    height: calc(var(--cell) * 3);
+    overflow: hidden;
+    background: var(--parchment-warm);
+    border-radius: 4px;
+}
+
+.slot-reel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(20, 16, 12, 0.55), transparent 22%, transparent 78%, rgba(20, 16, 12, 0.55));
+}
+
+.slot-strip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(calc(var(--cell) * var(--shift, 0) * -1));
+    will-change: transform;
+}
+
+.slot-cell {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    height: var(--cell);
+    font-size: var(--cell);
+    transition: opacity 0.25s ease;
+}
+
+/* 結果を待つ間の空回り (8マスでひと回り) */
+@keyframes slot-loop {
+    from { transform: translateY(calc(var(--cell) * -8)); }
+    to   { transform: translateY(0); }
+}
+
+@keyframes slot-bounce {
+    0%   { translate: 0 calc(var(--cell) * 0.12); }
+    55%  { translate: 0 calc(var(--cell) * -0.03); }
+    100% { translate: 0 0; }
+}
+
+.slot-reel.is-waiting .slot-strip {
+    animation: slot-loop 0.34s linear infinite;
+    filter: blur(1.5px);
+}
+
+.slot-reel.is-landed .slot-strip { animation: slot-bounce 0.3s ease-out; }
+
+/* リーチ: 右のリールだけ灯を回す */
+@keyframes slot-reach {
+    from { box-shadow: 0 0 0 2px var(--lantern), 0 0 10px var(--lantern); }
+    to   { box-shadow: 0 0 0 3px var(--lantern-soft), 0 0 26px var(--lantern); }
+}
+
+.slot-reel.is-reach { animation: slot-reach 0.3s ease-in-out infinite alternate; }
+
+/* 当たり: 揃った絵柄を脈打たせ、ほかは沈める */
+@keyframes slot-win {
+    from { transform: scale(1); box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.35), 0 0 0 2px var(--lantern), 0 0 8px var(--lantern); }
+    to   { transform: scale(1.06); box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.35), 0 0 0 3px var(--lantern-soft), 0 0 22px var(--lantern); }
+}
+
+.slot-window.has-win .slot-cell:not(.is-win) { opacity: 0.4; }
+.slot-cell.is-win .slot-symbol { animation: slot-win 0.55s ease-in-out infinite alternate; }
+
+.slot-lines {
+    position: absolute;
+    inset: 5px;
+    z-index: 2;
+    width: calc(100% - 10px);
+    height: calc(100% - 10px);
+    overflow: visible;
+    pointer-events: none;
+}
+
+@keyframes slot-line-draw {
+    from { stroke-dashoffset: 1200; }
+    to   { stroke-dashoffset: 0; }
+}
+
+.slot-line {
+    fill: none;
+    stroke: var(--lantern);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1200;
+    vector-effect: non-scaling-stroke;
+    filter: drop-shadow(0 0 4px var(--lantern));
+    opacity: 0.9;
+    animation: slot-line-draw 0.5s ease-out both;
+}
+
+/* 払い戻しの表示窓 */
+.slot-readout {
+    display: grid;
+    place-items: center;
+    min-height: 62px;
+    margin: 12px 0;
+    padding: 6px 10px;
+    text-align: center;
+    background: linear-gradient(180deg, #0b0806, var(--pitch-light));
+    border: 1px solid rgba(201, 146, 47, 0.6);
+    border-radius: 6px;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+.slot-result {
+    min-height: 1.2em;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.7em;
+    line-height: 1.15;
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+    color: var(--brass-pale);
+}
+
+.slot-result.is-idle { font-size: 1.3em; color: rgba(246, 227, 178, 0.45); }
+.slot-result.is-win { color: var(--lantern); text-shadow: 0 0 12px rgba(255, 182, 72, 0.6); }
+.slot-result.is-miss { font-family: var(--font-title); font-size: 1em; color: rgba(246, 227, 178, 0.5); letter-spacing: 0.2em; }
+
+@keyframes slot-reach-blink {
+    from { opacity: 1; }
+    to   { opacity: 0.45; }
+}
+
+.slot-result.is-reach {
+    font-family: var(--font-title);
+    color: var(--rum-light);
+    animation: slot-reach-blink 0.3s ease-in-out infinite alternate;
+}
+
+@keyframes slot-shine {
+    from { background-position: 0% 50%; }
+    to   { background-position: 200% 50%; }
+}
+
+.slot-result.is-big {
+    font-size: 2.2em;
+    color: transparent;
+    background: linear-gradient(100deg, #96690f, #fff4c8 25%, var(--brass-light) 45%, #96690f 60%, #fff4c8 85%, #96690f) 0 50% / 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    filter: drop-shadow(0 0 10px rgba(255, 182, 72, 0.7));
+    animation: slot-shine 1.4s linear infinite;
+}
+
+.slot-result-detail {
+    margin: 2px 0 0;
+    font-size: 0.72em;
+    color: rgba(246, 227, 178, 0.7);
+}
+
+.slot-result-detail:empty { display: none; }
+
+/* 操作: 左に賭け金とオート、右に大きな丸いスピンボタン */
+.slot-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "bet spin" "auto spin";
+    gap: 8px 14px;
+    align-items: center;
+}
+
+.slot-bet {
+    grid-area: bet;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.slot-bet p {
+    display: grid;
+    justify-items: center;
+    min-width: 64px;
+    margin: 0;
+    padding: 2px 10px;
+    line-height: 1.1;
+    background: #0b0806;
+    border: 1px solid rgba(201, 146, 47, 0.6);
+    border-radius: 6px;
+}
+
+.slot-bet p span {
+    font-family: var(--font-title);
+    font-size: 0.68em;
+    letter-spacing: 0.2em;
+    color: rgba(246, 227, 178, 0.7);
+}
+
+.slot-bet strong {
+    font-size: 1.4em;
+    font-variant-numeric: tabular-nums;
+    color: var(--lantern);
+}
+
+.slot-bet button {
+    width: 40px;
+    min-width: 0;
+    height: 40px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-body);
+    font-size: 1.3em;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1;
+    color: #2b1d06;
+    background: radial-gradient(circle at 34% 28%, #fff7dc 0%, #f4cd68 40%, #c9922f 100%);
+    border: 2px solid #7d5411;
+    border-radius: 50%;
+}
+
+.slot-auto {
+    grid-area: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.86em;
+    letter-spacing: 0.1em;
+    color: var(--brass-pale);
+    cursor: pointer;
+}
+
+.slot-spin-button {
+    grid-area: spin;
+    width: 96px;
+    min-width: 0;
+    height: 96px;
+    min-height: 0;
+    margin: 0;
+    padding: 0 8px;
+    font-size: 1em;
+    letter-spacing: 0.14em;
+    line-height: 1.25;
+    color: #fff4dc;
+    background: radial-gradient(circle at 36% 30%, #e0584a 0%, var(--rum) 48%, var(--rum-dark) 100%);
+    border: 4px solid var(--brass);
+    border-radius: 50%;
+    box-shadow: 0 6px 0 #3a0908, 0 10px 18px rgba(0, 0, 0, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+.slot-spin-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 7px 0 #3a0908, 0 12px 22px rgba(0, 0, 0, 0.5), 0 0 18px var(--lantern-glow), inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+.slot-spin-button:active:not(:disabled) {
+    transform: translateY(5px);
+    box-shadow: 0 1px 0 #3a0908, 0 4px 8px rgba(0, 0, 0, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+.slot-spin-button.is-auto {
+    font-size: 0.8em;
+    letter-spacing: 0.04em;
+    background: radial-gradient(circle at 36% 30%, #6d6252 0%, var(--pitch-light) 70%);
+}
+
+#slot-message { margin: 12px 0 0; }
+
+/* 配当表とラインの形 */
+.slot-paytable {
+    display: grid;
+    gap: 6px;
+    margin: 12px 0;
+    padding: 0;
+    list-style: none;
+}
+
+.slot-paytable li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 8px;
+    background: rgba(43, 30, 16, 0.06);
+    border-radius: var(--radius-sm);
+}
+
+.slot-paytable li.is-wild { grid-template-columns: auto minmax(0, 1fr); }
+
+.slot-pay-icons {
+    display: flex;
+    gap: 2px;
+    font-size: 34px;
+}
+
+.slot-pay-name { font-size: 0.86em; }
+.slot-paytable li.is-wild .slot-pay-name { font-size: 0.8em; line-height: 1.5; }
+
+.slot-paytable strong {
+    font-variant-numeric: tabular-nums;
+    color: var(--rum);
+}
+
+.slot-line-shapes {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 14px;
+    margin: 0 0 14px;
+    padding: 0;
+    list-style: none;
+}
+
+.slot-line-shapes li {
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    font-size: 0.7em;
+    color: var(--ink-soft);
+}
+
+.slot-line-shapes svg { width: 34px; height: 34px; }
+.slot-line-shapes rect { fill: rgba(43, 30, 16, 0.14); }
+.slot-line-shapes rect.is-on { fill: var(--brass); }
+
+@media (min-width: 720px) {
+    #slot-table {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 0 clamp(16px, 2.6vw, 28px);
+        align-items: start;
+    }
+
+    #slot-table.hidden { display: none; }
+    .slot-cabinet { --cell: 112px; margin-bottom: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .slot-marquee::before,
+    .slot-marquee::after,
+    .slot-cell.is-win .slot-symbol,
+    .slot-result.is-big,
+    .slot-result.is-reach { animation: none; }
+}
+
+/* ------------------------------------------------------------
    20. スクロールバー
    ------------------------------------------------------------ */
 ::-webkit-scrollbar { width: 9px; height: 6px; }

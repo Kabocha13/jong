@@ -1,19 +1,21 @@
 // ゲームタブの共通部分
 //   ログイン、ゲームの選択 (ブロックのタイル)、入場 (持ち込み)、手元チップと精算、画面の切り替え。
-//   各テーブルの中身は game-blackjack.js / game-roulette.js。
-//   出目・配られるカード・配当・残高はすべて Cloud Function (casino) が決める。
-//   画面は #blackjack / #roulette のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
+//   各テーブルの中身は game-blackjack.js / game-roulette.js / game-slot.js。
+//   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
+//   画面は #blackjack / #roulette / #slot のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
 
+// plays は財布 (session) の中で、そのゲームを遊んだ回数を持つ項目
 const CASINO_GAMES = {
-    blackjack: { name: 'ブラックジャック', playsLabel: '勝負' },
-    roulette:  { name: 'ルーレット', playsLabel: 'スピン' }
+    blackjack: { name: 'ブラックジャック', playsLabel: '勝負', plays: 'bjHands' },
+    roulette:  { name: 'ルーレット', playsLabel: 'スピン', plays: 'spins' },
+    slot:      { name: 'スロット', playsLabel: 'スピン', plays: 'slotSpins' }
 };
 
 const casino = {
     ready: false,       // status を読み込み終えたか
     me: '',             // ログインしている人の名前 (卓で自分の席を見分ける)
     score: 0,
-    session: null,      // 持ち込んだチップ。ブラックジャックとルーレットで共通
+    session: null,      // 持ち込んだチップ。どのゲームでも共通
     busy: false,
     lobbyGame: null     // 入場フォームを出しているゲーム
 };
@@ -72,10 +74,10 @@ function showView(name) {
     });
 }
 
-function playsSummary({ spins = 0, bjHands = 0 }) {
-    const parts = [];
-    if (bjHands > 0) parts.push(`ブラックジャック${bjHands}回`);
-    if (spins > 0) parts.push(`ルーレット${spins}回`);
+function playsSummary(settled) {
+    const parts = Object.values(CASINO_GAMES)
+        .filter(game => (settled[game.plays] || 0) > 0)
+        .map(game => `${game.name}${settled[game.plays]}回`);
     return parts.length ? parts.join('・') : '0回';
 }
 
@@ -89,7 +91,7 @@ function settledMessage(settled) {
 }
 
 // ------------------------------------------------------------------
-// 画面の切り替え (#blackjack / #roulette / それ以外はゲーム一覧)
+// 画面の切り替え (#blackjack / #roulette / #slot / それ以外はゲーム一覧)
 // ------------------------------------------------------------------
 function routeGame() {
     const name = location.hash.slice(1);
@@ -108,9 +110,11 @@ function renderRoute() {
     } else {
         view = game;
         if (game === 'blackjack') openBlackjackTable();
+        else if (game === 'slot') openSlotTable();
         else openRouletteTable();
     }
     if (view !== 'blackjack') closeBlackjackTable();
+    if (view !== 'slot') closeSlotTable();
     showView(view);
     // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す
     el('casino-wallet').classList.toggle('hidden', !casino.session || view === 'lobby');
@@ -187,13 +191,14 @@ function renderWallet() {
     if (!session) return;
     const game = routeGame();
     const net = session.chips - session.buyIn;
-    const spins = session.spins || 0;
-    const hands = session.bjHands || 0;
     el('casino-chips').textContent = session.chips.toLocaleString('ja-JP');
     el('casino-buyin-display').textContent = session.buyIn.toLocaleString('ja-JP');
     // 回数は開いているテーブルのもの。ゲーム一覧では合計
     el('casino-plays-label').textContent = game ? CASINO_GAMES[game].playsLabel : 'プレイ';
-    el('casino-plays').textContent = `${game === 'roulette' ? spins : game === 'blackjack' ? hands : spins + hands}回`;
+    const plays = game
+        ? session[CASINO_GAMES[game].plays] || 0
+        : Object.values(CASINO_GAMES).reduce((sum, item) => sum + (session[item.plays] || 0), 0);
+    el('casino-plays').textContent = `${plays}回`;
     const netEl = el('casino-net');
     netEl.textContent = formatSigned(net);
     netEl.dataset.sign = net > 0 ? 'plus' : net < 0 ? 'minus' : 'zero';
@@ -212,6 +217,7 @@ function setCasinoBusy(busy) {
     renderSettleButton();
     renderBetControls();
     renderBlackjackControls();
+    renderSlotControls();
     if (casino.lobbyGame) el('casino-enter-button').disabled = busy || casino.score < 1;
 }
 
@@ -274,6 +280,7 @@ function bindCasinoEvents() {
 async function initCasino() {
     initRoulette();
     initBlackjack();
+    initSlot();
     bindCasinoEvents();
     showView('loading');
 
