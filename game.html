@@ -11,8 +11,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=45.5">
-    <script src="assets/js/treasure-rain.js?v=45.5" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=46.0">
+    <script src="assets/js/treasure-rain.js?v=46.0" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -24,24 +24,64 @@
     </header>
 
     <main id="main-content">
-        <div id="casino-loading" class="info-box" role="status">
+        <div id="casino-loading" class="info-box" role="status" data-view="loading">
             <div class="skeleton skeleton-row"></div>
             <div class="skeleton skeleton-row"></div>
         </div>
 
-        <section id="casino-login" class="info-box hidden">
-            <h3 class="icon-title">ルーレット</h3>
+        <section id="casino-login" class="info-box hidden" data-view="login">
+            <h3 class="icon-title">ゲーム</h3>
             <p class="info-text">遊ぶにはログインが必要です。</p>
             <a href="mypage.html" class="action-button">マイページでログイン</a>
         </section>
 
-        <section id="casino-lobby" class="info-box hidden" aria-labelledby="casino-lobby-title">
-            <h3 class="icon-title" id="casino-lobby-title">ルーレット</h3>
+        <nav class="casino-back hidden" data-view="lobby roulette blackjack" aria-label="ゲームの切り替え">
+            <a href="#">ゲーム一覧へ</a>
+        </nav>
+
+        <p id="casino-message" class="hidden" aria-live="polite"></p>
+
+        <!-- ゲームの選択。タイルはそのまま #blackjack / #roulette へのリンク -->
+        <section id="casino-menu" class="casino-menu hidden" data-view="menu" aria-labelledby="casino-menu-title">
+            <h2 id="casino-menu-title">ゲームを選ぶ</h2>
+            <p class="casino-menu-rate" id="casino-menu-rate">現在のレート <strong id="casino-menu-score"></strong></p>
+            <div class="game-tiles">
+                <a class="game-tile" href="#blackjack" data-game="blackjack">
+                    <span class="game-tile-art is-blackjack" aria-hidden="true">
+                        <span class="bj-card is-black"><span class="bj-card-rank">A</span><span class="bj-card-suit">&#x2660;&#xFE0E;</span></span>
+                        <span class="bj-card is-red"><span class="bj-card-rank">K</span><span class="bj-card-suit">&#x2665;&#xFE0E;</span></span>
+                    </span>
+                    <span class="game-tile-body">
+                        <span class="game-tile-name">ブラックジャック</span>
+                        <span class="game-tile-sub">Blackjack</span>
+                        <span class="game-tile-desc">ディーラーと1対1。21に近いほうが勝ち</span>
+                    </span>
+                    <span class="game-tile-badge hidden"></span>
+                </a>
+                <a class="game-tile" href="#roulette" data-game="roulette">
+                    <span class="game-tile-art is-roulette" aria-hidden="true">
+                        <span class="mini-wheel"></span>
+                    </span>
+                    <span class="game-tile-body">
+                        <span class="game-tile-name">ルーレット</span>
+                        <span class="game-tile-sub">Roulette</span>
+                        <span class="game-tile-desc">0〜36のシングルゼロ。1目なら36倍</span>
+                    </span>
+                    <span class="game-tile-badge hidden"></span>
+                </a>
+            </div>
+        </section>
+
+        <section id="casino-lobby" class="info-box hidden" data-view="lobby" aria-labelledby="casino-lobby-title">
+            <h3 class="icon-title" id="casino-lobby-title"></h3>
             <p>現在のレート: <strong id="casino-lobby-score" class="text-large"></strong></p>
             <ul class="casino-rules">
-                <li>持ち込んだレートをチップにして賭けます。勝ち負けがレートに反映されるのは<strong>精算したとき</strong>だけです。</li>
-                <li>最後のスピンから30分操作がないか、入場から3時間たつと自動で精算されます。チップが0になったときもその場で精算されます。</li>
-                <li>0〜36のシングルゼロ。配当は 1目 ×36、ダズン・カラム ×3、赤黒・偶奇・前後半 ×2 (賭け金込み)。</li>
+                <li>持ち込んだレートをチップにして賭けます。勝ち負けがレートに反映されるのは<strong>精算したとき</strong>だけです。チップはブラックジャックとルーレットで共通です。</li>
+                <li>最後の操作から30分操作がないか、入場から3時間たつと自動で精算されます。チップが0になったときもその場で精算されます。</li>
+                <li data-rules="roulette">0〜36のシングルゼロ。配当は 1目 ×36、ダズン・カラム ×3、赤黒・偶奇・前後半 ×2 (賭け金込み)。</li>
+                <li data-rules="blackjack">6デッキを毎回シャッフル。ディーラーはソフト17を含む17以上でスタンド。払い戻しは 勝ち ×2、ブラックジャック ×2.5 (端数切り捨て)、引き分け ×1 (賭け金込み)。</li>
+                <li data-rules="blackjack">ダブルは最初の2枚で (スプリット後も可)。スプリットは同じ点数の2枚で4手まで、Aは1枚ずつ。インシュランス・サレンダーはありません。</li>
+                <li data-rules="blackjack">勝負の途中で自動精算になったときは、残りの手をスタンドして決着させます。</li>
             </ul>
             <form id="casino-enter-form">
                 <div class="form-group">
@@ -57,21 +97,22 @@
                 </div>
                 <button type="submit" id="casino-enter-button">入場する</button>
             </form>
-            <p id="casino-lobby-message" class="hidden" aria-live="polite"></p>
         </section>
 
-        <section id="casino-table" class="hidden" aria-label="ルーレットテーブル">
-            <div class="info-box casino-status">
-                <dl class="casino-stats">
-                    <div><dt>手元チップ</dt><dd id="casino-chips"></dd></div>
-                    <div><dt>収支</dt><dd id="casino-net"></dd></div>
-                    <div><dt>持ち込み</dt><dd id="casino-buyin-display"></dd></div>
-                    <div><dt>スピン</dt><dd id="casino-spins"></dd></div>
-                </dl>
-                <p class="info-text casino-expiry" id="casino-expiry"></p>
-                <button type="button" id="casino-settle-button" class="btn-gold">精算する</button>
-            </div>
+        <!-- 手元のチップ。ブラックジャックとルーレットで共通 -->
+        <section id="casino-wallet" class="info-box casino-status hidden" aria-label="手元のチップ">
+            <dl class="casino-stats">
+                <div><dt>手元チップ</dt><dd id="casino-chips"></dd></div>
+                <div><dt>収支</dt><dd id="casino-net"></dd></div>
+                <div><dt>持ち込み</dt><dd id="casino-buyin-display"></dd></div>
+                <div><dt id="casino-plays-label">プレイ</dt><dd id="casino-plays"></dd></div>
+            </dl>
+            <p class="info-text casino-expiry" id="casino-expiry"></p>
+            <button type="button" id="casino-settle-button" class="btn-gold">精算する</button>
+            <p class="info-text casino-settle-note hidden" id="casino-settle-note">ブラックジャックの勝負が終わると精算できます。</p>
+        </section>
 
+        <section id="casino-table" class="hidden" data-view="roulette" aria-label="ルーレットテーブル">
             <div class="casino-layout">
                 <div class="info-box casino-wheel-box">
                     <div class="roulette-wheel-frame">
@@ -104,6 +145,49 @@
                 </div>
             </div>
         </section>
+
+        <section id="blackjack-table" class="hidden" data-view="blackjack" aria-label="ブラックジャックテーブル">
+            <div class="info-box bj-table-box">
+                <div class="bj-felt">
+                    <div class="bj-seat bj-dealer">
+                        <p class="bj-seat-label">ディーラー <span class="bj-total hidden" id="bj-dealer-total"></span></p>
+                        <div class="bj-cards" id="bj-dealer-cards"></div>
+                    </div>
+                    <p class="bj-felt-print" aria-hidden="true">Blackjack pays 3 to 2<span>Dealer stands on all 17s</span></p>
+                    <div class="bj-seat bj-player">
+                        <div class="bj-hands" id="bj-hands"></div>
+                    </div>
+                </div>
+
+                <div class="bj-side">
+                    <p id="bj-result" class="casino-result" aria-live="polite"></p>
+                    <div id="bj-betting">
+                        <div class="bj-chip-rack" role="group" aria-label="賭け金にチップを足す">
+                            <button type="button" data-bj-chip="1">+1</button>
+                            <button type="button" data-bj-chip="5">+5</button>
+                            <button type="button" data-bj-chip="10">+10</button>
+                            <button type="button" data-bj-chip="50">+50</button>
+                            <button type="button" data-bj-chip="100">+100</button>
+                        </div>
+                        <p class="casino-bet-total">賭け <strong id="bj-bet">0</strong></p>
+                        <div class="casino-actions">
+                            <button type="button" id="bj-undo-button" class="secondary-button">1つ戻す</button>
+                            <button type="button" id="bj-clear-button" class="secondary-button">クリア</button>
+                            <button type="button" id="bj-rebet-button" class="secondary-button">前回と同じ</button>
+                            <button type="button" id="bj-deal-button" class="casino-spin-button">配る</button>
+                        </div>
+                    </div>
+                    <div id="bj-actions" class="bj-actions hidden" role="group" aria-label="操作">
+                        <button type="button" data-bj-move="hit">ヒット</button>
+                        <button type="button" data-bj-move="stand">スタンド</button>
+                        <button type="button" data-bj-move="double" class="secondary-button">ダブル<span class="bj-move-cost"></span></button>
+                        <button type="button" data-bj-move="split" class="secondary-button">スプリット<span class="bj-move-cost"></span></button>
+                    </div>
+                    <p id="bj-message" class="hidden" aria-live="polite"></p>
+                    <ol id="bj-recent" class="casino-recent" aria-label="直近の勝負"></ol>
+                </div>
+            </div>
+        </section>
     </main>
 
     <footer>
@@ -120,7 +204,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=45.5"></script>
-    <script src="assets/js/game.js?v=45.5"></script>
+    <script src="assets/js/common.js?v=46.0"></script>
+    <script src="assets/js/game-roulette.js?v=46.0"></script>
+    <script src="assets/js/game-blackjack.js?v=46.0"></script>
+    <script src="assets/js/game.js?v=46.0"></script>
 </body>
 </html>
