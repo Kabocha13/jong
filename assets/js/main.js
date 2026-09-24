@@ -602,6 +602,17 @@ loadCafeteriaMenu();
         ],
     };
 
+    // ユーザー別の追加授業: 共通の時間割に無い、その人だけが取っている授業。
+    // 開始時刻の前後 ATTENDANCE_WINDOW_MINUTES だけリンクを出す (共通の授業と同じ扱い)
+    const ATTENDANCE_USER_CLASSES = {
+        kosuke: [
+            { day: 1, name: '月曜1・2限', start: '09:00', end: '11:00', room: 642 },
+        ],
+        mahhii: [
+            { day: 1, name: '月曜1・2限', start: '09:00', end: '11:00', room: 642 },
+        ],
+    };
+
     function toMinutes(hhmm) {
         const [h, m] = hhmm.split(':').map(Number);
         return h * 60 + m;
@@ -657,7 +668,9 @@ loadCafeteriaMenu();
         const current = now.getHours() * 60 + now.getMinutes();
         const override = (ATTENDANCE_USER_OVERRIDES[String(loginName || '').toLowerCase()] || [])
             .find(o => o.day === dow && current >= toMinutes(o.from) && current <= toMinutes(o.to));
-        const slots = ATTENDANCE_SCHEDULE[dow] || [];
+        const userClasses = (ATTENDANCE_USER_CLASSES[String(loginName || '').toLowerCase()] || [])
+            .filter(c => c.day === dow);
+        const slots = [...(ATTENDANCE_SCHEDULE[dow] || []), ...userClasses];
         const slot = slots.find(s => Math.abs(current - toMinutes(s.start)) <= ATTENDANCE_WINDOW_MINUTES);
         const room = override ? override.room : (slot ? slot.room : null);
         if (!room) {

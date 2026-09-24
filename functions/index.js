@@ -901,7 +901,7 @@ export const sendManabaDeadlineReminders = onSchedule({
 // 出席登録のプッシュ通知 (授業開始時刻)
 // ------------------------------------------------------------------
 
-// assets/js/main.js の ATTENDANCE_SCHEDULE / ATTENDANCE_USER_OVERRIDES /
+// assets/js/main.js の ATTENDANCE_SCHEDULE / ATTENDANCE_USER_OVERRIDES / ATTENDANCE_USER_CLASSES /
 // ATTENDANCE_MIN_RATE と同じ内容。時間割を変えるときは両方を直すこと。
 const ATTENDANCE_MIN_RATE = 3000;
 const ATTENDANCE_SCHEDULE = {
@@ -920,6 +920,11 @@ const ATTENDANCE_SCHEDULE = {
 const ATTENDANCE_USER_OVERRIDES = {
   kosuke: [{ day: 2, from: '14:30', to: '15:30', room: 646 }],
   mahhii: [{ day: 2, from: '14:30', to: '15:30', room: 646 }]
+};
+// 共通の時間割に無い、その人だけが取っている授業。開始時刻にその人にだけ通知する
+const ATTENDANCE_USER_CLASSES = {
+  kosuke: [{ day: 1, name: '月曜1・2限', start: '09:00', room: 642 }],
+  mahhii: [{ day: 1, name: '月曜1・2限', start: '09:00', room: 642 }]
 };
 const ATTENDANCE_NOTICE_WINDOW_MINUTES = 5;
 const ATTENDANCE_URL_BASE = 'https://attendance.is.chibatech.ac.jp/attendance/class_room/';
@@ -959,6 +964,101 @@ function resolveAttendanceRoom(username, dow, minutes, slot) {
   return override ? override.room : slot.room;
 }
 
+/**
+ * 1つの授業ぶんの通知を送る。slot.user があればその人だけに送る (ユーザー別の追加授業)。
+ * 送る前に attendance_notices に枠を押さえ、再試行で二重に通知しないようにする。
+ */
+async function sendAttendanceNoticeForSlot(slot, { dow, minutes, todayKey }) {
+  const noticeId = `${todayKey}_${slot.start.replace(':', '')}${slot.user ? `_${slot.user}` : ''}`;
+  const noticeRef = db.collection('attendance_notices').doc(noticeId);
+
+  const claimed = await db.runTransaction(async transaction => {
+    const doc = await transaction.get(noticeRef);
+    if (doc.exists) return false;
+    transaction.set(noticeRef, {
+      course: slot.name,
+      start: slot.start,
+      ...(slot.user ? { user: slot.user } : {}),
+      createdAt: new Date().toISOString()
+    });
+    return true;
+  });
+  if (!claimed) return { course: slot.name, user: slot.user, skipped: 'already_sent' };
+
+  const [settingsDoc, tokensSnapshot, playersSnapshot] = await Promise.all([
+    db.collection('settings').doc('app').get(),
+    db.collection('push_tokens').get(),
+    db.collection('players').get()
+  ]);
+
+  const allowedUsers = new Set(
+    Array.isArray(settingsDoc.data()?.attendance_allowed_users) ? settingsDoc.data().attendance_allowed_users : []
+  );
+  const rateByName = new Map(playersSnapshot.docs.map(doc => [doc.data().name, normalizeRate(doc.data().score)]));
+
+  let notified = 0;
+  let success = 0;
+  let failure = 0;
+
+  for (const tokenDoc of tokensSnapshot.docs) {
+    const data = tokenDoc.data();
+    const owner = String(data.owner || '');
+
+    // 出席ボタンを出していない人には通知しない
+    if (!owner || !allowedUsers.has(owner)) continue;
+
+    // その人だけの授業は、本人以外には送らない
+    if (slot.user && owner.toLowerCase() !== slot.user) continue;
+
+    // レートが足りない人にも通知しない (画面のボタンと同じ条件)
+    const rate = rateByName.get(owner);
+    if (rate === undefined || rate < ATTENDANCE_MIN_RATE) continue;
+
+    const tokenEntries = Array.isArray(data.tokens) ? data.tokens : [];
+    const tokens = [...new Set(tokenEntries.map(entry => String(entry?.token || '')).filter(Boolean))];
+    if (!tokens.length) continue;
+
+    const room = slot.user ? slot.room : resolveAttendanceRoom(owner, dow, minutes, slot);
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title: '📋 出席の時間です',
+        body: `${slot.name}（${room}教室）`
+      },
+      webpush: {
+        fcmOptions: { link: `${ATTENDANCE_URL_BASE}${room}` },
+        notification: {
+          icon: '/assets/icon.png',
+          tag: `attendance-${todayKey}-${slot.start}`
+        }
+      }
+    });
+
+    notified += 1;
+    success += response.successCount;
+    failure += response.failureCount;
+
+    // 失効したトークンを削除する
+    const invalidTokens = new Set();
+    response.responses.forEach((sendResult, index) => {
+      if (sendResult.success) return;
+      const code = String(sendResult.error?.code || '');
+      if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
+        invalidTokens.add(tokens[index]);
+      }
+    });
+    if (invalidTokens.size) {
+      await tokenDoc.ref.set({
+        tokens: tokenEntries.filter(entry => !invalidTokens.has(String(entry?.token || ''))),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    }
+  }
+
+  await noticeRef.set({ notified, success, failure }, { merge: true });
+  return { course: slot.name, user: slot.user, start: slot.start, notified, success, failure };
+}
+
 export const sendAttendanceNotices = onSchedule({
   region: 'asia-northeast1',
   schedule: '0,30 9-18 * * 1-4',
@@ -966,104 +1066,23 @@ export const sendAttendanceNotices = onSchedule({
   timeoutSeconds: 120
 }, async () => {
   const { dow, minutes } = getJstDayAndMinutes();
-  const slots = (ATTENDANCE_SCHEDULE[dow] || []).filter(slot =>
-    Math.abs(minutes - attendanceToMinutes(slot.start)) <= ATTENDANCE_NOTICE_WINDOW_MINUTES
-  );
+  const isStartingNow = slot => slot.day === undefined || slot.day === dow
+    ? Math.abs(minutes - attendanceToMinutes(slot.start)) <= ATTENDANCE_NOTICE_WINDOW_MINUTES
+    : false;
+  const slots = [
+    ...(ATTENDANCE_SCHEDULE[dow] || []).filter(isStartingNow),
+    ...Object.entries(ATTENDANCE_USER_CLASSES).flatMap(([user, classes]) =>
+      classes.filter(isStartingNow).map(slot => ({ ...slot, user }))
+    )
+  ];
 
   // 授業の開始時刻でなければ、DBを一切読まずに終わる
   if (!slots.length) return;
 
-  const todayKey = getJstDateKey();
+  const context = { dow, minutes, todayKey: getJstDateKey() };
   const results = [];
-
   for (const slot of slots) {
-    const noticeRef = db.collection('attendance_notices').doc(`${todayKey}_${slot.start.replace(':', '')}`);
-
-    // 送る前に枠を押さえる。再試行で同じ授業を二重に通知しないため
-    const claimed = await db.runTransaction(async transaction => {
-      const doc = await transaction.get(noticeRef);
-      if (doc.exists) return false;
-      transaction.set(noticeRef, {
-        course: slot.name,
-        start: slot.start,
-        createdAt: new Date().toISOString()
-      });
-      return true;
-    });
-    if (!claimed) {
-      results.push({ course: slot.name, skipped: 'already_sent' });
-      continue;
-    }
-
-    const [settingsDoc, tokensSnapshot, playersSnapshot] = await Promise.all([
-      db.collection('settings').doc('app').get(),
-      db.collection('push_tokens').get(),
-      db.collection('players').get()
-    ]);
-
-    const allowedUsers = new Set(
-      Array.isArray(settingsDoc.data()?.attendance_allowed_users) ? settingsDoc.data().attendance_allowed_users : []
-    );
-    const rateByName = new Map(playersSnapshot.docs.map(doc => [doc.data().name, normalizeRate(doc.data().score)]));
-
-    let notified = 0;
-    let success = 0;
-    let failure = 0;
-
-    for (const tokenDoc of tokensSnapshot.docs) {
-      const data = tokenDoc.data();
-      const owner = String(data.owner || '');
-
-      // 出席ボタンを出していない人には通知しない
-      if (!owner || !allowedUsers.has(owner)) continue;
-
-      // レートが足りない人にも通知しない (画面のボタンと同じ条件)
-      const rate = rateByName.get(owner);
-      if (rate === undefined || rate < ATTENDANCE_MIN_RATE) continue;
-
-      const tokenEntries = Array.isArray(data.tokens) ? data.tokens : [];
-      const tokens = [...new Set(tokenEntries.map(entry => String(entry?.token || '')).filter(Boolean))];
-      if (!tokens.length) continue;
-
-      const room = resolveAttendanceRoom(owner, dow, minutes, slot);
-      const response = await admin.messaging().sendEachForMulticast({
-        tokens,
-        notification: {
-          title: '📋 出席の時間です',
-          body: `${slot.name}（${room}教室）`
-        },
-        webpush: {
-          fcmOptions: { link: `${ATTENDANCE_URL_BASE}${room}` },
-          notification: {
-            icon: '/assets/icon.png',
-            tag: `attendance-${todayKey}-${slot.start}`
-          }
-        }
-      });
-
-      notified += 1;
-      success += response.successCount;
-      failure += response.failureCount;
-
-      // 失効したトークンを削除する
-      const invalidTokens = new Set();
-      response.responses.forEach((sendResult, index) => {
-        if (sendResult.success) return;
-        const code = String(sendResult.error?.code || '');
-        if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
-          invalidTokens.add(tokens[index]);
-        }
-      });
-      if (invalidTokens.size) {
-        await tokenDoc.ref.set({
-          tokens: tokenEntries.filter(entry => !invalidTokens.has(String(entry?.token || ''))),
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      }
-    }
-
-    await noticeRef.set({ notified, success, failure }, { merge: true });
-    results.push({ course: slot.name, start: slot.start, notified, success, failure });
+    results.push(await sendAttendanceNoticeForSlot(slot, context));
   }
 
   console.log('sendAttendanceNotices results:', JSON.stringify(results));
