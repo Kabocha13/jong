@@ -479,8 +479,14 @@ function bindEvents() {
     el('casino-enter-form').addEventListener('submit', enterTable);
     document.querySelectorAll('.casino-presets [data-buyin]').forEach(button => {
         button.addEventListener('click', () => {
-            const value = button.dataset.buyin === 'all' ? casino.score : Number(button.dataset.buyin);
-            el('casino-buyin').value = String(Math.min(value, casino.score));
+            const input = el('casino-buyin');
+            if (button.dataset.buyin === 'other') {
+                // 任意の額は入力欄に直接打ってもらう
+                input.value = '';
+                input.focus();
+                return;
+            }
+            input.value = String(Math.min(Number(button.dataset.buyin), casino.score));
         });
     });
     document.querySelectorAll('.casino-chip-picker [data-chip]').forEach(button => {
