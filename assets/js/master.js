@@ -51,16 +51,17 @@ const CREATE_GIFT_CODE_MESSAGE = document.getElementById('create-gift-code-messa
 
 // --- 定数：麻雀レートのルール ---
 // レート変動 = { (最終得点 - 原点) / 1000 + ウマ + (卓平均レート - 自分のレート) / 40 } × 1.75
+// 原点は決め打ちせず「入力された合計点 ÷ 人数」とする。何点持ちで始めた卓でも、
+// 飛びや供託で合計がずれていても、素点の部分は必ず合計 0 になる。
 // ウマの合計もレート差補正の合計も 0 なので、人数が何人でも卓全体のレートは増減しない。
 // ただし1位は最低でも +1 にするので、その底上げ分だけ卓の合計が増えることがある。
 const MAHJONG_SCORE_UNIT = 1000;              // 1000点 = 1レート
 const MAHJONG_RATE_DIFF_DIVISOR = 40;         // レート差補正の分母
 const MAHJONG_RATE_MULTIPLIER = 1.75;         // 変動全体にかける倍率
 const MAHJONG_TOP_MIN_RATE_CHANGE = 1;       // 1位の最低増加量
-const MAHJONG_TOTAL_TOLERANCE = 100;          // 合計点のズレをどこまで黙認するか
 const MAHJONG_RULES = {
-    4: { label: '四人麻雀', startingScore: 30000, uma: [30, 10, -10, -30] },
-    3: { label: '三人麻雀', startingScore: 35000, uma: [30, 0, -30] }
+    4: { label: '四人麻雀', uma: [30, 10, -10, -30] },
+    3: { label: '三人麻雀', uma: [30, 0, -30] }
 };
 
 function getMahjongPlayerCount() {
@@ -317,8 +318,8 @@ function renderMahjongRuleNote() {
         .join(' / ');
 
     MAHJONG_RULE_NOTE.innerHTML = `
-        ${count}人の最終得点を入力します (合計 ${formatRate(rule.startingScore * count)} 点)。<br>
-        レート変動 = { (最終得点 − ${formatRate(rule.startingScore)}) ÷ ${MAHJONG_SCORE_UNIT}
+        ${count}人の最終得点を入力します。原点は入力した合計点 ÷ ${count} で求めます。<br>
+        レート変動 = { (最終得点 − 原点) ÷ ${MAHJONG_SCORE_UNIT}
         ＋ ウマ(${escapeAdminText(umaText)})
         ＋ (卓の平均レート − 本人のレート) ÷ ${MAHJONG_RATE_DIFF_DIVISOR} } × ${MAHJONG_RATE_MULTIPLIER}<br>
         <span class="text-small">格上に勝つほど大きく上がり、卓全体の合計は増減しません。
@@ -415,18 +416,8 @@ if (MAHJONG_FORM) {
             return;
         }
 
-        // 合計がずれているとゼロサムが崩れ、卓の外のレートまで動いてしまう
-        const expectedTotal = rule.startingScore * playerCount;
-        if (Math.abs(totalScore - expectedTotal) > MAHJONG_TOTAL_TOLERANCE) {
-            const proceed = window.confirm(
-                `合計点が ${totalScore} 点です (${rule.label}は ${expectedTotal} 点)。\n`
-                + 'このまま反映すると卓全体のレート合計が増減します。続けますか？'
-            );
-            if (!proceed) {
-                showMessage(MAHJONG_MESSAGE_ELEMENT, '反映を中止しました。得点を確認してください。', 'info');
-                return;
-            }
-        }
+        // 原点は卓の合計点から求める (何点持ちでも素点の部分はゼロサムになる)
+        const originScore = totalScore / playerCount;
 
         
         MAHJONG_SUBMIT_BUTTON.disabled = true;
@@ -471,7 +462,7 @@ if (MAHJONG_FORM) {
                     continue;
                 }
 
-                const scoreDifference = (result.score - rule.startingScore) / MAHJONG_SCORE_UNIT;
+                const scoreDifference = (result.score - originScore) / MAHJONG_SCORE_UNIT;
                 const uma = rule.uma[i];
                 const rateDiffBonus = (tableAverageRate - seatRates[i]) / MAHJONG_RATE_DIFF_DIVISOR;
                 const rawRateChange = Math.round((scoreDifference + uma + rateDiffBonus) * MAHJONG_RATE_MULTIPLIER);
