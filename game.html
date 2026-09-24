@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#060d16">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Q-Jong">
+    <title>ゲーム</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="assets/icon.png" sizes="1024x1024">
+    <link rel="icon" type="image/png" href="assets/icon.png">
+    <link rel="stylesheet" href="assets/css/style.css?v=45.1">
+    <script src="assets/js/treasure-rain.js?v=45.1" defer></script>
+</head>
+<body>
+    <header class="hero hero-compact" data-scene="tavern">
+        <div class="hero-scene" aria-hidden="true"></div>
+        <div class="hero-veil" aria-hidden="true"></div>
+        <div class="hero-inner">
+            <h1>ゲーム</h1>
+        </div>
+    </header>
+
+    <main id="main-content">
+        <div id="casino-loading" class="info-box" role="status">
+            <div class="skeleton skeleton-row"></div>
+            <div class="skeleton skeleton-row"></div>
+        </div>
+
+        <section id="casino-login" class="info-box hidden">
+            <h3 class="icon-title">ルーレット</h3>
+            <p class="info-text">遊ぶにはログインが必要です。</p>
+            <a href="mypage.html" class="action-button">マイページでログイン</a>
+        </section>
+
+        <section id="casino-lobby" class="info-box hidden" aria-labelledby="casino-lobby-title">
+            <h3 class="icon-title" id="casino-lobby-title">ルーレット</h3>
+            <p>現在のレート: <strong id="casino-lobby-score" class="text-large"></strong></p>
+            <ul class="casino-rules">
+                <li>持ち込んだレートをチップにして賭けます。勝ち負けがレートに反映されるのは<strong>精算したとき</strong>だけです。</li>
+                <li>最後のスピンから30分操作がないか、入場から3時間たつと自動で精算されます。チップが0になったときもその場で精算されます。</li>
+                <li>0〜36のシングルゼロ。配当は 1目 ×36、ダズン・カラム ×3、赤黒・偶奇・前後半 ×2 (賭け金込み)。</li>
+            </ul>
+            <form id="casino-enter-form">
+                <div class="form-group">
+                    <label for="casino-buyin">持ち込むレート</label>
+                    <input type="number" id="casino-buyin" min="1" step="1" inputmode="numeric" required>
+                </div>
+                <div class="casino-presets" role="group" aria-label="持ち込み額の候補">
+                    <button type="button" data-buyin="100">100</button>
+                    <button type="button" data-buyin="500">500</button>
+                    <button type="button" data-buyin="1000">1,000</button>
+                    <button type="button" data-buyin="all">全額</button>
+                </div>
+                <button type="submit" id="casino-enter-button">入場する</button>
+            </form>
+            <p id="casino-lobby-message" class="hidden" aria-live="polite"></p>
+        </section>
+
+        <section id="casino-table" class="hidden" aria-label="ルーレットテーブル">
+            <div class="info-box casino-status">
+                <dl class="casino-stats">
+                    <div><dt>手元チップ</dt><dd id="casino-chips"></dd></div>
+                    <div><dt>収支</dt><dd id="casino-net"></dd></div>
+                    <div><dt>持ち込み</dt><dd id="casino-buyin-display"></dd></div>
+                    <div><dt>スピン</dt><dd id="casino-spins"></dd></div>
+                </dl>
+                <p class="info-text casino-expiry" id="casino-expiry"></p>
+                <button type="button" id="casino-settle-button" class="btn-gold">精算する</button>
+            </div>
+
+            <div class="casino-layout">
+                <div class="info-box casino-wheel-box">
+                    <div class="roulette-wheel-frame">
+                        <span class="roulette-pointer" aria-hidden="true"></span>
+                        <svg id="roulette-wheel" class="roulette-wheel" viewBox="0 0 200 200" aria-hidden="true"></svg>
+                    </div>
+                    <p id="casino-result" class="casino-result" aria-live="polite">賭け先を選んでスピン</p>
+                    <ol id="casino-recent" class="casino-recent" aria-label="直近の出目"></ol>
+                </div>
+
+                <div class="info-box casino-board-box">
+                    <div class="casino-chip-picker" role="radiogroup" aria-label="1回に置くチップ">
+                        <button type="button" role="radio" data-chip="1">1</button>
+                        <button type="button" role="radio" data-chip="5">5</button>
+                        <button type="button" role="radio" data-chip="10">10</button>
+                        <button type="button" role="radio" data-chip="50">50</button>
+                        <button type="button" role="radio" data-chip="100">100</button>
+                    </div>
+
+                    <div id="roulette-board" class="roulette-board"></div>
+
+                    <p class="casino-bet-total">賭け合計 <strong id="casino-bet-total">0</strong></p>
+                    <div class="casino-actions">
+                        <button type="button" id="casino-undo-button" class="secondary-button">1つ戻す</button>
+                        <button type="button" id="casino-clear-button" class="secondary-button">クリア</button>
+                        <button type="button" id="casino-rebet-button" class="secondary-button">前回と同じ</button>
+                        <button type="button" id="casino-spin-button" class="casino-spin-button">スピン</button>
+                    </div>
+                    <p id="casino-table-message" class="hidden" aria-live="polite"></p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <nav class="footer-nav" aria-label="メインメニュー">
+            <a href="index.html"  class="input-link"><span class="nav-icon" data-icon="home" aria-hidden="true"></span><span>ホーム</span></a>
+            <a href="game.html"   class="input-link" aria-current="page"><span class="nav-icon" data-icon="game" aria-hidden="true"></span><span>ゲーム</span></a>
+            <a href="mypage.html" class="input-link"><span class="nav-icon" data-icon="mypage" aria-hidden="true"></span><span>マイページ</span></a>
+            <a href="admin.html" class="input-link" data-master-only hidden><span class="nav-icon" data-icon="admin" aria-hidden="true"></span><span>管理</span></a>
+        </nav>
+    </footer>
+
+    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
+    <script src="assets/js/firebase-config.js"></script>
+    <script src="assets/js/common.js?v=45.1"></script>
+    <script src="assets/js/game.js?v=45.1"></script>
+</body>
+</html>

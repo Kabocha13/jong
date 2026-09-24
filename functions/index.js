@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
@@ -87,10 +88,10 @@ function normalizeReversionRate(value) {
   return Math.min(1, Math.max(0, rate));
 }
 
-/** レートは常に 0 以上の整数として扱う */
+/** レートは整数として扱う。負けが込めばマイナスにもなる (+ 0 は -0 を 0 に揃えるため) */
 function normalizeRate(value) {
   const rate = Number(value);
-  return Number.isFinite(rate) ? Math.max(0, Math.round(rate)) : 0;
+  return Number.isFinite(rate) ? Math.round(rate) + 0 : 0;
 }
 
 /**
@@ -1080,6 +1081,58 @@ export const collectDailyPointTax = onSchedule({
   await rebuildRateChartQuietly('daily_rate_reversion');
 });
 
+/**
+ * クライアントは画面で読み込んだ全データを丸ごと送ってくる。
+ * players.score をそのまま書くと、読み込んだあとに入った変化 (ルーレットの精算、
+ * 別の人の宝くじ購入、日次補正など) を古い値で巻き戻してしまうので、
+ * 読み込み時点の値 (_baseScore) との差だけを「今の値」に足す。
+ * 増減ログもここで実際の前後の値から作り直し、クライアントの送ってきたログは
+ * source / reason / actor / createdAt を借りるだけにする。
+ * _baseScore が無い (古いページから送られた) プレイヤーは従来どおり送られた値で上書きする。
+ */
+function rebasePlayerScores(players, snapshot, clientEntries, fallbackMeta) {
+  const currentById = new Map(snapshot.docs.map(doc => [doc.id, doc.data()]));
+  const metaByPlayer = new Map();
+  clientEntries.forEach(entry => {
+    if (entry && entry.player && !metaByPlayer.has(entry.player)) metaByPlayer.set(entry.player, entry);
+  });
+
+  const scores = new Map();
+  const history = [];
+  players.forEach((player, index) => {
+    if (!player || !player.name) return;
+    const docId = getItemDocId('scores', player, index);
+    const current = currentById.get(docId);
+    const sent = normalizeRate(player.score);
+    if (!current) {
+      scores.set(docId, sent);
+      return;
+    }
+
+    const before = normalizeRate(current.score);
+    const base = Number(player._baseScore);
+    const after = Number.isFinite(base) ? normalizeRate(before + sent - normalizeRate(base)) : sent;
+    scores.set(docId, after);
+    if (after === before) return;
+
+    const meta = metaByPlayer.get(player.name) || {};
+    const at = String(meta.createdAt || fallbackMeta.at);
+    const id = rateHistoryDocId(player.name, at);
+    history.push({
+      id,
+      player: player.name,
+      beforeScore: before,
+      afterScore: after,
+      delta: after - before,
+      source: String(meta.source || 'rate_update'),
+      reason: String(meta.reason || ''),
+      actor: String(meta.actor || fallbackMeta.actor),
+      createdAt: at
+    });
+  });
+  return { scores, history };
+}
+
 export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
   setCors(req, res);
   if (req.method === 'OPTIONS') {
@@ -1093,49 +1146,67 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
 
   try {
     const body = req.body || {};
-    if (!await hasWriteAccess(req, body)) {
+    const decoded = await getVerifiedAuthToken(req);
+    if (!decoded) {
       res.status(401).json({ status: 'error', message: '認証が必要です。' });
       return;
     }
 
     const data = body.data || {};
     const pointHistoryEntries = Array.isArray(body.pointHistoryEntries) ? body.pointHistoryEntries : [];
-    const batch = db.batch();
+    const actor = decoded.username || decoded.uid;
+    const nowIso = new Date().toISOString();
 
-    for (const [key, collectionName] of Object.entries(FIREBASE_COLLECTIONS)) {
-      const collectionRef = db.collection(collectionName);
-      const snapshot = await collectionRef.get();
-      const nextIds = new Set();
+    const historyCount = await db.runTransaction(async transaction => {
+      const snapshots = new Map();
+      for (const [key, collectionName] of Object.entries(FIREBASE_COLLECTIONS)) {
+        snapshots.set(key, await transaction.get(db.collection(collectionName)));
+      }
 
-      (Array.isArray(data[key]) ? data[key] : []).forEach((item, index) => {
-        const docId = getItemDocId(key, item, index);
-        nextIds.add(docId);
-        const payload = { ...item };
-        delete payload._docId;
-        batch.set(collectionRef.doc(docId), payload);
+      const scoreWrites = rebasePlayerScores(
+        Array.isArray(data.scores) ? data.scores : [],
+        snapshots.get('scores'),
+        pointHistoryEntries,
+        { actor, at: nowIso }
+      );
+
+      for (const [key, collectionName] of Object.entries(FIREBASE_COLLECTIONS)) {
+        const collectionRef = db.collection(collectionName);
+        const nextIds = new Set();
+
+        (Array.isArray(data[key]) ? data[key] : []).forEach((item, index) => {
+          const docId = getItemDocId(key, item, index);
+          nextIds.add(docId);
+          const payload = { ...item };
+          delete payload._docId;
+          delete payload._baseScore;
+          if (key === 'scores' && scoreWrites.scores.has(docId)) {
+            payload.score = scoreWrites.scores.get(docId);
+          }
+          transaction.set(collectionRef.doc(docId), payload);
+        });
+
+        snapshots.get(key).docs.forEach(doc => {
+          if (!nextIds.has(doc.id)) {
+            transaction.delete(doc.ref);
+          }
+        });
+      }
+
+      scoreWrites.history.forEach(entry => {
+        transaction.set(db.collection('point_history').doc(entry.id), entry);
       });
 
-      snapshot.docs.forEach(doc => {
-        if (!nextIds.has(doc.id)) {
-          batch.delete(doc.ref);
-        }
-      });
-    }
+      transaction.set(db.collection('settings').doc('app'), {
+        attendance_allowed_users: Array.isArray(data.attendance_allowed_users) ? data.attendance_allowed_users : [],
+        updatedAt: nowIso
+      }, { merge: true });
 
-    pointHistoryEntries.forEach(entry => {
-      if (!entry || !entry.id) return;
-      batch.set(db.collection('point_history').doc(toDocId(entry.id)), entry);
+      return scoreWrites.history.length;
     });
 
-    batch.set(db.collection('settings').doc('app'), {
-      attendance_allowed_users: Array.isArray(data.attendance_allowed_users) ? data.attendance_allowed_users : [],
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-
-    await batch.commit();
-
     // レートが動いたときだけグラフ用データを作り直す (失敗しても保存自体は成功扱い)
-    if (pointHistoryEntries.length > 0) {
+    if (historyCount > 0) {
       await rebuildRateChartQuietly('updateAllData');
     }
 
@@ -1173,6 +1244,345 @@ export const rebuildRateChart = onRequest({ region: 'asia-northeast1' }, async (
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 'error', message: `レート推移の再構築に失敗しました: ${error.message}` });
+  }
+});
+
+// -----------------------------------------------------------------
+// カジノ (ルーレット)
+//   入場時に持ち込むレートを決め、以降の勝ち負けは casino_sessions のチップだけで動かす。
+//   players のレートに反映するのは精算の1回だけなので、レート推移グラフには
+//   スピンごとではなく「精算1回 = 1変動」として出る。
+//   負けたまま精算せずに離れても、最後のスピンから CASINO_IDLE_SETTLE_MS か
+//   入場から CASINO_MAX_SESSION_MS を過ぎたセッションは settleIdleCasinoSessions が
+//   自動で精算する。チップが 0 になったときもその場で精算する。
+//   乱数・配当・残高はすべてここで決め、ブラウザからは賭け方しか受け取らない。
+// -----------------------------------------------------------------
+const CASINO_SESSIONS = 'casino_sessions';
+const CASINO_IDLE_SETTLE_MS = 30 * 60 * 1000;
+const CASINO_MAX_SESSION_MS = 3 * 60 * 60 * 1000;
+const CASINO_RECENT_LIMIT = 12;
+const CASINO_MAX_BETS_PER_SPIN = 60;
+
+// シングルゼロ (0〜36) のヨーロピアンルーレット。配当は賭け金に対する倍率 (元金は別に戻る)
+const ROULETTE_RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+const ROULETTE_BET_TYPES = {
+  straight: { payout: 35, values: [0, 36], wins: (n, v) => n === v },
+  dozen:    { payout: 2,  values: [1, 3],  wins: (n, v) => n !== 0 && Math.ceil(n / 12) === v },
+  column:   { payout: 2,  values: [1, 3],  wins: (n, v) => n !== 0 && ((n - 1) % 3) + 1 === v },
+  red:      { payout: 1, wins: n => ROULETTE_RED_NUMBERS.has(n) },
+  black:    { payout: 1, wins: n => n !== 0 && !ROULETTE_RED_NUMBERS.has(n) },
+  even:     { payout: 1, wins: n => n !== 0 && n % 2 === 0 },
+  odd:      { payout: 1, wins: n => n % 2 === 1 },
+  low:      { payout: 1, wins: n => n >= 1 && n <= 18 },
+  high:     { payout: 1, wins: n => n >= 19 }
+};
+
+class CasinoError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function rouletteColor(number) {
+  if (number === 0) return 'green';
+  return ROULETTE_RED_NUMBERS.has(number) ? 'red' : 'black';
+}
+
+/** ブラウザから来た賭けを検証し、同じ賭け先はまとめて返す */
+function normalizeRouletteBets(rawBets) {
+  if (!Array.isArray(rawBets) || rawBets.length === 0) {
+    throw new CasinoError(400, '賭け先を選んでください。');
+  }
+  if (rawBets.length > CASINO_MAX_BETS_PER_SPIN) {
+    throw new CasinoError(400, `1回に賭けられるのは${CASINO_MAX_BETS_PER_SPIN}か所までです。`);
+  }
+
+  const merged = new Map();
+  rawBets.forEach(raw => {
+    const type = String(raw?.type || '');
+    const rule = Object.hasOwn(ROULETTE_BET_TYPES, type) ? ROULETTE_BET_TYPES[type] : null;
+    const amount = Number(raw?.amount);
+    if (!rule || !Number.isSafeInteger(amount) || amount < 1) {
+      throw new CasinoError(400, '賭け方が正しくありません。');
+    }
+    let value = null;
+    if (rule.values) {
+      value = Number(raw.value);
+      if (!Number.isInteger(value) || value < rule.values[0] || value > rule.values[1]) {
+        throw new CasinoError(400, '賭け方が正しくありません。');
+      }
+    }
+    const key = `${type}:${value ?? ''}`;
+    const current = merged.get(key);
+    merged.set(key, { type, value, amount: (current ? current.amount : 0) + amount });
+  });
+  return Array.from(merged.values());
+}
+
+function casinoSessionExpiresAt(startedAt, lastActionAt) {
+  return new Date(Math.min(
+    Date.parse(lastActionAt) + CASINO_IDLE_SETTLE_MS,
+    Date.parse(startedAt) + CASINO_MAX_SESSION_MS
+  )).toISOString();
+}
+
+function isCasinoSessionExpired(session, now = Date.now()) {
+  return Date.parse(session.expiresAt) <= now;
+}
+
+function publicCasinoSession(session) {
+  return {
+    game: session.game,
+    buyIn: session.buyIn,
+    chips: session.chips,
+    spins: session.spins,
+    startedAt: session.startedAt,
+    lastActionAt: session.lastActionAt,
+    expiresAt: session.expiresAt,
+    recent: session.recent || []
+  };
+}
+
+function playerQuery(name) {
+  return db.collection('players').where('name', '==', name).limit(1);
+}
+
+/**
+ * セッションを閉じて、持ち込みとの差を players のレートに1回で反映する。
+ * 既に精算済み (ドキュメントが無い) なら null。自動精算と手動精算が重なっても二重には反映しない。
+ */
+async function settleCasinoSession(uid, actor) {
+  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
+  const result = await db.runTransaction(async transaction => {
+    const sessionDoc = await transaction.get(sessionRef);
+    if (!sessionDoc.exists) return null;
+    const session = sessionDoc.data();
+    const playerSnapshot = await transaction.get(playerQuery(session.player));
+
+    const buyIn = normalizeRate(session.buyIn);
+    const chips = normalizeRate(session.chips);
+    let beforeScore = null;
+    let afterScore = null;
+    if (!playerSnapshot.empty) {
+      const playerDoc = playerSnapshot.docs[0];
+      beforeScore = normalizeRate(playerDoc.data().score);
+      afterScore = normalizeRate(beforeScore + chips - buyIn);
+      if (afterScore !== beforeScore) {
+        transaction.update(playerDoc.ref, { score: afterScore });
+        const at = new Date().toISOString();
+        const historyId = rateHistoryDocId(session.player, at);
+        transaction.set(db.collection('point_history').doc(historyId), {
+          id: historyId,
+          player: session.player,
+          beforeScore,
+          afterScore,
+          delta: afterScore - beforeScore,
+          source: 'casino_roulette',
+          reason: `ルーレット ${session.spins}回 (持込${buyIn} → ${chips})`,
+          actor,
+          createdAt: at
+        });
+      }
+    }
+    transaction.delete(sessionRef);
+    return {
+      player: session.player,
+      buyIn,
+      chips,
+      spins: session.spins,
+      beforeScore,
+      afterScore,
+      delta: beforeScore === null ? 0 : afterScore - beforeScore,
+      auto: actor !== session.player
+    };
+  });
+
+  if (result && result.delta !== 0) {
+    await rebuildRateChartQuietly('casino_settle');
+  }
+  return result;
+}
+
+/** 期限切れのセッションが残っていれば、この場で精算して結果を返す */
+async function settleCasinoSessionIfExpired(uid) {
+  const sessionDoc = await db.collection(CASINO_SESSIONS).doc(uid).get();
+  if (!sessionDoc.exists || !isCasinoSessionExpired(sessionDoc.data())) return null;
+  return settleCasinoSession(uid, 'casino_auto_settle');
+}
+
+async function casinoStatus(uid, username) {
+  const autoSettled = await settleCasinoSessionIfExpired(uid);
+  const [sessionDoc, playerSnapshot] = await Promise.all([
+    db.collection(CASINO_SESSIONS).doc(uid).get(),
+    playerQuery(username).get()
+  ]);
+  return {
+    score: playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score),
+    session: sessionDoc.exists ? publicCasinoSession(sessionDoc.data()) : null,
+    autoSettled
+  };
+}
+
+async function casinoEnter(uid, username, rawBuyIn) {
+  const buyIn = Number(rawBuyIn);
+  if (!Number.isSafeInteger(buyIn) || buyIn < 1) {
+    throw new CasinoError(400, '持ち込むレートは1以上の整数で入力してください。');
+  }
+  const autoSettled = await settleCasinoSessionIfExpired(uid);
+  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
+
+  const session = await db.runTransaction(async transaction => {
+    const [sessionDoc, playerSnapshot] = await Promise.all([
+      transaction.get(sessionRef),
+      transaction.get(playerQuery(username))
+    ]);
+    if (sessionDoc.exists) {
+      throw new CasinoError(409, '入場中のテーブルがあります。先に精算してください。');
+    }
+    if (playerSnapshot.empty) {
+      throw new CasinoError(404, 'プレイヤーが見つかりません。');
+    }
+    const score = normalizeRate(playerSnapshot.docs[0].data().score);
+    if (buyIn > score) {
+      throw new CasinoError(400, `持ち込めるのは現在のレート (${score}) までです。`);
+    }
+
+    const now = new Date().toISOString();
+    const next = {
+      game: 'roulette',
+      player: username,
+      buyIn,
+      chips: buyIn,
+      spins: 0,
+      wagered: 0,
+      startedAt: now,
+      lastActionAt: now,
+      expiresAt: casinoSessionExpiresAt(now, now),
+      recent: []
+    };
+    transaction.set(sessionRef, next);
+    return next;
+  });
+
+  return { session: publicCasinoSession(session), autoSettled };
+}
+
+async function casinoSpin(uid, rawBets) {
+  const bets = normalizeRouletteBets(rawBets);
+  const total = bets.reduce((sum, bet) => sum + bet.amount, 0);
+  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
+
+  const spun = await db.runTransaction(async transaction => {
+    const sessionDoc = await transaction.get(sessionRef);
+    if (!sessionDoc.exists) {
+      throw new CasinoError(409, 'テーブルに入場していません。');
+    }
+    const session = sessionDoc.data();
+    if (isCasinoSessionExpired(session)) return { expired: true };
+    if (total > session.chips) {
+      throw new CasinoError(400, `手元のチップ (${session.chips}) を超えて賭けることはできません。`);
+    }
+
+    const number = randomInt(0, 37);
+    const returned = bets.reduce((sum, bet) => {
+      const rule = ROULETTE_BET_TYPES[bet.type];
+      return rule.wins(number, bet.value) ? sum + bet.amount * (rule.payout + 1) : sum;
+    }, 0);
+    const now = new Date().toISOString();
+    const chips = session.chips - total + returned;
+    const result = { number, color: rouletteColor(number), bet: total, returned, at: now };
+    const next = {
+      ...session,
+      chips,
+      spins: session.spins + 1,
+      wagered: (session.wagered || 0) + total,
+      lastActionAt: now,
+      expiresAt: casinoSessionExpiresAt(session.startedAt, now),
+      recent: [result, ...(session.recent || [])].slice(0, CASINO_RECENT_LIMIT)
+    };
+    transaction.set(sessionRef, next);
+    return { result, session: next };
+  });
+
+  if (spun.expired) {
+    const settled = await settleCasinoSession(uid, 'casino_auto_settle');
+    return { expired: true, settled };
+  }
+  // チップが尽きたら続けようがないので、その場で精算する
+  if (spun.session.chips <= 0) {
+    const settled = await settleCasinoSession(uid, spun.session.player);
+    return { result: spun.result, session: null, settled };
+  }
+  return { result: spun.result, session: publicCasinoSession(spun.session) };
+}
+
+export const casinoRoulette = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const decoded = await getVerifiedAuthToken(req);
+    const username = decoded && decoded.username;
+    if (!username) {
+      res.status(401).json({ status: 'error', message: 'ログインが必要です。マイページでログインし直してください。' });
+      return;
+    }
+    if (RATE_EXCLUDED_PLAYERS.has(username)) {
+      res.status(403).json({ status: 'error', message: 'このアカウントはカジノを利用できません。' });
+      return;
+    }
+
+    const body = req.body || {};
+    const action = String(body.action || 'status');
+    let payload;
+    if (action === 'status') {
+      payload = await casinoStatus(decoded.uid, username);
+    } else if (action === 'enter') {
+      payload = await casinoEnter(decoded.uid, username, body.buyIn);
+    } else if (action === 'spin') {
+      payload = await casinoSpin(decoded.uid, body.bets);
+    } else if (action === 'settle') {
+      const settled = await settleCasinoSession(decoded.uid, username);
+      if (!settled) throw new CasinoError(409, '精算するテーブルがありません。');
+      payload = { settled };
+    } else {
+      throw new CasinoError(400, '不明な操作です。');
+    }
+    res.status(200).json({ status: 'success', ...payload });
+  } catch (error) {
+    if (error instanceof CasinoError) {
+      res.status(error.status).json({ status: 'error', message: error.message });
+      return;
+    }
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `カジノの処理に失敗しました: ${error.message}` });
+  }
+});
+
+// 精算せずに離れたテーブルを片付ける。期限は最後のスピンから30分 / 入場から3時間
+export const settleIdleCasinoSessions = onSchedule({
+  region: 'asia-northeast1',
+  schedule: 'every 10 minutes',
+  timeZone: 'Asia/Tokyo'
+}, async () => {
+  const snapshot = await db.collection(CASINO_SESSIONS)
+    .where('expiresAt', '<=', new Date().toISOString())
+    .get();
+  for (const doc of snapshot.docs) {
+    try {
+      const settled = await settleCasinoSession(doc.id, 'casino_auto_settle');
+      console.log('casino auto settle:', JSON.stringify(settled));
+    } catch (error) {
+      console.error(`casino_sessions/${doc.id} の自動精算に失敗しました:`, error);
+    }
   }
 });
 

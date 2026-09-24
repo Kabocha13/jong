@@ -90,6 +90,8 @@
     --img-nav-home:   url('../img/nav-home.png');
     --img-nav-mypage: url('../img/nav-mypage.png');
     --img-nav-admin:  url('../img/nav-admin.png');
+    /* ゲームは画像を置かず SVG の舵輪をそのままマスクに使う */
+    --img-nav-game:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='2.6' fill='black'/%3E%3Cpath d='M12 1.5v7.9M12 14.6v7.9M1.5 12h7.9M14.6 12h7.9M4.6 4.6l5.6 5.6M13.8 13.8l5.6 5.6M19.4 4.6l-5.6 5.6M10.2 13.8l-5.6 5.6'/%3E%3C/svg%3E");
 
     /* 余白・角・影 */
     --gutter:       16px;
@@ -255,6 +257,7 @@ header.hero-compact { min-height: clamp(150px, 30vw, 230px); }
 
 header[data-scene="treasure"] .hero-scene { background-image: var(--img-treasure); }
 header[data-scene="jail"] .hero-scene     { background-image: var(--img-jail); }
+header[data-scene="tavern"] .hero-scene   { background-image: var(--img-tavern); }
 
 /* 画像の上に夜の帳 + 砲火の照り返し */
 .hero-veil {
@@ -1425,6 +1428,11 @@ footer {
     mask-image: var(--img-nav-mypage);
 }
 
+.footer-nav .nav-icon[data-icon="game"] {
+    -webkit-mask-image: var(--img-nav-game);
+    mask-image: var(--img-nav-game);
+}
+
 .footer-nav .nav-icon[data-icon="admin"] {
     -webkit-mask-image: var(--img-nav-admin);
     mask-image: var(--img-nav-admin);
@@ -1637,6 +1645,309 @@ footer {
 .rate-chart-legend-value {
     color: var(--ink-soft);
     font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------
+   19b. ゲーム — ルーレット
+   ------------------------------------------------------------ */
+.casino-rules {
+    margin: 0 0 14px;
+    padding-left: 1.2em;
+    font-size: 0.86em;
+    color: var(--ink-soft);
+}
+
+.casino-rules li + li { margin-top: 4px; }
+
+.casino-presets,
+.casino-chip-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* 共通の button は幅いっぱい・板目の面なので、小さな札として上書きする */
+.casino-presets button,
+.casino-chip-picker button {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    min-height: 38px;
+    margin: 0;
+    padding: 6px 8px;
+    font-family: var(--font-body);
+    font-size: 0.9em;
+    letter-spacing: 0.02em;
+    color: var(--color-indigo);
+    background: var(--parchment-warm);
+    border: 1px solid var(--parchment-edge);
+    box-shadow: none;
+}
+
+.casino-presets button:hover,
+.casino-chip-picker button:hover {
+    color: var(--color-indigo);
+    background: #fff;
+    box-shadow: none;
+    transform: none;
+}
+
+/* チップは金貨で見せ、選んでいるものだけ縁と地を濃くする */
+.casino-chip-picker { margin-bottom: 12px; }
+
+.casino-chip-picker button {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    border-radius: 999px;
+}
+
+.casino-chip-picker button[aria-checked="true"] {
+    color: #2b1d06;
+    background: radial-gradient(circle at 34% 28%, #fff7dc 0%, #f4cd68 40%, #c9922f 100%);
+    border: 2px solid #7d5411;
+}
+
+.casino-status { padding-bottom: 14px; }
+
+.casino-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 14px;
+    margin: 0;
+}
+
+.casino-stats div { min-width: 0; }
+
+.casino-stats dt {
+    font-size: 0.74em;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+}
+
+.casino-stats dd {
+    margin: 0;
+    font-size: 1.3em;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+#casino-net[data-sign="plus"]  { color: var(--ok); }
+#casino-net[data-sign="minus"] { color: var(--ng); }
+
+.casino-expiry { margin: 10px 0 0; font-size: 0.8em; }
+
+.casino-layout {
+    display: grid;
+    gap: 0 clamp(14px, 2.4vw, 24px);
+}
+
+.casino-wheel-box { text-align: center; }
+
+.roulette-wheel-frame {
+    position: relative;
+    width: min(100%, 300px);
+    margin: 10px auto 0;
+    aspect-ratio: 1;
+}
+
+/* 真上の針。ホイールは回るが針は動かない */
+.roulette-pointer {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    z-index: 1;
+    width: 0;
+    height: 0;
+    transform: translateX(-50%);
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-top: 16px solid var(--brass-light);
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+
+.roulette-wheel {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transition: transform 3.2s cubic-bezier(0.12, 0.72, 0.16, 1);
+    will-change: transform;
+}
+
+.roulette-rim { fill: var(--timber); stroke: var(--brass); stroke-width: 2; }
+.roulette-pocket { stroke: rgba(236, 194, 100, 0.55); stroke-width: 0.6; }
+.roulette-pocket.is-red   { fill: var(--rum); }
+.roulette-pocket.is-black { fill: var(--pitch); }
+.roulette-pocket.is-green { fill: var(--ok); }
+.roulette-hub { fill: var(--timber-mid); stroke: var(--brass); stroke-width: 1.5; }
+.roulette-cap { fill: var(--brass); }
+
+.roulette-number {
+    font-family: var(--font-body);
+    font-size: 8.5px;
+    font-weight: 700;
+    fill: var(--brass-pale);
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+
+.casino-result {
+    min-height: 1.75em;
+    margin: 14px 0 8px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+.casino-result.is-red   { color: var(--rum); }
+.casino-result.is-black { color: var(--pitch); }
+.casino-result.is-green { color: var(--ok); }
+.casino-result.is-spinning { color: var(--ink-soft); font-style: italic; }
+
+.casino-recent {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.roulette-pip {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    font-size: 0.78em;
+    font-weight: 700;
+    color: var(--brass-pale);
+    border-radius: 50%;
+}
+
+.roulette-pip:first-child { outline: 2px solid var(--brass); outline-offset: 1px; }
+.roulette-pip.is-red   { background: var(--rum); }
+.roulette-pip.is-black { background: var(--pitch); }
+.roulette-pip.is-green { background: var(--ok); }
+
+/* 盤面はスマホで縦長になるよう、実物のテーブルを手前から見た向き (3列×12段) で並べる */
+.roulette-board {
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    background: var(--water);
+    border: 1px solid var(--brass);
+    border-radius: var(--radius-sm);
+}
+
+.roulette-numbers,
+.roulette-dozens,
+.roulette-evens {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+}
+
+.roulette-numbers .is-zero { grid-column: 1 / -1; }
+
+button.roulette-cell {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: auto;
+    min-width: 0;
+    min-height: 36px;
+    margin: 0;
+    padding: 4px 2px;
+    overflow: visible;
+    font-family: var(--font-body);
+    font-size: 0.92em;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: var(--brass-pale);
+    background: var(--water-mid);
+    border: 1px solid rgba(236, 194, 100, 0.4);
+    border-radius: 2px;
+    box-shadow: none;
+    transition: filter 0.12s ease;
+}
+
+button.roulette-cell:hover {
+    filter: brightness(1.18);
+    box-shadow: none;
+    transform: none;
+}
+
+button.roulette-cell:active { filter: brightness(1.3); }
+button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
+
+.roulette-cell.is-red   { background: var(--rum); }
+.roulette-cell.is-black { background: var(--pitch); }
+.roulette-cell.is-green { background: var(--ok); }
+.roulette-cell.is-outside { font-size: 0.8em; font-weight: 400; letter-spacing: 0.04em; }
+.roulette-cell.has-stake { border-color: var(--brass-light); }
+
+/* 置いたチップ。額はセルの右上に金貨で重ねる */
+.roulette-stake:empty { display: none; }
+
+.roulette-stake {
+    position: absolute;
+    top: -5px;
+    right: -3px;
+    z-index: 1;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 20px;
+    color: #2b1d06;
+    background: radial-gradient(circle at 34% 28%, #fff7dc 0%, #f4cd68 40%, #c9922f 100%);
+    border: 1px solid #7d5411;
+    border-radius: 999px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+}
+
+.casino-bet-total {
+    margin: 12px 0 0;
+    font-size: 0.9em;
+    text-align: right;
+    color: var(--ink-soft);
+}
+
+.casino-bet-total strong {
+    font-size: 1.2em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+}
+
+.casino-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.casino-actions button {
+    width: auto;
+    min-width: 0;
+    padding-inline: 6px;
+    font-size: 0.8em;
+    letter-spacing: 0.04em;
+}
+
+.casino-actions .casino-spin-button {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    font-size: 1em;
+    letter-spacing: 0.2em;
+}
+
+@media (min-width: 720px) {
+    .casino-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .casino-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: start; }
+    .casino-presets button,
+    .casino-chip-picker button { min-width: 0; }
 }
 
 /* ------------------------------------------------------------

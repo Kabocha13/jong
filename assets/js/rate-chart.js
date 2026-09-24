@@ -130,7 +130,9 @@ function buildRateChartScale(series, height) {
     }
 
     const step = rateChartTickStep(max - min);
-    const niceMin = Math.max(0, Math.floor(min / step) * step);
+    // 全員が 0 以上なら軸も 0 で止める。マイナスの人がいればそこまで下げる
+    const floor = Math.floor(min / step) * step;
+    const niceMin = min >= 0 ? Math.max(0, floor) : floor;
     const niceMax = Math.ceil(max / step) * step;
     const ticks = [];
     for (let value = niceMin; value <= niceMax + 0.5; value += step) ticks.push(value);

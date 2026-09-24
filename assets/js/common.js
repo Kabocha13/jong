@@ -301,9 +301,9 @@ function normalizeReversionRate(value) {
     return Math.min(1, Math.max(0, rate));
 }
 
-/** レートは常に 0 以上の整数として扱う */
+/** レートは整数として扱う。負けが込めばマイナスにもなる (+ 0 は -0 を 0 に揃えるため) */
 function normalizeRate(value) {
-    return Math.max(0, Math.round(toFiniteNumber(value, 0)));
+    return Math.round(toFiniteNumber(value, 0)) + 0;
 }
 
 /** 画面表示用。単位は付けず、桁区切りだけを入れる */
@@ -712,6 +712,11 @@ async function fetchAllDataFromFirebase() {
         attendance_allowed_users: settings.attendance_allowed_users ?? []
     });
 
+    // 読み込んだ時点のレート。保存時に updateAllData (Cloud Function) がこの値との差だけを
+    // 今の値に足すので、読み込み後に入った精算などを古い値で巻き戻さずに済む。
+    // 呼び出し側は { ...player, score } で組み立てるため、そのまま引き継がれる
+    record.scores.forEach(player => { player._baseScore = player.score; });
+
     return record;
 }
 
@@ -786,16 +791,21 @@ async function updateAllDataInFirebase(newData) {
     try {
         const currentData = _fetchCache || await fetchAllDataFromFirebase();
         const mergedData = normalizeFetchedRecord({ ...currentData, ...(newData || {}) });
+        // 前後の値はサーバーが実際の値で作り直す。ここでは「誰のレートを何の理由で動かしたか」を渡す
+        const baseScores = mergedData.scores.map(player => ({
+            name: player.name,
+            score: Number.isFinite(player._baseScore) ? player._baseScore : player.score
+        }));
         const pointHistoryEntries = buildRateHistoryEntries(
-            currentData.scores,
+            baseScores,
             mergedData.scores,
             newData?.rate_history_meta || {}
         );
         delete mergedData.rate_history_meta;
 
         const functionResult = await updateAllDataViaFunction(mergedData, pointHistoryEntries);
-        _fetchCache = mergedData;
-        _fetchCacheTime = Date.now();
+        // サーバー側で他の変化と合成した値が正なので、手元の結果はキャッシュせず次回取り直す
+        invalidateFetchCache();
         return { status: "success", message: functionResult.message || "データをFirebaseに保存しました。", totalChange: 0 };
     } catch (error) {
         console.error("Firebase書き込み中にエラー:", error);
@@ -930,6 +940,7 @@ async function runDailyRateReversionIfNeeded() {
         if (!changedNames.has(player.name)) return;
         const payload = { ...player };
         delete payload._docId;
+        delete payload._baseScore;
         batch.set(db.collection(FIREBASE_COLLECTIONS.scores).doc(getItemDocId('scores', player, 0)), payload);
     });
     addRateHistoryEntriesToBatch(db, batch, buildRateHistoryEntries(currentData.scores, updatedScores, {
