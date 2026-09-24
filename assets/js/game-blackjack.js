@@ -10,6 +10,21 @@ const BLACKJACK_DEAL_MS = 200;      // 配るときの1枚ごとの間隔
 const BLACKJACK_DEALER_MS = 650;    // ディーラーが1枚ずつめくる・引く間隔
 const BLACKJACK_TURN_MS = 20000;    // 1回の操作の持ち時間 (サーバーの TABLE_TURN_MS と同じ)
 const BLACKJACK_SEATS = 4;
+const BLACKJACK_SQUEEZE_KEY = 'bjSqueeze';     // 自分のカードを絞るか (端末ごとに覚える)
+const BLACKJACK_SQUEEZE_SAFE_MS = 5000;        // 自分の番の残りがこれを切ったら、絞りを打ち切って表にする
+const BLACKJACK_SQUEEZE_CLOSE_MS = 900;        // 全部めくってから絞る画面を閉じるまで
+// 絞る用の大きなカードのマークの位置 (x, y は %。下半分は逆さ)。本物と同じ並びなので、下から少しずつ数が読める
+const BLACKJACK_PIPS = {
+    2: [[50, 0], [50, 100]],
+    3: [[50, 0], [50, 50], [50, 100]],
+    4: [[0, 0], [100, 0], [0, 100], [100, 100]],
+    5: [[0, 0], [100, 0], [50, 50], [0, 100], [100, 100]],
+    6: [[0, 0], [100, 0], [0, 50], [100, 50], [0, 100], [100, 100]],
+    7: [[0, 0], [100, 0], [50, 25], [0, 50], [100, 50], [0, 100], [100, 100]],
+    8: [[0, 0], [100, 0], [50, 25], [0, 50], [100, 50], [50, 75], [0, 100], [100, 100]],
+    9: [[0, 0], [100, 0], [0, 33.3], [100, 33.3], [50, 50], [0, 66.7], [100, 66.7], [0, 100], [100, 100]],
+    10: [[0, 0], [100, 0], [50, 16.7], [0, 33.3], [100, 33.3], [0, 66.7], [100, 66.7], [50, 83.3], [0, 100], [100, 100]]
+};
 const BLACKJACK_SUITS = {
     S: { mark: '♠︎', name: 'スペード', red: false },
     H: { mark: '♥︎', name: 'ハート', red: true },
@@ -27,6 +42,7 @@ const BLACKJACK_RESULTS = {
 
 const blackjack = {
     table: null,        // 最後に受け取った卓 (公開の形)
+    latest: null,       // 届いた中でいちばん新しい卓 (演出の順番待ちより先に届いたものも含む)
     shown: null,        // いま画面に出している卓 (演出の途中は伏せ札をめくる前の形)
     queue: Promise.resolve(),
     bet: 0,             // 置こうとしている賭け金 (「賭ける」を押すまでは画面の中だけ)
@@ -37,7 +53,10 @@ const blackjack = {
     pollTimer: null,
     clockTimer: null,
     polling: false,
-    leaving: false
+    leaving: false,
+    squeeze: true,      // 自分のカードを絞ってめくるか
+    seen: { no: null, counts: new Map() },  // この勝負で自分が見たカードの枚数
+    squeezing: null     // 絞る画面を出している間だけ { openAll }
 };
 
 const EMPTY_BLACKJACK_TABLE = { phase: 'betting', seq: -1, seats: Array(BLACKJACK_SEATS).fill(null), round: null };
@@ -116,6 +135,10 @@ function renderBlackjackTile() {
 // ------------------------------------------------------------------
 // カードと席を描く
 // ------------------------------------------------------------------
+function cardLabel(card) {
+    return `${BLACKJACK_SUITS[card.slice(-1)].name}の${card.slice(0, -1)}`;
+}
+
 function createCardElement(card) {
     const node = document.createElement('span');
     node.setAttribute('role', 'img');
@@ -127,7 +150,7 @@ function createCardElement(card) {
     const rank = card.slice(0, -1);
     const suit = BLACKJACK_SUITS[card.slice(-1)];
     node.className = `bj-card ${suit.red ? 'is-red' : 'is-black'}`;
-    node.setAttribute('aria-label', `${suit.name}の${rank}`);
+    node.setAttribute('aria-label', cardLabel(card));
     const rankEl = document.createElement('span');
     rankEl.className = 'bj-card-rank';
     rankEl.textContent = rank;
@@ -157,6 +180,7 @@ function renderCardRow(container, cards, before, delayFor) {
 }
 
 function handTotalText(hand) {
+    if (hand.cards.includes(null)) return '?';
     if (hand.total > 21) return `${hand.total} バースト`;
     if (!hand.split && hand.cards.length === 2 && hand.total === 21) return 'BJ';
     if (hand.soft && hand.total < 21) return `${hand.total - 10} / ${hand.total}`;
@@ -287,6 +311,7 @@ function createSeatPanel(view, index, before, fresh) {
  * fresh (配った直後) のときは 全員1枚目 → ディーラー → 全員2枚目 → ディーラー の順に時間差をつける。
  */
 function renderBlackjackView(view, { animate = false, fresh = false } = {}) {
+    view = maskUnseen(view);
     const empty = { ...EMPTY_BLACKJACK_TABLE, round: null };
     const before = !animate ? null : fresh ? empty : (blackjack.shown || empty);
     const round = view.round;
@@ -345,6 +370,8 @@ async function presentBlackjackTable(next) {
     if (!next || (blackjack.table && next.seq <= blackjack.table.seq)) return false;
     const previous = blackjack.table;
     blackjack.table = next;
+    // 絞らない設定のときと、開いた時点ですでに配られていた分は見たことにする
+    if (!previous || !blackjack.squeeze) markAllSeen(next.round);
     renderBlackjackControls();
     // ゲーム一覧を開いていれば、タイルの人数と「勝負の途中」も合わせる
     if (casino.ready && !routeGame()) renderMenu();
@@ -364,10 +391,15 @@ async function presentBlackjackTable(next) {
     if (!finished) {
         renderBlackjackView(next, { animate: true, fresh });
         if (fresh) await wait(dealMs);
+        if (await squeezeNewCards(next)) renderBlackjackView(next, { animate: true });
     } else {
-        // 決着: まず全員の手を出し、ディーラーの裏から1枚ずつめくる
+        // 決着: まず全員の手を出し、自分のカードを絞ってから、ディーラーの裏から1枚ずつめくる
         renderBlackjackView(withDealerShown(next, 1), { animate: true, fresh });
         await wait(fresh ? dealMs + 300 : 350);
+        if (await squeezeNewCards(next)) {
+            renderBlackjackView(withDealerShown(next, 1), { animate: true });
+            await wait(450);
+        }
         for (let shown = 2; shown <= round.dealer.cards.length; shown++) {
             renderBlackjackView(withDealerShown(next, shown), { animate: true });
             await wait(BLACKJACK_DEALER_MS);
@@ -391,6 +423,7 @@ async function presentBlackjackTable(next) {
 
 /** 卓の更新を順番に見せる (演出が重ならないように) */
 function queueBlackjackTable(table) {
+    if (table && (!blackjack.latest || table.seq > blackjack.latest.seq)) blackjack.latest = table;
     blackjack.queue = blackjack.queue
         .then(() => presentBlackjackTable(table))
         .catch(error => {
@@ -398,6 +431,276 @@ function queueBlackjackTable(table) {
             return false;
         });
     return blackjack.queue;
+}
+
+// ------------------------------------------------------------------
+// 自分のカードを絞る
+// 配られた自分のカードは、見るまで自分の画面でだけ伏せておく (ほかの人の画面では表のまま)。
+// 見たカードは勝負ごとに枚数で覚える (6デッキなので同じカードが2枚以上ありうる)。
+// 絞っている間は後ろの卓の表示を止めておき、勝敗や次の人の番が先に見えないようにする。
+// ------------------------------------------------------------------
+function myRoundPlayer(round) {
+    return round ? round.players.find(player => player.name === myName()) || null : null;
+}
+
+function seenCounts(round) {
+    return blackjack.seen.no === round.no ? blackjack.seen.counts : new Map();
+}
+
+function markSeen(round, cards) {
+    if (blackjack.seen.no !== round.no) blackjack.seen = { no: round.no, counts: new Map() };
+    const counts = blackjack.seen.counts;
+    cards.forEach(card => counts.set(card, (counts.get(card) || 0) + 1));
+}
+
+function markAllSeen(round) {
+    const player = myRoundPlayer(round);
+    if (!player) return;
+    blackjack.seen = { no: round.no, counts: new Map() };
+    markSeen(round, player.hands.flatMap(hand => hand.cards));
+}
+
+/** 自分の手のうち、まだ見ていないカード [{ hand, index, card }] */
+function unseenCards(round) {
+    const player = myRoundPlayer(round);
+    if (!player) return [];
+    const left = new Map(seenCounts(round));
+    const unseen = [];
+    player.hands.forEach((hand, handIndex) => hand.cards.forEach((card, index) => {
+        const count = left.get(card) || 0;
+        if (count > 0) left.set(card, count - 1);
+        else unseen.push({ hand: handIndex, index, card });
+    }));
+    return unseen;
+}
+
+/** 画面に出す形。まだ見ていない自分のカードを伏せ、その手の勝敗も出さない */
+function maskUnseen(view) {
+    const unseen = view.round ? unseenCards(view.round) : [];
+    if (!unseen.length) return view;
+    const me = myRoundPlayer(view.round);
+    return {
+        ...view,
+        round: {
+            ...view.round,
+            players: view.round.players.map(player => (player !== me ? player : {
+                ...player,
+                hands: player.hands.map((hand, handIndex) => {
+                    const hidden = unseen.filter(item => item.hand === handIndex).map(item => item.index);
+                    if (!hidden.length) return hand;
+                    return { ...hand, cards: hand.cards.map((card, index) => (hidden.includes(index) ? null : card)), result: null };
+                })
+            }))
+        }
+    };
+}
+
+/** 絞る用の大きな表面。数字は左上にだけ置き、下から見えてくるのはマークの並び */
+function createCardFace(card) {
+    const rank = card.slice(0, -1);
+    const suit = BLACKJACK_SUITS[card.slice(-1)];
+    const face = document.createElement('span');
+    face.className = `bj-squeeze-face ${suit.red ? 'is-red' : 'is-black'}`;
+
+    const index = document.createElement('span');
+    index.className = 'bj-squeeze-index';
+    const indexRank = document.createElement('span');
+    indexRank.textContent = rank;
+    const indexSuit = document.createElement('span');
+    indexSuit.textContent = suit.mark;
+    index.append(indexRank, indexSuit);
+
+    const body = document.createElement('span');
+    const pips = BLACKJACK_PIPS[rank];
+    if (pips) {
+        body.className = 'bj-squeeze-pips';
+        pips.forEach(([x, y]) => {
+            const pip = document.createElement('span');
+            pip.className = `bj-squeeze-pip${y > 50 ? ' is-flipped' : ''}`;
+            pip.style.left = `${x}%`;
+            pip.style.top = `${y}%`;
+            pip.textContent = suit.mark;
+            body.appendChild(pip);
+        });
+    } else {
+        body.className = `bj-squeeze-court${rank === 'A' ? ' is-ace' : ''}`;
+        if (rank !== 'A') {
+            const letter = document.createElement('span');
+            letter.textContent = rank;
+            body.appendChild(letter);
+        }
+        const mark = document.createElement('span');
+        mark.textContent = suit.mark;
+        body.appendChild(mark);
+    }
+    face.append(index, body);
+    return face;
+}
+
+/**
+ * 伏せた大きなカード。下の端から上へなぞった分だけ、裏をめくり上げて表を見せる。
+ * 7割を超えて離すか、上までなぞりきるとめくれる。onOpen はめくれたときに1回だけ呼ぶ。
+ */
+function createSqueezeCard(card, onOpen) {
+    const node = document.createElement('div');
+    node.className = 'bj-squeeze-card';
+    node.tabIndex = 0;
+    node.setAttribute('role', 'button');
+    node.setAttribute('aria-label', '伏せたカード。上へなぞるか上矢印キーで少しずつ、Enter で一度にめくる');
+    const cover = document.createElement('span');
+    cover.className = 'bj-squeeze-cover';
+    const flap = document.createElement('span');
+    flap.className = 'bj-squeeze-flap';
+    node.append(createCardFace(card), cover, flap);
+
+    let peel = 0;
+    let drag = null;
+    const setPeel = value => {
+        peel = Math.min(1, Math.max(0, value));
+        node.style.setProperty('--peel', peel.toFixed(3));
+    };
+    const open = () => {
+        if (node.classList.contains('is-open')) return;
+        drag = null;
+        node.classList.remove('is-dragging');
+        node.classList.add('is-open');
+        setPeel(1);
+        node.setAttribute('aria-label', cardLabel(card));
+        onOpen();
+    };
+    const release = () => {
+        if (!drag) return;
+        drag = null;
+        node.classList.remove('is-dragging');
+        if (peel >= 0.7) open();
+    };
+
+    node.addEventListener('pointerdown', event => {
+        if (node.classList.contains('is-open')) return;
+        drag = { y: event.clientY, from: peel, height: node.offsetHeight };
+        node.setPointerCapture(event.pointerId);
+        node.classList.add('is-dragging');
+    });
+    node.addEventListener('pointermove', event => {
+        if (!drag) return;
+        setPeel(drag.from + (drag.y - event.clientY) / drag.height);
+        if (peel >= 0.96) open();
+    });
+    node.addEventListener('pointerup', release);
+    node.addEventListener('pointercancel', release);
+    node.addEventListener('keydown', event => {
+        if (node.classList.contains('is-open')) return;
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            setPeel(peel + (event.key === 'ArrowUp' ? 0.1 : -0.1));
+            if (peel >= 0.96) open();
+        } else if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            open();
+        }
+    });
+    return { node, open };
+}
+
+/** 絞っている間の持ち時間。残りが少なければ true */
+function renderSqueezeClock() {
+    const table = blackjack.latest;
+    const clock = el('bj-squeeze-clock');
+    if (!table || !isMyTurn(table) || !table.turnEndsAt) {
+        clock.textContent = '';
+        return false;
+    }
+    const left = Date.parse(table.turnEndsAt) - serverNow();
+    clock.textContent = `あなたの番 — 残り ${Math.max(0, Math.ceil(left / 1000))} 秒`;
+    return left < BLACKJACK_SQUEEZE_SAFE_MS;
+}
+
+/** unseen のカードを絞る画面を出す。全部めくって画面を閉じたら終わる */
+function squeezeCards(table, unseen) {
+    return new Promise(resolve => {
+        const round = table.round;
+        const me = myRoundPlayer(round);
+        const overlay = el('bj-squeeze');
+
+        const dealer = el('bj-squeeze-dealer');
+        dealer.innerHTML = '';
+        const dealerLabel = document.createElement('span');
+        dealerLabel.textContent = 'ディーラー';
+        dealer.append(dealerLabel, createCardElement(round.dealer.cards[0]));
+
+        let left = unseen.length;
+        let timer = null;
+        const cards = [];
+        const done = () => {
+            clearInterval(timer);
+            blackjack.squeezing = null;
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                resolve();
+            }, prefersReducedMotion() ? 200 : BLACKJACK_SQUEEZE_CLOSE_MS);
+        };
+        const onOpen = () => {
+            left -= 1;
+            if (left === 0) done();
+        };
+
+        const hands = el('bj-squeeze-hands');
+        hands.innerHTML = '';
+        [...new Set(unseen.map(item => item.hand))].forEach(handIndex => {
+            const box = document.createElement('div');
+            box.className = 'bj-squeeze-hand';
+            if (me.hands.length > 1) {
+                const caption = document.createElement('p');
+                caption.className = 'bj-squeeze-caption';
+                caption.textContent = `${handIndex + 1}手目`;
+                box.appendChild(caption);
+            }
+            const row = document.createElement('div');
+            row.className = 'bj-squeeze-row';
+            // 見たことのあるカードは小さく重ねて左に置く
+            const known = document.createElement('span');
+            known.className = 'bj-squeeze-known';
+            row.appendChild(known);
+            me.hands[handIndex].cards.forEach((card, index) => {
+                const pending = unseen.some(item => item.hand === handIndex && item.index === index);
+                if (!pending) {
+                    known.appendChild(createCardElement(card));
+                    return;
+                }
+                const squeeze = createSqueezeCard(card, onOpen);
+                cards.push(squeeze);
+                row.appendChild(squeeze.node);
+            });
+            box.appendChild(row);
+            hands.appendChild(box);
+        });
+        overlay.classList.toggle('is-many', unseen.length > 1);
+
+        const openAll = () => cards.forEach(card => card.open());
+        blackjack.squeezing = { openAll };
+        timer = setInterval(() => {
+            if (renderSqueezeClock()) openAll();
+        }, 250);
+        renderSqueezeClock();
+        overlay.classList.remove('hidden');
+        cards[0].node.focus({ preventScroll: true });
+    });
+}
+
+/** まだ見ていない自分のカードがあれば絞ってもらう。絞ったら true */
+async function squeezeNewCards(table) {
+    const round = table.round;
+    const unseen = round ? unseenCards(round) : [];
+    if (!unseen.length) return false;
+    if (!blackjack.squeeze || routeGame() !== 'blackjack') {
+        markAllSeen(round);
+        return true;
+    }
+    // 配られたカードが卓に着いてから開く
+    if (!prefersReducedMotion()) await delay(380);
+    await squeezeCards(table, unseen);
+    markSeen(round, unseen.map(item => item.card));
+    return true;
 }
 
 // ------------------------------------------------------------------
@@ -445,7 +748,7 @@ function renderBlackjackResult(view) {
     const round = view.round;
     const mine = round && view.phase !== 'reveal' && round.phase === 'done'
         ? round.players.find(player => player.name === myName()) : null;
-    if (!mine) {
+    if (!mine || mine.hands.some(hand => hand.cards.includes(null))) {
         result.textContent = '';
         return;
     }
@@ -664,6 +967,8 @@ function openBlackjackTable() {
 }
 
 function closeBlackjackTable() {
+    // 絞っている途中で離れたら表にして、後ろに並んでいる卓の表示を先へ進める
+    if (blackjack.squeezing) blackjack.squeezing.openAll();
     clearInterval(blackjack.pollTimer);
     clearInterval(blackjack.clockTimer);
     blackjack.pollTimer = null;
@@ -685,6 +990,18 @@ function renderBlackjackRecent() {
 }
 
 function initBlackjack() {
+    try {
+        blackjack.squeeze = localStorage.getItem(BLACKJACK_SQUEEZE_KEY) !== '0';
+    } catch (error) {
+        // 読めない環境では絞る
+    }
+    const squeezeToggle = el('bj-squeeze-toggle');
+    squeezeToggle.checked = blackjack.squeeze;
+    squeezeToggle.addEventListener('change', () => {
+        blackjack.squeeze = squeezeToggle.checked;
+        try { localStorage.setItem(BLACKJACK_SQUEEZE_KEY, blackjack.squeeze ? '1' : '0'); } catch (error) { /* 無視 */ }
+    });
+    el('bj-squeeze-open-all').addEventListener('click', () => blackjack.squeezing?.openAll());
     document.querySelectorAll('.bj-chip-rack [data-bj-chip]').forEach(button => {
         button.addEventListener('click', () => addBlackjackChip(Number(button.dataset.bjChip)));
     });

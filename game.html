@@ -11,8 +11,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=46.0">
-    <script src="assets/js/treasure-rain.js?v=46.0" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=46.1">
+    <script src="assets/js/treasure-rain.js?v=46.1" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -197,6 +197,7 @@
                         <button type="button" data-bj-move="split" class="secondary-button">スプリット<span class="bj-move-cost"></span></button>
                     </div>
 
+                    <label class="bj-squeeze-toggle"><input type="checkbox" id="bj-squeeze-toggle"> 自分のカードを絞ってめくる</label>
                     <button type="button" id="bj-leave-button" class="secondary-button bj-leave-button hidden">席を立つ</button>
                     <p id="bj-message" class="hidden" aria-live="polite"></p>
                     <ol id="bj-recent" class="casino-recent" aria-label="直近の自分の勝負"></ol>
@@ -204,6 +205,18 @@
             </div>
         </section>
     </main>
+
+    <!-- 自分に配られたカードを絞る画面。中身は game-blackjack.js が作る -->
+    <div id="bj-squeeze" class="bj-squeeze hidden" role="dialog" aria-modal="true" aria-labelledby="bj-squeeze-title">
+        <div class="bj-squeeze-panel">
+            <p class="bj-squeeze-title" id="bj-squeeze-title">あなたのカード</p>
+            <div class="bj-squeeze-dealer" id="bj-squeeze-dealer"></div>
+            <div class="bj-squeeze-hands" id="bj-squeeze-hands"></div>
+            <p class="bj-squeeze-hint">カードを下から上へなぞると、少しずつめくれます</p>
+            <p class="bj-squeeze-clock" id="bj-squeeze-clock" aria-live="polite"></p>
+            <button type="button" id="bj-squeeze-open-all">全部めくる</button>
+        </div>
+    </div>
 
     <footer>
         <nav class="footer-nav" aria-label="メインメニュー">
@@ -219,9 +232,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=46.0"></script>
-    <script src="assets/js/game-roulette.js?v=46.0"></script>
-    <script src="assets/js/game-blackjack.js?v=46.0"></script>
-    <script src="assets/js/game.js?v=46.0"></script>
+    <script src="assets/js/common.js?v=46.1"></script>
+    <script src="assets/js/game-roulette.js?v=46.1"></script>
+    <script src="assets/js/game-blackjack.js?v=46.1"></script>
+    <script src="assets/js/game.js?v=46.1"></script>
 </body>
 </html>

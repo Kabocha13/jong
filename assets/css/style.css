@@ -2665,6 +2665,268 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
     .bj-status { margin-top: 0; }
 }
 
+/* 自分のカードを絞るかどうか */
+.bj-squeeze-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 14px 0 0;
+    font-size: 0.8em;
+    color: var(--ink-soft);
+    cursor: pointer;
+}
+
+/* 絞る画面: 卓に暗幕を下ろし、自分のカードだけを大きく出す */
+@property --peel {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
+}
+
+@keyframes bj-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.bj-squeeze {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    overflow-y: auto;
+    background: rgba(6, 13, 17, 0.9);
+    animation: bj-fade 0.2s ease-out both;
+}
+
+.bj-squeeze-panel {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    width: min(100%, 440px);
+    padding: 16px 14px 18px;
+    color: var(--brass-pale);
+    background:
+        radial-gradient(ellipse 90% 60% at 50% 0%, rgba(255, 255, 255, 0.1), transparent 70%),
+        var(--water);
+    border: 1px solid var(--brass);
+    border-radius: var(--radius-sm);
+    box-shadow: inset 0 0 0 4px rgba(58, 38, 22, 0.55), 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.bj-squeeze-title {
+    margin: 0;
+    font-family: var(--font-title);
+    letter-spacing: 0.16em;
+}
+
+.bj-squeeze-dealer {
+    --card-w: 34px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78em;
+    letter-spacing: 0.12em;
+    opacity: 0.85;
+}
+
+.bj-squeeze-hands {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 18px;
+}
+
+.bj-squeeze-hand {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+}
+
+.bj-squeeze-caption {
+    margin: 0;
+    font-size: 0.74em;
+    letter-spacing: 0.1em;
+}
+
+.bj-squeeze-row {
+    --card-w: 40px;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.bj-squeeze-known { display: flex; }
+.bj-squeeze-known:empty { display: none; }
+.bj-squeeze-known .bj-card + .bj-card { margin-left: calc(var(--card-w) * -0.42); }
+
+.bj-squeeze-card {
+    --sq-w: min(44vw, 168px);
+    position: relative;
+    flex: 0 0 auto;
+    width: var(--sq-w);
+    height: calc(var(--sq-w) * 1.4);
+    border-radius: calc(var(--sq-w) * 0.08);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.bj-squeeze.is-many .bj-squeeze-card { --sq-w: min(34vw, 132px); }
+.bj-squeeze-card.is-dragging { cursor: grabbing; }
+.bj-squeeze-card.is-open {
+    cursor: default;
+    box-shadow: 0 0 0 2px var(--brass-light), 0 0 22px var(--lantern-glow), 0 6px 18px rgba(0, 0, 0, 0.55);
+    transition: --peel 0.3s ease-out, box-shadow 0.3s ease-out;
+}
+
+.bj-squeeze-card:focus-visible {
+    outline: 2px solid var(--lantern);
+    outline-offset: 3px;
+}
+
+/* 表: 数字は左上だけ。マークは本物と同じ並びで、下から数えられる */
+.bj-squeeze-face {
+    position: absolute;
+    inset: 0;
+    font-family: var(--font-body);
+    line-height: 1;
+    color: var(--pitch);
+    background: linear-gradient(160deg, #fffdf7 0%, #f6eedb 100%);
+    border: 1px solid rgba(43, 30, 16, 0.4);
+    border-radius: inherit;
+}
+
+.bj-squeeze-face.is-red { color: var(--rum); }
+
+.bj-squeeze-index {
+    position: absolute;
+    top: 5%;
+    left: 7%;
+    display: grid;
+    justify-items: center;
+    font-size: calc(var(--sq-w) * 0.16);
+    font-weight: 700;
+    letter-spacing: -0.06em;
+}
+
+.bj-squeeze-index span + span { font-size: 0.8em; }
+
+.bj-squeeze-pips {
+    position: absolute;
+    inset: 19% 30% 13%;
+    font-size: calc(var(--sq-w) * 0.17);
+}
+
+.bj-squeeze-pip {
+    position: absolute;
+    transform: translate(-50%, -50%);
+}
+
+.bj-squeeze-pip.is-flipped { transform: translate(-50%, -50%) rotate(180deg); }
+
+.bj-squeeze-court {
+    position: absolute;
+    inset: 17% 17% 12%;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 4px;
+    font-size: calc(var(--sq-w) * 0.36);
+    font-weight: 700;
+    border: 2px solid currentColor;
+    border-radius: calc(var(--sq-w) * 0.04);
+}
+
+.bj-squeeze-court span + span { font-size: 0.6em; }
+
+.bj-squeeze-court.is-ace {
+    font-size: calc(var(--sq-w) * 0.56);
+    border: 0;
+}
+
+/* 裏。めくった分 (--peel) だけ下から削り、削った分を折り返しの帯として上に重ねる */
+.bj-squeeze-cover,
+.bj-squeeze-flap {
+    position: absolute;
+    background:
+        repeating-linear-gradient(45deg, rgba(236, 194, 100, 0.24) 0 2px, transparent 2px 9px),
+        repeating-linear-gradient(-45deg, rgba(236, 194, 100, 0.24) 0 2px, transparent 2px 9px),
+        linear-gradient(160deg, var(--rum-light), var(--rum-dark));
+    border: 2px solid #f6ead0;
+}
+
+.bj-squeeze-cover {
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 2px var(--rum-dark);
+    clip-path: inset(0 0 calc(var(--peel) * 100%) 0);
+}
+
+.bj-squeeze-flap {
+    left: 0;
+    right: 0;
+    bottom: calc(var(--peel) * 100%);
+    height: calc(min(var(--peel), 1 - var(--peel)) * 100%);
+    border-bottom: 0;
+    border-radius: calc(var(--sq-w) * 0.08) calc(var(--sq-w) * 0.08) 0 0;
+    box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.35);
+    opacity: min(1, calc(var(--peel) * 40));
+}
+
+/* 折り目に向かって暗く、めくった端ほど明るい */
+.bj-squeeze-flap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.4), rgba(255, 255, 255, 0.16) 70%, rgba(255, 255, 255, 0.06));
+}
+
+.bj-squeeze-card.is-open .bj-squeeze-cover,
+.bj-squeeze-card.is-open .bj-squeeze-flap {
+    opacity: 0;
+    transition: opacity 0.25s ease-out 0.15s;
+}
+
+.bj-squeeze-hint {
+    margin: 0;
+    font-size: 0.78em;
+    text-align: center;
+    color: rgba(246, 227, 178, 0.7);
+}
+
+.bj-squeeze-clock {
+    min-height: 1.2em;
+    margin: 0;
+    font-size: 0.84em;
+    font-weight: 700;
+    color: var(--lantern);
+}
+
+.bj-squeeze-clock:empty { display: none; }
+
+/* 暗い卓の上でも読めるよう、真鍮の縁取りだけの札にする */
+#bj-squeeze-open-all {
+    width: auto;
+    min-width: 160px;
+    margin: 0;
+    color: var(--brass-pale);
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--brass);
+    box-shadow: none;
+}
+
+#bj-squeeze-open-all:hover {
+    color: #2b1d06;
+    background: var(--brass-light);
+    transform: none;
+}
+
 /* モーション低減では、配る順の時間差もなくして一度に出す */
 @media (prefers-reduced-motion: reduce) {
     .bj-card { animation-delay: 0s !important; }
