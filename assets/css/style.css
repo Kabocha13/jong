@@ -2112,6 +2112,35 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
     color: var(--ink-soft);
 }
 
+/* 卓に人がいれば緑の灯を点ける */
+.game-tile-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: 0.74em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+}
+
+.game-tile-live:empty { display: none; }
+
+.game-tile-live::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--stone-light);
+}
+
+.game-tile-live.is-busy { color: var(--ok); }
+
+.game-tile-live.is-busy::before {
+    background: var(--ok);
+    box-shadow: 0 0 0 3px rgba(47, 125, 82, 0.2);
+}
+
 .game-tile-badge {
     position: absolute;
     top: 8px;
@@ -2152,19 +2181,18 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
     display: grid;
     grid-template-rows: auto auto 1fr;
     gap: 8px;
-    min-height: calc(var(--card-w) * 2.8 + 150px);
-    padding: 12px 10px 28px;
+    padding: 12px 8px 26px;
     color: var(--brass-pale);
     background:
         radial-gradient(ellipse 90% 60% at 50% 0%, rgba(255, 255, 255, 0.1), transparent 70%),
         radial-gradient(ellipse 120% 80% at 50% 115%, rgba(0, 0, 0, 0.35), transparent 70%),
         var(--water);
     border: 1px solid var(--brass);
-    border-radius: var(--radius-sm) var(--radius-sm) 50% 50% / var(--radius-sm) var(--radius-sm) 14% 14%;
+    border-radius: var(--radius-sm) var(--radius-sm) 50% 50% / var(--radius-sm) var(--radius-sm) 7% 7%;
     box-shadow: inset 0 0 0 4px rgba(58, 38, 22, 0.55), inset 0 0 26px rgba(0, 0, 0, 0.45);
 }
 
-.bj-seat {
+.bj-dealer {
     display: grid;
     justify-items: center;
     align-content: start;
@@ -2357,28 +2385,195 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
 .bj-hand-result.is-lose,
 .bj-hand-result.is-bust { background: var(--rum); }
 
-/* まだ配っていないときの賭け金の置き場 */
-.bj-bet-spot {
+/* 席。スマホは2×2、PCは4つ横に並べる。カードは席の中では小さくする */
+.bj-seats {
+    --card-w: 32px;
     display: grid;
-    place-items: center;
-    width: 66px;
-    height: 66px;
-    margin-top: 4px;
-    font-family: var(--font-display);
-    font-size: 1.05em;
-    letter-spacing: 0.06em;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.bj-seat-panel {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    min-width: 0;
+    min-height: calc(var(--card-w) * 1.4 + 76px);
+    padding: 7px 6px 10px;
+    overflow: hidden;
+    background: rgba(6, 13, 17, 0.28);
+    border: 1px solid rgba(236, 194, 100, 0.28);
+    border-radius: 10px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bj-seat-panel.is-me {
+    background: rgba(236, 194, 100, 0.09);
+    border-color: var(--brass-light);
+}
+
+/* いま操作している人の席はランタンの灯で囲む */
+.bj-seat-panel.is-turn {
+    border-color: var(--lantern);
+    box-shadow: 0 0 16px var(--lantern-glow), inset 0 0 12px rgba(255, 182, 72, 0.12);
+}
+
+.bj-seat-panel.is-empty {
+    align-content: center;
+    justify-items: center;
+    border-style: dashed;
+}
+
+.bj-seat-head {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+    font-size: 0.76rem;
+    line-height: 1.3;
+    color: rgba(246, 227, 178, 0.6);
+}
+
+.bj-seat-panel.is-empty .bj-seat-head { justify-content: center; letter-spacing: 0.08em; }
+
+.bj-seat-name {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    font-weight: 700;
     color: var(--brass-pale);
-    border: 2px solid rgba(236, 194, 100, 0.6);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bj-seat-me {
+    flex: 0 0 auto;
+    padding: 0 5px;
+    font-size: 0.86em;
+    font-weight: 700;
+    color: #2b1d06;
+    background: var(--brass-light);
+    border-radius: 999px;
+}
+
+/* 手元チップは金貨の印と数だけ (狭い席でも名前を削らない) */
+.bj-seat-chips {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 3px;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+}
+
+.bj-seat-chips::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    background: radial-gradient(circle at 34% 28%, #fff7dc 0%, #f4cd68 40%, #c9922f 100%);
+    border: 1px solid #7d5411;
     border-radius: 50%;
-    box-shadow: inset 0 0 0 5px rgba(6, 13, 17, 0.25);
+}
+
+.bj-seat-hands {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+}
+
+.bj-seat-panel .bj-hand { gap: 4px; padding: 3px; }
+.bj-seat-panel .bj-hand-meta { gap: 4px; }
+.bj-seat-panel .bj-total { font-size: 0.74rem; }
+.bj-seat-panel .bj-hand-bet { min-width: 22px; height: 22px; font-size: 0.68rem; line-height: 20px; }
+.bj-seat-panel .bj-hand-result { font-size: 0.7rem; padding: 1px 8px; }
+
+.bj-seat-note {
+    margin: 0;
+    font-size: 0.74rem;
+    text-align: center;
+    color: rgba(246, 227, 178, 0.55);
+}
+
+.bj-seat-bet {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 0.74rem;
+    color: var(--brass-pale);
+}
+
+.bj-seat-panel .bj-seat-sit {
+    width: auto;
+    min-width: 0;
+    min-height: 34px;
+    margin: 4px 0 0;
+    padding: 4px 12px;
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+}
+
+/* 持ち時間の帯。残りが減るほど短くなる */
+.bj-seat-timer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.bj-seat-timer > span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--lantern);
+    transition: width 0.25s linear;
+}
+
+.bj-status {
+    min-height: 1.6em;
+    margin: 12px 0 0;
+    font-size: 0.9em;
+    font-weight: 700;
+    text-align: center;
+    color: var(--ink-soft);
+}
+
+.bj-status.is-my-turn { color: var(--rum); }
+
+.bj-sit,
+.bj-waiting { text-align: center; }
+
+.bj-waiting p { margin: 0 0 4px; font-size: 0.88em; }
+
+.bj-waiting button,
+.bj-sit button { width: auto; min-width: 180px; }
+
+.bj-leave-button {
+    display: block;
+    width: auto;
+    min-width: 0;
+    min-height: 36px;
+    margin: 14px auto 0;
+    padding: 6px 18px;
+    font-size: 0.78em;
 }
 
 .bj-side { min-width: 0; }
 
 #bj-result {
-    margin: 14px 0 10px;
+    min-height: 0;
+    margin: 4px 0 8px;
     text-align: center;
 }
+
+#bj-result:empty { margin: 0; }
 
 .casino-result.is-plus  { color: var(--ok); }
 .casino-result.is-minus { color: var(--ng); }
@@ -2457,12 +2652,17 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
 
 @media (min-width: 720px) {
     .bj-table-box {
-        --card-w: 62px;
-        grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+        --card-w: 58px;
+        grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
         align-items: start;
     }
 
-    #bj-result { margin-top: 0; }
+    .bj-seats {
+        --card-w: 38px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .bj-status { margin-top: 0; }
 }
 
 /* モーション低減では、配る順の時間差もなくして一度に出す */

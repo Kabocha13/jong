@@ -54,7 +54,8 @@
                     <span class="game-tile-body">
                         <span class="game-tile-name">ブラックジャック</span>
                         <span class="game-tile-sub">Blackjack</span>
-                        <span class="game-tile-desc">ディーラーと1対1。21に近いほうが勝ち</span>
+                        <span class="game-tile-desc">最大4人で同じディーラーと勝負。21に近いほうが勝ち</span>
+                        <span class="game-tile-live" id="bj-tile-live"></span>
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
@@ -81,7 +82,8 @@
                 <li data-rules="roulette">0〜36のシングルゼロ。配当は 1目 ×36、ダズン・カラム ×3、赤黒・偶奇・前後半 ×2 (賭け金込み)。</li>
                 <li data-rules="blackjack">6デッキを毎回シャッフル。ディーラーはソフト17を含む17以上でスタンド。払い戻しは 勝ち ×2、ブラックジャック ×2.5 (端数切り捨て)、引き分け ×1 (賭け金込み)。</li>
                 <li data-rules="blackjack">ダブルは最初の2枚で (スプリット後も可)。スプリットは同じ点数の2枚で4手まで、Aは1枚ずつ。インシュランス・サレンダーはありません。</li>
-                <li data-rules="blackjack">勝負の途中で自動精算になったときは、残りの手をスタンドして決着させます。</li>
+                <li data-rules="blackjack">卓は全員共通の1つで、最大4人まで座れます。全員が賭けるか、最初の人が賭けてから15秒で配ります。</li>
+                <li data-rules="blackjack">操作は席順に1人ずつ、持ち時間は1回20秒。時間切れの人は残りの手をスタンドにして次の人へ回します。3回続けて賭けなかった人は席を空けます。</li>
             </ul>
             <form id="casino-enter-form">
                 <div class="form-group">
@@ -146,22 +148,27 @@
             </div>
         </section>
 
-        <section id="blackjack-table" class="hidden" data-view="blackjack" aria-label="ブラックジャックテーブル">
+        <section id="blackjack-table" class="hidden" data-view="blackjack" aria-label="ブラックジャックの卓">
             <div class="info-box bj-table-box">
                 <div class="bj-felt">
-                    <div class="bj-seat bj-dealer">
+                    <div class="bj-dealer">
                         <p class="bj-seat-label">ディーラー <span class="bj-total hidden" id="bj-dealer-total"></span></p>
                         <div class="bj-cards" id="bj-dealer-cards"></div>
                     </div>
                     <p class="bj-felt-print" aria-hidden="true">Blackjack pays 3 to 2<span>Dealer stands on all 17s</span></p>
-                    <div class="bj-seat bj-player">
-                        <div class="bj-hands" id="bj-hands"></div>
-                    </div>
+                    <ol class="bj-seats" id="bj-seats" aria-label="席 (最大4人)"></ol>
                 </div>
 
                 <div class="bj-side">
+                    <p id="bj-status" class="bj-status" aria-live="polite"></p>
                     <p id="bj-result" class="casino-result" aria-live="polite"></p>
-                    <div id="bj-betting">
+
+                    <div id="bj-sit" class="bj-sit hidden">
+                        <p class="info-text">空いている席に座ると、次の勝負から参加できます。</p>
+                        <button type="button" id="bj-sit-button">席に座る</button>
+                    </div>
+
+                    <div id="bj-betting" class="hidden">
                         <div class="bj-chip-rack" role="group" aria-label="賭け金にチップを足す">
                             <button type="button" data-bj-chip="1">+1</button>
                             <button type="button" data-bj-chip="5">+5</button>
@@ -174,17 +181,25 @@
                             <button type="button" id="bj-undo-button" class="secondary-button">1つ戻す</button>
                             <button type="button" id="bj-clear-button" class="secondary-button">クリア</button>
                             <button type="button" id="bj-rebet-button" class="secondary-button">前回と同じ</button>
-                            <button type="button" id="bj-deal-button" class="casino-spin-button">配る</button>
+                            <button type="button" id="bj-bet-button" class="casino-spin-button">賭ける</button>
                         </div>
                     </div>
+
+                    <div id="bj-waiting" class="bj-waiting hidden">
+                        <p>賭け <strong id="bj-placed-bet">0</strong> を置きました。全員がそろうか締め切りで配ります。</p>
+                        <button type="button" id="bj-cancel-button" class="secondary-button">取り消す</button>
+                    </div>
+
                     <div id="bj-actions" class="bj-actions hidden" role="group" aria-label="操作">
                         <button type="button" data-bj-move="hit">ヒット</button>
                         <button type="button" data-bj-move="stand">スタンド</button>
                         <button type="button" data-bj-move="double" class="secondary-button">ダブル<span class="bj-move-cost"></span></button>
                         <button type="button" data-bj-move="split" class="secondary-button">スプリット<span class="bj-move-cost"></span></button>
                     </div>
+
+                    <button type="button" id="bj-leave-button" class="secondary-button bj-leave-button hidden">席を立つ</button>
                     <p id="bj-message" class="hidden" aria-live="polite"></p>
-                    <ol id="bj-recent" class="casino-recent" aria-label="直近の勝負"></ol>
+                    <ol id="bj-recent" class="casino-recent" aria-label="直近の自分の勝負"></ol>
                 </div>
             </div>
         </section>

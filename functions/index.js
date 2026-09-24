@@ -3,14 +3,24 @@ import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { BlackjackRuleError } from './blackjack.js';
 import {
-  BlackjackRuleError,
-  applyBlackjackMove,
-  publicBlackjackRound,
-  standOutBlackjackRound,
-  startBlackjackRound,
-  summarizeBlackjackRound
-} from './blackjack.js';
+  TableError,
+  createTableContext,
+  emptyTable,
+  isInLiveRound,
+  joinSeat,
+  leaveSeat,
+  maybeStartRound,
+  moveTurn,
+  placeBet,
+  publicTable,
+  seatIndexOf,
+  sweepSeats,
+  tableUids,
+  tickTable,
+  vacateSeat
+} from './blackjack-table.js';
 
 const app = admin.initializeApp();
 const db = getFirestore(app, 'q-jong');
@@ -1277,16 +1287,19 @@ export const rebuildRateChart = onRequest({ region: 'asia-northeast1' }, async (
 // -----------------------------------------------------------------
 // カジノ (ルーレット・ブラックジャック)
 //   入場時に持ち込むレートを決め、以降の勝ち負けは casino_sessions のチップだけで動かす。
-//   チップは1人1つで、ルーレットとブラックジャックのどちらのテーブルでも使える
-//   (持ち込みは1回ぶんしか持てないので、同じレートを2つのテーブルに二重に持ち込めない)。
+//   チップは1人1つで、ルーレットとブラックジャックのどちらでも使える
+//   (持ち込みは1回ぶんしか持てないので、同じレートを二重に持ち込めない)。
 //   players のレートに反映するのは精算の1回だけなので、レート推移グラフには
 //   スピンや勝負ごとではなく「精算1回 = 1変動」として出る。
 //   負けたまま精算せずに離れても、最後の操作から CASINO_IDLE_SETTLE_MS か
 //   入場から CASINO_MAX_SESSION_MS を過ぎたセッションは settleIdleCasinoSessions が
-//   自動で精算する (途中のブラックジャックは残りの手をスタンドして決着させる)。
-//   チップが 0 になったときもその場で精算する。
+//   自動で精算する。チップが 0 になったときもその場で精算する。
 //   乱数・配当・残高はすべてここで決め、ブラウザからは賭け方と操作しか受け取らない。
-//   ブラックジャックのルール本体は blackjack.js にある。
+//
+//   ブラックジャックは全員共通の1卓 (最大4席)。ルールは blackjack.js、卓の進め方は
+//   blackjack-table.js にあり、ここでは卓と財布の読み書きだけを行う。
+//   卓の中身 (ディーラーの裏札を含む) は bj_tables/main に置き、誰でも読める形に直したものを
+//   bj_public/main に置く。画面は bj_public を読み直して、ほかの人の操作を反映する。
 // -----------------------------------------------------------------
 const CASINO_SESSIONS = 'casino_sessions';
 const CASINO_GAMES = new Set(['roulette', 'blackjack']);
@@ -1294,6 +1307,8 @@ const CASINO_IDLE_SETTLE_MS = 30 * 60 * 1000;
 const CASINO_MAX_SESSION_MS = 3 * 60 * 60 * 1000;
 const CASINO_RECENT_LIMIT = 12;
 const CASINO_MAX_BETS_PER_SPIN = 60;
+const CASINO_NOTICES = 'casino_notices';     // 自動精算の結果を、本人の次の画面で1回だけ見せる
+const BJ_TABLE_ID = 'main';                  // ブラックジャックの卓は1つだけ
 
 // シングルゼロ (0〜36) のヨーロピアンルーレット。配当は賭け金に対する倍率 (元金は別に戻る)
 const ROULETTE_RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
@@ -1368,15 +1383,6 @@ function isCasinoSessionExpired(session, now = Date.now()) {
   return Date.parse(session.expiresAt) <= now;
 }
 
-function isBlackjackInProgress(session) {
-  return Boolean(session.bjRound && session.bjRound.phase === 'player');
-}
-
-/** チップが尽きて続けようがない (ブラックジャックの途中なら、賭けたぶんがまだ戻りうる) */
-function isCasinoBroke(session) {
-  return session.chips <= 0 && !isBlackjackInProgress(session);
-}
-
 function publicCasinoSession(session) {
   return {
     game: session.game,
@@ -1389,7 +1395,6 @@ function publicCasinoSession(session) {
     expiresAt: session.expiresAt,
     recent: session.recent || [],
     blackjack: {
-      round: publicBlackjackRound(session.bjRound || null, session.chips),
       recent: session.bjRecent || []
     }
   };
@@ -1408,46 +1413,46 @@ function casinoPlayLog(session) {
   return { source: 'casino', label: `カジノ ルーレット${spins}回・ブラックジャック${hands}回` };
 }
 
-/**
- * ブラックジャックを1手進めたあとのセッション。chips はダブル・スプリットの追加分を
- * 引いたあとの手元チップで、勝負が決着していれば払い戻しと記録をここで足す。
- */
-function withBlackjackRound(session, round, chips, now) {
-  const next = {
-    ...session,
-    chips,
-    bjRound: round,
-    lastActionAt: now,
-    expiresAt: casinoSessionExpiresAt(session.startedAt, now)
+function blackjackTableRefs() {
+  return {
+    tableRef: db.collection('bj_tables').doc(BJ_TABLE_ID),
+    publicRef: db.collection('bj_public').doc(BJ_TABLE_ID)
   };
-  if (round.phase === 'done') {
-    next.chips = chips + round.returned;
-    next.bjHands = (session.bjHands || 0) + 1;
-    next.wagered = (session.wagered || 0) + round.totalBet;
-    next.bjRecent = [summarizeBlackjackRound(round, now), ...(session.bjRecent || [])].slice(0, CASINO_RECENT_LIMIT);
-  }
-  return next;
+}
+
+/** 財布の最終操作時刻と自動精算の期限を進める (卓での賭けや払い戻しでも伸びる) */
+function touchCasinoSession(session, nowIso) {
+  session.lastActionAt = nowIso;
+  session.expiresAt = casinoSessionExpiresAt(session.startedAt, nowIso);
 }
 
 /**
  * セッションを閉じて、持ち込みとの差を players のレートに1回で反映する。
  * 既に精算済み (ドキュメントが無い) なら null。自動精算と手動精算が重なっても二重には反映しない。
- * ブラックジャックの勝負が途中なら、手動 (manual) の精算は断り、
- * 自動の精算では残りの手をすべてスタンドしたものとして決着させてから精算する。
+ * ブラックジャックの卓に座っていれば席を空け、置いていた賭け金は戻してから精算する。
+ * 勝負の途中なら、手動 (manual) の精算は断り、自動の精算では決着まで席を残す
+ * (決着したときの払い戻しは、財布が無いのでレートへ直接返る)。
+ * 自動で精算したときは結果を casino_notices に残し、本人が次に画面を開いたときに見せる。
  */
-async function settleCasinoSession(uid, actor, { manual = false } = {}) {
+async function settleCasinoSession(uid, actor, { manual = false, reason = null } = {}) {
   const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
+  const { tableRef, publicRef } = blackjackTableRefs();
   const result = await db.runTransaction(async transaction => {
-    const sessionDoc = await transaction.get(sessionRef);
+    const [sessionDoc, tableDoc] = await transaction.getAll(sessionRef, tableRef);
     if (!sessionDoc.exists) return null;
-    let session = sessionDoc.data();
+    const session = sessionDoc.data();
     const at = new Date().toISOString();
-    if (isBlackjackInProgress(session)) {
+    const table = tableDoc.exists ? tableDoc.data() : null;
+    const seatIndex = table ? seatIndexOf(table, uid) : -1;
+    let tableChanged = false;
+    if (table && isInLiveRound(table, uid)) {
       if (manual) {
-        throw new CasinoError(409, 'ブラックジャックの勝負が途中です。決着をつけてから精算してください。');
+        throw new CasinoError(409, 'ブラックジャックの勝負が途中です。決着してから精算してください。');
       }
-      const { round, chips } = standOutBlackjackRound(session.bjRound, session.chips, casinoRandom);
-      session = withBlackjackRound(session, round, chips, at);
+    } else if (seatIndex >= 0) {
+      session.chips += table.seats[seatIndex].bet || 0;
+      vacateSeat(table, seatIndex);
+      tableChanged = true;
     }
     const playerSnapshot = await transaction.get(playerQuery(session.player));
 
@@ -1476,8 +1481,14 @@ async function settleCasinoSession(uid, actor, { manual = false } = {}) {
         });
       }
     }
+    if (tableChanged) {
+      table.seq = (table.seq || 0) + 1;
+      table.updatedAt = at;
+      transaction.set(tableRef, table);
+      transaction.set(publicRef, publicTable(table));
+    }
     transaction.delete(sessionRef);
-    return {
+    const settled = {
       player: session.player,
       buyIn,
       chips,
@@ -1486,8 +1497,13 @@ async function settleCasinoSession(uid, actor, { manual = false } = {}) {
       beforeScore,
       afterScore,
       delta: beforeScore === null ? 0 : afterScore - beforeScore,
-      auto: actor !== session.player
+      auto: actor !== session.player,
+      reason
     };
+    if (settled.auto) {
+      transaction.set(db.collection(CASINO_NOTICES).doc(uid), { settled, createdAt: at });
+    }
+    return settled;
   });
 
   if (result && result.delta !== 0) {
@@ -1503,16 +1519,35 @@ async function settleCasinoSessionIfExpired(uid) {
   return settleCasinoSession(uid, 'casino_auto_settle');
 }
 
+/** 自動精算の結果が残っていれば、1回だけ取り出す */
+async function takeCasinoNotice(uid) {
+  const noticeRef = db.collection(CASINO_NOTICES).doc(uid);
+  const noticeDoc = await noticeRef.get();
+  if (!noticeDoc.exists) return null;
+  await noticeRef.delete();
+  return noticeDoc.data().settled || null;
+}
+
+async function readPublicBlackjackTable() {
+  const publicDoc = await blackjackTableRefs().publicRef.get();
+  return publicDoc.exists ? publicDoc.data() : publicTable(emptyTable());
+}
+
 async function casinoStatus(uid, username) {
-  const autoSettled = await settleCasinoSessionIfExpired(uid);
-  const [sessionDoc, playerSnapshot] = await Promise.all([
+  await settleCasinoSessionIfExpired(uid);
+  const [sessionDoc, playerSnapshot, table, autoSettled] = await Promise.all([
     db.collection(CASINO_SESSIONS).doc(uid).get(),
-    playerQuery(username).get()
+    playerQuery(username).get(),
+    readPublicBlackjackTable(),
+    takeCasinoNotice(uid)
   ]);
   return {
+    me: username,
     score: playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score),
     session: sessionDoc.exists ? publicCasinoSession(sessionDoc.data()) : null,
-    autoSettled
+    table,
+    autoSettled,
+    now: new Date().toISOString()
   };
 }
 
@@ -1523,7 +1558,8 @@ async function casinoEnter(uid, username, rawBuyIn, rawGame) {
   }
   // どのテーブルから入場したか (記録用。チップはどちらのテーブルでも使える)
   const game = CASINO_GAMES.has(rawGame) ? rawGame : 'roulette';
-  const autoSettled = await settleCasinoSessionIfExpired(uid);
+  await settleCasinoSessionIfExpired(uid);
+  const autoSettled = await takeCasinoNotice(uid);
   const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
 
   const session = await db.runTransaction(async transaction => {
@@ -1555,7 +1591,6 @@ async function casinoEnter(uid, username, rawBuyIn, rawGame) {
       lastActionAt: now,
       expiresAt: casinoSessionExpiresAt(now, now),
       recent: [],
-      bjRound: null,
       bjRecent: []
     };
     transaction.set(sessionRef, next);
@@ -1607,86 +1642,112 @@ async function casinoSpin(uid, rawBets) {
     return { expired: true, settled };
   }
   // チップが尽きたら続けようがないので、その場で精算する
-  if (isCasinoBroke(spun.session)) {
+  if (spun.session.chips <= 0) {
     const settled = await settleCasinoSession(uid, spun.session.player);
     return { result: spun.result, session: null, settled };
   }
   return { result: spun.result, session: publicCasinoSession(spun.session) };
 }
 
-/** 賭け金を置いて配る。ナチュラルならこの1回で決着する */
-async function blackjackDeal(uid, rawBet) {
-  const bet = Number(rawBet);
-  if (!Number.isSafeInteger(bet) || bet < 1) {
-    throw new CasinoError(400, '賭け金は1以上の整数で指定してください。');
-  }
-  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
-
-  const outcome = await db.runTransaction(async transaction => {
-    const sessionDoc = await transaction.get(sessionRef);
-    if (!sessionDoc.exists) {
-      throw new CasinoError(409, 'テーブルに入場していません。');
-    }
-    const session = sessionDoc.data();
-    if (isCasinoSessionExpired(session)) return { expired: true };
-    if (isBlackjackInProgress(session)) {
-      throw new CasinoError(409, '前の勝負がまだ終わっていません。');
-    }
-    if (bet > session.chips) {
-      throw new CasinoError(400, `手元のチップ (${session.chips}) を超えて賭けることはできません。`);
-    }
-
-    const now = new Date().toISOString();
-    const round = startBlackjackRound(bet, casinoRandom, now);
-    const next = withBlackjackRound(session, round, session.chips - bet, now);
-    transaction.set(sessionRef, next);
-    return { session: next };
+/** 財布を精算したあとの人へ返すぶんを、人ごとにまとめる */
+function groupOrphanPayouts(payouts) {
+  const byName = new Map();
+  payouts.forEach(payout => {
+    const current = byName.get(payout.name);
+    if (current) current.amount += payout.amount;
+    else byName.set(payout.name, { ...payout });
   });
-  return finishBlackjackAction(uid, outcome);
+  return Array.from(byName.values());
 }
 
-/** ヒット / スタンド / ダブル / スプリット。seq は画面に出ている盤面の番号 */
-async function blackjackMove(uid, rawMove, rawSeq) {
-  const move = String(rawMove || '');
-  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
-
-  const outcome = await db.runTransaction(async transaction => {
-    const sessionDoc = await transaction.get(sessionRef);
-    if (!sessionDoc.exists) {
-      throw new CasinoError(409, 'テーブルに入場していません。');
-    }
-    const session = sessionDoc.data();
-    if (isCasinoSessionExpired(session)) return { expired: true };
-    if (!isBlackjackInProgress(session)) {
-      throw new CasinoError(409, '進行中の勝負がありません。');
-    }
-    // 二度押しや別のタブから、画面に出ている盤面より先に進んだ勝負を操作しないようにする
-    if (Number(rawSeq) !== (session.bjRound.seq || 0)) {
-      throw new CasinoError(409, '画面の表示が古くなっています。最新の状態を読み込み直してください。');
-    }
-
-    const now = new Date().toISOString();
-    const { round, chips } = applyBlackjackMove(session.bjRound, move, session.chips, casinoRandom);
-    const next = withBlackjackRound(session, round, chips, now);
-    transaction.set(sessionRef, next);
-    return { session: next };
+/** 財布を精算済みの人の賭け金の返却・払い戻しは、レートへ直接返す */
+function creditBlackjackOrphan(transaction, playerSnapshot, payout, at) {
+  if (playerSnapshot.empty) return;
+  const playerDoc = playerSnapshot.docs[0];
+  const beforeScore = normalizeRate(playerDoc.data().score);
+  const afterScore = beforeScore + payout.amount;
+  transaction.update(playerDoc.ref, { score: afterScore });
+  const historyId = rateHistoryDocId(payout.name, at);
+  transaction.set(db.collection('point_history').doc(historyId), {
+    id: historyId,
+    player: payout.name,
+    beforeScore,
+    afterScore,
+    delta: payout.amount,
+    source: 'casino_blackjack',
+    reason: payout.reason === 'refund'
+      ? `ブラックジャック 精算後の賭け金の返却 (${payout.amount})`
+      : `ブラックジャック 精算後の払い戻し (${payout.amount})`,
+    actor: 'casino_auto_settle',
+    createdAt: at
   });
-  return finishBlackjackAction(uid, outcome);
 }
 
-async function finishBlackjackAction(uid, outcome) {
-  if (outcome.expired) {
-    const settled = await settleCasinoSession(uid, 'casino_auto_settle');
-    return { expired: true, settled };
+/**
+ * 卓を1回動かす。卓と、卓に関わる人 (と操作した本人) の財布をトランザクションで読み、
+ * mutate(ctx) で書き換えたあと、全員が賭けていれば配ってから書き戻す。
+ * 決着してチップが尽きた人は、書き戻したあとで精算する。
+ */
+async function runBlackjackTable(actorUid, mutate) {
+  const { tableRef, publicRef } = blackjackTableRefs();
+  const ctx = await db.runTransaction(async transaction => {
+    const tableDoc = await transaction.get(tableRef);
+    const table = tableDoc.exists ? tableDoc.data() : emptyTable();
+    const uids = Array.from(new Set([...tableUids(table), actorUid].filter(Boolean)));
+    const walletRefs = uids.map(uid => db.collection(CASINO_SESSIONS).doc(uid));
+    const walletDocs = walletRefs.length ? await transaction.getAll(...walletRefs) : [];
+    const wallets = new Map(uids.map((uid, index) => [uid, walletDocs[index].exists ? walletDocs[index].data() : null]));
+    const context = createTableContext({
+      table,
+      wallets,
+      now: Date.now(),
+      randomInt: casinoRandom,
+      touchWallet: touchCasinoSession
+    });
+    sweepSeats(context);
+    mutate(context);
+    maybeStartRound(context);
+
+    // 読み込みは書き込みより前にすべて済ませる
+    const orphans = groupOrphanPayouts(context.orphanPayouts);
+    const orphanSnapshots = await Promise.all(orphans.map(payout => transaction.get(playerQuery(payout.name))));
+
+    if (context.changed) {
+      context.table.seq = (context.table.seq || 0) + 1;
+      context.table.updatedAt = context.nowIso;
+      transaction.set(tableRef, context.table);
+      transaction.set(publicRef, publicTable(context.table));
+    }
+    context.touched.forEach(uid => {
+      transaction.set(db.collection(CASINO_SESSIONS).doc(uid), context.wallets.get(uid));
+    });
+    orphans.forEach((payout, index) => creditBlackjackOrphan(transaction, orphanSnapshots[index], payout, context.nowIso));
+    return context;
+  });
+
+  for (const uid of ctx.broke) {
+    try {
+      await settleCasinoSession(uid, 'casino_auto_settle', { reason: 'broke' });
+    } catch (error) {
+      console.error(`casino_sessions/${uid} の精算 (チップ切れ) に失敗しました:`, error);
+    }
   }
-  const { session } = outcome;
-  const round = publicBlackjackRound(session.bjRound, session.chips);
-  // 決着してチップが尽きたら、ルーレットと同じくその場で精算する
-  if (isCasinoBroke(session)) {
-    const settled = await settleCasinoSession(uid, session.player);
-    return { round, session: null, settled };
+  if (ctx.orphanPayouts.length) {
+    await rebuildRateChartQuietly('blackjack_orphan_payout');
   }
-  return { round, session: publicCasinoSession(session) };
+  return ctx;
+}
+
+/** 卓の操作の返事: 卓の様子と本人の財布 */
+async function blackjackTableAction(uid, username, mutate) {
+  const ctx = await runBlackjackTable(uid, mutate);
+  const wallet = ctx.broke.has(uid) ? null : ctx.wallets.get(uid);
+  return {
+    me: username,
+    table: publicTable(ctx.table),
+    session: wallet ? publicCasinoSession(wallet) : null,
+    now: new Date().toISOString()
+  };
 }
 
 const CASINO_ACTIONS = {
@@ -1698,8 +1759,11 @@ const CASINO_ACTIONS = {
     return { settled };
   },
   spin: ({ uid, body }) => casinoSpin(uid, body.bets),
-  bjDeal: ({ uid, body }) => blackjackDeal(uid, body.bet),
-  bjMove: ({ uid, body }) => blackjackMove(uid, body.move, body.seq)
+  bjJoin: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => joinSeat(ctx, uid, username, body.seat)),
+  bjLeave: ({ uid, username }) => blackjackTableAction(uid, username, ctx => leaveSeat(ctx, uid)),
+  bjBet: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => placeBet(ctx, uid, body.amount)),
+  bjMove: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => moveTurn(ctx, uid, body.move, body.seq)),
+  bjTick: ({ uid, username }) => blackjackTableAction(uid, username, tickTable)
 };
 
 async function handleCasinoRequest(req, res) {
@@ -1733,7 +1797,7 @@ async function handleCasinoRequest(req, res) {
     const payload = await CASINO_ACTIONS[action]({ uid: decoded.uid, username, body });
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
-    if (error instanceof CasinoError) {
+    if (error instanceof CasinoError || error instanceof TableError) {
       res.status(error.status).json({ status: 'error', message: error.message });
       return;
     }
@@ -1752,12 +1816,18 @@ export const casino = onRequest({ region: 'asia-northeast1' }, handleCasinoReque
 // 更新前から開いたままのタブでも精算できるよう、同じ処理のまま残している
 export const casinoRoulette = onRequest({ region: 'asia-northeast1' }, handleCasinoRequest);
 
-// 精算せずに離れたテーブルを片付ける。期限は最後の操作から30分 / 入場から3時間
+// 精算せずに離れたテーブルを片付ける。期限は最後の操作から30分 / 入場から3時間。
+// ブラックジャックの卓も、誰も画面を開いていないまま時間切れで止まっていれば先へ進める
 export const settleIdleCasinoSessions = onSchedule({
   region: 'asia-northeast1',
   schedule: 'every 10 minutes',
   timeZone: 'Asia/Tokyo'
 }, async () => {
+  try {
+    await runBlackjackTable(null, tickTable);
+  } catch (error) {
+    console.error('ブラックジャックの卓の時間切れ処理に失敗しました:', error);
+  }
   const snapshot = await db.collection(CASINO_SESSIONS)
     .where('expiresAt', '<=', new Date().toISOString())
     .get();

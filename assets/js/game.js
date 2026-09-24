@@ -11,6 +11,7 @@ const CASINO_GAMES = {
 
 const casino = {
     ready: false,       // status を読み込み終えたか
+    me: '',             // ログインしている人の名前 (卓で自分の席を見分ける)
     score: 0,
     session: null,      // 持ち込んだチップ。ブラックジャックとルーレットで共通
     busy: false,
@@ -80,14 +81,11 @@ function playsSummary({ spins = 0, bjHands = 0 }) {
 
 function settledMessage(settled) {
     if (!settled) return '';
-    const head = settled.auto ? '前回のテーブルを自動で精算しました' : '精算しました';
+    const head = settled.reason === 'broke' ? 'チップがなくなったので精算しました'
+        : settled.auto ? '前回のテーブルを自動で精算しました' : '精算しました';
     if (settled.beforeScore === null) return `${head}。`;
     return `${head}: ${playsSummary(settled)} / 持込 ${settled.buyIn.toLocaleString('ja-JP')} → ${settled.chips.toLocaleString('ja-JP')}。`
         + ` レート ${settled.beforeScore.toLocaleString('ja-JP')} → ${settled.afterScore.toLocaleString('ja-JP')} (${formatSigned(settled.delta)})`;
-}
-
-function isBlackjackPending() {
-    return casino.session?.blackjack?.round?.phase === 'player';
 }
 
 // ------------------------------------------------------------------
@@ -112,6 +110,7 @@ function renderRoute() {
         if (game === 'blackjack') openBlackjackTable();
         else openRouletteTable();
     }
+    if (view !== 'blackjack') closeBlackjackTable();
     showView(view);
     // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す
     el('casino-wallet').classList.toggle('hidden', !casino.session || view === 'lobby');
@@ -126,10 +125,11 @@ function renderMenu() {
     el('casino-menu-rate').classList.toggle('hidden', Boolean(casino.session));
     document.querySelectorAll('.game-tile').forEach(tile => {
         const badge = tile.querySelector('.game-tile-badge');
-        const text = tile.dataset.game === 'blackjack' && isBlackjackPending() ? '勝負の途中' : '';
+        const text = tile.dataset.game === 'blackjack' && isBlackjackLive() ? '勝負の途中' : '';
         badge.textContent = text;
         badge.classList.toggle('hidden', !text);
     });
+    renderBlackjackTile();
 }
 
 // ------------------------------------------------------------------
@@ -163,10 +163,13 @@ async function enterTable(event) {
     setCasinoBusy(true);
     button.setAttribute('aria-busy', 'true');
     try {
-        const data = await callCasino('enter', { buyIn, game: casino.lobbyGame });
+        const game = casino.lobbyGame;
+        const data = await callCasino('enter', { buyIn, game });
         if (data.autoSettled) showMessage(el('casino-message'), settledMessage(data.autoSettled), 'info');
         casino.session = data.session;
         renderRoute();
+        // ブラックジャックから入場したら、そのまま空いている席に座る
+        if (game === 'blackjack') await joinBlackjackAfterEntering();
     } catch (error) {
         showMessage(el('casino-message'), error.message, 'error');
         await refreshCasino().catch(() => {});
@@ -199,7 +202,7 @@ function renderWallet() {
 }
 
 function renderSettleButton() {
-    const pending = isBlackjackPending();
+    const pending = isBlackjackLive();
     el('casino-settle-button').disabled = casino.busy || !casino.session || pending;
     el('casino-settle-note').classList.toggle('hidden', !pending);
 }
@@ -238,7 +241,9 @@ async function refreshCasino() {
     const data = await callCasino('status');
     casino.score = data.score;
     casino.session = data.session;
+    if (data.me) casino.me = data.me;
     casino.ready = true;
+    receiveBlackjackTable(data.table, data.now);
     renderRoute();
     if (data.autoSettled) {
         showMessage(el('casino-message'), settledMessage(data.autoSettled), 'info');

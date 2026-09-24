@@ -1,13 +1,25 @@
-// ブラックジャックのルールだけを持つモジュール (Firestore には触らない)。
+// ブラックジャックの1勝負ぶんのルール (Firestore には触らない)。
+// 1つのディーラーに対して、席順に並んだ複数のプレイヤーが同時に勝負する。
 // 乱数は呼び出し側から randomInt(n) → 0〜n-1 の整数 として受け取る。
 //
 // ルール
 //   6デッキを1勝負ごとにシャッフル (前の勝負で出たカードは戻る = カウンティングは効かない)
-//   ディーラーはソフト17を含む17以上でスタンド。表が A / 10点札のときは裏をのぞき、BJならその場で決着
+//   配り順は 各プレイヤー1枚 → ディーラー表 → 各プレイヤー2枚目 → ディーラー裏
+//   ディーラーはソフト17を含む17以上でスタンド。裏をのぞいてBJならその場で全員決着
 //   払い戻し (賭け金込み): 勝ち ×2 / ブラックジャック ×2.5 (端数切り捨て) / 引き分け ×1
-//   ダブル: どの2枚からでも (スプリット後も可)。スプリット: 同じ点数の2枚、4手まで
+//   ダブル: どの2枚からでも (スプリット後も可)。スプリット: 同じ点数の2枚、1人4手まで
 //   A をスプリットした手は1枚ずつしか配らず、A+10点札でも 21 扱い (ブラックジャックではない)
 //   インシュランス・サレンダーはなし
+//
+// round = {
+//   phase: 'player' | 'done',
+//   players: [{ seat, uid, name, hands: [hand] }],   席順
+//   turn: { player, hand } | null,                    いま操作する手 (players と hands の添字)
+//   dealer: [cards],                                  2枚目が裏札
+//   seq,                                              操作のたびに1つ進む番号
+//   startedAt
+// }
+// hand = { cards, bet, doubled, split, splitAces, done, result?, returned? }
 
 export const BLACKJACK_DECKS = 6;
 export const BLACKJACK_MAX_HANDS = 4;
@@ -45,25 +57,30 @@ export function handValue(cards) {
   return { total: soft ? total + 10 : total, soft };
 }
 
-/** 最初の2枚で 21 (スプリットした手は含めない) */
+/** 最初の2枚で 21 */
 function isNatural(cards) {
   return cards.length === 2 && handValue(cards).total === 21;
 }
 
+/** スプリットした手の 21 はブラックジャックにしない */
 function isNaturalHand(hand) {
   return !hand.split && isNatural(hand.cards);
 }
 
+function allHands(round) {
+  return round.players.flatMap(player => player.hands);
+}
+
 function roundCards(round) {
-  return [...round.dealer, ...round.hands.flatMap(hand => hand.cards)];
+  return [...round.dealer, ...allHands(round).flatMap(hand => hand.cards)];
 }
 
 /** 6デッキのうち、この勝負で配ったカードを除いた残りから1枚引く */
 function drawCard(round, randomInt) {
+  const dealt = roundCards(round);
   const used = new Map();
-  roundCards(round).forEach(card => used.set(card, (used.get(card) || 0) + 1));
-  const remaining = BLACKJACK_DECKS * CARDS.length - roundCards(round).length;
-  let index = randomInt(remaining);
+  dealt.forEach(card => used.set(card, (used.get(card) || 0) + 1));
+  let index = randomInt(BLACKJACK_DECKS * CARDS.length - dealt.length);
   for (const card of CARDS) {
     const left = BLACKJACK_DECKS - (used.get(card) || 0);
     if (index < left) return card;
@@ -74,6 +91,10 @@ function drawCard(round, randomInt) {
 
 function sumOf(values) {
   return values.reduce((sum, value) => sum + value, 0);
+}
+
+function newHand(bet) {
+  return { cards: [], bet, doubled: false, split: false, splitAces: false, done: false };
 }
 
 /** 1手ぶんの勝敗と払い戻し (賭け金込み) */
@@ -91,63 +112,84 @@ function judgeHand(hand, dealerCards) {
   return { result: 'lose', returned: 0 };
 }
 
-/** 全部の手が終わったら、ディーラーが引いて勝敗をつける */
+/** 全員の手が終わったら、ディーラーが引いて勝敗をつける */
 function finishRound(round, randomInt) {
-  const naturalShowdown = isNatural(round.dealer) || round.hands.some(isNaturalHand);
-  const hasLiveHand = round.hands.some(hand => handValue(hand.cards).total <= 21);
-  // 全員バースト、またはナチュラルで決着した勝負ではディーラーは引かない
-  if (hasLiveHand && !naturalShowdown) {
+  const hands = allHands(round);
+  // バーストもナチュラルもしていない手が1つでも残っていれば、ディーラーは17まで引く
+  const contested = !isNatural(round.dealer)
+    && hands.some(hand => handValue(hand.cards).total <= 21 && !isNaturalHand(hand));
+  if (contested) {
     while (handValue(round.dealer).total < 17) {
       round.dealer.push(drawCard(round, randomInt));
     }
   }
-  round.hands.forEach(hand => Object.assign(hand, judgeHand(hand, round.dealer)));
+  hands.forEach(hand => Object.assign(hand, judgeHand(hand, round.dealer)));
   round.phase = 'done';
-  round.active = round.hands.length;
-  round.totalBet = sumOf(round.hands.map(hand => hand.bet));
-  round.returned = sumOf(round.hands.map(hand => hand.returned));
+  round.turn = null;
   return round;
 }
 
 /**
  * 次に操作する手へ進める。スプリットで1枚になった手にはここで2枚目を配る。
- * A のスプリットと 21 になった手は操作を待たずに終える。
+ * A のスプリットと 21 になった手は操作を待たずに終え、全員終われば決着させる。
  */
 function advance(round, randomInt) {
-  while (round.active < round.hands.length) {
-    const hand = round.hands[round.active];
-    if (hand.cards.length === 1) {
-      hand.cards.push(drawCard(round, randomInt));
-      if (hand.splitAces || handValue(hand.cards).total === 21) hand.done = true;
+  while (round.turn.player < round.players.length) {
+    const player = round.players[round.turn.player];
+    while (round.turn.hand < player.hands.length) {
+      const hand = player.hands[round.turn.hand];
+      if (hand.cards.length === 1) {
+        hand.cards.push(drawCard(round, randomInt));
+        if (hand.splitAces || handValue(hand.cards).total === 21) hand.done = true;
+      }
+      if (!hand.done) return round;
+      round.turn.hand += 1;
     }
-    if (!hand.done) return round;
-    round.active += 1;
+    round.turn = { player: round.turn.player + 1, hand: 0 };
   }
   return finishRound(round, randomInt);
 }
 
-/** 賭け金 bet で1勝負を始める。ナチュラルがあればその場で決着した状態で返す */
-export function startBlackjackRound(bet, randomInt, startedAt) {
-  const hand = { cards: [], bet, doubled: false, split: false, splitAces: false, done: false };
-  // seq は操作のたびに1つ進める。ブラウザから届いた操作が今の盤面に対するものかの確認に使う
-  const round = { phase: 'player', hands: [hand], active: 0, dealer: [], seq: 0, startedAt };
-  // 実際の配り順: プレイヤー → ディーラー表 → プレイヤー → ディーラー裏
-  hand.cards.push(drawCard(round, randomInt));
+/**
+ * 勝負を始める。entries は席順の [{ seat, uid, name, bet }]。
+ * ディーラーがBJならその場で全員決着した状態で返す。
+ */
+export function startBlackjackRound(entries, randomInt, startedAt) {
+  if (!entries.length) throw new BlackjackRuleError('賭けている人がいません。');
+  const round = {
+    phase: 'player',
+    players: entries.map(({ seat, uid, name, bet }) => ({ seat, uid, name, hands: [newHand(bet)] })),
+    turn: null,
+    dealer: [],
+    seq: 0,
+    startedAt
+  };
+  round.players.forEach(player => player.hands[0].cards.push(drawCard(round, randomInt)));
   round.dealer.push(drawCard(round, randomInt));
-  hand.cards.push(drawCard(round, randomInt));
+  round.players.forEach(player => player.hands[0].cards.push(drawCard(round, randomInt)));
   round.dealer.push(drawCard(round, randomInt));
 
-  if (isNatural(hand.cards) || isNatural(round.dealer)) {
-    hand.done = true;
-    return finishRound(round, randomInt);
-  }
-  return round;
+  const dealerNatural = isNatural(round.dealer);
+  round.players.forEach(player => {
+    const hand = player.hands[0];
+    if (dealerNatural || isNatural(hand.cards)) hand.done = true;
+  });
+  if (dealerNatural) return finishRound(round, randomInt);
+  round.turn = { player: 0, hand: 0 };
+  return advance(round, randomInt);
 }
 
-/** いま操作中の手でできること。chips は手元に残っているチップ (ダブル・スプリットの追加分に使う) */
+/** いま操作する人 (勝負が終わっていれば null) */
+export function blackjackTurnPlayer(round) {
+  if (!round || round.phase !== 'player' || !round.turn) return null;
+  return round.players[round.turn.player];
+}
+
+/** いま操作中の手でできること。chips はその人の手元に残っているチップ (ダブル・スプリットの追加分) */
 export function blackjackActions(round, chips) {
-  if (!round || round.phase !== 'player') return null;
-  const hand = round.hands[round.active];
+  const player = blackjackTurnPlayer(round);
+  if (!player) return null;
+  const hand = player.hands[round.turn.hand];
   const firstTwo = hand.cards.length === 2 && !hand.splitAces;
   const affordable = chips >= hand.bet;
   return {
@@ -155,15 +197,14 @@ export function blackjackActions(round, chips) {
     stand: true,
     double: firstTwo && affordable,
     split: firstTwo && affordable
-      && round.hands.length < BLACKJACK_MAX_HANDS
+      && player.hands.length < BLACKJACK_MAX_HANDS
       && cardPoint(hand.cards[0]) === cardPoint(hand.cards[1])
   };
 }
 
 /**
- * 操作を1つ適用する。round はその場で書き換える。
- * 戻り値の chips はダブル・スプリットで追加した賭け金を引いたあとの手元チップ
- * (払い戻しはまだ足していない。round.phase が 'done' になったら round.returned を足す)。
+ * いまの番の人の操作を1つ適用する。round はその場で書き換える。
+ * 戻り値の chips はダブル・スプリットで追加した賭け金を引いたあとの、その人の手元チップ。
  */
 export function applyBlackjackMove(round, move, chips, randomInt) {
   const actions = blackjackActions(round, chips);
@@ -172,7 +213,8 @@ export function applyBlackjackMove(round, move, chips, randomInt) {
     throw new BlackjackRuleError('いまはその操作はできません。');
   }
 
-  const hand = round.hands[round.active];
+  const player = round.players[round.turn.player];
+  const hand = player.hands[round.turn.hand];
   let nextChips = chips;
   round.seq = (round.seq || 0) + 1;
   if (move === 'hit') {
@@ -191,60 +233,73 @@ export function applyBlackjackMove(round, move, chips, randomInt) {
     const [first, second] = hand.cards;
     const splitAces = cardRank(first) === 'A';
     Object.assign(hand, { cards: [first], split: true, splitAces });
-    round.hands.splice(round.active + 1, 0, {
-      cards: [second], bet: hand.bet, doubled: false, split: true, splitAces, done: false
+    player.hands.splice(round.turn.hand + 1, 0, {
+      ...newHand(hand.bet), cards: [second], split: true, splitAces
     });
   }
   advance(round, randomInt);
   return { round, chips: nextChips };
 }
 
-/** 放置された勝負を、残りの手をすべてスタンドしたものとして決着させる */
-export function standOutBlackjackRound(round, chips, randomInt) {
-  let current = chips;
-  while (round.phase === 'player') {
-    current = applyBlackjackMove(round, 'stand', current, randomInt).chips;
+/** いまの番の人が時間切れのとき、その人の残りの手をすべてスタンドにして次の人へ回す */
+export function standOutTurnPlayer(round, randomInt) {
+  const current = round.turn ? round.turn.player : -1;
+  while (round.phase === 'player' && round.turn.player === current) {
+    applyBlackjackMove(round, 'stand', 0, randomInt);
   }
-  return { round, chips: current };
+  return round;
 }
 
-/** ブラウザに返す形。勝負の途中はディーラーの裏札を null にして隠す */
-export function publicBlackjackRound(round, chips) {
+/** 1人ぶんの賭け金の合計と払い戻し (決着前の払い戻しは null) */
+export function blackjackPlayerTotals(player) {
+  const bet = sumOf(player.hands.map(hand => hand.bet));
+  const finished = player.hands.every(hand => hand.result);
+  const returned = finished ? sumOf(player.hands.map(hand => hand.returned)) : null;
+  return { bet, returned, net: finished ? returned - bet : null };
+}
+
+/**
+ * ブラウザに返す形。勝負の途中はディーラーの裏札を null にして隠す。
+ * turnChips は いまの番の人の手元チップ (ダブル・スプリットができるかの判定用)。
+ */
+export function publicBlackjackRound(round, turnChips = 0) {
   if (!round) return null;
   const finished = round.phase === 'done';
   const dealerCards = finished ? round.dealer : [round.dealer[0], null];
-  const hands = round.hands.map(hand => ({
-    cards: hand.cards,
-    bet: hand.bet,
-    doubled: Boolean(hand.doubled),
-    split: Boolean(hand.split),
-    ...handValue(hand.cards),
-    result: hand.result ?? null,
-    returned: hand.returned ?? null
-  }));
-  const totalBet = sumOf(hands.map(hand => hand.bet));
+  const turnPlayer = blackjackTurnPlayer(round);
   return {
     phase: round.phase,
     seq: round.seq || 0,
-    active: finished ? null : round.active,
-    hands,
+    no: round.no || 0,
+    turn: turnPlayer ? { seat: turnPlayer.seat, hand: round.turn.hand } : null,
+    players: round.players.map(player => ({
+      seat: player.seat,
+      name: player.name,
+      hands: player.hands.map(hand => ({
+        cards: hand.cards,
+        bet: hand.bet,
+        doubled: Boolean(hand.doubled),
+        split: Boolean(hand.split),
+        ...handValue(hand.cards),
+        result: hand.result ?? null,
+        returned: hand.returned ?? null
+      })),
+      ...blackjackPlayerTotals(player)
+    })),
     dealer: { cards: dealerCards, ...handValue(dealerCards.filter(Boolean)) },
-    actions: blackjackActions(round, chips),
-    totalBet,
-    returned: finished ? round.returned : null,
-    net: finished ? round.returned - totalBet : null
+    actions: blackjackActions(round, turnChips)
   };
 }
 
-/** 直近の勝負の一覧に載せる要約 */
-export function summarizeBlackjackRound(round, at) {
-  const results = round.hands.map(hand => hand.result);
+/** 本人の直近の勝負の一覧に載せる要約 */
+export function summarizeBlackjackPlayer(round, player, at) {
+  const { bet, returned } = blackjackPlayerTotals(player);
   return {
-    result: results.length === 1 ? results[0] : 'split',
-    bet: round.totalBet,
-    returned: round.returned,
-    net: round.returned - round.totalBet,
-    player: round.hands.map(hand => handValue(hand.cards).total),
+    result: player.hands.length === 1 ? player.hands[0].result : 'split',
+    bet,
+    returned,
+    net: returned - bet,
+    player: player.hands.map(hand => handValue(hand.cards).total),
     dealer: handValue(round.dealer).total,
     at
   };
