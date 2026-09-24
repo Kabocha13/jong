@@ -63,10 +63,28 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // ルーレットの持ち込み・手元チップ。残高を書き換えられると精算額を偽れるので、
-    // 読み書きとも Cloud Functions (casinoRoulette) だけに限る。
+    // カジノ (ルーレット・ブラックジャック) の持ち込み・手元チップ・配られたカード。
+    // 残高を書き換えられると精算額を偽れ、読めるとディーラーの伏せ札が見えてしまうので、
+    // 読み書きとも Cloud Functions (casino) だけに限る。
     match /casino_sessions/{userId} {
       allow read, write: if false;
+    }
+
+    // 自動精算の結果 (本人の次の画面で1回だけ見せる)。Cloud Functions だけが読み書きする。
+    match /casino_notices/{userId} {
+      allow read, write: if false;
+    }
+
+    // ブラックジャックの卓。中身はディーラーの裏札を含むので Cloud Functions だけに限る。
+    match /bj_tables/{tableId} {
+      allow read, write: if false;
+    }
+
+    // 卓を誰でも読める形に直したもの (裏札と uid は含まない)。画面はこれを読み直して
+    // ほかの人の操作を反映する。書き込みは Cloud Functions (casino) だけ。
+    match /bj_public/{tableId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     match /settings/{settingId} {
