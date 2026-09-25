@@ -1,14 +1,15 @@
 // ゲームタブの共通部分
 //   ログイン、ゲームの選択 (ブロックのタイル)、入場 (持ち込み)、手元チップと精算、画面の切り替え。
-//   各テーブルの中身は game-blackjack.js / game-roulette.js / game-slot.js。
+//   各テーブルの中身は game-blackjack.js / game-roulette.js / game-slot.js / game-holdem.js。
 //   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
-//   画面は #blackjack / #roulette / #slot のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
+//   画面は #blackjack / #roulette / #slot / #holdem のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
 
 // plays は財布 (session) の中で、そのゲームを遊んだ回数を持つ項目
 const CASINO_GAMES = {
     blackjack: { name: 'ブラックジャック', playsLabel: '勝負', plays: 'bjHands' },
     roulette:  { name: 'ルーレット', playsLabel: 'スピン', plays: 'spins' },
-    slot:      { name: 'スロット', playsLabel: 'スピン', plays: 'slotSpins' }
+    slot:      { name: 'スロット', playsLabel: 'スピン', plays: 'slotSpins' },
+    holdem:    { name: 'テキサスホールデム', playsLabel: 'ハンド', plays: 'hdHands' }
 };
 
 const casino = {
@@ -91,7 +92,7 @@ function settledMessage(settled) {
 }
 
 // ------------------------------------------------------------------
-// 画面の切り替え (#blackjack / #roulette / #slot / それ以外はゲーム一覧)
+// 画面の切り替え (#blackjack / #roulette / #slot / #holdem / それ以外はゲーム一覧)
 // ------------------------------------------------------------------
 function routeGame() {
     const name = location.hash.slice(1);
@@ -111,10 +112,12 @@ function renderRoute() {
         view = game;
         if (game === 'blackjack') openBlackjackTable();
         else if (game === 'slot') openSlotTable();
+        else if (game === 'holdem') openHoldemTable();
         else openRouletteTable();
     }
     if (view !== 'blackjack') closeBlackjackTable();
     if (view !== 'slot') closeSlotTable();
+    if (view !== 'holdem') closeHoldemTable();
     showView(view);
     // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す
     el('casino-wallet').classList.toggle('hidden', !casino.session || view === 'lobby');
@@ -129,11 +132,13 @@ function renderMenu() {
     el('casino-menu-rate').classList.toggle('hidden', Boolean(casino.session));
     document.querySelectorAll('.game-tile').forEach(tile => {
         const badge = tile.querySelector('.game-tile-badge');
-        const text = tile.dataset.game === 'blackjack' && isBlackjackLive() ? '勝負の途中' : '';
+        const text = (tile.dataset.game === 'blackjack' && isBlackjackLive()) || (tile.dataset.game === 'holdem' && isHoldemLive())
+            ? '勝負の途中' : '';
         badge.textContent = text;
         badge.classList.toggle('hidden', !text);
     });
     renderBlackjackTile();
+    renderHoldemTile();
 }
 
 // ------------------------------------------------------------------
@@ -172,8 +177,9 @@ async function enterTable(event) {
         if (data.autoSettled) showMessage(el('casino-message'), settledMessage(data.autoSettled), 'info');
         casino.session = data.session;
         renderRoute();
-        // ブラックジャックから入場したら、そのまま空いている席に座る
+        // ブラックジャック・ホールデムから入場したら、そのまま空いている席に座る
         if (game === 'blackjack') await joinBlackjackAfterEntering();
+        if (game === 'holdem') await joinHoldemAfterEntering();
     } catch (error) {
         showMessage(el('casino-message'), error.message, 'error');
         await refreshCasino().catch(() => {});
@@ -207,9 +213,10 @@ function renderWallet() {
 }
 
 function renderSettleButton() {
-    const pending = isBlackjackLive();
-    el('casino-settle-button').disabled = casino.busy || !casino.session || pending;
+    const pending = isBlackjackLive() ? 'ブラックジャックの勝負' : isHoldemLive() ? 'ホールデムのハンド' : '';
+    el('casino-settle-button').disabled = casino.busy || !casino.session || Boolean(pending);
     el('casino-settle-note').classList.toggle('hidden', !pending);
+    if (pending) el('casino-settle-note').textContent = `${pending}が終わると精算できます。`;
 }
 
 function setCasinoBusy(busy) {
@@ -218,6 +225,7 @@ function setCasinoBusy(busy) {
     renderBetControls();
     renderBlackjackControls();
     renderSlotControls();
+    renderHoldemControls();
     if (casino.lobbyGame) el('casino-enter-button').disabled = busy || casino.score < 1;
 }
 
@@ -250,6 +258,7 @@ async function refreshCasino() {
     if (data.me) casino.me = data.me;
     casino.ready = true;
     receiveBlackjackTable(data.table, data.now);
+    receiveHoldemTable(data.holdemTable, data.now, data.hole);
     renderRoute();
     if (data.autoSettled) {
         showMessage(el('casino-message'), settledMessage(data.autoSettled), 'info');
@@ -281,6 +290,7 @@ async function initCasino() {
     initRoulette();
     initBlackjack();
     initSlot();
+    initHoldem();
     bindCasinoEvents();
     showView('loading');
 
