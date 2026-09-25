@@ -1608,7 +1608,7 @@ async function readPublicBlackjackTable() {
 
 async function readPublicHoldemTable() {
   const publicDoc = await holdemTableRefs().publicRef.get();
-  return publicDoc.exists ? publicDoc.data() : publicHoldemTable(emptyHoldemTable());
+  return publicDoc.exists ? publicDoc.data() : publicHoldemTable(emptyHoldemTable(casinoRandom));
 }
 
 /** 本人に配られている手札 (いまのハンドのものだけ) */
@@ -1902,7 +1902,7 @@ async function runHoldemTable(actorUid, mutate) {
   const { tableRef, publicRef } = holdemTableRefs();
   const ctx = await db.runTransaction(async transaction => {
     const tableDoc = await transaction.get(tableRef);
-    const table = tableDoc.exists ? tableDoc.data() : emptyHoldemTable();
+    const table = tableDoc.exists ? tableDoc.data() : emptyHoldemTable(casinoRandom);
     const uids = Array.from(new Set([...holdemTableUids(table), actorUid].filter(Boolean)));
     const walletRefs = uids.map(uid => db.collection(CASINO_SESSIONS).doc(uid));
     const walletDocs = walletRefs.length ? await transaction.getAll(...walletRefs) : [];

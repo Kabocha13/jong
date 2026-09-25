@@ -34,9 +34,10 @@ export const HOLDEM_BIG_BLIND = 2;
 export const HOLDEM_TURN_MS = 25 * 1000;
 export const HOLDEM_RESULT_MS = 8 * 1000;
 export const HOLDEM_IDLE_TURNS = 2;
-const HOLDEM_BOT_STACK = 200;
-const HOLDEM_BOT_REBUY_BELOW = 40;
-const HOLDEM_BOT_CASHOUT_ABOVE = 500;
+const HOLDEM_BOT_STACK_MIN = 50;
+const HOLDEM_BOT_STACK_MAX = 100;
+const HOLDEM_BOT_REBUY_BELOW = 10;
+const HOLDEM_BOT_CASHOUT_ABOVE = 250;
 const HOLDEM_RECENT_LIMIT = 12;
 const HOLDEM_BOT_LOOP_LIMIT = 300;
 
@@ -47,11 +48,16 @@ export class HoldemTableError extends Error {
   }
 }
 
-export function emptyHoldemTable() {
+/** 船員が持ち込むチップ (HOLDEM_BOT_STACK_MIN〜MAX のどれか。randomInt は 0〜n-1) */
+function botBuyIn(randomInt) {
+  return HOLDEM_BOT_STACK_MIN + randomInt(HOLDEM_BOT_STACK_MAX - HOLDEM_BOT_STACK_MIN + 1);
+}
+
+export function emptyHoldemTable(randomInt) {
   return {
     phase: 'waiting',        // waiting (人がいない) | playing | done (決着を見せている)
     seats: Array(HOLDEM_SEATS).fill(null),
-    bots: Object.fromEntries(HOLDEM_BOTS.map(bot => [bot.id, { chips: HOLDEM_BOT_STACK }])),
+    bots: Object.fromEntries(HOLDEM_BOTS.map(bot => [bot.id, { chips: botBuyIn(randomInt) }])),
     button: null,            // 前のハンドのボタンの席
     round: null,
     handNo: 0,
@@ -99,7 +105,7 @@ export function createHoldemContext({ table, wallets, now, randomInt, touchWalle
   const copy = JSON.parse(JSON.stringify(table));
   copy.seats = Array.from({ length: HOLDEM_SEATS }, (_, index) => (copy.seats || [])[index] || null);
   copy.bots = copy.bots || {};
-  HOLDEM_BOTS.forEach(bot => { if (!copy.bots[bot.id]) copy.bots[bot.id] = { chips: HOLDEM_BOT_STACK }; });
+  HOLDEM_BOTS.forEach(bot => { if (!copy.bots[bot.id]) copy.bots[bot.id] = { chips: botBuyIn(randomInt) }; });
   const ctx = {
     table: copy,
     wallets,
@@ -210,9 +216,9 @@ export function setHoldemSitOut(ctx, uid, out) {
 // ------------------------------------------------------------------
 // ハンドの開始と進行
 // ------------------------------------------------------------------
-function botStackForHand(table, bot) {
-  const state = table.bots[bot.id];
-  if (state.chips < HOLDEM_BOT_REBUY_BELOW || state.chips > HOLDEM_BOT_CASHOUT_ABOVE) state.chips = HOLDEM_BOT_STACK;
+function botStackForHand(ctx, bot) {
+  const state = ctx.table.bots[bot.id];
+  if (state.chips < HOLDEM_BOT_REBUY_BELOW || state.chips > HOLDEM_BOT_CASHOUT_ABOVE) state.chips = botBuyIn(ctx.randomInt);
   return state.chips;
 }
 
@@ -241,7 +247,7 @@ export function maybeStartHoldemHand(ctx) {
       continue;
     }
     const bot = botForSeat(index);
-    if (bot) entries.push({ seat: index, uid: null, name: bot.name, bot: bot.id, stack: botStackForHand(table, bot) });
+    if (bot) entries.push({ seat: index, uid: null, name: bot.name, bot: bot.id, stack: botStackForHand(ctx, bot) });
   }
 
   if (!humans || entries.length < 2) {
@@ -418,7 +424,7 @@ export function publicHoldemTable(table) {
       title: bot.title,
       style: bot.style,
       desc: bot.desc,
-      chips: (table.bots || {})[bot.id]?.chips ?? HOLDEM_BOT_STACK
+      chips: (table.bots || {})[bot.id]?.chips ?? 0
     })),
     round: publicHoldemRound(table.round || null),
     updatedAt: table.updatedAt || null
