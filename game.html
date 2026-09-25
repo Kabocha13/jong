@@ -11,8 +11,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=47.0">
-    <script src="assets/js/treasure-rain.js?v=47.0" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=48.0">
+    <script src="assets/js/treasure-rain.js?v=48.0" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -35,13 +35,13 @@
             <a href="mypage.html" class="action-button">マイページでログイン</a>
         </section>
 
-        <nav class="casino-back hidden" data-view="lobby roulette blackjack slot" aria-label="ゲームの切り替え">
+        <nav class="casino-back hidden" data-view="lobby roulette blackjack slot holdem" aria-label="ゲームの切り替え">
             <a href="#">ゲーム一覧へ</a>
         </nav>
 
         <p id="casino-message" class="hidden" aria-live="polite"></p>
 
-        <!-- ゲームの選択。タイルはそのまま #blackjack / #roulette / #slot へのリンク -->
+        <!-- ゲームの選択。タイルはそのまま #blackjack / #roulette / #slot / #holdem へのリンク -->
         <section id="casino-menu" class="casino-menu hidden" data-view="menu" aria-labelledby="casino-menu-title">
             <h2 id="casino-menu-title">ゲームを選ぶ</h2>
             <p class="casino-menu-rate" id="casino-menu-rate">現在のレート <strong id="casino-menu-score"></strong></p>
@@ -84,6 +84,20 @@
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
+                <a class="game-tile" href="#holdem" data-game="holdem">
+                    <span class="game-tile-art is-holdem" aria-hidden="true">
+                        <span class="bj-card is-black"><span class="bj-card-rank">A</span><span class="bj-card-suit">&#x2660;&#xFE0E;</span></span>
+                        <span class="bj-card is-red"><span class="bj-card-rank">A</span><span class="bj-card-suit">&#x2665;&#xFE0E;</span></span>
+                        <span class="hd-dealer">D</span>
+                    </span>
+                    <span class="game-tile-body">
+                        <span class="game-tile-name">ホールデム</span>
+                        <span class="game-tile-sub">Texas Hold'em</span>
+                        <span class="game-tile-desc">6人卓。空いた席は性格の違う船員が埋めるので1人でも遊べる</span>
+                        <span class="game-tile-live" id="hd-tile-live"></span>
+                    </span>
+                    <span class="game-tile-badge hidden"></span>
+                </a>
             </div>
         </section>
 
@@ -101,6 +115,9 @@
                 <li data-rules="slot">1本のラインに同じ絵柄が3つ並ぶと、その絵柄の倍率 × 賭け金 が戻ります (賭け金込み。複数のラインで当たれば合計)。宝箱 ×100、金貨 ×30、羅針盤 ×15、宝の地図 ×8、ラム酒 ×5、オウム ×3、錨 ×2。</li>
                 <li data-rules="slot">ドクロ旗は真ん中のリールにだけ出て、どの絵柄の代わりにもなります。還元率は約96%です。</li>
                 <li data-rules="blackjack">操作は席順に1人ずつ、持ち時間は1回20秒。時間切れの人は残りの手をスタンドにして次の人へ回します。3回続けて賭けなかった人は席を空けます。</li>
+                <li data-rules="holdem">ノーリミットのテキサスホールデム。ブラインドは 1 / 2 で、席に座ると手元チップをそのまま持ち込んでハンドが始まります。手元チップはすべて賭けの上限 (オールイン) です。</li>
+                <li data-rules="holdem">卓は6席で全員共通。人がいない席には船員 (AI) が入るので、1人でも6人で遊べます。船員は強さも性格も違い、人が座った席の船員は次のハンドから休みます。</li>
+                <li data-rules="holdem">自分の番の持ち時間は25秒。時間切れはチェックかフォールドで、2回続くと席に残したまま休憩になります。降りていれば席を立てます。</li>
             </ul>
             <form id="casino-enter-form">
                 <div class="form-group">
@@ -128,7 +145,7 @@
             </dl>
             <p class="info-text casino-expiry" id="casino-expiry"></p>
             <button type="button" id="casino-settle-button" class="btn-gold">精算する</button>
-            <p class="info-text casino-settle-note hidden" id="casino-settle-note">ブラックジャックの勝負が終わると精算できます。</p>
+            <p class="info-text casino-settle-note hidden" id="casino-settle-note">勝負が終わると精算できます。</p>
         </section>
 
         <section id="casino-table" class="hidden" data-view="roulette" aria-label="ルーレットテーブル">
@@ -222,6 +239,72 @@
             </div>
         </section>
 
+        <section id="holdem-table" class="hidden" data-view="holdem" aria-label="ホールデムの卓">
+            <div class="info-box hd-table-box">
+                <div class="hd-felt">
+                    <!-- 6席は game-holdem.js が自分の席を手前にして並べる。中央はボードとポット -->
+                    <ol class="hd-seats" id="hd-seats" aria-label="席 (6人)"></ol>
+                    <div class="hd-center" aria-live="polite">
+                        <p class="hd-street" id="hd-street"></p>
+                        <div class="bj-cards hd-board" id="hd-board"></div>
+                        <p class="hd-pot" id="hd-pot"></p>
+                        <p class="bj-felt-print hd-felt-print" aria-hidden="true">No-Limit Hold'em<span>Blinds 1 / 2</span></p>
+                    </div>
+                </div>
+
+                <div class="bj-side hd-side">
+                    <p id="hd-status" class="bj-status" aria-live="polite"></p>
+                    <p id="hd-result" class="casino-result" aria-live="polite"></p>
+
+                    <div id="hd-mine" class="hd-mine hidden">
+                        <div class="bj-cards" id="hd-my-cards"></div>
+                        <span class="bj-total hd-my-hand" id="hd-my-hand"></span>
+                    </div>
+
+                    <div id="hd-sit" class="bj-sit hidden">
+                        <p class="info-text">席に座ると、船員たちとのハンドがすぐ始まります。</p>
+                        <button type="button" id="hd-sit-button">席に座る</button>
+                    </div>
+
+                    <div id="hd-actions" class="hd-actions hidden" role="group" aria-label="操作">
+                        <div class="hd-action-row">
+                            <button type="button" id="hd-fold-button" class="secondary-button">フォールド</button>
+                            <button type="button" id="hd-check-button">チェック</button>
+                            <button type="button" id="hd-call-button">コール <span id="hd-call-amount"></span></button>
+                        </div>
+                        <div id="hd-raise" class="hd-raise">
+                            <div id="hd-raise-controls">
+                                <div class="hd-raise-presets" role="group" aria-label="レイズ額の候補">
+                                    <button type="button" data-hd-preset="min">最小</button>
+                                    <button type="button" data-hd-preset="half">1/2ポット</button>
+                                    <button type="button" data-hd-preset="pot">ポット</button>
+                                    <button type="button" data-hd-preset="max">全部</button>
+                                </div>
+                                <div class="hd-raise-amount">
+                                    <input type="range" id="hd-raise-range" min="0" max="0" step="1" aria-label="レイズ額">
+                                    <input type="number" id="hd-raise-input" min="0" step="1" inputmode="numeric" aria-label="レイズ額 (合計)">
+                                </div>
+                            </div>
+                            <button type="button" id="hd-raise-button" class="casino-spin-button hd-raise-button">レイズ</button>
+                        </div>
+                    </div>
+
+                    <div id="hd-seat-tools" class="hd-seat-tools hidden">
+                        <button type="button" id="hd-sitout-button" class="secondary-button">休憩する</button>
+                        <button type="button" id="hd-leave-button" class="secondary-button">席を立つ</button>
+                    </div>
+                    <p id="hd-message" class="hidden" aria-live="polite"></p>
+                    <ol id="hd-recent" class="casino-recent" aria-label="直近の自分のハンド"></ol>
+                </div>
+            </div>
+
+            <div class="info-box hd-crew-box hidden" id="hd-crew-box">
+                <h3 class="icon-title">船員たち</h3>
+                <p class="info-text">空いた席に入る相手。強さも性格も違います。</p>
+                <ul id="hd-crew" class="hd-crew"></ul>
+            </div>
+        </section>
+
         <section id="slot-table" class="hidden" data-view="slot" aria-label="スロット">
             <div class="slot-cabinet">
                 <p class="slot-marquee" aria-hidden="true"><span>Treasure Reels</span></p>
@@ -286,10 +369,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=47.0"></script>
-    <script src="assets/js/game-roulette.js?v=47.0"></script>
-    <script src="assets/js/game-blackjack.js?v=47.0"></script>
-    <script src="assets/js/game-slot.js?v=47.0"></script>
-    <script src="assets/js/game.js?v=47.0"></script>
+    <script src="assets/js/common.js?v=48.0"></script>
+    <script src="assets/js/game-roulette.js?v=48.0"></script>
+    <script src="assets/js/game-blackjack.js?v=48.0"></script>
+    <script src="assets/js/game-slot.js?v=48.0"></script>
+    <script src="assets/js/game-holdem.js?v=48.0"></script>
+    <script src="assets/js/game.js?v=48.0"></script>
 </body>
 </html>

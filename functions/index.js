@@ -5,6 +5,24 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
 import { spinSlot } from './slot.js';
+import { HoldemRuleError } from './holdem.js';
+import {
+  HoldemTableError,
+  createHoldemContext,
+  emptyHoldemTable,
+  holdemSeatIndexOf,
+  holdemTableUids,
+  isInLiveHoldemRound,
+  joinHoldemSeat,
+  leaveHoldemSeat,
+  maybeStartHoldemHand,
+  moveHoldemTurn,
+  publicHoldemTable,
+  setHoldemSitOut,
+  sweepHoldemSeats,
+  tickHoldemTable,
+  vacateHoldemSeat
+} from './holdem-table.js';
 import {
   TableError,
   createTableContext,
@@ -1303,15 +1321,20 @@ export const rebuildRateChart = onRequest({ region: 'asia-northeast1' }, async (
 //   bj_public/main に置く。画面は bj_public を読み直して、ほかの人の操作を反映する。
 //
 //   スロットのルール (リールの並び・ライン・配当) は slot.js にある。
+//
+//   ホールデムも全員共通の1卓 (6席)。人がいない席には船員 (holdem-bots.js) が入るので1人でも遊べる。
+//   ルールは holdem.js、卓の進め方は holdem-table.js。卓の中身 (全員の手札を含む) は holdem_tables/main、
+//   誰でも読める形は holdem_public/main、本人の手札は holdem_hole/{uid} (本人だけが読める) に置く。
 // -----------------------------------------------------------------
 const CASINO_SESSIONS = 'casino_sessions';
-const CASINO_GAMES = new Set(['roulette', 'blackjack', 'slot']);
+const CASINO_GAMES = new Set(['roulette', 'blackjack', 'slot', 'holdem']);
 const CASINO_IDLE_SETTLE_MS = 30 * 60 * 1000;
 const CASINO_MAX_SESSION_MS = 3 * 60 * 60 * 1000;
 const CASINO_RECENT_LIMIT = 12;
 const CASINO_MAX_BETS_PER_SPIN = 60;
 const CASINO_NOTICES = 'casino_notices';     // 自動精算の結果を、本人の次の画面で1回だけ見せる
 const BJ_TABLE_ID = 'main';                  // ブラックジャックの卓は1つだけ
+const HOLDEM_TABLE_ID = 'main';              // ホールデムの卓も1つだけ
 
 // シングルゼロ (0〜36) のヨーロピアンルーレット。配当は賭け金に対する倍率 (元金は別に戻る)
 const ROULETTE_RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
@@ -1394,6 +1417,7 @@ function publicCasinoSession(session) {
     spins: session.spins,
     bjHands: session.bjHands || 0,
     slotSpins: session.slotSpins || 0,
+    hdHands: session.hdHands || 0,
     startedAt: session.startedAt,
     lastActionAt: session.lastActionAt,
     expiresAt: session.expiresAt,
@@ -1403,6 +1427,9 @@ function publicCasinoSession(session) {
     },
     slot: {
       recent: session.slotRecent || []
+    },
+    holdem: {
+      recent: session.hdRecent || []
     }
   };
 }
@@ -1419,7 +1446,8 @@ function casinoPlayLog(session) {
   const plays = [
     { source: 'casino_roulette', name: 'ルーレット', count: session.spins || 0 },
     { source: 'casino_blackjack', name: 'ブラックジャック', count: session.bjHands || 0 },
-    { source: 'casino_slot', name: 'スロット', count: session.slotSpins || 0 }
+    { source: 'casino_slot', name: 'スロット', count: session.slotSpins || 0 },
+    { source: 'casino_holdem', name: 'ホールデム', count: session.hdHands || 0 }
   ].filter(play => play.count > 0);
   if (plays.length === 0) return { source: 'casino_roulette', label: 'ルーレット 0回' };
   if (plays.length === 1) return { source: plays[0].source, label: `${plays[0].name} ${plays[0].count}回` };
@@ -1431,6 +1459,17 @@ function blackjackTableRefs() {
     tableRef: db.collection('bj_tables').doc(BJ_TABLE_ID),
     publicRef: db.collection('bj_public').doc(BJ_TABLE_ID)
   };
+}
+
+function holdemTableRefs() {
+  return {
+    tableRef: db.collection('holdem_tables').doc(HOLDEM_TABLE_ID),
+    publicRef: db.collection('holdem_public').doc(HOLDEM_TABLE_ID)
+  };
+}
+
+function holdemHoleRef(uid) {
+  return db.collection('holdem_hole').doc(uid);
 }
 
 /** 財布の最終操作時刻と自動精算の期限を進める (卓での賭けや払い戻しでも伸びる) */
@@ -1450,8 +1489,9 @@ function touchCasinoSession(session, nowIso) {
 async function settleCasinoSession(uid, actor, { manual = false, reason = null } = {}) {
   const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
   const { tableRef, publicRef } = blackjackTableRefs();
+  const holdemRefs = holdemTableRefs();
   const result = await db.runTransaction(async transaction => {
-    const [sessionDoc, tableDoc] = await transaction.getAll(sessionRef, tableRef);
+    const [sessionDoc, tableDoc, holdemDoc] = await transaction.getAll(sessionRef, tableRef, holdemRefs.tableRef);
     if (!sessionDoc.exists) return null;
     const session = sessionDoc.data();
     const at = new Date().toISOString();
@@ -1466,6 +1506,18 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
       session.chips += table.seats[seatIndex].bet || 0;
       vacateSeat(table, seatIndex);
       tableChanged = true;
+    }
+    // ホールデムの席も同じ。ハンドに残っている間は手動の精算を断り、自動なら決着まで席を残す
+    const holdemTable = holdemDoc.exists ? holdemDoc.data() : null;
+    const holdemSeat = holdemTable ? holdemSeatIndexOf(holdemTable, uid) : -1;
+    let holdemChanged = false;
+    if (holdemTable && isInLiveHoldemRound(holdemTable, uid)) {
+      if (manual) {
+        throw new CasinoError(409, 'ホールデムのハンドが途中です。降りるか決着してから精算してください。');
+      }
+    } else if (holdemSeat >= 0) {
+      vacateHoldemSeat(holdemTable, holdemSeat);
+      holdemChanged = true;
     }
     const playerSnapshot = await transaction.get(playerQuery(session.player));
 
@@ -1500,6 +1552,12 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
       transaction.set(tableRef, table);
       transaction.set(publicRef, publicTable(table));
     }
+    if (holdemChanged) {
+      holdemTable.seq = (holdemTable.seq || 0) + 1;
+      holdemTable.updatedAt = at;
+      transaction.set(holdemRefs.tableRef, holdemTable);
+      transaction.set(holdemRefs.publicRef, publicHoldemTable(holdemTable));
+    }
     transaction.delete(sessionRef);
     const settled = {
       player: session.player,
@@ -1508,6 +1566,7 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
       spins: session.spins || 0,
       bjHands: session.bjHands || 0,
       slotSpins: session.slotSpins || 0,
+      hdHands: session.hdHands || 0,
       beforeScore,
       afterScore,
       delta: beforeScore === null ? 0 : afterScore - beforeScore,
@@ -1547,12 +1606,25 @@ async function readPublicBlackjackTable() {
   return publicDoc.exists ? publicDoc.data() : publicTable(emptyTable());
 }
 
+async function readPublicHoldemTable() {
+  const publicDoc = await holdemTableRefs().publicRef.get();
+  return publicDoc.exists ? publicDoc.data() : publicHoldemTable(emptyHoldemTable());
+}
+
+/** 本人に配られている手札 (いまのハンドのものだけ) */
+async function readHoldemHole(uid) {
+  const holeDoc = await holdemHoleRef(uid).get();
+  return holeDoc.exists ? holeDoc.data() : null;
+}
+
 async function casinoStatus(uid, username) {
   await settleCasinoSessionIfExpired(uid);
-  const [sessionDoc, playerSnapshot, table, autoSettled] = await Promise.all([
+  const [sessionDoc, playerSnapshot, table, holdemTable, hole, autoSettled] = await Promise.all([
     db.collection(CASINO_SESSIONS).doc(uid).get(),
     playerQuery(username).get(),
     readPublicBlackjackTable(),
+    readPublicHoldemTable(),
+    readHoldemHole(uid),
     takeCasinoNotice(uid)
   ]);
   return {
@@ -1560,6 +1632,8 @@ async function casinoStatus(uid, username) {
     score: playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score),
     session: sessionDoc.exists ? publicCasinoSession(sessionDoc.data()) : null,
     table,
+    holdemTable,
+    hole,
     autoSettled,
     now: new Date().toISOString()
   };
@@ -1601,13 +1675,15 @@ async function casinoEnter(uid, username, rawBuyIn, rawGame) {
       spins: 0,
       bjHands: 0,
       slotSpins: 0,
+      hdHands: 0,
       wagered: 0,
       startedAt: now,
       lastActionAt: now,
       expiresAt: casinoSessionExpiresAt(now, now),
       recent: [],
       bjRecent: [],
-      slotRecent: []
+      slotRecent: [],
+      hdRecent: []
     };
     transaction.set(sessionRef, next);
     return next;
@@ -1727,23 +1803,24 @@ function groupOrphanPayouts(payouts) {
 }
 
 /** 財布を精算済みの人の賭け金の返却・払い戻しは、レートへ直接返す */
-function creditBlackjackOrphan(transaction, playerSnapshot, payout, at) {
+function creditBlackjackOrphan(transaction, playerSnapshot, payout, at, game = 'blackjack') {
   if (playerSnapshot.empty) return;
   const playerDoc = playerSnapshot.docs[0];
   const beforeScore = normalizeRate(playerDoc.data().score);
   const afterScore = beforeScore + payout.amount;
   transaction.update(playerDoc.ref, { score: afterScore });
   const historyId = rateHistoryDocId(payout.name, at);
+  const label = game === 'holdem' ? 'ホールデム' : 'ブラックジャック';
   transaction.set(db.collection('point_history').doc(historyId), {
     id: historyId,
     player: payout.name,
     beforeScore,
     afterScore,
     delta: payout.amount,
-    source: 'casino_blackjack',
+    source: game === 'holdem' ? 'casino_holdem' : 'casino_blackjack',
     reason: payout.reason === 'refund'
-      ? `ブラックジャック 精算後の賭け金の返却 (${payout.amount})`
-      : `ブラックジャック 精算後の払い戻し (${payout.amount})`,
+      ? `${label} 精算後の賭け金の返却 (${payout.amount})`
+      : `${label} 精算後の払い戻し (${payout.amount})`,
     actor: 'casino_auto_settle',
     createdAt: at
   });
@@ -1816,6 +1893,78 @@ async function blackjackTableAction(uid, username, mutate) {
   };
 }
 
+/**
+ * ホールデムの卓を1回動かす。ブラックジャックと同じく、卓と関わる人の財布をトランザクションで読み、
+ * mutate(ctx) で書き換えたあと、始められればハンドを始めて (船員の番は一気に進めて) 書き戻す。
+ * 配った手札は holdem_hole/{uid} に置く (本人だけが読める)。
+ */
+async function runHoldemTable(actorUid, mutate) {
+  const { tableRef, publicRef } = holdemTableRefs();
+  const ctx = await db.runTransaction(async transaction => {
+    const tableDoc = await transaction.get(tableRef);
+    const table = tableDoc.exists ? tableDoc.data() : emptyHoldemTable();
+    const uids = Array.from(new Set([...holdemTableUids(table), actorUid].filter(Boolean)));
+    const walletRefs = uids.map(uid => db.collection(CASINO_SESSIONS).doc(uid));
+    const walletDocs = walletRefs.length ? await transaction.getAll(...walletRefs) : [];
+    const wallets = new Map(uids.map((uid, index) => [uid, walletDocs[index].exists ? walletDocs[index].data() : null]));
+    const context = createHoldemContext({
+      table,
+      wallets,
+      now: Date.now(),
+      randomInt: casinoRandom,
+      touchWallet: touchCasinoSession
+    });
+    sweepHoldemSeats(context);
+    mutate(context);
+    maybeStartHoldemHand(context);
+
+    // 読み込みは書き込みより前にすべて済ませる
+    const orphans = groupOrphanPayouts(context.orphanPayouts);
+    const orphanSnapshots = await Promise.all(orphans.map(payout => transaction.get(playerQuery(payout.name))));
+
+    if (context.changed) {
+      context.table.seq = (context.table.seq || 0) + 1;
+      context.table.updatedAt = context.nowIso;
+      transaction.set(tableRef, context.table);
+      transaction.set(publicRef, publicHoldemTable(context.table));
+    }
+    context.holes.forEach((hole, uid) => {
+      transaction.set(holdemHoleRef(uid), { ...hole, updatedAt: context.nowIso });
+    });
+    context.touched.forEach(uid => {
+      transaction.set(db.collection(CASINO_SESSIONS).doc(uid), context.wallets.get(uid));
+    });
+    orphans.forEach((payout, index) => creditBlackjackOrphan(transaction, orphanSnapshots[index], payout, context.nowIso, 'holdem'));
+    return context;
+  });
+
+  for (const uid of ctx.broke) {
+    try {
+      await settleCasinoSession(uid, 'casino_auto_settle', { reason: 'broke' });
+    } catch (error) {
+      console.error(`casino_sessions/${uid} の精算 (チップ切れ) に失敗しました:`, error);
+    }
+  }
+  if (ctx.orphanPayouts.length) {
+    await rebuildRateChartQuietly('holdem_orphan_payout');
+  }
+  return ctx;
+}
+
+/** ホールデムの卓の操作の返事: 卓の様子・本人の手札・本人の財布 */
+async function holdemTableAction(uid, username, mutate) {
+  const ctx = await runHoldemTable(uid, mutate);
+  const wallet = ctx.broke.has(uid) ? null : ctx.wallets.get(uid);
+  const hole = ctx.holes.get(uid) || await readHoldemHole(uid);
+  return {
+    me: username,
+    holdemTable: publicHoldemTable(ctx.table),
+    hole,
+    session: wallet ? publicCasinoSession(wallet) : null,
+    now: new Date().toISOString()
+  };
+}
+
 const CASINO_ACTIONS = {
   status: ({ uid, username }) => casinoStatus(uid, username),
   enter: ({ uid, username, body }) => casinoEnter(uid, username, body.buyIn, body.game),
@@ -1830,7 +1979,12 @@ const CASINO_ACTIONS = {
   bjLeave: ({ uid, username }) => blackjackTableAction(uid, username, ctx => leaveSeat(ctx, uid)),
   bjBet: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => placeBet(ctx, uid, body.amount)),
   bjMove: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => moveTurn(ctx, uid, body.move, body.seq)),
-  bjTick: ({ uid, username }) => blackjackTableAction(uid, username, tickTable)
+  bjTick: ({ uid, username }) => blackjackTableAction(uid, username, tickTable),
+  hdJoin: ({ uid, username, body }) => holdemTableAction(uid, username, ctx => joinHoldemSeat(ctx, uid, username, body.seat)),
+  hdLeave: ({ uid, username }) => holdemTableAction(uid, username, ctx => leaveHoldemSeat(ctx, uid)),
+  hdSitOut: ({ uid, username, body }) => holdemTableAction(uid, username, ctx => setHoldemSitOut(ctx, uid, body.out !== false)),
+  hdMove: ({ uid, username, body }) => holdemTableAction(uid, username, ctx => moveHoldemTurn(ctx, uid, body.move, body.amount, body.seq)),
+  hdTick: ({ uid, username }) => holdemTableAction(uid, username, tickHoldemTable)
 };
 
 async function handleCasinoRequest(req, res) {
@@ -1864,11 +2018,11 @@ async function handleCasinoRequest(req, res) {
     const payload = await CASINO_ACTIONS[action]({ uid: decoded.uid, username, body });
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
-    if (error instanceof CasinoError || error instanceof TableError) {
+    if (error instanceof CasinoError || error instanceof TableError || error instanceof HoldemTableError) {
       res.status(error.status).json({ status: 'error', message: error.message });
       return;
     }
-    if (error instanceof BlackjackRuleError) {
+    if (error instanceof BlackjackRuleError || error instanceof HoldemRuleError) {
       res.status(409).json({ status: 'error', message: error.message });
       return;
     }
@@ -1894,6 +2048,11 @@ export const settleIdleCasinoSessions = onSchedule({
     await runBlackjackTable(null, tickTable);
   } catch (error) {
     console.error('ブラックジャックの卓の時間切れ処理に失敗しました:', error);
+  }
+  try {
+    await runHoldemTable(null, tickHoldemTable);
+  } catch (error) {
+    console.error('ホールデムの卓の時間切れ処理に失敗しました:', error);
   }
   const snapshot = await db.collection(CASINO_SESSIONS)
     .where('expiresAt', '<=', new Date().toISOString())
