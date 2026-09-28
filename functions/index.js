@@ -940,7 +940,7 @@ export const sendManabaDeadlineReminders = onSchedule({
 
 // assets/js/main.js の ATTENDANCE_SCHEDULE / ATTENDANCE_USER_OVERRIDES / ATTENDANCE_USER_CLASSES /
 // ATTENDANCE_MIN_RATE と同じ内容。時間割を変えるときは両方を直すこと。
-const ATTENDANCE_MIN_RATE = 3000;
+const ATTENDANCE_MIN_RATE = 3500;
 const ATTENDANCE_SCHEDULE = {
   1: [{ name: 'ネットワーク・データ工学実験', start: '14:00', room: 642 }],
   2: [{ name: '物理の世界と先端技術', start: '15:00', room: 622 }],

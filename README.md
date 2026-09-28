@@ -270,6 +270,8 @@
 
 **48.1** ホールデムの船員が持ち込むチップを 200 固定から 50〜100 のランダムに (ブラインド 1/2 で 25〜50BB。乱数は crypto.randomInt)。買い足しは 10未満、持ち帰りは 250超 (持ち込みの上限の2.5倍) になったときで、そのたびに 50〜100 を引き直す。デプロイは functions だけ
 
+**48.2** 出席登録ボタンと出席通知を出すレートの条件を 3000以上 から 3500以上 に引き上げ (基準レート 3000 とは別の値になった)。画面は assets/js/main.js、通知は functions/index.js の ATTENDANCE_MIN_RATE。デプロイは hosting, functions
+
 npx firebase deploy --only hosting,functions,firestore
 
 （注意: このプロジェクトは名前付きFirestore DBを使うため firestore 設定が配列形式になっており、

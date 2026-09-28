@@ -13,8 +13,8 @@ const HOME_BONUS_BUTTON = document.getElementById('home-bonus-button');
 const DECK_BAR = document.querySelector('.deck-bar');
 
 const EXCLUDED_PLAYERS = [MAHJONG_CPU_NAME];  // CPU席はランキングに出さない (common.js で定義)
-// 出席登録はこのレート以上でないと表示しない (基準レートと同じ値にしてある)
-const ATTENDANCE_MIN_RATE = 3000;
+// 出席登録はこのレート以上でないと表示しない (出席通知も同じ条件。functions/index.js と揃えること)
+const ATTENDANCE_MIN_RATE = 3500;
 let homeLatestScores = [];
 const LS_DATA_KEY = 'cachedHomeData';
 const HOME_MANABA_SYNC_INTERVAL_MS = 60 * 60 * 1000;
