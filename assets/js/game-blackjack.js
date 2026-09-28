@@ -2,6 +2,7 @@
 // 配られるカード・勝敗・払い戻しは Cloud Function (casino の bjJoin / bjBet / bjMove など) が決める。
 // ほかの人の操作は、誰でも読める卓の写し (bj_public/main) を読み直して反映する。
 // ディーラーの裏のカードは決着するまで届かない (null のまま) ので、画面では伏せて描く。
+// カードを絞る人の手は、本人がめくった枚数 (opened) より先をほかの人の画面では伏せて描く。
 // 締め切り (ベット受付・番の人の持ち時間) を過ぎたら、画面を開いている人が bjTick を送って先へ進める。
 // 入場・手元チップ・精算・画面の切り替えは game.js。
 
@@ -13,6 +14,7 @@ const BLACKJACK_SEATS = 4;
 const BLACKJACK_SQUEEZE_KEY = 'bjSqueeze';     // 自分のカードを絞るか (端末ごとに覚える)
 const BLACKJACK_SQUEEZE_SAFE_MS = 5000;        // 自分の番の残りがこれを切ったら、絞りを打ち切って表にする
 const BLACKJACK_SQUEEZE_CLOSE_MS = 900;        // 全部めくってから絞る画面を閉じるまで
+const BLACKJACK_OPEN_RETRY_MS = 5000;          // 見たカードを知らせるのに失敗したら、これだけ待って送り直す
 // 絞る用の大きなカードのマークの位置 (x, y は %。下半分は逆さ)。本物と同じ並びなので、下から少しずつ数が読める
 const BLACKJACK_PIPS = {
     2: [[50, 0], [50, 100]],
@@ -56,7 +58,9 @@ const blackjack = {
     leaving: false,
     squeeze: true,      // 自分のカードを絞ってめくるか
     seen: { no: null, counts: new Map() },  // この勝負で自分が見たカードの枚数
-    squeezing: null     // 絞る画面を出している間だけ { openAll }
+    squeezing: null,    // 絞る画面を出している間だけ { openAll }
+    opening: false,     // 見たカードを知らせている途中
+    openRetryAt: 0      // 知らせるのに失敗したとき、次に送ってよい時刻
 };
 
 const EMPTY_BLACKJACK_TABLE = { phase: 'betting', seq: -1, seats: Array(BLACKJACK_SEATS).fill(null), round: null };
@@ -311,7 +315,7 @@ function createSeatPanel(view, index, before, fresh) {
  * fresh (配った直後) のときは 全員1枚目 → ディーラー → 全員2枚目 → ディーラー の順に時間差をつける。
  */
 function renderBlackjackView(view, { animate = false, fresh = false } = {}) {
-    view = maskUnseen(view);
+    view = maskUnopened(maskUnseen(view));
     const empty = { ...EMPTY_BLACKJACK_TABLE, round: null };
     const before = !animate ? null : fresh ? empty : (blackjack.shown || empty);
     const round = view.round;
@@ -371,7 +375,10 @@ async function presentBlackjackTable(next) {
     const previous = blackjack.table;
     blackjack.table = next;
     // 絞らない設定のときと、開いた時点ですでに配られていた分は見たことにする
-    if (!previous || !blackjack.squeeze) markAllSeen(next.round);
+    if (!previous || !blackjack.squeeze) {
+        markAllSeen(next.round);
+        reportSeenCards();
+    }
     renderBlackjackControls();
     // ゲーム一覧を開いていれば、タイルの人数と「勝負の途中」も合わせる
     if (casino.ready && !routeGame()) renderMenu();
@@ -435,9 +442,10 @@ function queueBlackjackTable(table) {
 
 // ------------------------------------------------------------------
 // 自分のカードを絞る
-// 配られた自分のカードは、見るまで自分の画面でだけ伏せておく (ほかの人の画面では表のまま)。
+// 配られた自分のカードは、見るまで自分の画面で伏せておく。
 // 見たカードは勝負ごとに枚数で覚える (6デッキなので同じカードが2枚以上ありうる)。
 // 絞っている間は後ろの卓の表示を止めておき、勝敗や次の人の番が先に見えないようにする。
+// 見終わったら bjOpen で知らせ、ほかの人の画面でもそこで表にしてもらう (それまでは伏せて見える)。
 // ------------------------------------------------------------------
 function myRoundPlayer(round) {
     return round ? round.players.find(player => player.name === myName()) || null : null;
@@ -493,6 +501,65 @@ function maskUnseen(view) {
             }))
         }
     };
+}
+
+/**
+ * ほかの人の手のうち、本人がまだめくっていないカード (opened 枚目から先) を伏せ、その手の勝敗も出さない。
+ * 自分の手は maskUnseen が受け持つ
+ */
+function maskUnopened(view) {
+    const round = view.round;
+    if (!round) return view;
+    const me = myRoundPlayer(round);
+    const hidden = hand => typeof hand.opened === 'number' && hand.opened < hand.cards.length;
+    if (!round.players.some(player => player !== me && player.hands.some(hidden))) return view;
+    return {
+        ...view,
+        round: {
+            ...round,
+            players: round.players.map(player => (player === me || !player.hands.some(hidden) ? player : {
+                ...player,
+                net: null,
+                returned: null,
+                hands: player.hands.map(hand => (!hidden(hand) ? hand : {
+                    ...hand,
+                    cards: hand.cards.map((card, index) => (index < hand.opened ? card : null)),
+                    result: null,
+                    returned: null
+                }))
+            }))
+        }
+    };
+}
+
+/**
+ * 自分が見たカードのうち、ほかの人の画面でまだ伏せてあるものがあれば bjOpen で表にしてもらう。
+ * 届いている中でいちばん新しい卓と比べ、見ていないカードより前 (手ごとの頭から) だけを送る
+ */
+function reportSeenCards() {
+    const round = blackjack.latest?.round;
+    const me = myRoundPlayer(round);
+    if (!me || blackjack.opening || Date.now() < blackjack.openRetryAt) return;
+    const unseen = unseenCards(round);
+    const hands = me.hands.map((hand, handIndex) => {
+        const first = unseen.find(item => item.hand === handIndex);
+        return hand.cards.slice(0, first ? first.index : hand.cards.length);
+    });
+    const behind = me.hands.some((hand, handIndex) => typeof hand.opened === 'number' && hand.opened < hands[handIndex].length);
+    if (!behind) return;
+    blackjack.opening = true;
+    callCasino('bjOpen', { no: round.no, hands })
+        .then(data => {
+            applyServerClock(data.now);
+            queueBlackjackTable(data.table);
+        })
+        .catch(error => {
+            blackjack.openRetryAt = Date.now() + BLACKJACK_OPEN_RETRY_MS;
+            console.warn('見たカードを知らせられませんでした:', error);
+        })
+        .finally(() => {
+            blackjack.opening = false;
+        });
 }
 
 /** 絞る用の大きな表面。数字は左上にだけ置き、下から見えてくるのはマークの並び */
@@ -694,12 +761,14 @@ async function squeezeNewCards(table) {
     if (!unseen.length) return false;
     if (!blackjack.squeeze || routeGame() !== 'blackjack') {
         markAllSeen(round);
+        reportSeenCards();
         return true;
     }
     // 配られたカードが卓に着いてから開く
     if (!prefersReducedMotion()) await delay(380);
     await squeezeCards(table, unseen);
     markSeen(round, unseen.map(item => item.card));
+    reportSeenCards();
     return true;
 }
 
@@ -790,6 +859,8 @@ async function pollBlackjackTable() {
     try {
         const doc = await getFirestoreDb().collection('bj_public').doc('main').get();
         if (doc.exists) queueBlackjackTable(doc.data());
+        // 知らせ損ねたカードがあれば送り直す
+        reportSeenCards();
     } catch (error) {
         console.warn('卓の読み込みに失敗:', error);
     } finally {
@@ -921,7 +992,7 @@ async function sendBlackjack(action, payload = {}) {
 async function placeBlackjackBet() {
     const amount = blackjack.bet;
     if (amount < 1) return;
-    const data = await sendBlackjack('bjBet', { amount });
+    const data = await sendBlackjack('bjBet', { amount, squeeze: blackjack.squeeze });
     if (data) blackjack.lastBet = amount;
 }
 

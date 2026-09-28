@@ -10,16 +10,18 @@
 //   ダブル: どの2枚からでも (スプリット後も可)。スプリット: 同じ点数の2枚、1人4手まで
 //   A をスプリットした手は1枚ずつしか配らず、A+10点札でも 21 扱い (ブラックジャックではない)
 //   インシュランス・サレンダーはなし
+//   絞る人 (squeeze) の手は、本人がめくった枚数 (opened) までしかほかの人に見せない
 //
 // round = {
 //   phase: 'player' | 'done',
-//   players: [{ seat, uid, name, hands: [hand] }],   席順
-//   turn: { player, hand } | null,                    いま操作する手 (players と hands の添字)
-//   dealer: [cards],                                  2枚目が裏札
-//   seq,                                              操作のたびに1つ進む番号
+//   players: [{ seat, uid, name, squeeze, hands: [hand] }],   席順
+//   turn: { player, hand } | null,                             いま操作する手 (players と hands の添字)
+//   dealer: [cards],                                           2枚目が裏札
+//   seq,                                                       操作のたびに1つ進む番号
 //   startedAt
 // }
-// hand = { cards, bet, doubled, split, splitAces, done, result?, returned? }
+// hand = { cards, bet, doubled, split, splitAces, done, opened, result?, returned? }
+//   opened は本人がめくり終えた枚数 (cards の頭から)
 
 export const BLACKJACK_DECKS = 6;
 export const BLACKJACK_MAX_HANDS = 4;
@@ -94,7 +96,7 @@ function sumOf(values) {
 }
 
 function newHand(bet) {
-  return { cards: [], bet, doubled: false, split: false, splitAces: false, done: false };
+  return { cards: [], bet, doubled: false, split: false, splitAces: false, done: false, opened: 0 };
 }
 
 /** 1手ぶんの勝敗と払い戻し (賭け金込み) */
@@ -151,14 +153,16 @@ function advance(round, randomInt) {
 }
 
 /**
- * 勝負を始める。entries は席順の [{ seat, uid, name, bet }]。
+ * 勝負を始める。entries は席順の [{ seat, uid, name, bet, squeeze }]。
  * ディーラーがBJならその場で全員決着した状態で返す。
  */
 export function startBlackjackRound(entries, randomInt, startedAt) {
   if (!entries.length) throw new BlackjackRuleError('賭けている人がいません。');
   const round = {
     phase: 'player',
-    players: entries.map(({ seat, uid, name, bet }) => ({ seat, uid, name, hands: [newHand(bet)] })),
+    players: entries.map(({ seat, uid, name, bet, squeeze }) => ({
+      seat, uid, name, squeeze: Boolean(squeeze), hands: [newHand(bet)]
+    })),
     turn: null,
     dealer: [],
     seq: 0,
@@ -232,9 +236,10 @@ export function applyBlackjackMove(round, move, chips, randomInt) {
     nextChips -= hand.bet;
     const [first, second] = hand.cards;
     const splitAces = cardRank(first) === 'A';
-    Object.assign(hand, { cards: [first], split: true, splitAces });
+    const opened = hand.opened || 0;
+    Object.assign(hand, { cards: [first], split: true, splitAces, opened: Math.min(opened, 1) });
     player.hands.splice(round.turn.hand + 1, 0, {
-      ...newHand(hand.bet), cards: [second], split: true, splitAces
+      ...newHand(hand.bet), cards: [second], split: true, splitAces, opened: opened >= 2 ? 1 : 0
     });
   }
   advance(round, randomInt);
@@ -250,6 +255,26 @@ export function standOutTurnPlayer(round, randomInt) {
   return round;
 }
 
+/**
+ * 本人が見たカードを、ほかの人にも見せる。seen は手ごとの「頭から見たカード」の並び。
+ * 実際の手と頭から一致した枚数までめくった扱いにする (減らすことはない)。何か増えたら true
+ */
+export function openBlackjackCards(round, uid, seen) {
+  const player = round.players.find(entry => entry.uid === uid);
+  if (!player || !Array.isArray(seen)) return false;
+  let changed = false;
+  player.hands.forEach((hand, index) => {
+    const cards = Array.isArray(seen[index]) ? seen[index] : [];
+    let count = 0;
+    while (count < hand.cards.length && cards[count] === hand.cards[count]) count += 1;
+    if (count > (hand.opened || 0)) {
+      hand.opened = count;
+      changed = true;
+    }
+  });
+  return changed;
+}
+
 /** 1人ぶんの賭け金の合計と払い戻し (決着前の払い戻しは null) */
 export function blackjackPlayerTotals(player) {
   const bet = sumOf(player.hands.map(hand => hand.bet));
@@ -260,6 +285,7 @@ export function blackjackPlayerTotals(player) {
 
 /**
  * ブラウザに返す形。勝負の途中はディーラーの裏札を null にして隠す。
+ * 手ごとの opened は ほかの人の画面で表にしてよい枚数 (絞らない人は全部)。
  * turnChips は いまの番の人の手元チップ (ダブル・スプリットができるかの判定用)。
  */
 export function publicBlackjackRound(round, turnChips = 0) {
@@ -277,6 +303,7 @@ export function publicBlackjackRound(round, turnChips = 0) {
       name: player.name,
       hands: player.hands.map(hand => ({
         cards: hand.cards,
+        opened: player.squeeze ? Math.min(hand.opened || 0, hand.cards.length) : hand.cards.length,
         bet: hand.bet,
         doubled: Boolean(hand.doubled),
         split: Boolean(hand.split),

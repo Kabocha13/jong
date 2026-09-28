@@ -9,6 +9,7 @@
 //     時間切れの人は残りの手をスタンドにして次の人へ回す。
 //   全員終わるとディーラーが引いて決着し、払い戻しを財布に足してベット受付に戻る。
 //   決着した勝負は、次に配るまで結果を見せるため卓に残しておく。
+//   カードを絞る人の手は、本人が見て bjOpen を送るまでほかの人の画面では伏せる (決着したあとも同じ)。
 //   賭けないまま TABLE_IDLE_ROUNDS 回続けて勝負が始まった人と、財布を精算した人は席を空ける。
 //   サーバーは常駐しないので、締め切りの判定は画面を開いている誰かの bjTick と定期処理で行う。
 
@@ -16,6 +17,7 @@ import {
   applyBlackjackMove,
   blackjackPlayerTotals,
   blackjackTurnPlayer,
+  openBlackjackCards,
   publicBlackjackRound,
   standOutTurnPlayer,
   startBlackjackRound,
@@ -156,8 +158,11 @@ export function leaveSeat(ctx, uid) {
   ctx.changed = true;
 }
 
-/** 次の勝負の賭け金を置く (0 で取り消し)。置いていたぶんはいったん戻してから置き直す */
-export function placeBet(ctx, uid, rawAmount) {
+/**
+ * 次の勝負の賭け金を置く (0 で取り消し)。置いていたぶんはいったん戻してから置き直す。
+ * squeeze は自分のカードを絞るか (絞るならめくるまでほかの人に見せない)
+ */
+export function placeBet(ctx, uid, rawAmount, squeeze = false) {
   const { table } = ctx;
   const index = seatIndexOf(table, uid);
   if (index < 0) throw new TableError(409, '席に座っていません。');
@@ -176,6 +181,7 @@ export function placeBet(ctx, uid, rawAmount) {
   wallet.chips = available - amount;
   seat.bet = amount;
   seat.chips = wallet.chips;
+  seat.squeeze = squeeze === true;
   ctx.touchWallet(wallet, ctx.nowIso);
   ctx.touched.add(uid);
   if (amount > 0 && !table.bettingEndsAt) {
@@ -250,7 +256,9 @@ export function maybeStartRound(ctx) {
     if (seat.idleRounds >= TABLE_IDLE_ROUNDS) table.seats[index] = null;
   });
 
-  const entries = bettors.map(({ seat, index }) => ({ seat: index, uid: seat.uid, name: seat.name, bet: seat.bet }));
+  const entries = bettors.map(({ seat, index }) => ({
+    seat: index, uid: seat.uid, name: seat.name, bet: seat.bet, squeeze: Boolean(seat.squeeze)
+  }));
   bettors.forEach(({ seat }) => { seat.bet = 0; });
   table.roundNo = (table.roundNo || 0) + 1;
   const round = startBlackjackRound(entries, ctx.randomInt, ctx.nowIso);
@@ -283,6 +291,16 @@ export function moveTurn(ctx, uid, move, rawSeq) {
   }
   ctx.changed = true;
   afterProgress(ctx);
+}
+
+/**
+ * 本人が見た自分のカードを、ほかの人の画面でも表にする。no は勝負の番号、seen は手ごとの見たカード。
+ * 決着したあとの勝負 (次に配るまで卓に残っているもの) にも使う。古い勝負へのものは何もしない
+ */
+export function openCards(ctx, uid, rawNo, seen) {
+  const { table } = ctx;
+  if (!table.round || Number(rawNo) !== table.round.no) return;
+  if (openBlackjackCards(table.round, uid, seen)) ctx.changed = true;
 }
 
 /** 番の人の持ち時間切れ。ベット受付の締め切りは maybeStartRound が見る */
