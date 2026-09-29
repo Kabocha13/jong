@@ -172,7 +172,8 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         loadAttendanceAccessStatus();
         loadMemberStatusList();
         loadRateReversionSettings();
-        
+        loadLoanSettings();
+
         if (!isAuto) {
              showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
         } else {
@@ -1354,6 +1355,112 @@ if (RATE_REVERSION_FORM) {
         } catch (error) {
             console.error(error);
             showMessage(RATE_REVERSION_MESSAGE, `❌ 保存エラー: ${error.message}`, 'error');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+}
+
+// --- レートの貸し出し設定 ---
+// 利率・信用枠の数値は settings/app の loan_* に置き、Cloud Function (loan) と日次補正がそれを読む。
+// 計算の中身は functions/loan.js。
+const LOAN_SETTINGS_FORM = document.getElementById('loan-settings-form');
+const LOAN_SETTINGS_STATUS = document.getElementById('loan-settings-status');
+const LOAN_SETTINGS_MESSAGE = document.getElementById('loan-settings-message');
+const LOAN_SETTING_INPUTS = {
+    interestRate: document.getElementById('loan-interest-rate'),
+    baseLimit: document.getElementById('loan-base-limit'),
+    minLimit: document.getElementById('loan-min-limit'),
+    maxLimit: document.getElementById('loan-max-limit'),
+    trustDivisor: document.getElementById('loan-trust-divisor'),
+    interestWeight: document.getElementById('loan-interest-weight'),
+    volatilityScale: document.getElementById('loan-volatility-scale'),
+    stabilityMin: document.getElementById('loan-stability-min'),
+    volatilityDays: document.getElementById('loan-volatility-days')
+};
+
+function fillLoanSettingsForm(settings) {
+    const inputs = LOAN_SETTING_INPUTS;
+    if (inputs.interestRate) inputs.interestRate.value = Math.round(settings.interestRate * 100);
+    if (inputs.baseLimit) inputs.baseLimit.value = settings.baseLimit;
+    if (inputs.minLimit) inputs.minLimit.value = settings.minLimit;
+    if (inputs.maxLimit) inputs.maxLimit.value = settings.maxLimit;
+    if (inputs.trustDivisor) inputs.trustDivisor.value = settings.trustDivisor;
+    if (inputs.interestWeight) inputs.interestWeight.value = settings.interestWeight;
+    if (inputs.volatilityScale) inputs.volatilityScale.value = settings.volatilityScale;
+    if (inputs.stabilityMin) inputs.stabilityMin.value = Math.round(settings.stabilityMin * 100);
+    if (inputs.volatilityDays) inputs.volatilityDays.value = settings.volatilityDays;
+}
+
+function describeLoanSettings(settings, data) {
+    const debts = buildDebtMap(data?.loans);
+    const debtors = Array.from(debts.entries()).map(([name, debt]) => `${name} ${formatRate(debt)}`);
+    return `利率 ${formatLoanInterestRate(settings.interestRate)}/日 (100 借りて3日放置すると ${formatRate(loanDebtAfterDays(100, settings.interestRate, 3))})。`
+        + ` 実績なしの枠は ${formatRate(settings.baseLimit)}、枠は ${formatRate(settings.minLimit)}〜${formatRate(settings.maxLimit)}。`
+        + ` いま借金がある人: ${debtors.length ? debtors.join(' / ') : 'なし'}`;
+}
+
+async function loadLoanSettings() {
+    if (!LOAN_SETTINGS_FORM || !LOAN_SETTINGS_STATUS) return;
+    try {
+        const data = await fetchAllData();
+        const settings = data.loan_settings || normalizeLoanSettings({});
+        fillLoanSettingsForm(settings);
+        LOAN_SETTINGS_STATUS.textContent = describeLoanSettings(settings, data);
+    } catch (error) {
+        console.error(error);
+        LOAN_SETTINGS_STATUS.textContent = '貸し出し設定を読み込めませんでした。';
+    }
+}
+
+if (LOAN_SETTINGS_FORM) {
+    LOAN_SETTINGS_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitButton = LOAN_SETTINGS_FORM.querySelector('button[type="submit"]');
+        const inputs = LOAN_SETTING_INPUTS;
+        const read = element => parseFloat(element?.value);
+        const values = {
+            interestRate: read(inputs.interestRate) / 100,
+            baseLimit: read(inputs.baseLimit),
+            minLimit: read(inputs.minLimit),
+            maxLimit: read(inputs.maxLimit),
+            trustDivisor: read(inputs.trustDivisor),
+            interestWeight: read(inputs.interestWeight),
+            volatilityScale: read(inputs.volatilityScale),
+            stabilityMin: read(inputs.stabilityMin) / 100,
+            volatilityDays: read(inputs.volatilityDays)
+        };
+
+        const checks = [
+            [Number.isFinite(values.interestRate) && values.interestRate >= 0 && values.interestRate <= 10, '1日の利率は0〜1000%で入力してください。'],
+            [Number.isFinite(values.baseLimit) && values.baseLimit >= 0, '基本枠は0以上で入力してください。'],
+            [Number.isFinite(values.minLimit) && values.minLimit >= 0, '枠の下限は0以上で入力してください。'],
+            [Number.isFinite(values.maxLimit) && values.maxLimit >= values.minLimit, '枠の上限は下限以上で入力してください。'],
+            [Number.isFinite(values.trustDivisor) && values.trustDivisor > 0, '実績の割る数は0より大きい値で入力してください。'],
+            [Number.isFinite(values.interestWeight) && values.interestWeight >= 0, '利息の重みは0以上で入力してください。'],
+            [Number.isFinite(values.volatilityScale) && values.volatilityScale >= 1, '変動の基準は1以上で入力してください。'],
+            [Number.isFinite(values.stabilityMin) && values.stabilityMin >= 0 && values.stabilityMin <= 1, '安定度の下限は0〜100%で入力してください。'],
+            [Number.isFinite(values.volatilityDays) && values.volatilityDays >= 1 && values.volatilityDays <= 60, '変動を見る日数は1〜60で入力してください。']
+        ];
+        const failed = checks.find(([ok]) => !ok);
+        if (failed) {
+            showMessage(LOAN_SETTINGS_MESSAGE, failed[1], 'error');
+            return;
+        }
+
+        submitButton.disabled = true;
+        showMessage(LOAN_SETTINGS_MESSAGE, '設定を保存中...', 'info');
+        try {
+            const saved = await saveLoanSettings(values);
+            showMessage(
+                LOAN_SETTINGS_MESSAGE,
+                `✅ 保存しました (利率 ${formatLoanInterestRate(saved.interestRate)}/日 / 基本枠 ${formatRate(saved.baseLimit)} / 枠 ${formatRate(saved.minLimit)}〜${formatRate(saved.maxLimit)})。`,
+                'success'
+            );
+            await loadLoanSettings();
+        } catch (error) {
+            console.error(error);
+            showMessage(LOAN_SETTINGS_MESSAGE, `❌ 保存エラー: ${error.message}`, 'error');
         } finally {
             submitButton.disabled = false;
         }

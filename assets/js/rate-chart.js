@@ -4,6 +4,7 @@
 // rate_chart/daily を1件読んで、その場で SVG を組み立てる。外部ライブラリは使わない。
 // 横軸は1日 = 等幅の1区間。その日の変動 (対局・日次補正) を区間の中に1列ずつ並べる。
 // 出す日数は画面の幅に合わせて直近3〜7日 (スマホは3日)。
+// 借金 (レートの貸し出し) がある区間は、同じ色の破線で「レート − 借金」を描き、間を薄く塗る。
 
 const RATE_CHART_CONTAINER = document.getElementById('rate-chart');
 
@@ -65,7 +66,9 @@ function rateChartDayCount(plotWidth) {
 function sliceRateChartDays(days, dayCount) {
     const start = Math.max(0, days.length - dayCount);
     const visible = days.slice(start);
-    if (start > 0) visible[0] = { ...visible[0], open: days[start - 1].rates };
+    if (start > 0) {
+        visible[0] = { ...visible[0], open: days[start - 1].rates, openDebts: days[start - 1].debts || {} };
+    }
     return visible;
 }
 
@@ -74,16 +77,21 @@ function sliceRateChartDays(days, dayCount) {
  *   - 先頭の日だけ、区間の左端に始値の点を置く
  *   - その日の変動 n 件は区間を n 等分した右端に1件ずつ置く (最後の変動 = 区間の右端)
  *   - 変動が無い日は右端に終値の点を1つだけ置く (横ばい)
+ * 各点は rates (全員のレート) と debts (全員の借金。古いデータには無いので空) を持つ。
  */
 function buildRateChartPoints(days) {
     const points = [];
     days.forEach((day, dayIndex) => {
         const events = Array.isArray(day.events) ? day.events.filter(event => event && event.rates) : [];
         if (dayIndex === 0) {
-            points.push({ x: 0, dayIndex, date: day.date, label: '開始', rates: day.open || day.rates });
+            points.push({
+                x: 0, dayIndex, date: day.date, label: '開始',
+                rates: day.open || day.rates,
+                debts: day.openDebts || day.debts || {}
+            });
         }
         if (!events.length) {
-            points.push({ x: dayIndex + 1, dayIndex, date: day.date, label: '変動なし', rates: day.rates });
+            points.push({ x: dayIndex + 1, dayIndex, date: day.date, label: '変動なし', rates: day.rates, debts: day.debts || {} });
             return;
         }
         events.forEach((event, eventIndex) => {
@@ -93,7 +101,8 @@ function buildRateChartPoints(days) {
                 dayIndex,
                 date: day.date,
                 label: [time, event.reason].filter(Boolean).join(' '),
-                rates: event.rates
+                rates: event.rates,
+                debts: event.debts || {}
             });
         });
     });
@@ -103,6 +112,7 @@ function buildRateChartPoints(days) {
 /**
  * 点の列を系列 (プレイヤー1人 = 1本の線) に組み替える。
  * 人数が色数を超えたら、直近のレートが高い順に上位だけ描く。
+ * debts はその時点の借金 (無ければ 0)。lastDebt はいまの借金
  */
 function buildRateChartSeries(points) {
     const names = [];
@@ -119,15 +129,21 @@ function buildRateChartSeries(points) {
         }
         return null;
     };
+    const debtAt = (point, name) => {
+        const debt = Number(point.debts?.[name]);
+        return Number.isFinite(debt) && debt > 0 ? debt : 0;
+    };
 
     return names
         .map(name => ({
             name,
             last: lastRate(name),
+            lastDebt: points.length ? debtAt(points[points.length - 1], name) : 0,
             values: points.map(point => {
                 const value = point.rates?.[name];
                 return Number.isFinite(value) ? value : null;
-            })
+            }),
+            debts: points.map(point => debtAt(point, name))
         }))
         .filter(series => series.values.some(value => value !== null))
         .sort((a, b) => (b.last ?? 0) - (a.last ?? 0))
@@ -135,9 +151,33 @@ function buildRateChartSeries(points) {
         .map((series, index) => ({ ...series, color: RATE_CHART_COLORS[index] }));
 }
 
-/** 値の範囲から、キリのいい目盛り位置と描画範囲を決める */
+/**
+ * 借金がある区間 (どちらかの端で借金 > 0) を、連続したひとかたまりごとに点の番号の列で返す。
+ * 借金が 0 の端では「レート − 借金」がレートと一致するので、破線は実線から生えて実線に戻る
+ */
+function rateChartDebtRuns(item) {
+    const runs = [];
+    let run = null;
+    for (let i = 1; i < item.values.length; i++) {
+        const joined = item.values[i - 1] !== null && item.values[i] !== null
+            && (item.debts[i - 1] > 0 || item.debts[i] > 0);
+        if (joined) {
+            if (!run) run = [i - 1];
+            run.push(i);
+        } else if (run) {
+            runs.push(run);
+            run = null;
+        }
+    }
+    if (run) runs.push(run);
+    return runs;
+}
+
+/** 値の範囲から、キリのいい目盛り位置と描画範囲を決める (借金を引いた値も範囲に入れる) */
 function buildRateChartScale(series, height) {
-    const values = series.flatMap(item => item.values.filter(value => value !== null));
+    const values = series.flatMap(item => item.values.flatMap((value, index) => (
+        value === null ? [] : [value, value - item.debts[index]]
+    )));
     let min = Math.min(...values);
     let max = Math.max(...values);
     if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
@@ -272,6 +312,26 @@ function renderRateChart() {
         svg.appendChild(label);
     });
 
+    // --- 借金の帯 (実線より下に敷く) ---
+    //   借金がある区間は「レート − 借金」を同じ色の破線で描き、実線との間を薄く塗る。
+    //   帯の高さがそのまま借金の額で、利息が付くと広がり、返すと実線に戻る
+    series.forEach(item => {
+        rateChartDebtRuns(item).forEach(run => {
+            const top = run.map(index => `${x(index).toFixed(1)} ${scale.y(item.values[index]).toFixed(1)}`);
+            const bottom = run.map(index => `${x(index).toFixed(1)} ${scale.y(item.values[index] - item.debts[index]).toFixed(1)}`);
+            svg.appendChild(svgEl('path', {
+                class: 'rate-chart-debt-band',
+                d: `M${top.join('L')}L${bottom.slice().reverse().join('L')}Z`,
+                fill: item.color
+            }));
+            svg.appendChild(svgEl('path', {
+                class: 'rate-chart-debt-line',
+                d: `M${bottom.join('L')}`,
+                stroke: item.color
+            }));
+        });
+    });
+
     // --- 折れ線 ---
     series.forEach(item => {
         let path = '';
@@ -353,6 +413,12 @@ function buildRateChartLegend(series) {
         value.className = 'rate-chart-legend-value';
         value.textContent = Number.isFinite(item.last) ? item.last.toLocaleString('ja-JP') : '—';
         row.append(key, name, value);
+        if (item.lastDebt > 0) {
+            const debt = document.createElement('span');
+            debt.className = 'rate-chart-legend-debt';
+            debt.textContent = `借金 ${item.lastDebt.toLocaleString('ja-JP')}`;
+            row.appendChild(debt);
+        }
         legend.appendChild(row);
     });
     return legend;
@@ -419,6 +485,13 @@ function attachRateChartHover(context) {
             name.className = 'rate-chart-tooltip-name';
             name.textContent = item.name;
             row.append(key, amount, name);
+            const debt = item.debts[clamped];
+            if (value !== null && debt > 0) {
+                const debtText = document.createElement('span');
+                debtText.className = 'rate-chart-tooltip-debt';
+                debtText.textContent = `借金 ${debt.toLocaleString('ja-JP')}`;
+                row.appendChild(debtText);
+            }
             tooltip.appendChild(row);
         });
 

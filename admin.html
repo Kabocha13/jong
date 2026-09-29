@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#060d16">
     <title>マスター管理ページ</title>
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=48.5">
-    <script src="assets/js/treasure-rain.js?v=48.5" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=49.0">
+    <script src="assets/js/treasure-rain.js?v=49.0" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="jail">
@@ -234,7 +234,8 @@
                 <p class="instruction">
                     毎日1回、全員のレートを基準へ近づけます。基準より高い人は下がり、低い人は上がるので、
                     遊ばなければ全員が基準に戻ります。<br>
-                    1日の補正量 = 基準との差 × 割合 ＋ 固定加算
+                    1日の補正量 = 基準との差 × 割合 ＋ 固定加算<br>
+                    補正の直後に、レートの貸し出しで残っている借金に1日ぶんの利息を付けます。
                 </p>
                 <p class="instruction" id="rate-reversion-status">設定を読み込み中...</p>
                 <form id="rate-reversion-form">
@@ -259,6 +260,61 @@
                 <p id="rate-reversion-message" class="hidden"></p>
             </div>
 
+            <div class="tool-box">
+                <h3>🏦 レートの貸し出し設定</h3>
+                <p class="instruction">
+                    誰でもマイページからレートを借りられます。借金は日付をまたぐたびに (1 + 利率) 倍になり (複利)、
+                    自動では徴収せず、自分で返すまで残ります。<br>
+                    信用枠 = (基本枠 + (返した元本 − 付いた利息 × 利息の重み) ÷ 実績の割る数) × 安定度<br>
+                    安定度 = 1 ÷ (1 + 直近N日の1日の増減の標準偏差 ÷ 変動の基準)。枠は下限〜上限に収め、借入可能 = 信用枠 − 借金
+                </p>
+                <p class="instruction" id="loan-settings-status">設定を読み込み中...</p>
+                <form id="loan-settings-form">
+                    <div class="form-group loan-settings-grid">
+                        <div>
+                            <label for="loan-interest-rate">1日の利率 (%):</label>
+                            <input type="number" id="loan-interest-rate" step="1" min="0" max="1000" required>
+                        </div>
+                        <div>
+                            <label for="loan-base-limit">基本枠:</label>
+                            <input type="number" id="loan-base-limit" step="1" min="0" required>
+                        </div>
+                        <div>
+                            <label for="loan-min-limit">枠の下限:</label>
+                            <input type="number" id="loan-min-limit" step="1" min="0" required>
+                        </div>
+                        <div>
+                            <label for="loan-max-limit">枠の上限:</label>
+                            <input type="number" id="loan-max-limit" step="1" min="0" required>
+                        </div>
+                        <div>
+                            <label for="loan-trust-divisor">実績の割る数:</label>
+                            <input type="number" id="loan-trust-divisor" step="0.1" min="0.1" required>
+                        </div>
+                        <div>
+                            <label for="loan-interest-weight">利息の重み:</label>
+                            <input type="number" id="loan-interest-weight" step="0.1" min="0" required>
+                        </div>
+                        <div>
+                            <label for="loan-volatility-scale">変動の基準:</label>
+                            <input type="number" id="loan-volatility-scale" step="1" min="1" required>
+                        </div>
+                        <div>
+                            <label for="loan-stability-min">安定度の下限 (%):</label>
+                            <input type="number" id="loan-stability-min" step="1" min="0" max="100" required>
+                        </div>
+                        <div>
+                            <label for="loan-volatility-days">変動を見る日数:</label>
+                            <input type="number" id="loan-volatility-days" step="1" min="1" max="60" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="action-button w-auto btn-gold">
+                        貸し出し設定を保存
+                    </button>
+                </form>
+                <p id="loan-settings-message" class="hidden"></p>
+            </div>
+
         </section>
     </main>
 
@@ -276,7 +332,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=48.5"></script>
-    <script src="assets/js/master.js?v=48.5"></script>
+    <script src="assets/js/common.js?v=49.0"></script>
+    <script src="assets/js/master.js?v=49.0"></script>
 </body>
 </html>

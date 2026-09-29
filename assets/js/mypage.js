@@ -261,12 +261,339 @@ async function initializeMyPageContent() {
 
     initializeGiftCodeFeature();
 
+    initializeLoanFeature();
+
     await initManabaAssignments();
 
     controlTargetContinueFormDisplay();
 
 }
 
+
+// -----------------------------------------------------------------
+// ★★★ レートの貸し出し (借金) ★★★
+//   借りる・返す・信用枠の計算はすべて Cloud Function (loan) が行う (functions/loan.js)。
+//   ここでは返ってきた状態を表示し、額の入力を送るだけ。
+// -----------------------------------------------------------------
+
+const CURRENT_DEBT_ELEMENT = document.getElementById('current-debt');
+const LOAN_DEBT = document.getElementById('loan-debt');
+const LOAN_DEBT_NOTE = document.getElementById('loan-debt-note');
+const LOAN_LIMIT = document.getElementById('loan-limit');
+const LOAN_AVAILABLE_NOTE = document.getElementById('loan-available-note');
+const LOAN_BREAKDOWN_TABLE = document.getElementById('loan-breakdown-table');
+const LOAN_INTEREST_RATE_TEXT = document.getElementById('loan-interest-rate-text');
+const LOAN_INTEREST_MULTIPLIER_TEXT = document.getElementById('loan-interest-multiplier-text');
+const LOAN_BORROW_FORM = document.getElementById('loan-borrow-form');
+const LOAN_BORROW_AMOUNT = document.getElementById('loan-borrow-amount');
+const LOAN_BORROW_PREVIEW = document.getElementById('loan-borrow-preview');
+const LOAN_BORROW_BUTTON = document.getElementById('loan-borrow-button');
+const LOAN_REPAY_FORM = document.getElementById('loan-repay-form');
+const LOAN_REPAY_AMOUNT = document.getElementById('loan-repay-amount');
+const LOAN_REPAY_BUTTON = document.getElementById('loan-repay-button');
+const LOAN_REPAY_ALL_BUTTON = document.getElementById('loan-repay-all-button');
+const LOAN_RECENT_LIST = document.getElementById('loan-recent-list');
+const LOAN_MESSAGE = document.getElementById('loan-message');
+
+let loanState = null;       // サーバーから最後に受け取った状態
+let loanFormsBound = false;
+
+/** 見出しの「現在のレート」の横に借金を出す (0 なら消す) */
+function updateCurrentDebtBadge(debt) {
+    if (!CURRENT_DEBT_ELEMENT) return;
+    const label = formatDebtLabel(debt);
+    CURRENT_DEBT_ELEMENT.textContent = label;
+    CURRENT_DEBT_ELEMENT.hidden = !label;
+}
+
+/** いまの利率などの設定。サーバーの返事が無ければ読み込み済みの一覧の設定、それも無ければ既定値 */
+function currentLoanSettings() {
+    return loanState?.settings || latestAllData?.loan_settings || normalizeLoanSettings({});
+}
+
+function initializeLoanFeature() {
+    if (!authenticatedUser || !LOAN_BORROW_FORM) return;
+    bindLoanFormsOnce();
+    // まず読み込み済みの一覧から借金と利率だけ出し、詳しい状態はサーバーから取り直す
+    const cached = buildDebtMap(latestAllData?.loans).get(authenticatedUser.name) || 0;
+    updateCurrentDebtBadge(cached);
+    renderLoanSettingsText(currentLoanSettings());
+    loadLoanStatus();
+}
+
+function bindLoanFormsOnce() {
+    if (loanFormsBound) return;
+    loanFormsBound = true;
+
+    LOAN_BORROW_AMOUNT?.addEventListener('input', updateLoanBorrowPreview);
+    LOAN_BORROW_FORM.querySelectorAll('[data-loan-amount]').forEach(button => {
+        button.addEventListener('click', () => {
+            if (!LOAN_BORROW_AMOUNT) return;
+            const available = loanState ? loanState.available : 0;
+            const raw = button.dataset.loanAmount;
+            const amount = raw === 'max' ? available : Math.min(Number(raw), available);
+            LOAN_BORROW_AMOUNT.value = amount > 0 ? String(amount) : '';
+            updateLoanBorrowPreview();
+            LOAN_BORROW_AMOUNT.focus();
+        });
+    });
+    LOAN_BORROW_FORM.addEventListener('submit', handleLoanBorrow);
+
+    LOAN_REPAY_ALL_BUTTON?.addEventListener('click', () => {
+        if (!LOAN_REPAY_AMOUNT || !loanState) return;
+        LOAN_REPAY_AMOUNT.value = String(maxLoanRepayable());
+        LOAN_REPAY_AMOUNT.focus();
+    });
+    LOAN_REPAY_FORM?.addEventListener('submit', handleLoanRepay);
+}
+
+/** いま返せる額 = 借金と手持ちのレートの小さい方 (レートがマイナスなら 0) */
+function maxLoanRepayable() {
+    if (!loanState) return 0;
+    return Math.max(0, Math.min(loanState.loan.debt, normalizeRate(loanState.score)));
+}
+
+/** 説明文の利率 (「5割」「×1.5」) を設定に合わせる */
+function renderLoanSettingsText(settings) {
+    if (LOAN_INTEREST_RATE_TEXT) LOAN_INTEREST_RATE_TEXT.textContent = formatLoanInterestRate(settings.interestRate);
+    if (LOAN_INTEREST_MULTIPLIER_TEXT) {
+        LOAN_INTEREST_MULTIPLIER_TEXT.textContent = String(Math.round((1 + settings.interestRate) * 100) / 100);
+    }
+}
+
+/** 借りたあと、明日 0:05 の利息が付いた時点の借金の見込み */
+function updateLoanBorrowPreview() {
+    if (!LOAN_BORROW_PREVIEW) return;
+    const amount = Math.round(parseFloat(LOAN_BORROW_AMOUNT?.value));
+    if (!Number.isFinite(amount) || amount < 1) {
+        LOAN_BORROW_PREVIEW.textContent = '—';
+        return;
+    }
+    const currentDebt = loanState ? normalizeRate(loanState.loan.debt) : 0;
+    LOAN_BORROW_PREVIEW.textContent = formatRate(loanDebtAfterDays(currentDebt + amount, currentLoanSettings().interestRate, 1));
+}
+
+/** 「9/30 00:05」。利息が付くのは日本時間の 0:05 なので、端末のタイムゾーンによらず JST で出す */
+function formatLoanDateTime(iso) {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+/** 「あと 8時間12分」。過ぎていれば空文字 */
+function formatRemaining(iso) {
+    const remainingMs = Date.parse(iso) - Date.now();
+    if (!Number.isFinite(remainingMs) || remainingMs <= 0) return '';
+    const totalMinutes = Math.ceil(remainingMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return hours > 0 ? `あと ${hours}時間${minutes}分` : `あと ${minutes}分`;
+}
+
+async function loadLoanStatus() {
+    if (!authenticatedUser) return;
+    try {
+        const data = await callLoanFunction('status');
+        renderLoanStatus(data);
+    } catch (error) {
+        console.error('貸し出し状態の取得に失敗:', error);
+        if (LOAN_RECENT_LIST) LOAN_RECENT_LIST.innerHTML = '<li>貸し出しの状態を読み込めませんでした。</li>';
+        if (LOAN_BREAKDOWN_TABLE) LOAN_BREAKDOWN_TABLE.innerHTML = '<tbody><tr><td>読み込めませんでした。</td></tr></tbody>';
+        showMessage(LOAN_MESSAGE, `❌ 貸し出しの状態を読み込めませんでした: ${error.message}`, 'error');
+    }
+}
+
+function renderLoanStatus(data) {
+    loanState = data;
+    const loan = data.loan || { debt: 0, principal: 0, recent: [] };
+    const settings = currentLoanSettings();
+    const debt = normalizeRate(loan.debt);
+    const available = Math.max(0, normalizeRate(data.available));
+
+    // 手元のレートも最新に揃える (借入・返済で動いているため)
+    if (Number.isFinite(Number(data.score))) {
+        authenticatedUser.score = normalizeRate(data.score);
+        CURRENT_SCORE_ELEMENT.textContent = formatRate(authenticatedUser.score);
+    }
+    updateCurrentDebtBadge(debt);
+    renderLoanSettingsText(settings);
+
+    if (LOAN_DEBT) {
+        LOAN_DEBT.textContent = debt > 0 ? formatRate(debt) : 'なし';
+        LOAN_DEBT.classList.toggle('is-debt', debt > 0);
+    }
+    if (LOAN_DEBT_NOTE) {
+        if (debt > 0) {
+            const interest = Math.max(0, debt - normalizeRate(loan.principal));
+            const remaining = formatRemaining(data.nextInterestAt);
+            LOAN_DEBT_NOTE.textContent = `元本 ${formatRate(loan.principal)} + 利息 ${formatRate(interest)}`
+                + ` / ${formatLoanDateTime(data.nextInterestAt)}${remaining ? ` (${remaining})` : ''} に ${formatRate(loanDebtAfterDays(debt, settings.interestRate, 1))} へ`;
+        } else {
+            LOAN_DEBT_NOTE.textContent = '';
+        }
+    }
+    if (LOAN_LIMIT) LOAN_LIMIT.textContent = formatRate(data.limit);
+    if (LOAN_AVAILABLE_NOTE) {
+        LOAN_AVAILABLE_NOTE.textContent = available > 0
+            ? `いま借りられる額: ${formatRate(available)}`
+            : (debt > 0 ? '枠を使い切っています (返済すると空きます)' : '枠がありません');
+    }
+
+    renderLoanBreakdown(data.breakdown || {});
+    renderLoanRecent(loan.recent || []);
+
+    // 借りるフォーム
+    if (LOAN_BORROW_AMOUNT) {
+        LOAN_BORROW_AMOUNT.max = String(Math.max(1, available));
+        LOAN_BORROW_AMOUNT.disabled = available < 1;
+        if (Number(LOAN_BORROW_AMOUNT.value) > available) LOAN_BORROW_AMOUNT.value = available > 0 ? String(available) : '';
+    }
+    if (LOAN_BORROW_BUTTON) LOAN_BORROW_BUTTON.disabled = available < 1;
+    LOAN_BORROW_FORM.querySelectorAll('[data-loan-amount]').forEach(button => {
+        const raw = button.dataset.loanAmount;
+        button.disabled = available < 1 || (raw !== 'max' && Number(raw) > available);
+    });
+    updateLoanBorrowPreview();
+
+    // 返すフォーム (借金があるときだけ出す)
+    const repayable = maxLoanRepayable();
+    if (LOAN_REPAY_FORM) LOAN_REPAY_FORM.classList.toggle('hidden', debt <= 0);
+    if (LOAN_REPAY_AMOUNT) {
+        LOAN_REPAY_AMOUNT.max = String(Math.max(1, repayable));
+        LOAN_REPAY_AMOUNT.disabled = repayable < 1;
+        if (!LOAN_REPAY_AMOUNT.value || Number(LOAN_REPAY_AMOUNT.value) > repayable) {
+            LOAN_REPAY_AMOUNT.value = repayable > 0 ? String(repayable) : '';
+        }
+    }
+    if (LOAN_REPAY_BUTTON) LOAN_REPAY_BUTTON.disabled = repayable < 1;
+    if (LOAN_REPAY_ALL_BUTTON) LOAN_REPAY_ALL_BUTTON.disabled = repayable < 1;
+}
+
+function renderLoanBreakdown(breakdown) {
+    if (!LOAN_BREAKDOWN_TABLE) return;
+    const trust = normalizeRate(breakdown.trust);
+    const interestWeight = toFiniteNumber(breakdown.interestWeight, 0.5);
+    const trustDivisor = toFiniteNumber(breakdown.trustDivisor, 2);
+    const stabilityPercent = Math.round(toFiniteNumber(breakdown.stability, 1) * 100);
+    const stabilityMinPercent = Math.round(toFiniteNumber(breakdown.stabilityMin, 0.2) * 100);
+    const debt = loanState ? normalizeRate(loanState.loan?.debt) : 0;
+    const rows = [
+        ['基本枠', formatRate(breakdown.base), '実績が無くても借りられる額'],
+        ['返した元本', `+${formatRate(breakdown.repaidPrincipal)}`, 'これまでに返した借金のうち元本ぶん (利息は含まない)'],
+        ['付いた利息', `−${formatRate(normalizeRate(toFiniteNumber(breakdown.interestTotal, 0) * interestWeight))}`, `これまでに付いた利息 ${formatRate(breakdown.interestTotal)} × ${interestWeight}。返すのが遅いほど枠が減る`],
+        ['実績枠', formatRate(breakdown.historyLimit), `基本枠 ${trust >= 0 ? '+' : '−'} ${formatRate(Math.abs(trust))} ÷ ${trustDivisor}`],
+        ['変動の大きさ', formatRate(breakdown.volatility), `直近${breakdown.volatilityDays || 14}日の1日の増減の標準偏差 (日次補正と借金の出入りは除く)`],
+        ['安定度', `× ${stabilityPercent}%`, `変動が大きいほど下がる (${formatRate(breakdown.volatilityScale || 300)} で半分、下限 ${stabilityMinPercent}%)`],
+        ['信用枠', formatRate(loanState ? loanState.limit : 0), `実績枠 × 安定度 (${formatRate(breakdown.min)}〜${formatRate(breakdown.max)})`],
+        ['借入可能', formatRate(loanState ? loanState.available : 0), `信用枠 − いまの借金 ${formatRate(debt)}`]
+    ];
+    LOAN_BREAKDOWN_TABLE.innerHTML = `<tbody>${rows.map(([label, value, note]) => `
+        <tr>
+            <th scope="row">${manabaEscapeHtml(label)}</th>
+            <td class="loan-breakdown-value">${manabaEscapeHtml(value)}</td>
+            <td class="loan-breakdown-note">${manabaEscapeHtml(note)}</td>
+        </tr>`).join('')}</tbody>`;
+}
+
+function describeLoanRecent(entry) {
+    const amount = formatRate(entry.amount);
+    const debtAfter = normalizeRate(entry.debtAfter);
+    if (entry.type === 'borrow') return `借入 ${amount} (借金 ${formatRate(debtAfter)})`;
+    if (entry.type === 'repay') return `返済 ${amount}${debtAfter > 0 ? ` (残り ${formatRate(debtAfter)})` : ' (完済)'}`;
+    if (entry.type === 'interest') return `利息 +${amount} (借金 ${formatRate(debtAfter)})`;
+    return amount;
+}
+
+function renderLoanRecent(recent) {
+    if (!LOAN_RECENT_LIST) return;
+    if (!recent.length) {
+        LOAN_RECENT_LIST.innerHTML = '<li>まだ借りたことはありません。</li>';
+        return;
+    }
+    LOAN_RECENT_LIST.innerHTML = recent.map(entry => `
+        <li class="loan-recent-${manabaEscapeHtml(entry.type || '')}">
+            <span class="loan-recent-time">${manabaEscapeHtml(formatLoanDateTime(entry.at))}</span>
+            <span>${manabaEscapeHtml(describeLoanRecent(entry))}</span>
+        </li>`).join('');
+}
+
+async function afterLoanChange(data) {
+    invalidateFetchCache();
+    renderLoanStatus(data);
+    try {
+        latestAllData = await fetchAllData();
+    } catch (error) {
+        console.warn('一覧の再取得に失敗しました:', error);
+    }
+}
+
+async function handleLoanBorrow(e) {
+    e.preventDefault();
+    if (!authenticatedUser) {
+        showMessage(LOAN_MESSAGE, '❌ 認証エラーが発生しました。', 'error');
+        return;
+    }
+    const amount = Math.round(parseFloat(LOAN_BORROW_AMOUNT.value));
+    if (!Number.isFinite(amount) || amount < 1) {
+        showMessage(LOAN_MESSAGE, '❌ 借りる額は1以上の整数で入力してください。', 'error');
+        return;
+    }
+    const settings = currentLoanSettings();
+    const currentDebt = loanState ? normalizeRate(loanState.loan.debt) : 0;
+    const tomorrow = loanDebtAfterDays(currentDebt + amount, settings.interestRate, 1);
+    if (!window.confirm(`レート ${formatRate(amount)} を借ります。借金は ${formatRate(currentDebt + amount)} になり、今日中に返さなければ明日 0:05 に ${formatRate(tomorrow)} (×${Math.round((1 + settings.interestRate) * 100) / 100}) へ増えます。よろしいですか？`)) {
+        return;
+    }
+
+    LOAN_BORROW_BUTTON.disabled = true;
+    LOAN_BORROW_BUTTON.setAttribute('aria-busy', 'true');
+    showMessage(LOAN_MESSAGE, '借入を処理中...', 'info');
+    try {
+        const data = await callLoanFunction('borrow', { amount });
+        LOAN_BORROW_AMOUNT.value = '';
+        await afterLoanChange(data);
+        showMessage(LOAN_MESSAGE, `✅ レート ${formatRate(data.amount)} を借りました。借金は ${formatRate(data.loan?.debt)} です。${formatLoanDateTime(data.nextInterestAt)} までに返さなければ利息が付きます。`, 'success');
+    } catch (error) {
+        console.error('借入中にエラー:', error);
+        showMessage(LOAN_MESSAGE, `❌ ${error.message}`, 'error');
+        await loadLoanStatus();
+    } finally {
+        LOAN_BORROW_BUTTON.removeAttribute('aria-busy');
+        if (loanState) LOAN_BORROW_BUTTON.disabled = normalizeRate(loanState.available) < 1;
+    }
+}
+
+async function handleLoanRepay(e) {
+    e.preventDefault();
+    if (!authenticatedUser) {
+        showMessage(LOAN_MESSAGE, '❌ 認証エラーが発生しました。', 'error');
+        return;
+    }
+    const amount = Math.round(parseFloat(LOAN_REPAY_AMOUNT.value));
+    if (!Number.isFinite(amount) || amount < 1) {
+        showMessage(LOAN_MESSAGE, '❌ 返す額は1以上の整数で入力してください。', 'error');
+        return;
+    }
+
+    LOAN_REPAY_BUTTON.disabled = true;
+    LOAN_REPAY_BUTTON.setAttribute('aria-busy', 'true');
+    showMessage(LOAN_MESSAGE, '返済を処理中...', 'info');
+    try {
+        const data = await callLoanFunction('repay', { amount });
+        await afterLoanChange(data);
+        const remaining = normalizeRate(data.loan?.debt);
+        showMessage(LOAN_MESSAGE, remaining > 0
+            ? `✅ レート ${formatRate(data.amount)} を返しました。残りの借金は ${formatRate(remaining)} です。`
+            : `✅ レート ${formatRate(data.amount)} を返して完済しました。`, 'success');
+    } catch (error) {
+        console.error('返済中にエラー:', error);
+        showMessage(LOAN_MESSAGE, `❌ ${error.message}`, 'error');
+        await loadLoanStatus();
+    } finally {
+        LOAN_REPAY_BUTTON.removeAttribute('aria-busy');
+        if (loanState) LOAN_REPAY_BUTTON.disabled = maxLoanRepayable() < 1;
+    }
+}
 
 // --- 目標継続フォームの表示制御 ---
 function controlTargetContinueFormDisplay() {

@@ -30,6 +30,40 @@ const RATE_BONUS_SPECIAL_PERCENT = 1;        // 特別ボーナスの発生確�
 const RATE_CHART_COLLECTION = 'rate_chart';  // レート推移グラフ用 (日別の終値)
 const RATE_CHART_DOC = 'daily';
 const RATE_CHART_DAYS = 30;                 // グラフに出す日数
+// レートの貸し出し (借金)。ルールと計算は functions/loan.js にあり、画面はサーバーの返事を表示するだけ。
+// 記録 (loans/{player}) は誰でも読めるが、書くのは Cloud Functions だけ
+const LOAN_COLLECTION = 'loans';
+// settings/app のキー名 → 既定値。functions/loan.js の LOAN_SETTING_DEFAULTS と同じにしておくこと
+const LOAN_SETTING_DEFAULTS = {
+    loan_interest_rate: 0.5,       // 1日の利率 (0.5 = 5割)
+    loan_base_limit: 100,          // 実績が無くても借りられる額
+    loan_min_limit: 10,            // 枠の下限
+    loan_max_limit: 3000,          // 枠の上限
+    loan_trust_divisor: 2,         // 信用ポイント ÷ この値 が基本枠に足される
+    loan_interest_weight: 0.5,     // 付いた利息 × この値 を信用ポイントから引く
+    loan_volatility_scale: 300,    // 1日の変動の標準偏差がこの値のとき枠は半分
+    loan_stability_min: 0.2,       // 安定度の下限
+    loan_volatility_days: 14       // 変動の大きさを見る日数
+};
+
+/** settings/app の loan_* を、サーバー (functions/loan.js の loanSettingsFrom) と同じ形と丸めで取り出す */
+function normalizeLoanSettings(settings) {
+    const source = settings && typeof settings === 'object' ? settings : {};
+    const d = LOAN_SETTING_DEFAULTS;
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const minLimit = Math.max(0, normalizeRate(toFiniteNumber(source.loan_min_limit, d.loan_min_limit)));
+    return {
+        interestRate: clamp(toFiniteNumber(source.loan_interest_rate, d.loan_interest_rate), 0, 10),
+        baseLimit: Math.max(0, normalizeRate(toFiniteNumber(source.loan_base_limit, d.loan_base_limit))),
+        minLimit,
+        maxLimit: Math.max(minLimit, normalizeRate(toFiniteNumber(source.loan_max_limit, d.loan_max_limit))),
+        trustDivisor: Math.max(0.01, toFiniteNumber(source.loan_trust_divisor, d.loan_trust_divisor)),
+        interestWeight: Math.max(0, toFiniteNumber(source.loan_interest_weight, d.loan_interest_weight)),
+        volatilityScale: Math.max(1, toFiniteNumber(source.loan_volatility_scale, d.loan_volatility_scale)),
+        stabilityMin: clamp(toFiniteNumber(source.loan_stability_min, d.loan_stability_min), 0, 1),
+        volatilityDays: clamp(Math.round(toFiniteNumber(source.loan_volatility_days, d.loan_volatility_days)), 1, 60)
+    };
+}
 
 function isMahjongCpu(name) {
     return name === MAHJONG_CPU_NAME;
@@ -270,8 +304,37 @@ function createEmptyData() {
         rate_reversion_last_date: '',
         rate_reversion_last_run_at: '',
         rate_reversion_last_total: 0,
-        attendance_allowed_users: []
+        attendance_allowed_users: [],
+        loans: [],
+        loan_settings: normalizeLoanSettings({})
     };
+}
+
+/** 貸し出し記録 (loans) の1件。画面で使う項目だけ整える */
+function normalizeLoanRecord(record) {
+    const source = record && typeof record === 'object' ? record : {};
+    const debt = Math.max(0, normalizeRate(source.debt));
+    return {
+        player: String(source.player || ''),
+        debt,
+        principal: debt > 0 ? Math.max(0, normalizeRate(source.principal)) : 0,
+        borrowedAt: debt > 0 && source.borrowedAt ? String(source.borrowedAt) : null,
+        repaidTotal: Math.max(0, normalizeRate(source.repaidTotal)),
+        repaidPrincipal: Math.max(0, normalizeRate(source.repaidPrincipal)),
+        interestTotal: Math.max(0, normalizeRate(source.interestTotal)),
+        loanCount: Math.max(0, normalizeRate(source.loanCount)),
+        recent: Array.isArray(source.recent) ? source.recent : []
+    };
+}
+
+/** 名前 → いまの借金 (利息込み)。借金が無い人は入っていない */
+function buildDebtMap(loans) {
+    const debts = new Map();
+    (loans || []).forEach(loan => {
+        const record = normalizeLoanRecord(loan);
+        if (record.player && record.debt > 0) debts.set(record.player, record.debt);
+    });
+    return debts;
 }
 
 function normalizeFetchedRecord(record) {
@@ -284,6 +347,12 @@ function normalizeFetchedRecord(record) {
         accumulatedProbability: toFiniteNumber(player.accumulatedProbability, 0),
         dailyPressCount: Math.max(0, Math.floor(toFiniteNumber(player.dailyPressCount, 0)))
     }));
+    normalized.loans = Array.isArray(normalized.loans)
+        ? normalized.loans.map(normalizeLoanRecord).filter(loan => loan.player)
+        : [];
+    if (!normalized.loan_settings || typeof normalized.loan_settings !== 'object') {
+        normalized.loan_settings = normalizeLoanSettings({});
+    }
     normalized.rate_baseline = normalizeRate(normalized.rate_baseline ?? RATE_BASELINE_DEFAULT);
     normalized.rate_reversion_rate = normalizeReversionRate(normalized.rate_reversion_rate);
     normalized.rate_reversion_flat = Math.max(0, Math.round(toFiniteNumber(normalized.rate_reversion_flat, RATE_REVERSION_FLAT_DEFAULT)));
@@ -391,12 +460,6 @@ function buildRateHistoryEntries(beforeScores, afterScores, meta = {}) {
             actor,
             createdAt: at
         }];
-    });
-}
-
-function addRateHistoryEntriesToBatch(db, batch, entries) {
-    (entries || []).forEach(entry => {
-        batch.set(db.collection('point_history').doc(entry.id), entry);
     });
 }
 
@@ -673,6 +736,21 @@ async function fetchOptionalCollection(db, key) {
     }
 }
 
+/**
+ * 貸し出し記録 (loans)。ランキングとグラフの借金表示に使う。
+ * 読めなくても本体の表示は止めない。FIREBASE_COLLECTIONS には入れない
+ * (updateAllData が丸ごと上書きする対象にしないため。書くのは Cloud Functions だけ)
+ */
+async function fetchLoansQuietly(db) {
+    try {
+        const snapshot = await db.collection(LOAN_COLLECTION).get();
+        return snapshot.docs.map(doc => doc.data());
+    } catch (error) {
+        console.warn('loans の取得に失敗しました。借金なしとして続行します。', error);
+        return [];
+    }
+}
+
 async function fetchAllDataFromFirebase() {
     const db = getFirestoreDb();
     if (!db) return createEmptyData();
@@ -685,6 +763,7 @@ async function fetchAllDataFromFirebase() {
         giftCodes,
         careerPosts,
         settingsDoc,
+        loans,
     ] = await Promise.all([
         fetchCollection(db, 'scores'),
         fetchCollection(db, 'sports_bets'),
@@ -693,6 +772,7 @@ async function fetchAllDataFromFirebase() {
         fetchCollection(db, 'gift_codes'),
         fetchCollection(db, 'career_posts'),
         db.collection('settings').doc('app').get(),
+        fetchLoansQuietly(db),
     ]);
 
     const settings = settingsDoc.exists ? settingsDoc.data() : {};
@@ -703,13 +783,15 @@ async function fetchAllDataFromFirebase() {
         lotteries,
         gift_codes: giftCodes,
         career_posts: careerPosts,
+        loans,
         rate_baseline: settings.rate_baseline ?? RATE_BASELINE_DEFAULT,
         rate_reversion_rate: settings.rate_reversion_rate ?? RATE_REVERSION_RATE_DEFAULT,
         rate_reversion_flat: settings.rate_reversion_flat ?? RATE_REVERSION_FLAT_DEFAULT,
         rate_reversion_last_date: settings.rate_reversion_last_date ?? '',
         rate_reversion_last_run_at: settings.rate_reversion_last_run_at ?? '',
         rate_reversion_last_total: settings.rate_reversion_last_total ?? 0,
-        attendance_allowed_users: settings.attendance_allowed_users ?? []
+        attendance_allowed_users: settings.attendance_allowed_users ?? [],
+        loan_settings: normalizeLoanSettings(settings)
     });
 
     // 読み込んだ時点のレート。保存時に updateAllData (Cloud Function) がこの値との差だけを
@@ -802,6 +884,9 @@ async function updateAllDataInFirebase(newData) {
             newData?.rate_history_meta || {}
         );
         delete mergedData.rate_history_meta;
+        // 借金の記録は Cloud Functions だけが書く。読み込んだ写しを送り返さない (設定も別に保存する)
+        delete mergedData.loans;
+        delete mergedData.loan_settings;
 
         const functionResult = await updateAllDataViaFunction(mergedData, pointHistoryEntries);
         // サーバー側で他の変化と合成した値が正なので、手元の結果はキャッシュせず次回取り直す
@@ -883,9 +968,10 @@ async function saveRateReversionSettings({ baseline, rate, flat }) {
 }
 
 /**
- * 1日1回、全員のレートを基準へ近づける。
- * 上がりすぎた人は下げ、下がりすぎた人は上げるので、遊ばなければ約30日で
- * 全員 5000 に揃う。ログイン時に当日ぶんが未実行なら実行する。
+ * 1日1回、全員のレートを基準へ近づけ、残っている借金に利息を付ける。
+ * 本線は毎日 0:05 の Cloud Scheduler (collectDailyPointTax)。ここはログイン時に当日ぶんが
+ * まだなら Cloud Function (runDailyRateReversion) に頼む保険で、計算はすべてサーバー側にある
+ * (補正と借金の利息を同じ1回の処理にまとめておくため、画面側では計算しない)。
  */
 async function runDailyRateReversionIfNeeded() {
     const todayKey = getJstDateKey();
@@ -900,78 +986,123 @@ async function runDailyRateReversionIfNeeded() {
     const db = getFirestoreDb();
     if (!db) return { status: 'skipped', message: 'Firebase が設定されていません。' };
 
-    const currentData = normalizeFetchedRecord(await fetchAllDataFromFirebase());
-
-    if (currentData.rate_reversion_last_date === todayKey) {
+    // 実行済みかどうかは settings を1件読むだけで分かる
+    const settingsDoc = await db.collection('settings').doc('app').get();
+    const settings = settingsDoc.exists ? settingsDoc.data() : {};
+    if (String(settings.rate_reversion_last_date || '') === todayKey) {
         _rateReversionCheckedDate = todayKey;
         return { status: 'skipped', message: '本日分のレート補正は完了済みです。' };
     }
 
-    const baseline = currentData.rate_baseline;
-    const reversionRate = currentData.rate_reversion_rate;
-    const reversionFlat = currentData.rate_reversion_flat;
+    const token = await getFirebaseIdToken();
+    if (!token) return { status: 'skipped', message: 'Firebase認証が必要です。' };
 
-    let totalMoved = 0;
-    const changedNames = new Set();
-    const updatedScores = currentData.scores.map(player => {
-        if (RATE_EXCLUDED_PLAYERS.includes(player.name)) return player;
-        const delta = getRateReversionDelta(player.score, baseline, reversionRate, reversionFlat);
-        if (delta === 0) return player;
-        totalMoved += Math.abs(delta);
-        changedNames.add(player.name);
-        return { ...player, score: normalizeRate(player.score + delta) };
+    const response = await fetch(`${getFunctionsBaseUrl()}/runDailyRateReversion`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({})
     });
-
-    if (changedNames.size === 0) {
-        const nowIso = new Date().toISOString();
-        await db.collection('settings').doc('app').set({
-            rate_reversion_last_date: todayKey,
-            rate_reversion_last_run_at: nowIso,
-            rate_reversion_last_total: 0,
-            updatedAt: nowIso
-        }, { merge: true });
-        _rateReversionCheckedDate = todayKey;
-        invalidateFetchCache();
-        return { status: 'success', message: '補正が必要なプレイヤーはいませんでした。', date: todayKey, totalMoved: 0 };
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.status !== 'success') {
+        throw new Error(result.message || `Cloud Function Error ${response.status}`);
     }
 
-    const batch = db.batch();
-    updatedScores.forEach(player => {
-        if (!changedNames.has(player.name)) return;
-        const payload = { ...player };
-        delete payload._docId;
-        delete payload._baseScore;
-        batch.set(db.collection(FIREBASE_COLLECTIONS.scores).doc(getItemDocId('scores', player, 0)), payload);
-    });
-    addRateHistoryEntriesToBatch(db, batch, buildRateHistoryEntries(currentData.scores, updatedScores, {
-        source: 'daily_rate_reversion',
-        reason: `日次レート補正 基準${baseline} / ${(reversionRate * 100).toFixed(1).replace(/\.0$/, '')}%`,
-        actor: 'system'
-    }));
-
-    const nowIso = new Date().toISOString();
-    batch.set(db.collection('settings').doc('app'), {
-        rate_baseline: baseline,
-        rate_reversion_rate: reversionRate,
-        rate_reversion_flat: reversionFlat,
-        rate_reversion_last_date: todayKey,
-        rate_reversion_last_run_at: nowIso,
-        rate_reversion_last_total: totalMoved,
-        updatedAt: nowIso
-    }, { merge: true });
-
-    await batch.commit();
     _rateReversionCheckedDate = todayKey;
     invalidateFetchCache();
-    await requestRateChartRebuild();
-
     return {
         status: 'success',
-        message: '日次レート補正を完了しました。',
+        message: result.applied ? '日次レート補正を完了しました。' : '本日分のレート補正は完了済みです。',
         date: todayKey,
-        rate: reversionRate,
-        totalMoved
+        applied: Boolean(result.applied),
+        totalMoved: toFiniteNumber(result.totalMoved, 0),
+        totalInterest: toFiniteNumber(result.totalInterest, 0)
     };
+}
+
+// -----------------------------------------------------------------
+// レートの貸し出し (借金)
+//   借りる・返す・状態の取得はすべて Cloud Function (loan) が行う。
+//   画面は返ってきた信用枠の内訳と借金を表示するだけ。
+// -----------------------------------------------------------------
+
+/**
+ * 貸し出しの Cloud Function を呼ぶ。action は status / borrow / repay。
+ * 失敗したらサーバーの文言で例外を投げる。
+ */
+async function callLoanFunction(action, payload = {}) {
+    const token = await getFirebaseIdToken();
+    if (!token) throw new Error('ログインが切れています。ログインし直してください。');
+    const response = await fetch(`${getFunctionsBaseUrl()}/loan`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ action, ...payload })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status !== 'success') {
+        throw new Error(data.message || `通信に失敗しました (${response.status})`);
+    }
+    return data;
+}
+
+/**
+ * 借金が days 日ぶん日付をまたいだあとの額。毎日 (1 + rate) 倍して四捨五入する (functions/loan.js と同じ丸め)
+ */
+function loanDebtAfterDays(debt, rate, days = 1) {
+    let amount = Math.max(0, normalizeRate(debt));
+    for (let i = 0; i < days; i++) {
+        amount += Math.max(0, normalizeRate(amount * rate));
+    }
+    return amount;
+}
+
+/** 利率の表示 (0.5 → 「5割」、0.25 → 「25%」) */
+function formatLoanInterestRate(rate) {
+    const percent = Math.round(toFiniteNumber(rate, 0) * 1000) / 10;
+    return percent % 10 === 0 && percent > 0 && percent <= 100 ? `${percent / 10}割` : `${percent}%`;
+}
+
+/** ランキング・マイページ共通の借金表示 (「借金 1,500」)。0 なら空文字 */
+function formatDebtLabel(debt) {
+    const amount = normalizeRate(debt);
+    return amount > 0 ? `借金 ${formatRate(amount)}` : '';
+}
+
+/** 管理画面から貸し出しの設定を保存する。値は normalizeLoanSettings と同じ丸めで settings/app に置く */
+async function saveLoanSettings(values) {
+    const db = getFirestoreDb();
+    if (!db) throw new Error('Firebase が設定されていません。');
+    const normalized = normalizeLoanSettings({
+        loan_interest_rate: values.interestRate,
+        loan_base_limit: values.baseLimit,
+        loan_min_limit: values.minLimit,
+        loan_max_limit: values.maxLimit,
+        loan_trust_divisor: values.trustDivisor,
+        loan_interest_weight: values.interestWeight,
+        loan_volatility_scale: values.volatilityScale,
+        loan_stability_min: values.stabilityMin,
+        loan_volatility_days: values.volatilityDays
+    });
+    const payload = {
+        loan_interest_rate: normalized.interestRate,
+        loan_base_limit: normalized.baseLimit,
+        loan_min_limit: normalized.minLimit,
+        loan_max_limit: normalized.maxLimit,
+        loan_trust_divisor: normalized.trustDivisor,
+        loan_interest_weight: normalized.interestWeight,
+        loan_volatility_scale: normalized.volatilityScale,
+        loan_stability_min: normalized.stabilityMin,
+        loan_volatility_days: normalized.volatilityDays,
+        updatedAt: new Date().toISOString()
+    };
+    await db.collection('settings').doc('app').set(payload, { merge: true });
+    invalidateFetchCache();
+    return normalized;
 }
 
 // -----------------------------------------------------------------
