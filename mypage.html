@@ -16,8 +16,8 @@
             document.documentElement.classList.add('auth-pending');
         }
     </script>
-    <link rel="stylesheet" href="assets/css/style.css?v=49.0">
-    <script src="assets/js/treasure-rain.js?v=49.0" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=49.1">
+    <script src="assets/js/treasure-rain.js?v=49.1" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="treasure">
@@ -105,7 +105,8 @@
                     利息は <strong>1日で<span id="loan-interest-rate-text">5割</span></strong>。借金が残ったまま日付をまたぐと、
                     毎日 0:05 の日次補正で残高が <strong>×<span id="loan-interest-multiplier-text">1.5</span></strong> になります (複利)。
                     当日中に返せば利息は付きません。自動では徴収されず、自分で返すまで残ります。<br>
-                    借りられる上限 (信用枠) は、返した元本で増え、付いた利息で減り、直近のレートの変動が大きいほど下がります。
+                    借りられる上限 (信用枠) は、日付をまたいでから返した元本で増え (当日中に借りて返した分は数えません)、
+                    付いた利息で減り、直近のレートの変動が大きいほど下がります。
                 </p>
                 <div class="loan-summary" aria-live="polite">
                     <div class="loan-stat">
@@ -131,16 +132,16 @@
                     <div class="form-group flex gap-10 items-end">
                         <div class="flex-1">
                             <label for="loan-borrow-amount">借りる額:</label>
-                            <input type="number" id="loan-borrow-amount" step="1" min="1" inputmode="numeric" placeholder="例: 100" required>
+                            <input type="number" id="loan-borrow-amount" step="1" min="1" inputmode="numeric" placeholder="例: 500" required>
                         </div>
                         <div class="loan-form-side">
                             <span class="text-small">明日0:05以降の借金: <strong id="loan-borrow-preview">—</strong></span>
                         </div>
                     </div>
                     <div class="loan-quick-amounts" role="group" aria-label="借りる額の候補">
-                        <button type="button" class="loan-quick-button" data-loan-amount="10">10</button>
-                        <button type="button" class="loan-quick-button" data-loan-amount="50">50</button>
                         <button type="button" class="loan-quick-button" data-loan-amount="100">100</button>
+                        <button type="button" class="loan-quick-button" data-loan-amount="500">500</button>
+                        <button type="button" class="loan-quick-button" data-loan-amount="1000">1000</button>
                         <button type="button" class="loan-quick-button" data-loan-amount="max">枠いっぱい</button>
                     </div>
                     <button type="submit" id="loan-borrow-button" class="action-button w-auto btn-gold">借りる</button>
@@ -151,7 +152,7 @@
                     <div class="form-group flex gap-10 items-end">
                         <div class="flex-1">
                             <label for="loan-repay-amount">返す額:</label>
-                            <input type="number" id="loan-repay-amount" step="1" min="1" inputmode="numeric" placeholder="例: 150" required>
+                            <input type="number" id="loan-repay-amount" step="1" min="1" inputmode="numeric" placeholder="例: 750" required>
                         </div>
                         <div class="loan-form-side">
                             <button type="button" id="loan-repay-all-button" class="loan-quick-button">全額</button>
@@ -265,7 +266,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=49.0"></script>
-    <script src="assets/js/mypage.js?v=49.0"></script>
+    <script src="assets/js/common.js?v=49.1"></script>
+    <script src="assets/js/mypage.js?v=49.1"></script>
 </body>
 </html>

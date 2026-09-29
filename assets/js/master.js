@@ -1394,9 +1394,10 @@ function fillLoanSettingsForm(settings) {
 
 function describeLoanSettings(settings, data) {
     const debts = buildDebtMap(data?.loans);
+    const withinLimits = value => Math.min(settings.maxLimit, Math.max(settings.minLimit, Math.round(value)));
     const debtors = Array.from(debts.entries()).map(([name, debt]) => `${name} ${formatRate(debt)}`);
-    return `利率 ${formatLoanInterestRate(settings.interestRate)}/日 (100 借りて3日放置すると ${formatRate(loanDebtAfterDays(100, settings.interestRate, 3))})。`
-        + ` 実績なしの枠は ${formatRate(settings.baseLimit)}、枠は ${formatRate(settings.minLimit)}〜${formatRate(settings.maxLimit)}。`
+    return `利率 ${formatLoanInterestRate(settings.interestRate)}/日 (1000 借りて3日放置すると ${formatRate(loanDebtAfterDays(1000, settings.interestRate, 3))})。`
+        + ` 実績なしの枠は ${formatRate(withinLimits(settings.baseLimit * settings.stabilityMin))}〜${formatRate(withinLimits(settings.baseLimit))} (変動の大きさで決まる)、枠は ${formatRate(settings.minLimit)}〜${formatRate(settings.maxLimit)}。`
         + ` いま借金がある人: ${debtors.length ? debtors.join(' / ') : 'なし'}`;
 }
 

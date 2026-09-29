@@ -36,13 +36,13 @@ const LOAN_COLLECTION = 'loans';
 // settings/app のキー名 → 既定値。functions/loan.js の LOAN_SETTING_DEFAULTS と同じにしておくこと
 const LOAN_SETTING_DEFAULTS = {
     loan_interest_rate: 0.5,       // 1日の利率 (0.5 = 5割)
-    loan_base_limit: 100,          // 実績が無くても借りられる額
-    loan_min_limit: 10,            // 枠の下限
+    loan_base_limit: 2000,         // 実績が無くても借りられる額 (変動が無いとき)
+    loan_min_limit: 100,           // 枠の下限
     loan_max_limit: 3000,          // 枠の上限
     loan_trust_divisor: 2,         // 信用ポイント ÷ この値 が基本枠に足される
     loan_interest_weight: 0.5,     // 付いた利息 × この値 を信用ポイントから引く
-    loan_volatility_scale: 300,    // 1日の変動の標準偏差がこの値のとき枠は半分
-    loan_stability_min: 0.2,       // 安定度の下限
+    loan_volatility_scale: 500,    // 1日の変動の標準偏差がこの値のとき枠は 2/3、2倍のとき半分
+    loan_stability_min: 0.25,      // 安定度の下限
     loan_volatility_days: 14       // 変動の大きさを見る日数
 };
 

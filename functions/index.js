@@ -462,10 +462,12 @@ async function applyDailyRateReversionForToday() {
       }
 
       // 2. 借金の利息。返すまで毎日、残っている借金を (1 + 利率) 倍にする (複利)。
-      //    レートは動かないが、グラフと履歴のために増減ログにも残す (delta 0、借金の前後つき)
+      //    レートは動かないが、グラフと履歴のために増減ログにも残す (delta 0、借金の前後つき)。
+      //    利息が 0 でも、残っている元本を「日付をまたいだ元本」にするため記録は必ず書く
       const owed = loansByPlayer.get(player.name);
       if (owed) {
         const accrued = applyInterest(owed.loan, loanSettings.interestRate, interestIso);
+        if (accrued) transaction.set(owed.ref, accrued.loan);
         if (accrued && accrued.added > 0) {
           totalInterest += accrued.added;
           const historyId = rateHistoryDocId(player.name, interestIso);
@@ -482,7 +484,6 @@ async function applyDailyRateReversionForToday() {
             actor: 'scheduled_function',
             createdAt: interestIso
           });
-          transaction.set(owed.ref, accrued.loan);
         }
       }
     });
@@ -1444,7 +1445,7 @@ export const runDailyRateReversion = onRequest({ region: 'asia-northeast1' }, as
 
 // -----------------------------------------------------------------
 // レートの貸し出し (借金)
-//   ルールは loan.js。誰でも借りられ、上限 (信用枠) は「返した元本」「付いた利息」「レートの変動の大きさ」で決まる。
+//   ルールは loan.js。誰でも借りられ、上限 (信用枠) は「日付をまたいでから返した元本」「付いた利息」「レートの変動の大きさ」で決まる。
 //   借りた額はそのままレートに足し (以後は通常のレートと同じ扱い)、同じ額を借金として記録する。
 //   利息は日付をまたぐたびに日次補正 (applyDailyRateReversionForToday) で付く。自動では徴収せず、自分で返すまで残る。
 //   数値 (利率・基本枠・上限など) は settings/app の loan_* で変えられる (管理画面)。

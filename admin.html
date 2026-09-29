@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#060d16">
     <title>マスター管理ページ</title>
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=49.0">
-    <script src="assets/js/treasure-rain.js?v=49.0" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=49.1">
+    <script src="assets/js/treasure-rain.js?v=49.1" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="jail">
@@ -265,7 +265,7 @@
                 <p class="instruction">
                     誰でもマイページからレートを借りられます。借金は日付をまたぐたびに (1 + 利率) 倍になり (複利)、
                     自動では徴収せず、自分で返すまで残ります。<br>
-                    信用枠 = (基本枠 + (返した元本 − 付いた利息 × 利息の重み) ÷ 実績の割る数) × 安定度<br>
+                    信用枠 = (基本枠 + (日付をまたいでから返した元本 − 付いた利息 × 利息の重み) ÷ 実績の割る数) × 安定度 (当日中に借りて返した分は実績に数えない)<br>
                     安定度 = 1 ÷ (1 + 直近N日の1日の増減の標準偏差 ÷ 変動の基準)。枠は下限〜上限に収め、借入可能 = 信用枠 − 借金
                 </p>
                 <p class="instruction" id="loan-settings-status">設定を読み込み中...</p>
@@ -332,7 +332,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=49.0"></script>
-    <script src="assets/js/master.js?v=49.0"></script>
+    <script src="assets/js/common.js?v=49.1"></script>
+    <script src="assets/js/master.js?v=49.1"></script>
 </body>
 </html>

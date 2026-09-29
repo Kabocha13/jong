@@ -475,15 +475,15 @@ function renderLoanBreakdown(breakdown) {
     const interestWeight = toFiniteNumber(breakdown.interestWeight, 0.5);
     const trustDivisor = toFiniteNumber(breakdown.trustDivisor, 2);
     const stabilityPercent = Math.round(toFiniteNumber(breakdown.stability, 1) * 100);
-    const stabilityMinPercent = Math.round(toFiniteNumber(breakdown.stabilityMin, 0.2) * 100);
+    const stabilityMinPercent = Math.round(toFiniteNumber(breakdown.stabilityMin, 0.25) * 100);
     const debt = loanState ? normalizeRate(loanState.loan?.debt) : 0;
     const rows = [
         ['基本枠', formatRate(breakdown.base), '実績が無くても借りられる額'],
-        ['返した元本', `+${formatRate(breakdown.repaidPrincipal)}`, 'これまでに返した借金のうち元本ぶん (利息は含まない)'],
+        ['返した元本', `+${formatRate(breakdown.repaidCarriedPrincipal)}`, '日付をまたいでから返した元本 (利息は含まない)。当日中に借りて返した分は数えない'],
         ['付いた利息', `−${formatRate(normalizeRate(toFiniteNumber(breakdown.interestTotal, 0) * interestWeight))}`, `これまでに付いた利息 ${formatRate(breakdown.interestTotal)} × ${interestWeight}。返すのが遅いほど枠が減る`],
         ['実績枠', formatRate(breakdown.historyLimit), `基本枠 ${trust >= 0 ? '+' : '−'} ${formatRate(Math.abs(trust))} ÷ ${trustDivisor}`],
         ['変動の大きさ', formatRate(breakdown.volatility), `直近${breakdown.volatilityDays || 14}日の1日の増減の標準偏差 (日次補正と借金の出入りは除く)`],
-        ['安定度', `× ${stabilityPercent}%`, `変動が大きいほど下がる (${formatRate(breakdown.volatilityScale || 300)} で半分、下限 ${stabilityMinPercent}%)`],
+        ['安定度', `× ${stabilityPercent}%`, `変動が大きいほど下がる (${formatRate(breakdown.volatilityScale || 500)} で 2/3、その2倍で半分、下限 ${stabilityMinPercent}%)`],
         ['信用枠', formatRate(loanState ? loanState.limit : 0), `実績枠 × 安定度 (${formatRate(breakdown.min)}〜${formatRate(breakdown.max)})`],
         ['借入可能', formatRate(loanState ? loanState.available : 0), `信用枠 − いまの借金 ${formatRate(debt)}`]
     ];
