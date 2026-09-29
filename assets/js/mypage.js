@@ -482,7 +482,7 @@ function renderLoanBreakdown(breakdown) {
         ['返した元本', `+${formatRate(breakdown.repaidCarriedPrincipal)}`, '日付をまたいでから返した元本 (利息は含まない)。当日中に借りて返した分は数えない'],
         ['付いた利息', `−${formatRate(normalizeRate(toFiniteNumber(breakdown.interestTotal, 0) * interestWeight))}`, `これまでに付いた利息 ${formatRate(breakdown.interestTotal)} × ${interestWeight}。返すのが遅いほど枠が減る`],
         ['実績枠', formatRate(breakdown.historyLimit), `基本枠 ${trust >= 0 ? '+' : '−'} ${formatRate(Math.abs(trust))} ÷ ${trustDivisor}`],
-        ['変動の大きさ', formatRate(breakdown.volatility), `直近${breakdown.volatilityDays || 14}日の1日の増減の標準偏差 (日次補正と借金の出入りは除く)`],
+        ['変動の大きさ', formatRate(breakdown.volatility), `直近${breakdown.volatilityDays || 14}日の1日の増減の標準偏差 (日次補正・参加ボーナス・借金の出入りは除く)`],
         ['安定度', `× ${stabilityPercent}%`, `変動が大きいほど下がる (${formatRate(breakdown.volatilityScale || 500)} で 2/3、その2倍で半分、下限 ${stabilityMinPercent}%)`],
         ['信用枠', formatRate(loanState ? loanState.limit : 0), `実績枠 × 安定度 (${formatRate(breakdown.min)}〜${formatRate(breakdown.max)})`],
         ['借入可能', formatRate(loanState ? loanState.available : 0), `信用枠 − いまの借金 ${formatRate(debt)}`]

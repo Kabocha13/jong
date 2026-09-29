@@ -22,6 +22,15 @@ import {
   volatilityOf
 } from './loan.js';
 import {
+  PARTICIPATION_BONUS_SOURCE,
+  ParticipationBonusError,
+  buildParticipationGrants,
+  jstDayRange,
+  normalizeBonusUnits,
+  participationBonusReason,
+  tallyParticipation
+} from './participation-bonus.js';
+import {
   HoldemTableError,
   createHoldemContext,
   emptyHoldemTable,
@@ -1440,6 +1449,133 @@ export const runDailyRateReversion = onRequest({ region: 'asia-northeast1' }, as
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 'error', message: `日次レート補正に失敗しました: ${error.message}` });
+  }
+});
+
+// -----------------------------------------------------------------
+// 参加ボーナス
+//   指定した日 (JST) に麻雀・カジノに参加した回数に応じてレートを配る。数え方は participation-bonus.js。
+//   管理者 (admin クレーム) だけが呼べる。preview は数えるだけ、grant で配る。
+//   同じ日には1回しか配れない (bonus_runs/participation_{日付} に配った内容を残す。rules に無いので画面からは読み書きできない)
+// -----------------------------------------------------------------
+const BONUS_RUN_COLLECTION = 'bonus_runs';
+
+function participationBonusRunRef(dateKey) {
+  return db.collection(BONUS_RUN_COLLECTION).doc(`participation_${dateKey}`);
+}
+
+/** その日の増減ログを読んで、人ごとの参加回数を数える */
+async function participationCountsOn(dateKey) {
+  const { start, end } = jstDayRange(dateKey);
+  const snapshot = await db.collection('point_history')
+    .where('createdAt', '>=', start)
+    .where('createdAt', '<', end)
+    .get();
+  const entries = snapshot.docs.map(doc => doc.data());
+  return tallyParticipation(entries, RATE_EXCLUDED_PLAYERS);
+}
+
+async function previewParticipationBonus(dateKey, units) {
+  const [counts, playersSnapshot, runDoc] = await Promise.all([
+    participationCountsOn(dateKey),
+    db.collection('players').get(),
+    participationBonusRunRef(dateKey).get()
+  ]);
+  const knownPlayers = new Set(playersSnapshot.docs.map(doc => doc.data().name));
+  const grants = buildParticipationGrants(counts, units, knownPlayers);
+  return {
+    date: dateKey,
+    ...units,
+    grants,
+    total: grants.reduce((sum, grant) => sum + grant.bonus, 0),
+    alreadyGranted: runDoc.exists ? runDoc.data() : null
+  };
+}
+
+async function grantParticipationBonus(dateKey, units, actor) {
+  const counts = await participationCountsOn(dateKey);
+  const runRef = participationBonusRunRef(dateKey);
+  const result = await db.runTransaction(async transaction => {
+    const [runDoc, playersSnapshot] = await Promise.all([
+      transaction.get(runRef),
+      transaction.get(db.collection('players'))
+    ]);
+    if (runDoc.exists) {
+      const run = runDoc.data();
+      throw new ParticipationBonusError(409, `${dateKey} の参加ボーナスは配布済みです (${run.grantedAt} / 合計 ${run.total})。`);
+    }
+    const playerDocs = new Map(playersSnapshot.docs.map(doc => [doc.data().name, doc]));
+    const grants = buildParticipationGrants(counts, units, new Set(playerDocs.keys()));
+    if (grants.length === 0) {
+      throw new ParticipationBonusError(409, `${dateKey} に麻雀・カジノに参加した人がいません。`);
+    }
+
+    const at = new Date().toISOString();
+    const applied = grants.map(grant => {
+      const playerDoc = playerDocs.get(grant.player);
+      const beforeScore = normalizeRate(playerDoc.data().score);
+      const afterScore = beforeScore + grant.bonus;
+      transaction.update(playerDoc.ref, { score: afterScore });
+      const historyId = rateHistoryDocId(grant.player, at);
+      transaction.set(db.collection('point_history').doc(historyId), {
+        id: historyId,
+        player: grant.player,
+        beforeScore,
+        afterScore,
+        delta: grant.bonus,
+        source: PARTICIPATION_BONUS_SOURCE,
+        reason: participationBonusReason(dateKey, grant),
+        actor,
+        createdAt: at
+      });
+      return { ...grant, beforeScore, afterScore };
+    });
+    const total = applied.reduce((sum, grant) => sum + grant.bonus, 0);
+    transaction.set(runRef, { date: dateKey, ...units, grants: applied, total, grantedBy: actor, grantedAt: at });
+    return { date: dateKey, ...units, grants: applied, total, grantedAt: at };
+  });
+  await rebuildRateChartQuietly(PARTICIPATION_BONUS_SOURCE);
+  return result;
+}
+
+export const participationBonus = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const decoded = await getVerifiedAuthToken(req);
+    if (!decoded || decoded.admin !== true) {
+      res.status(403).json({ status: 'error', message: '管理者としてログインしてください。' });
+      return;
+    }
+    const body = req.body || {};
+    const dateKey = String(body.date || getJstDateKey());
+    jstDayRange(dateKey);
+    const units = normalizeBonusUnits(body);
+    const action = String(body.action || 'preview');
+    let payload;
+    if (action === 'preview') {
+      payload = await previewParticipationBonus(dateKey, units);
+    } else if (action === 'grant') {
+      payload = await grantParticipationBonus(dateKey, units, String(decoded.username || 'admin'));
+    } else {
+      throw new ParticipationBonusError(400, '不明な操作です。');
+    }
+    res.status(200).json({ status: 'success', ...payload });
+  } catch (error) {
+    if (error instanceof ParticipationBonusError) {
+      res.status(error.status).json({ status: 'error', message: error.message });
+      return;
+    }
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `参加ボーナスの処理に失敗しました: ${error.message}` });
   }
 });
 

@@ -1278,6 +1278,128 @@ if (document.getElementById('adjustment-form')) {
     });
 }
 
+// --- 参加ボーナス配布 ---
+// 指定した日に麻雀・カジノに参加した回数に応じてレートを配る。
+// 数えるのも配るのも Cloud Function (participationBonus) で、画面はプレビューと確認だけ。
+const PARTICIPATION_BONUS_FORM = document.getElementById('participation-bonus-form');
+const PARTICIPATION_BONUS_DATE = document.getElementById('participation-bonus-date');
+const PARTICIPATION_BONUS_MAHJONG = document.getElementById('participation-bonus-mahjong');
+const PARTICIPATION_BONUS_CASINO = document.getElementById('participation-bonus-casino');
+const PARTICIPATION_BONUS_PREVIEW = document.getElementById('participation-bonus-preview');
+const PARTICIPATION_BONUS_GRANT_BUTTON = document.getElementById('participation-bonus-grant-button');
+const PARTICIPATION_BONUS_MESSAGE = document.getElementById('participation-bonus-message');
+let participationBonusPreview = null;   // 最後にプレビューした内容。配布はこの内容で行う
+
+async function callParticipationBonus(action, { date, perMahjong, perCasino }) {
+    const token = await getFirebaseIdToken();
+    if (!token) throw new Error('Firebaseログインが必要です。');
+    const response = await fetch(`${getFunctionsBaseUrl()}/participationBonus`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ action, date, perMahjong, perCasino })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.status !== 'success') {
+        throw new Error(result.message || `Cloud Function Error ${response.status}`);
+    }
+    return result;
+}
+
+function renderParticipationBonusTable(grants, total, { showScores = false } = {}) {
+    if (!PARTICIPATION_BONUS_PREVIEW) return;
+    if (!grants.length) {
+        PARTICIPATION_BONUS_PREVIEW.innerHTML = '<p class="instruction">この日に麻雀・カジノに参加した人はいません。</p>';
+        return;
+    }
+    const rows = grants.map(grant => `
+        <tr>
+            <td>${escapeAdminText(grant.player)}</td>
+            <td>${formatRate(grant.mahjong)}局</td>
+            <td>${formatRate(grant.casino)}回</td>
+            <td>+${formatRate(grant.bonus)}</td>
+            ${showScores ? `<td>${formatRate(grant.beforeScore)} → ${formatRate(grant.afterScore)}</td>` : ''}
+        </tr>`).join('');
+    PARTICIPATION_BONUS_PREVIEW.innerHTML = `
+        <table class="career-table">
+            <thead><tr><th>プレイヤー</th><th>麻雀</th><th>カジノ</th><th>ボーナス</th>${showScores ? '<th>レート</th>' : ''}</tr></thead>
+            <tbody>${rows}
+                <tr><td>合計</td><td></td><td></td><td>+${formatRate(total)}</td>${showScores ? '<td></td>' : ''}</tr>
+            </tbody>
+        </table>`;
+}
+
+function readParticipationBonusForm() {
+    return {
+        date: PARTICIPATION_BONUS_DATE?.value || getJstDateKey(),
+        perMahjong: Math.round(parseFloat(PARTICIPATION_BONUS_MAHJONG?.value)),
+        perCasino: Math.round(parseFloat(PARTICIPATION_BONUS_CASINO?.value))
+    };
+}
+
+function resetParticipationBonusPreview() {
+    participationBonusPreview = null;
+    if (PARTICIPATION_BONUS_GRANT_BUTTON) PARTICIPATION_BONUS_GRANT_BUTTON.disabled = true;
+}
+
+if (PARTICIPATION_BONUS_FORM) {
+    if (PARTICIPATION_BONUS_DATE && !PARTICIPATION_BONUS_DATE.value) PARTICIPATION_BONUS_DATE.value = getJstDateKey();
+    // 入力を変えたらプレビューし直すまで配れないようにする
+    [PARTICIPATION_BONUS_DATE, PARTICIPATION_BONUS_MAHJONG, PARTICIPATION_BONUS_CASINO].forEach(input => {
+        input?.addEventListener('input', resetParticipationBonusPreview);
+    });
+
+    PARTICIPATION_BONUS_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        resetParticipationBonusPreview();
+        const values = readParticipationBonusForm();
+        const submitButton = PARTICIPATION_BONUS_FORM.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        showMessage(PARTICIPATION_BONUS_MESSAGE, '参加回数を数えています...', 'info');
+        try {
+            const result = await callParticipationBonus('preview', values);
+            renderParticipationBonusTable(result.grants, result.total);
+            if (result.alreadyGranted) {
+                showMessage(PARTICIPATION_BONUS_MESSAGE, `⚠️ ${result.date} の参加ボーナスは配布済みです (合計 ${formatRate(result.alreadyGranted.total)})。`, 'error');
+                return;
+            }
+            if (!result.grants.length) {
+                showMessage(PARTICIPATION_BONUS_MESSAGE, `${result.date} は配る相手がいません。`, 'info');
+                return;
+            }
+            participationBonusPreview = { ...values, count: result.grants.length, total: result.total };
+            PARTICIPATION_BONUS_GRANT_BUTTON.disabled = false;
+            showMessage(PARTICIPATION_BONUS_MESSAGE, `${result.date}: ${result.grants.length}人に合計 ${formatRate(result.total)} を配ります。内容を確かめて「この内容で配布する」を押してください。`, 'info');
+        } catch (error) {
+            console.error(error);
+            PARTICIPATION_BONUS_PREVIEW.innerHTML = '';
+            showMessage(PARTICIPATION_BONUS_MESSAGE, `❌ ${error.message}`, 'error');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+
+    PARTICIPATION_BONUS_GRANT_BUTTON?.addEventListener('click', async () => {
+        const preview = participationBonusPreview;
+        if (!preview) return;
+        if (!confirm(`${preview.date} の参加ボーナスを ${preview.count}人に合計 ${formatRate(preview.total)} 配ります。\n同じ日には1回しか配れません。よろしいですか？`)) return;
+        resetParticipationBonusPreview();
+        showMessage(PARTICIPATION_BONUS_MESSAGE, '配布しています...', 'info');
+        try {
+            const result = await callParticipationBonus('grant', preview);
+            renderParticipationBonusTable(result.grants, result.total, { showScores: true });
+            showMessage(PARTICIPATION_BONUS_MESSAGE, `✅ ${result.date} の参加ボーナスを ${result.grants.length}人に合計 ${formatRate(result.total)} 配りました。`, 'success');
+            invalidateFetchCache();
+            loadPlayerList();
+        } catch (error) {
+            console.error(error);
+            showMessage(PARTICIPATION_BONUS_MESSAGE, `❌ ${error.message}`, 'error');
+        }
+    });
+}
+
 // --- 日次レート補正設定 ---
 // 毎日1回、全員のレートを基準へ近づける。上がりすぎた人は下げ、
 // 下がりすぎた人は上げるので、遊ばなければ約30日で全員が基準に揃う。
