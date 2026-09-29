@@ -7,6 +7,21 @@ import { BlackjackRuleError } from './blackjack.js';
 import { spinSlot } from './slot.js';
 import { HoldemRuleError } from './holdem.js';
 import {
+  LOAN_SOURCES,
+  LoanError,
+  applyBorrow,
+  applyInterest,
+  applyRepay,
+  computeLoanLimit,
+  dailyDeltasFromEntries,
+  loanSettingsFrom,
+  normalizeLoanRecord,
+  publicLoanRecord,
+  validateBorrowAmount,
+  validateRepayAmount,
+  volatilityOf
+} from './loan.js';
+import {
   HoldemTableError,
   createHoldemContext,
   emptyHoldemTable,
@@ -59,6 +74,8 @@ const RATE_BASELINE_DEFAULT = 3000;
 const RATE_REVERSION_RATE_DEFAULT = 0.13;
 const RATE_REVERSION_FLAT_DEFAULT = 10;
 const RATE_EXCLUDED_PLAYERS = new Set(['3mahjong']);
+// レートの貸し出し (借金)。ルールは loan.js。書き込みは Cloud Functions だけ (firestore.rules で write を禁止)
+const LOAN_COLLECTION = 'loans';
 const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
 const DEFAULT_MANABA_LOGIN_PATH = '/ct/login';
 const DEFAULT_MANABA_ASSIGNMENTS_PATH = '/ct/home_library_query';
@@ -204,6 +221,29 @@ function rateAtEndOfDay(entries, dateKey, currentRate) {
   return closing === null ? currentRate : closing;
 }
 
+/**
+ * その日の終わり時点の借金。借金の出入り (loan_*: 借入・返済・利息) の増減ログだけを見る。
+ *   - その日までに出入りがあれば、最後の出入りの debtAfter
+ *   - まだ無ければ、その後に来る最初の出入りの debtBefore
+ *   - 出入りが1件も無ければ今日なら現在値、過去の日なら 0
+ *     (借金が残っている日は必ず 0:05 に利息のログが付くので、期間内にログが無ければ借金も無い)
+ */
+function debtAtEndOfDay(entries, dateKey, currentDebt, isToday) {
+  let closing = null;
+  for (const entry of entries) {
+    if (entry.debtAfter === null) continue;
+    if (entry.date <= dateKey) {
+      closing = entry.debtAfter;
+    } else if (closing === null) {
+      return entry.debtBefore;
+    } else {
+      break;
+    }
+  }
+  if (closing !== null) return closing;
+  return isToday ? currentDebt : 0;
+}
+
 const RATE_CHART_EVENT_GAP_MS = 5000;   // 同じ source/reason でこれ以内の増減は1回の出来事とみなす
 
 /**
@@ -240,19 +280,28 @@ function groupRateChartEvents(entriesByPlayer) {
       eventsByDate.get(entry.date).push(current);
     }
     current.lastTime = time;
-    current.changes.push({ player: entry.player, afterScore: entry.afterScore });
+    current.changes.push({ player: entry.player, afterScore: entry.afterScore, debtAfter: entry.debtAfter });
   });
   return eventsByDate;
 }
 
 /** point_history と現在のレートから rate_chart/daily を作り直す */
 async function rebuildRateChartFromHistory() {
-  const playersSnapshot = await db.collection('players').get();
+  const [playersSnapshot, loansSnapshot] = await Promise.all([
+    db.collection('players').get(),
+    db.collection(LOAN_COLLECTION).get()
+  ]);
   const currentRates = new Map();
   playersSnapshot.docs.forEach(doc => {
     const player = doc.data();
     if (!player || !player.name || RATE_EXCLUDED_PLAYERS.has(player.name)) return;
     currentRates.set(player.name, normalizeRate(player.score));
+  });
+  // いまの借金 (ランキングと同じく、今日の右端はこの現在値を使う)
+  const currentDebts = new Map();
+  loansSnapshot.docs.forEach(doc => {
+    const loan = normalizeLoanRecord(doc.data());
+    if (loan.player && currentRates.has(loan.player)) currentDebts.set(loan.player, loan.debt);
   });
 
   const dates = recentJstDateKeys();
@@ -269,12 +318,17 @@ async function rebuildRateChartFromHistory() {
     const createdAt = String(entry.createdAt || '');
     if (!createdAt) return;
     if (!entriesByPlayer.has(entry.player)) entriesByPlayer.set(entry.player, []);
+    const source = String(entry.source || '');
+    // 借金の出入りだけが debtBefore / debtAfter を持つ。それ以外は借金を変えない (null)
+    const isLoan = LOAN_SOURCES.has(source);
     entriesByPlayer.get(entry.player).push({
       createdAt,
       date: getJstDateKey(new Date(createdAt)),
       beforeScore: normalizeRate(entry.beforeScore),
       afterScore: normalizeRate(entry.afterScore),
-      source: String(entry.source || ''),
+      debtBefore: isLoan ? Math.max(0, normalizeRate(entry.debtBefore)) : null,
+      debtAfter: isLoan ? Math.max(0, normalizeRate(entry.debtAfter)) : null,
+      source,
       reason: String(entry.reason || '')
     });
   });
@@ -283,22 +337,26 @@ async function rebuildRateChartFromHistory() {
   const days = dates.map((date, index) => {
     const isToday = index === dates.length - 1;
     const rates = {};
+    const debts = {};
     currentRates.forEach((currentRate, name) => {
+      const entries = entriesByPlayer.get(name) || [];
       // 今日ぶんは players の現在値をそのまま使う。
       // 増減ログを通さずレートが書き換わった場合でも、グラフの右端が
       // ホームのランキングとずれないようにするため。
       if (date === RATE_CHART_START_DATE && !isToday) {
         rates[name] = RATE_CHART_START_RATE;
+        debts[name] = 0;
         return;
       }
       rates[name] = isToday
         ? currentRate
-        : rateAtEndOfDay(entriesByPlayer.get(name) || [], date, currentRate);
+        : rateAtEndOfDay(entries, date, currentRate);
+      debts[name] = debtAtEndOfDay(entries, date, currentDebts.get(name) || 0, isToday);
     });
-    return { date, rates };
+    return { date, rates, debts };
   });
 
-  // 日ごとの変動 (対局1回・日次補正1回 = 1イベント) を、各イベント直後の全員のレートつきで並べる
+  // 日ごとの変動 (対局1回・日次補正1回 = 1イベント) を、各イベント直後の全員のレートと借金つきで並べる
   const eventsByDate = groupRateChartEvents(entriesByPlayer);
   days.forEach((day, index) => {
     if (day.date === RATE_CHART_START_DATE) {
@@ -306,17 +364,25 @@ async function rebuildRateChartFromHistory() {
       return;
     }
     const state = { ...(index > 0 ? days[index - 1].rates : day.rates) };
+    const debtState = { ...(index > 0 ? days[index - 1].debts : day.debts) };
     if (index === 0) {
       // 先頭の日は前日の終値を知らないので、その日最初の増減の beforeScore から起こす
       currentRates.forEach((currentRate, name) => {
-        const first = (entriesByPlayer.get(name) || []).find(entry => entry.date >= day.date);
+        const entries = entriesByPlayer.get(name) || [];
+        const first = entries.find(entry => entry.date >= day.date);
         state[name] = first && first.date === day.date ? first.beforeScore : day.rates[name];
+        const firstLoan = entries.find(entry => entry.debtAfter !== null && entry.date >= day.date);
+        debtState[name] = firstLoan && firstLoan.date === day.date ? firstLoan.debtBefore : day.debts[name];
       });
       day.open = { ...state };
+      day.openDebts = { ...debtState };
     }
     day.events = (eventsByDate.get(day.date) || []).map(event => {
-      event.changes.forEach(change => { state[change.player] = change.afterScore; });
-      return { at: event.at, source: event.source, reason: event.reason, rates: { ...state } };
+      event.changes.forEach(change => {
+        state[change.player] = change.afterScore;
+        if (change.debtAfter !== null && change.debtAfter !== undefined) debtState[change.player] = change.debtAfter;
+      });
+      return { at: event.at, source: event.source, reason: event.reason, rates: { ...state }, debts: { ...debtState } };
     });
   });
 
@@ -353,36 +419,74 @@ async function applyDailyRateReversionForToday() {
     const baseline = normalizeRate(settings.rate_baseline ?? RATE_BASELINE_DEFAULT);
     const rate = normalizeReversionRate(settings.rate_reversion_rate);
     const flat = Math.max(0, Math.round(Number(settings.rate_reversion_flat ?? RATE_REVERSION_FLAT_DEFAULT) || 0));
-    const playersSnapshot = await transaction.get(db.collection('players'));
+    const [playersSnapshot, loansSnapshot] = await Promise.all([
+      transaction.get(db.collection('players')),
+      transaction.get(db.collection(LOAN_COLLECTION))
+    ]);
+    const nowIso = new Date().toISOString();
+    // 借金の利息は補正の直後に別の出来事として残す (グラフで「補正」と「利息」を分けて見せるため)。
+    // 同じ時刻だと並び順が定まらないので 1秒だけ後ろにずらす
+    const interestIso = new Date(Date.parse(nowIso) + 1000).toISOString();
+    const loanSettings = loanSettingsFrom(settings);
+    const loansByPlayer = new Map();
+    loansSnapshot.docs.forEach(doc => {
+      const loan = normalizeLoanRecord(doc.data());
+      if (loan.player && loan.debt > 0) loansByPlayer.set(loan.player, { ref: doc.ref, loan });
+    });
     let totalMoved = 0;
+    let totalInterest = 0;
 
     playersSnapshot.docs.forEach(doc => {
       const player = doc.data();
       if (RATE_EXCLUDED_PLAYERS.has(player.name)) return;
 
+      // 1. 日次レート補正。借りたレートも通常のレートなので、そのまま含めて補正する
       const before = normalizeRate(player.score);
       const delta = getRateReversionDelta(before, baseline, rate, flat);
-      if (delta === 0) return;
-
       const after = normalizeRate(before + delta);
-      totalMoved += Math.abs(after - before);
-      transaction.set(doc.ref, { ...player, score: after }, { merge: false });
+      if (delta !== 0) {
+        totalMoved += Math.abs(after - before);
+        transaction.set(doc.ref, { ...player, score: after }, { merge: false });
+        const historyId = rateHistoryDocId(player.name, nowIso);
+        transaction.set(db.collection('point_history').doc(historyId), {
+          id: historyId,
+          player: player.name,
+          beforeScore: before,
+          afterScore: after,
+          delta: after - before,
+          source: 'daily_rate_reversion',
+          reason: `日次レート補正 基準${baseline} / ${(rate * 100).toFixed(1).replace(/\.0$/, '')}%`,
+          actor: 'scheduled_function',
+          createdAt: nowIso
+        });
+      }
 
-      const historyId = rateHistoryDocId(player.name);
-      transaction.set(db.collection('point_history').doc(historyId), {
-        id: historyId,
-        player: player.name,
-        beforeScore: before,
-        afterScore: after,
-        delta: after - before,
-        source: 'daily_rate_reversion',
-        reason: `日次レート補正 基準${baseline} / ${(rate * 100).toFixed(1).replace(/\.0$/, '')}%`,
-        actor: 'scheduled_function',
-        createdAt: new Date().toISOString()
-      });
+      // 2. 借金の利息。返すまで毎日、残っている借金を (1 + 利率) 倍にする (複利)。
+      //    レートは動かないが、グラフと履歴のために増減ログにも残す (delta 0、借金の前後つき)
+      const owed = loansByPlayer.get(player.name);
+      if (owed) {
+        const accrued = applyInterest(owed.loan, loanSettings.interestRate, interestIso);
+        if (accrued && accrued.added > 0) {
+          totalInterest += accrued.added;
+          const historyId = rateHistoryDocId(player.name, interestIso);
+          transaction.set(db.collection('point_history').doc(historyId), {
+            id: historyId,
+            player: player.name,
+            beforeScore: after,
+            afterScore: after,
+            delta: 0,
+            source: 'loan_interest',
+            reason: `借金の利息 ×${1 + loanSettings.interestRate}`,
+            debtBefore: accrued.debtBefore,
+            debtAfter: accrued.debtAfter,
+            actor: 'scheduled_function',
+            createdAt: interestIso
+          });
+          transaction.set(owed.ref, accrued.loan);
+        }
+      }
     });
 
-    const nowIso = new Date().toISOString();
     transaction.set(settingsRef, {
       rate_baseline: baseline,
       rate_reversion_rate: rate,
@@ -390,10 +494,11 @@ async function applyDailyRateReversionForToday() {
       rate_reversion_last_date: todayKey,
       rate_reversion_last_run_at: nowIso,
       rate_reversion_last_total: totalMoved,
+      loan_interest_last_total: totalInterest,
       updatedAt: nowIso
     }, { merge: true });
 
-    return { status: 'success', date: todayKey, rate, totalMoved };
+    return { status: 'success', date: todayKey, rate, totalMoved, totalInterest };
   });
 }
 
@@ -1301,6 +1406,261 @@ export const rebuildRateChart = onRequest({ region: 'asia-northeast1' }, async (
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 'error', message: `レート推移の再構築に失敗しました: ${error.message}` });
+  }
+});
+
+/**
+ * 日次レート補正 (と借金の利息) を、その日ぶんがまだなら今すぐ実行する。
+ * 毎日 0:05 の collectDailyPointTax が本線で、これはログイン時に画面から呼ばれる保険。
+ * 日付ごとに1回しか走らない (トランザクション内で rate_reversion_last_date を見る) ので、
+ * 何度呼ばれても二重には動かない。
+ */
+export const runDailyRateReversion = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    if (!await hasWriteAccess(req, req.body || {})) {
+      res.status(401).json({ status: 'error', message: '認証が必要です。' });
+      return;
+    }
+    const result = await applyDailyRateReversionForToday();
+    if (result.status === 'success') {
+      await rebuildRateChartQuietly('daily_rate_reversion_on_demand');
+    }
+    res.status(200).json({ ...result, status: 'success', applied: result.status === 'success' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `日次レート補正に失敗しました: ${error.message}` });
+  }
+});
+
+// -----------------------------------------------------------------
+// レートの貸し出し (借金)
+//   ルールは loan.js。誰でも借りられ、上限 (信用枠) は「返した元本」「付いた利息」「レートの変動の大きさ」で決まる。
+//   借りた額はそのままレートに足し (以後は通常のレートと同じ扱い)、同じ額を借金として記録する。
+//   利息は日付をまたぐたびに日次補正 (applyDailyRateReversionForToday) で付く。自動では徴収せず、自分で返すまで残る。
+//   数値 (利率・基本枠・上限など) は settings/app の loan_* で変えられる (管理画面)。
+//   貸し出し記録 loans/{player} は誰でも読める (ランキングとグラフに出す) が、書くのはここだけ。
+// -----------------------------------------------------------------
+function loanRef(username) {
+  return db.collection(LOAN_COLLECTION).doc(toDocId(username));
+}
+
+async function loadLoanSettings() {
+  const settingsDoc = await db.collection('settings').doc('app').get();
+  return loanSettingsFrom(settingsDoc.exists ? settingsDoc.data() : {});
+}
+
+/** 次に利息が付く時刻 (日付が変わった後の日次補正。定時は 0:05 JST) */
+function nextLoanInterestAt(now = new Date()) {
+  const todayKey = getJstDateKey(now);
+  const todayRun = Date.parse(`${todayKey}T00:05:00+09:00`);
+  const next = todayRun > now.getTime() ? todayRun : todayRun + 86400000;
+  return new Date(next).toISOString();
+}
+
+/**
+ * 直近 volatilityDays 日の増減ログから、その人の「1日の変動の大きさ」(標準偏差) を求める。
+ * player と createdAt の複合インデックスを要らなくするため、期間で絞ってから本人の分だけ拾う。
+ */
+async function loanVolatilityOf(username, settings) {
+  const days = settings.volatilityDays;
+  const dateKeys = [];
+  for (let i = days - 1; i >= 0; i--) {
+    dateKeys.push(getJstDateKey(new Date(Date.now() - i * 86400000)));
+  }
+  const since = new Date(Date.now() - (days + 1) * 86400000).toISOString();
+  const snapshot = await db.collection('point_history').where('createdAt', '>=', since).get();
+  const entries = [];
+  snapshot.docs.forEach(doc => {
+    const entry = doc.data();
+    if (!entry || entry.player !== username || !entry.createdAt) return;
+    const delta = Number.isFinite(Number(entry.delta))
+      ? Number(entry.delta)
+      : normalizeRate(entry.afterScore) - normalizeRate(entry.beforeScore);
+    entries.push({
+      date: getJstDateKey(new Date(String(entry.createdAt))),
+      delta,
+      source: String(entry.source || '')
+    });
+  });
+  return volatilityOf(dailyDeltasFromEntries(entries, dateKeys));
+}
+
+/** 画面に返す共通の項目 (利率などの設定と、次に利息が付く時刻) */
+function loanEnvelope(settings) {
+  return {
+    settings,
+    nextInterestAt: nextLoanInterestAt(),
+    now: new Date().toISOString()
+  };
+}
+
+async function loanStatus(username) {
+  const settings = await loadLoanSettings();
+  const [loanDoc, playerSnapshot, volatility] = await Promise.all([
+    loanRef(username).get(),
+    playerQuery(username).get(),
+    loanVolatilityOf(username, settings)
+  ]);
+  const loan = normalizeLoanRecord(loanDoc.exists ? loanDoc.data() : null, username);
+  return {
+    me: username,
+    score: playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score),
+    loan: publicLoanRecord(loan),
+    ...computeLoanLimit(loan, volatility, settings),
+    ...loanEnvelope(settings)
+  };
+}
+
+/** 借りる。レートに足し、同じ額を借金に乗せる (利息は日付をまたいだときに付く) */
+async function loanBorrow(username, rawAmount) {
+  const settings = await loadLoanSettings();
+  const volatility = await loanVolatilityOf(username, settings);
+  const ref = loanRef(username);
+  const result = await db.runTransaction(async transaction => {
+    const [loanDoc, playerSnapshot] = await Promise.all([
+      transaction.get(ref),
+      transaction.get(playerQuery(username))
+    ]);
+    if (playerSnapshot.empty) {
+      throw new LoanError(404, 'プレイヤーが見つかりません。');
+    }
+    const loan = normalizeLoanRecord(loanDoc.exists ? loanDoc.data() : null, username);
+    const limit = computeLoanLimit(loan, volatility, settings);
+    const amount = validateBorrowAmount(rawAmount, limit.available);
+    const at = new Date().toISOString();
+    const borrowed = applyBorrow(loan, amount, at);
+
+    const playerDoc = playerSnapshot.docs[0];
+    const beforeScore = normalizeRate(playerDoc.data().score);
+    const afterScore = normalizeRate(beforeScore + amount);
+    transaction.update(playerDoc.ref, { score: afterScore });
+    const historyId = rateHistoryDocId(username, at);
+    transaction.set(db.collection('point_history').doc(historyId), {
+      id: historyId,
+      player: username,
+      beforeScore,
+      afterScore,
+      delta: afterScore - beforeScore,
+      source: 'loan_borrow',
+      reason: `レート借入 ${amount} (借金 ${borrowed.debtAfter})`,
+      debtBefore: borrowed.debtBefore,
+      debtAfter: borrowed.debtAfter,
+      actor: username,
+      createdAt: at
+    });
+    transaction.set(ref, borrowed.loan);
+    return {
+      amount,
+      score: afterScore,
+      loan: publicLoanRecord(borrowed.loan),
+      ...computeLoanLimit(borrowed.loan, volatility, settings)
+    };
+  });
+  await rebuildRateChartQuietly('loan_borrow');
+  return { ...result, ...loanEnvelope(settings) };
+}
+
+/** 自分で返す。手持ちのレートから引き、借金を減らす (返した元本は信用の実績になる) */
+async function loanRepay(username, rawAmount) {
+  const settings = await loadLoanSettings();
+  const volatility = await loanVolatilityOf(username, settings);
+  const ref = loanRef(username);
+  const result = await db.runTransaction(async transaction => {
+    const [loanDoc, playerSnapshot] = await Promise.all([
+      transaction.get(ref),
+      transaction.get(playerQuery(username))
+    ]);
+    if (playerSnapshot.empty) {
+      throw new LoanError(404, 'プレイヤーが見つかりません。');
+    }
+    const loan = normalizeLoanRecord(loanDoc.exists ? loanDoc.data() : null, username);
+    const playerDoc = playerSnapshot.docs[0];
+    const beforeScore = normalizeRate(playerDoc.data().score);
+    const amount = validateRepayAmount(rawAmount, loan.debt, beforeScore);
+    const at = new Date().toISOString();
+    const repaid = applyRepay(loan, amount, at);
+
+    const afterScore = normalizeRate(beforeScore - amount);
+    transaction.update(playerDoc.ref, { score: afterScore });
+    const historyId = rateHistoryDocId(username, at);
+    transaction.set(db.collection('point_history').doc(historyId), {
+      id: historyId,
+      player: username,
+      beforeScore,
+      afterScore,
+      delta: afterScore - beforeScore,
+      source: 'loan_repay',
+      reason: `借金の返済 ${amount}${repaid.debtAfter > 0 ? ` (残り ${repaid.debtAfter})` : ' (完済)'}`,
+      debtBefore: repaid.debtBefore,
+      debtAfter: repaid.debtAfter,
+      actor: username,
+      createdAt: at
+    });
+    transaction.set(ref, repaid.loan);
+    return {
+      amount,
+      score: afterScore,
+      loan: publicLoanRecord(repaid.loan),
+      ...computeLoanLimit(repaid.loan, volatility, settings)
+    };
+  });
+  await rebuildRateChartQuietly('loan_repay');
+  return { ...result, ...loanEnvelope(settings) };
+}
+
+const LOAN_ACTIONS = {
+  status: ({ username }) => loanStatus(username),
+  borrow: ({ username, body }) => loanBorrow(username, body.amount),
+  repay: ({ username, body }) => loanRepay(username, body.amount)
+};
+
+export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const decoded = await getVerifiedAuthToken(req);
+    const username = decoded && decoded.username;
+    if (!username) {
+      res.status(401).json({ status: 'error', message: 'ログインが必要です。マイページでログインし直してください。' });
+      return;
+    }
+    if (RATE_EXCLUDED_PLAYERS.has(username)) {
+      res.status(403).json({ status: 'error', message: 'このアカウントは貸し出しを利用できません。' });
+      return;
+    }
+
+    const body = req.body || {};
+    const action = String(body.action || 'status');
+    if (!Object.hasOwn(LOAN_ACTIONS, action)) {
+      throw new LoanError(400, '不明な操作です。');
+    }
+    const payload = await LOAN_ACTIONS[action]({ username, body });
+    res.status(200).json({ status: 'success', ...payload });
+  } catch (error) {
+    if (error instanceof LoanError) {
+      res.status(error.status).json({ status: 'error', message: error.message });
+      return;
+    }
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `貸し出しの処理に失敗しました: ${error.message}` });
   }
 });
 

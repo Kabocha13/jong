@@ -35,7 +35,9 @@ function renderWithData(allData, isStale = false) {
     }
 
     const displayScores = rawScores.filter(p => !EXCLUDED_PLAYERS.includes(p.name));
+    // 借りたレートも通常のレートなので、順位はレートそのままで付ける。借金は額を添えて見せる
     const sortedScores = [...displayScores].sort((a, b) => b.score - a.score);
+    const debts = buildDebtMap(allData.loans);
 
     let html = '<ul class="ranking-list">';
     sortedScores.forEach((player, index) => {
@@ -48,11 +50,18 @@ function renderWithData(allData, isStale = false) {
         } else if (player.status === 'pro') {
             memberMark = '<span class="pro-mark" title="プロ会員">⭐</span>';
         }
+        const debt = debts.get(player.name) || 0;
+        const debtHtml = debt > 0
+            ? `<span class="player-debt" title="借りているレート (利息込み)。返すまで毎日 0:05 に利息が付きます">${escapeText(formatDebtLabel(debt))}</span>`
+            : '';
         html += `
-            <li class="ranking-item ${rankClass}">
+            <li class="ranking-item ${rankClass}${debt > 0 ? ' in-debt' : ''}">
                 <span class="rank-num">#${rank}</span>
                 <span class="${nameClass}">${escapeText(player.name)} ${memberMark}</span>
-                <span class="player-score">${formatRate(player.score)}</span>
+                <span class="player-score-wrap">
+                    <span class="player-score">${formatRate(player.score)}</span>
+                    ${debtHtml}
+                </span>
             </li>`;
     });
     html += '</ul>';

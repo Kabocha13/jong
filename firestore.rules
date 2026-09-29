@@ -104,6 +104,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // レートの貸し出し (借金) の記録。借金の額はランキングとグラフに出す公開情報なので読み取りは許可する。
+    // 書き換えられると返済を偽れるので、書き込みは Cloud Functions (loan / 日次補正) だけに限る。
+    match /loans/{playerId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /settings/{settingId} {
       allow read: if true;
       allow write: if request.auth != null;
