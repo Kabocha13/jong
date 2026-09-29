@@ -175,6 +175,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         loadMemberStatusList();
         loadRateReversionSettings();
         loadLoanSettings();
+        loadUndergroundSettingsForm();
 
         if (!isAuto) {
              showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
@@ -1282,6 +1283,86 @@ if (document.getElementById('adjustment-form')) {
         } catch (error) {
             console.error(error);
             showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+        }
+    });
+}
+
+// --- 船底の設定 ---
+// 数値は settings/app の underground_* に置き、Cloud Function (underground) がそれを読む。計算の中身は functions/underground.js
+const UNDERGROUND_SETTINGS_FORM = document.getElementById('underground-settings-form');
+const UNDERGROUND_SETTINGS_MESSAGE = document.getElementById('underground-settings-message');
+const UNDERGROUND_SETTING_INPUTS = {
+    itemsPerShipment: document.getElementById('underground-items'),
+    shipmentSeconds: document.getElementById('underground-seconds'),
+    payCorrect: document.getElementById('underground-pay-correct'),
+    payMiss: document.getElementById('underground-pay-miss'),
+    betMin: document.getElementById('underground-bet-min'),
+    betMax: document.getElementById('underground-bet-max'),
+    pinhaneRate: document.getElementById('underground-pinhane')
+};
+
+function fillUndergroundSettingsForm(settings) {
+    Object.entries(UNDERGROUND_SETTING_INPUTS).forEach(([key, input]) => {
+        if (!input) return;
+        input.value = key === 'pinhaneRate' ? Math.round(settings.pinhaneRate * 100) : settings[key];
+    });
+}
+
+async function loadUndergroundSettingsForm() {
+    if (!UNDERGROUND_SETTINGS_FORM) return;
+    try {
+        const data = await fetchAllData();
+        fillUndergroundSettingsForm(data.underground_settings || normalizeUndergroundSettings({}));
+    } catch (error) {
+        console.error(error);
+        showMessage(UNDERGROUND_SETTINGS_MESSAGE, '船底の設定を読み込めませんでした。', 'error');
+    }
+}
+
+if (UNDERGROUND_SETTINGS_FORM) {
+    UNDERGROUND_SETTINGS_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const read = key => parseFloat(UNDERGROUND_SETTING_INPUTS[key]?.value);
+        const values = {
+            itemsPerShipment: read('itemsPerShipment'),
+            shipmentSeconds: read('shipmentSeconds'),
+            payCorrect: read('payCorrect'),
+            payMiss: read('payMiss'),
+            betMin: read('betMin'),
+            betMax: read('betMax'),
+            pinhaneRate: read('pinhaneRate') / 100
+        };
+        const checks = [
+            [values.itemsPerShipment >= 5 && values.itemsPerShipment <= 100, '1便の積荷の数は5〜100で入力してください。'],
+            [values.shipmentSeconds >= 10 && values.shipmentSeconds <= 300, '1便の制限時間は10〜300秒で入力してください。'],
+            [values.payCorrect >= 0 && values.payCorrect <= 1000, '正解1個の給料は0〜1000で入力してください。'],
+            [values.payMiss >= 0 && values.payMiss <= 1000, 'ミス1個で減る金貨は0〜1000で入力してください。'],
+            [values.betMin >= 1, '賭け金の下限は1以上で入力してください。'],
+            [values.betMax >= values.betMin, '賭け金の上限は下限以上で入力してください。'],
+            [values.pinhaneRate >= 0 && values.pinhaneRate <= 0.5, 'ピンハネ率は0〜50%で入力してください。']
+        ];
+        const failed = checks.find(([ok]) => !ok);
+        if (failed) {
+            showMessage(UNDERGROUND_SETTINGS_MESSAGE, failed[1], 'error');
+            return;
+        }
+
+        const submitButton = UNDERGROUND_SETTINGS_FORM.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        showMessage(UNDERGROUND_SETTINGS_MESSAGE, '設定を保存中...', 'info');
+        try {
+            const saved = await saveUndergroundSettings(values);
+            fillUndergroundSettingsForm(saved);
+            showMessage(
+                UNDERGROUND_SETTINGS_MESSAGE,
+                `✅ 保存しました (1便 ${saved.itemsPerShipment}個・${saved.shipmentSeconds}秒 / 給料 +${saved.payCorrect} −${saved.payMiss} / 賭け ${saved.betMin}〜${saved.betMax}金貨 / ピンハネ ${Math.round(saved.pinhaneRate * 100)}%)。`,
+                'success'
+            );
+        } catch (error) {
+            console.error(error);
+            showMessage(UNDERGROUND_SETTINGS_MESSAGE, `❌ 保存エラー: ${error.message}`, 'error');
+        } finally {
+            submitButton.disabled = false;
         }
     });
 }

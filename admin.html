@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#060d16">
     <title>マスター管理ページ</title>
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=49.5">
-    <script src="assets/js/treasure-rain.js?v=49.5" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=50.0">
+    <script src="assets/js/treasure-rain.js?v=50.0" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="jail">
@@ -358,6 +358,50 @@
                 <p id="loan-settings-message" class="hidden"></p>
             </div>
 
+            <div class="tool-box">
+                <h3>⛓ 船底の設定</h3>
+                <p class="instruction">
+                    レートが0以下の人は、ゲームタブの「船底」で積荷を仕分けて金貨を稼ぎ、チンチロで班長に勝つとレートにできます。<br>
+                    仕分けの給料 = 正解 × 1個の給料 − ミス × 1個の減額 (1便でマイナスにはならない)。<br>
+                    チンチロは勝つと 賭け金 × (1 + 倍率) − ピンハネ がレートになり、負けると 賭け金 × 倍率 の金貨を失います。
+                    賭けられるのは手持ちの1/5まで (5倍払いに備えて)。レートが1以上になると船底を出て、残った金貨は没収されます。
+                </p>
+                <form id="underground-settings-form">
+                    <div class="form-group loan-settings-grid">
+                        <div>
+                            <label for="underground-items">1便の積荷の数:</label>
+                            <input type="number" id="underground-items" step="1" min="5" max="100" required>
+                        </div>
+                        <div>
+                            <label for="underground-seconds">1便の制限時間 (秒):</label>
+                            <input type="number" id="underground-seconds" step="1" min="10" max="300" required>
+                        </div>
+                        <div>
+                            <label for="underground-pay-correct">正解1個の給料 (金貨):</label>
+                            <input type="number" id="underground-pay-correct" step="1" min="0" max="1000" required>
+                        </div>
+                        <div>
+                            <label for="underground-pay-miss">ミス1個で減る金貨:</label>
+                            <input type="number" id="underground-pay-miss" step="1" min="0" max="1000" required>
+                        </div>
+                        <div>
+                            <label for="underground-bet-min">賭け金の下限 (金貨):</label>
+                            <input type="number" id="underground-bet-min" step="1" min="1" required>
+                        </div>
+                        <div>
+                            <label for="underground-bet-max">賭け金の上限 (金貨):</label>
+                            <input type="number" id="underground-bet-max" step="1" min="1" required>
+                        </div>
+                        <div>
+                            <label for="underground-pinhane">ピンハネ率 (%):</label>
+                            <input type="number" id="underground-pinhane" step="1" min="0" max="50" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="action-button w-auto btn-gold">船底の設定を保存</button>
+                </form>
+                <p id="underground-settings-message" class="hidden"></p>
+            </div>
+
         </section>
     </main>
 
@@ -375,7 +419,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=49.5"></script>
-    <script src="assets/js/master.js?v=49.5"></script>
+    <script src="assets/js/common.js?v=50.0"></script>
+    <script src="assets/js/master.js?v=50.0"></script>
 </body>
 </html>

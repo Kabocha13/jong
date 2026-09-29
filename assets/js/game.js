@@ -1,6 +1,7 @@
 // ゲームタブの共通部分
 //   ログイン、ゲームの選択 (ブロックのタイル)、入場 (持ち込み)、手元チップと精算、画面の切り替え。
 //   各テーブルの中身は game-blackjack.js / game-roulette.js / game-slot.js / game-holdem.js。
+//   船底 (#underground) はチップを使わない別の遊び場で、中身は game-underground.js。
 //   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
 //   画面は #blackjack / #roulette / #slot / #holdem のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
 
@@ -92,18 +93,26 @@ function settledMessage(settled) {
 }
 
 // ------------------------------------------------------------------
-// 画面の切り替え (#blackjack / #roulette / #slot / #holdem / それ以外はゲーム一覧)
+// 画面の切り替え (#blackjack / #roulette / #slot / #holdem / #underground / それ以外はゲーム一覧)
 // ------------------------------------------------------------------
 function routeGame() {
     const name = location.hash.slice(1);
     return Object.hasOwn(CASINO_GAMES, name) ? name : null;
 }
 
+function isUndergroundRoute() {
+    return location.hash.slice(1) === 'underground';
+}
+
 function renderRoute() {
     if (!casino.ready) return;
     const game = routeGame();
     let view = 'menu';
-    if (!game) {
+    if (isUndergroundRoute()) {
+        // 船底はチップを持ち込まずに入る
+        view = 'underground';
+        openUnderground();
+    } else if (!game) {
         renderMenu();
     } else if (!casino.session) {
         view = 'lobby';
@@ -118,9 +127,10 @@ function renderRoute() {
     if (view !== 'blackjack') closeBlackjackTable();
     if (view !== 'slot') closeSlotTable();
     if (view !== 'holdem') closeHoldemTable();
+    if (view !== 'underground') closeUnderground();
     showView(view);
-    // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す
-    el('casino-wallet').classList.toggle('hidden', !casino.session || view === 'lobby');
+    // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す (船底はチップを使わないので出さない)
+    el('casino-wallet').classList.toggle('hidden', !casino.session || view === 'lobby' || view === 'underground');
     renderWallet();
 }
 
@@ -132,8 +142,10 @@ function renderMenu() {
     el('casino-menu-rate').classList.toggle('hidden', Boolean(casino.session));
     document.querySelectorAll('.game-tile').forEach(tile => {
         const badge = tile.querySelector('.game-tile-badge');
-        const text = (tile.dataset.game === 'blackjack' && isBlackjackLive()) || (tile.dataset.game === 'holdem' && isHoldemLive())
+        let text = (tile.dataset.game === 'blackjack' && isBlackjackLive()) || (tile.dataset.game === 'holdem' && isHoldemLive())
             ? '勝負の途中' : '';
+        // 船底はレートが0以下のときだけ入れる
+        if (tile.dataset.game === 'underground' && casino.score <= 0) text = '入れます';
         badge.textContent = text;
         badge.classList.toggle('hidden', !text);
     });
@@ -291,6 +303,7 @@ async function initCasino() {
     initBlackjack();
     initSlot();
     initHoldem();
+    initUnderground();
     bindCasinoEvents();
     showView('loading');
 

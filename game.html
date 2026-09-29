@@ -11,8 +11,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=49.5">
-    <script src="assets/js/treasure-rain.js?v=49.5" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=50.0">
+    <script src="assets/js/treasure-rain.js?v=50.0" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -35,13 +35,13 @@
             <a href="mypage.html" class="action-button">マイページでログイン</a>
         </section>
 
-        <nav class="casino-back hidden" data-view="lobby roulette blackjack slot holdem" aria-label="ゲームの切り替え">
+        <nav class="casino-back hidden" data-view="lobby roulette blackjack slot holdem underground" aria-label="ゲームの切り替え">
             <a href="#">ゲーム一覧へ</a>
         </nav>
 
         <p id="casino-message" class="hidden" aria-live="polite"></p>
 
-        <!-- ゲームの選択。タイルはそのまま #blackjack / #roulette / #slot / #holdem へのリンク -->
+        <!-- ゲームの選択。タイルはそのまま #blackjack / #roulette / #slot / #holdem / #underground へのリンク -->
         <section id="casino-menu" class="casino-menu hidden" data-view="menu" aria-labelledby="casino-menu-title">
             <h2 id="casino-menu-title">ゲームを選ぶ</h2>
             <p class="casino-menu-rate" id="casino-menu-rate">現在のレート <strong id="casino-menu-score"></strong></p>
@@ -95,6 +95,19 @@
                         <span class="game-tile-sub">Texas Hold'em</span>
                         <span class="game-tile-desc">6人卓。空いた席は性格の違う船員が埋めるので1人でも遊べる</span>
                         <span class="game-tile-live" id="hd-tile-live"></span>
+                    </span>
+                    <span class="game-tile-badge hidden"></span>
+                </a>
+                <a class="game-tile" href="#underground" data-game="underground">
+                    <span class="game-tile-art is-underground" aria-hidden="true">
+                        <span class="ug-die" data-face="4"></span>
+                        <span class="ug-die" data-face="5"></span>
+                        <span class="ug-die" data-face="6"></span>
+                    </span>
+                    <span class="game-tile-body">
+                        <span class="game-tile-name">船底</span>
+                        <span class="game-tile-sub">Below Deck</span>
+                        <span class="game-tile-desc">レートが0以下の人の地下労働。積荷を仕分けて金貨を稼ぎ、チンチロで地上をめざす</span>
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
@@ -341,6 +354,79 @@
                 <ol id="slot-recent" class="casino-recent" aria-label="直近のスピン"></ol>
             </div>
         </section>
+
+        <!-- 船底。中身は game-underground.js が作る (仕分け・チンチロの結果はすべて Cloud Function underground が決める) -->
+        <section id="underground-view" class="hidden" data-view="underground" aria-label="船底">
+            <div class="info-box ug-status">
+                <h3 class="icon-title">⛓ 船底</h3>
+                <dl class="casino-stats ug-stats">
+                    <div><dt>レート</dt><dd id="ug-score">—</dd></div>
+                    <div><dt>金貨</dt><dd id="ug-coins">—</dd></div>
+                    <div><dt>賭けられる上限</dt><dd id="ug-max-bet">—</dd></div>
+                </dl>
+                <p id="ug-notice" class="info-text ug-notice"></p>
+                <p id="ug-message" class="hidden" aria-live="polite"></p>
+            </div>
+
+            <div class="ug-hold" id="ug-hold">
+                <p class="ug-hold-title">積荷の仕分け</p>
+                <!-- 始める前 -->
+                <div id="ug-work-idle" class="ug-work-idle">
+                    <p class="ug-hold-text" id="ug-work-summary"></p>
+                    <button type="button" id="ug-start-button" class="ug-start-button">仕分けを始める</button>
+                </div>
+                <!-- 仕分けの最中 -->
+                <div id="ug-work-run" class="ug-work-run hidden">
+                    <div class="ug-timer" aria-hidden="true"><span id="ug-timer-bar"></span></div>
+                    <p class="ug-progress"><span id="ug-progress">0 / 0</span><span id="ug-earning">+0 金貨</span></p>
+                    <div class="ug-conveyor">
+                        <div class="ug-cargo" id="ug-cargo" aria-live="polite"></div>
+                        <ol class="ug-queue" id="ug-queue" aria-label="次の積荷"></ol>
+                    </div>
+                    <div class="ug-bins" id="ug-bins" role="group" aria-label="木箱"></div>
+                </div>
+                <!-- 1便の結果 -->
+                <div id="ug-work-result" class="ug-work-result hidden">
+                    <p class="ug-result-head" id="ug-result-head"></p>
+                    <p class="ug-hold-text" id="ug-result-detail"></p>
+                    <button type="button" id="ug-again-button" class="ug-start-button">次の便へ</button>
+                </div>
+            </div>
+
+            <div class="ug-den" id="ug-den">
+                <p class="ug-hold-title">チンチロ (相手: 班長)</p>
+                <div class="ug-bowls">
+                    <div class="ug-side">
+                        <p class="ug-side-name">班長</p>
+                        <div class="ug-bowl" id="ug-dealer-dice"></div>
+                        <p class="ug-hand" id="ug-dealer-hand"></p>
+                    </div>
+                    <div class="ug-side">
+                        <p class="ug-side-name">あなた</p>
+                        <div class="ug-bowl" id="ug-player-dice"></div>
+                        <p class="ug-hand" id="ug-player-hand"></p>
+                    </div>
+                </div>
+                <p class="ug-outcome" id="ug-outcome" aria-live="polite"></p>
+                <div class="ug-bet-row">
+                    <div class="slot-bet ug-bet" role="group" aria-label="賭ける金貨">
+                        <button type="button" id="ug-bet-down" aria-label="賭け金を下げる">−</button>
+                        <p><span>BET</span><strong id="ug-bet">10</strong></p>
+                        <button type="button" id="ug-bet-up" aria-label="賭け金を上げる">＋</button>
+                    </div>
+                    <button type="button" id="ug-roll-button" class="slot-spin-button ug-roll-button">勝負</button>
+                </div>
+                <p class="ug-bet-note" id="ug-bet-note"></p>
+            </div>
+
+            <div class="info-box ug-info">
+                <h3 class="icon-title">ルール</h3>
+                <ul class="casino-rules" id="ug-rules"></ul>
+                <table class="career-table ug-hands" id="ug-hands"></table>
+                <h3 class="icon-title">最近の出来事</h3>
+                <ol class="ug-recent" id="ug-recent"></ol>
+            </div>
+        </section>
     </main>
 
     <!-- 自分に配られたカードを絞る画面。中身は game-blackjack.js が作る -->
@@ -369,11 +455,12 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=49.5"></script>
-    <script src="assets/js/game-roulette.js?v=49.5"></script>
-    <script src="assets/js/game-blackjack.js?v=49.5"></script>
-    <script src="assets/js/game-slot.js?v=49.5"></script>
-    <script src="assets/js/game-holdem.js?v=49.5"></script>
-    <script src="assets/js/game.js?v=49.5"></script>
+    <script src="assets/js/common.js?v=50.0"></script>
+    <script src="assets/js/game-roulette.js?v=50.0"></script>
+    <script src="assets/js/game-blackjack.js?v=50.0"></script>
+    <script src="assets/js/game-slot.js?v=50.0"></script>
+    <script src="assets/js/game-holdem.js?v=50.0"></script>
+    <script src="assets/js/game-underground.js?v=50.0"></script>
+    <script src="assets/js/game.js?v=50.0"></script>
 </body>
 </html>

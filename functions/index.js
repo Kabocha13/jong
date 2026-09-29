@@ -31,6 +31,26 @@ import {
   tallyParticipation
 } from './participation-bonus.js';
 import {
+  UNDERGROUND_SOURCE,
+  UndergroundError,
+  applyChinchiroResult,
+  applyRelease,
+  applyShipmentResult,
+  chinchiroHandLabel,
+  chinchiroReason,
+  generateShipmentItems,
+  gradeShipment,
+  isInUnderground,
+  maxChinchiroBet,
+  normalizeUndergroundRecord,
+  playChinchiro,
+  publicUndergroundRecord,
+  settleChinchiro,
+  undergroundSettingsFrom,
+  validateChinchiroBet,
+  validateShipmentTiming
+} from './underground.js';
+import {
   HoldemTableError,
   createHoldemContext,
   emptyHoldemTable,
@@ -1650,6 +1670,240 @@ export const participationBonus = onRequest({ region: 'asia-northeast1' }, async
     }
     console.error(error);
     res.status(500).json({ status: 'error', message: `参加ボーナスの処理に失敗しました: ${error.message}` });
+  }
+});
+
+// -----------------------------------------------------------------
+// 船底 (レートが0以下の人の地下労働)
+//   ルールは underground.js。積荷の仕分けで金貨を稼ぎ、チンチロで班長に勝つとレートになる。
+//   レートが1以上になったら船底を出たことにし、残った金貨と途中の便は没収する (どの操作でも最初に確かめる)。
+//   記録 underground/{player} は Cloud Functions だけが読み書きする (rules で禁止)。
+//   数値は settings/app の underground_* で変えられる (管理画面)。
+// -----------------------------------------------------------------
+const UNDERGROUND_COLLECTION = 'underground';
+
+function undergroundRef(username) {
+  return db.collection(UNDERGROUND_COLLECTION).doc(toDocId(username));
+}
+
+async function loadUndergroundSettings() {
+  const settingsDoc = await db.collection('settings').doc('app').get();
+  return undergroundSettingsFrom(settingsDoc.exists ? settingsDoc.data() : {});
+}
+
+/**
+ * 本人のレートと船底の記録をトランザクションで読む (読むのはここだけ。このあとは書くだけにすること)。
+ * レートが1以上なら船底を出たことにして、残った金貨と途中の便を没収する
+ */
+async function readUndergroundState(transaction, username, at) {
+  const ref = undergroundRef(username);
+  const [undergroundDoc, playerSnapshot] = await Promise.all([
+    transaction.get(ref),
+    transaction.get(playerQuery(username))
+  ]);
+  if (playerSnapshot.empty) {
+    throw new UndergroundError(404, 'プレイヤーが見つかりません。');
+  }
+  const playerDoc = playerSnapshot.docs[0];
+  const score = normalizeRate(playerDoc.data().score);
+  let record = normalizeUndergroundRecord(undergroundDoc.exists ? undergroundDoc.data() : null, username);
+  let released = null;
+  if (!isInUnderground(score)) {
+    const release = applyRelease(record, at);
+    if (release) {
+      record = release.record;
+      released = { forfeited: release.forfeited };
+      transaction.set(ref, record);
+    }
+  }
+  return { ref, playerDoc, score, record, released };
+}
+
+/** 画面に返す共通の形 */
+function undergroundPayload({ score, record, released }, settings) {
+  return {
+    me: record.player,
+    score,
+    inUnderground: isInUnderground(score),
+    underground: publicUndergroundRecord(record),
+    maxBet: maxChinchiroBet(record.coins, settings),
+    released,
+    settings,
+    now: new Date().toISOString()
+  };
+}
+
+function describeChinchiroTurn(turn) {
+  return turn ? { rolls: turn.rolls, hand: { ...turn.hand, label: chinchiroHandLabel(turn.hand) } } : null;
+}
+
+async function undergroundStatus(username, settings) {
+  const at = new Date().toISOString();
+  const state = await db.runTransaction(transaction => readUndergroundState(transaction, username, at));
+  return undergroundPayload(state, settings);
+}
+
+/** 積荷の仕分けを1便始める。途中の便があれば捨てて新しく始める */
+async function undergroundStartShipment(username, settings) {
+  const at = new Date().toISOString();
+  const state = await db.runTransaction(async transaction => {
+    const current = await readUndergroundState(transaction, username, at);
+    if (!isInUnderground(current.score)) {
+      throw new UndergroundError(403, 'レートが1以上なので船底には入れません。');
+    }
+    const shipment = {
+      id: `${Date.now().toString(36)}${randomInt(1e9).toString(36)}`,
+      items: generateShipmentItems(randomInt, settings.itemsPerShipment),
+      startedAt: at,
+      seconds: settings.shipmentSeconds
+    };
+    const record = { ...current.record, shipment, updatedAt: at };
+    transaction.set(current.ref, record);
+    return { ...current, record };
+  });
+  return undergroundPayload(state, settings);
+}
+
+/** 仕分けの答えを受け取って採点し、給料 (金貨) を払う */
+async function undergroundSubmitShipment(username, body, settings) {
+  const at = new Date().toISOString();
+  let grade = null;
+  let rejected = null;
+  const state = await db.runTransaction(async transaction => {
+    grade = null;
+    rejected = null;
+    const current = await readUndergroundState(transaction, username, at);
+    if (current.released) return current;   // 仕分けの途中で地上に戻った (便も没収)
+    const shipment = current.record.shipment;
+    if (!shipment || shipment.id !== String(body.shipmentId || '')) {
+      throw new UndergroundError(409, 'この便はもう終わっています。');
+    }
+    const answers = Array.isArray(body.answers) ? body.answers.slice(0, shipment.items.length) : [];
+    const result = gradeShipment(shipment.items, answers, settings);
+    try {
+      validateShipmentTiming(Date.parse(at) - Date.parse(shipment.startedAt), result.answered, shipment.seconds);
+    } catch (error) {
+      // 時間切れ・速すぎは、この便を終わりにして給料は出さない
+      rejected = error;
+      const record = { ...current.record, shipment: null, updatedAt: at };
+      transaction.set(current.ref, record);
+      return { ...current, record };
+    }
+    grade = result;
+    const record = applyShipmentResult(current.record, result, at);
+    transaction.set(current.ref, record);
+    return { ...current, record };
+  });
+  if (rejected) throw rejected;
+  return { ...undergroundPayload(state, settings), grade };
+}
+
+/** チンチロを1回。勝ったらレートに足し、レートが1以上になったらそのまま船底を出る */
+async function undergroundChinchiro(username, body, settings) {
+  const at = new Date().toISOString();
+  let game = null;
+  const state = await db.runTransaction(async transaction => {
+    game = null;
+    const current = await readUndergroundState(transaction, username, at);
+    if (current.released) return current;
+    if (!isInUnderground(current.score)) {
+      throw new UndergroundError(403, 'レートが1以上なので船底にはいません。');
+    }
+    const bet = validateChinchiroBet(body.bet, current.record.coins, settings);
+    const result = playChinchiro(randomInt);
+    const settled = settleChinchiro(bet, result, settings);
+    let record = applyChinchiroResult(current.record, bet, result, settled, at);
+
+    let score = current.score;
+    if (settled.rateDelta > 0) {
+      const afterScore = score + settled.rateDelta;
+      transaction.update(current.playerDoc.ref, { score: afterScore });
+      const historyId = rateHistoryDocId(username, at);
+      transaction.set(db.collection('point_history').doc(historyId), {
+        id: historyId,
+        player: username,
+        beforeScore: score,
+        afterScore,
+        delta: settled.rateDelta,
+        source: UNDERGROUND_SOURCE,
+        reason: chinchiroReason(bet, result),
+        actor: username,
+        createdAt: at
+      });
+      score = afterScore;
+    }
+
+    let released = null;
+    if (!isInUnderground(score)) {
+      const release = applyRelease(record, at, { always: true });
+      record = release.record;
+      released = { forfeited: release.forfeited };
+    }
+    transaction.set(current.ref, record);
+    game = {
+      bet,
+      outcome: result.outcome,
+      multiplier: result.multiplier,
+      decidedBy: result.decidedBy,
+      dealer: describeChinchiroTurn(result.dealer),
+      player: describeChinchiroTurn(result.player),
+      coinsDelta: settled.coinsDelta,
+      rateDelta: settled.rateDelta,
+      pinhane: settled.pinhane
+    };
+    return { ...current, score, record, released };
+  });
+  if (game && game.rateDelta > 0) {
+    await rebuildRateChartQuietly(UNDERGROUND_SOURCE);
+  }
+  return { ...undergroundPayload(state, settings), chinchiro: game };
+}
+
+const UNDERGROUND_ACTIONS = {
+  status: ({ username, settings }) => undergroundStatus(username, settings),
+  start: ({ username, settings }) => undergroundStartShipment(username, settings),
+  submit: ({ username, body, settings }) => undergroundSubmitShipment(username, body, settings),
+  chinchiro: ({ username, body, settings }) => undergroundChinchiro(username, body, settings)
+};
+
+export const underground = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const decoded = await getVerifiedAuthToken(req);
+    const username = decoded && decoded.username;
+    if (!username) {
+      res.status(401).json({ status: 'error', message: 'ログインが必要です。マイページでログインし直してください。' });
+      return;
+    }
+    if (RATE_EXCLUDED_PLAYERS.has(username)) {
+      res.status(403).json({ status: 'error', message: 'このアカウントは船底を利用できません。' });
+      return;
+    }
+
+    const body = req.body || {};
+    const action = String(body.action || 'status');
+    if (!Object.hasOwn(UNDERGROUND_ACTIONS, action)) {
+      throw new UndergroundError(400, '不明な操作です。');
+    }
+    const settings = await loadUndergroundSettings();
+    const payload = await UNDERGROUND_ACTIONS[action]({ username, body, settings });
+    res.status(200).json({ status: 'success', ...payload });
+  } catch (error) {
+    if (error instanceof UndergroundError) {
+      res.status(error.status).json({ status: 'error', message: error.message });
+      return;
+    }
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `船底の処理に失敗しました: ${error.message}` });
   }
 });
 

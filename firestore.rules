@@ -111,6 +111,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 船底 (地下労働) の金貨と仕分けの途中の便。積荷の並び (答え) を含み、書き換えられると金貨を偽れるので、
+    // 読み書きとも Cloud Functions (underground) だけに限る。
+    match /underground/{playerId} {
+      allow read, write: if false;
+    }
+
     match /settings/{settingId} {
       allow read: if true;
       allow write: if request.auth != null;

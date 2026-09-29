@@ -68,6 +68,36 @@ function normalizeLoanSettings(settings) {
     };
 }
 
+// 船底 (レートが0以下の人の地下労働)。ルールと計算は functions/underground.js にあり、画面はサーバーの返事を表示するだけ。
+// settings/app のキー名 → 既定値。functions/underground.js の UNDERGROUND_SETTING_DEFAULTS と同じにしておくこと
+const UNDERGROUND_SETTING_DEFAULTS = {
+    underground_items_per_shipment: 20,   // 1便の積荷の数
+    underground_shipment_seconds: 40,     // 1便の制限時間 (秒)
+    underground_pay_correct: 5,           // 正しく仕分けた1個の給料 (金貨)
+    underground_pay_miss: 5,              // 間違えた1個で減る金貨
+    underground_bet_min: 10,              // チンチロの賭け金の下限 (金貨)
+    underground_bet_max: 100,             // チンチロの賭け金の上限 (金貨)
+    underground_pinhane_rate: 0           // 勝ったときに班長が抜く割合 (0.05 = 5%)
+};
+
+/** settings/app の underground_* を、サーバー (functions/underground.js の undergroundSettingsFrom) と同じ形と丸めで取り出す */
+function normalizeUndergroundSettings(settings) {
+    const source = settings && typeof settings === 'object' ? settings : {};
+    const d = UNDERGROUND_SETTING_DEFAULTS;
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    const read = key => toFiniteNumber(source[key], d[key]);
+    const betMin = clamp(Math.round(read('underground_bet_min')), 1, 100000);
+    return {
+        itemsPerShipment: clamp(Math.round(read('underground_items_per_shipment')), 5, 100),
+        shipmentSeconds: clamp(Math.round(read('underground_shipment_seconds')), 10, 300),
+        payCorrect: clamp(Math.round(read('underground_pay_correct')), 0, 1000),
+        payMiss: clamp(Math.round(read('underground_pay_miss')), 0, 1000),
+        betMin,
+        betMax: clamp(Math.round(read('underground_bet_max')), betMin, 100000),
+        pinhaneRate: clamp(read('underground_pinhane_rate'), 0, 0.5)
+    };
+}
+
 function isMahjongCpu(name) {
     return name === MAHJONG_CPU_NAME;
 }
@@ -310,7 +340,8 @@ function createEmptyData() {
         attendance_allowed_users: [],
         attendance_min_rate: ATTENDANCE_MIN_RATE_DEFAULT,
         loans: [],
-        loan_settings: normalizeLoanSettings({})
+        loan_settings: normalizeLoanSettings({}),
+        underground_settings: normalizeUndergroundSettings({})
     };
 }
 
@@ -356,6 +387,9 @@ function normalizeFetchedRecord(record) {
         : [];
     if (!normalized.loan_settings || typeof normalized.loan_settings !== 'object') {
         normalized.loan_settings = normalizeLoanSettings({});
+    }
+    if (!normalized.underground_settings || typeof normalized.underground_settings !== 'object') {
+        normalized.underground_settings = normalizeUndergroundSettings({});
     }
     normalized.rate_baseline = normalizeRate(normalized.rate_baseline ?? RATE_BASELINE_DEFAULT);
     normalized.rate_reversion_rate = normalizeReversionRate(normalized.rate_reversion_rate);
@@ -802,7 +836,8 @@ async function fetchAllDataFromFirebase() {
         rate_reversion_last_total: settings.rate_reversion_last_total ?? 0,
         attendance_allowed_users: settings.attendance_allowed_users ?? [],
         attendance_min_rate: settings.attendance_min_rate ?? ATTENDANCE_MIN_RATE_DEFAULT,
-        loan_settings: normalizeLoanSettings(settings)
+        loan_settings: normalizeLoanSettings(settings),
+        underground_settings: normalizeUndergroundSettings(settings)
     });
 
     // 読み込んだ時点のレート。保存時に updateAllData (Cloud Function) がこの値との差だけを
@@ -898,6 +933,7 @@ async function updateAllDataInFirebase(newData) {
         // 借金の記録は Cloud Functions だけが書く。読み込んだ写しを送り返さない (設定も別に保存する)
         delete mergedData.loans;
         delete mergedData.loan_settings;
+        delete mergedData.underground_settings;
 
         const functionResult = await updateAllDataViaFunction(mergedData, pointHistoryEntries);
         // サーバー側で他の変化と合成した値が正なので、手元の結果はキャッシュせず次回取り直す
@@ -1090,6 +1126,33 @@ function formatDebtLabel(debt) {
 }
 
 /** 管理画面から貸し出しの設定を保存する。値は normalizeLoanSettings と同じ丸めで settings/app に置く */
+/** 船底の設定を settings/app に保存する (管理画面)。保存した値 (丸めたあと) を返す */
+async function saveUndergroundSettings(values) {
+    const db = getFirestoreDb();
+    if (!db) throw new Error('Firebase が設定されていません。');
+    const normalized = normalizeUndergroundSettings({
+        underground_items_per_shipment: values.itemsPerShipment,
+        underground_shipment_seconds: values.shipmentSeconds,
+        underground_pay_correct: values.payCorrect,
+        underground_pay_miss: values.payMiss,
+        underground_bet_min: values.betMin,
+        underground_bet_max: values.betMax,
+        underground_pinhane_rate: values.pinhaneRate
+    });
+    await db.collection('settings').doc('app').set({
+        underground_items_per_shipment: normalized.itemsPerShipment,
+        underground_shipment_seconds: normalized.shipmentSeconds,
+        underground_pay_correct: normalized.payCorrect,
+        underground_pay_miss: normalized.payMiss,
+        underground_bet_min: normalized.betMin,
+        underground_bet_max: normalized.betMax,
+        underground_pinhane_rate: normalized.pinhaneRate,
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+    invalidateFetchCache();
+    return normalized;
+}
+
 /** 出席を出すレートの下限を settings/app に保存する (管理画面) */
 async function saveAttendanceMinRate(value) {
     const db = getFirestoreDb();
