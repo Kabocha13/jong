@@ -1876,20 +1876,9 @@ if (ENABLE_NOTIFICATIONS_BUTTON) {
     if (isPushNotificationSupported() && Notification.permission === 'granted' && localStorage.getItem(PUSH_TOKEN_SAVED_KEY)) {
         ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_ENABLED_LABEL;
 
-        // ログイン済みならトークンを静かに最新化する (失敗しても画面には影響させない)
+        // ログイン済みならトークンを静かに最新化する (失敗しても画面には影響させない)。
+        // ページを開いている間に届いた通知も firebase-messaging-sw.js が端末の通知として出す
         registerPushToken().catch(() => {});
-
-        // ページを開いている間に届いた通知はトーストで表示する
-        try {
-            getFirebaseApp();
-            firebase.messaging().onMessage(payload => {
-                const notification = (payload && payload.notification) || {};
-                const text = [notification.title, notification.body].filter(Boolean).join(' / ');
-                if (text) showToast(text, 'success');
-            });
-        } catch (error) {
-            console.warn('フォアグラウンド通知の初期化に失敗しました:', error);
-        }
     }
 }
 
