@@ -38,6 +38,8 @@ const MEMBER_STATUS_MESSAGE = document.getElementById('member-status-message');
 const ATTENDANCE_ACCESS_LIST = document.getElementById('attendance-access-list');
 const ATTENDANCE_ACCESS_SAVE_BUTTON = document.getElementById('attendance-access-save-button');
 const ATTENDANCE_ACCESS_MESSAGE = document.getElementById('attendance-access-message');
+const ATTENDANCE_MIN_RATE_FORM = document.getElementById('attendance-min-rate-form');
+const ATTENDANCE_MIN_RATE_INPUT = document.getElementById('attendance-min-rate');
 
 // ★★★ 新規追加: 宝くじ機能 ★★★
 const CREATE_LOTTERY_FORM = document.getElementById('create-lottery-form');
@@ -622,12 +624,8 @@ if (TRANSFER_FORM) {
                 return;
             }
     
+            // 管理者の送金は、送金元のレートが足りなくても行う (マイナスになってよい)
             const senderScore = senderPlayer.score || 0;
-            
-            if (senderScore < amount) {
-                showMessage(messageEl, `エラー: ${sender} の残りレート (${formatRate(senderScore)}) が不足しています。`, 'error');
-                return;
-            }
     
             // 送信元スコアを更新
             // ★ status/lastBonusTimeを保持
@@ -667,7 +665,9 @@ if (TRANSFER_FORM) {
             const response = await updateAllData(newData);
     
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ ${sender} から ${receiver} へ レート ${formatRate(amount)} の送金を完了しました。`, 'success');
+                const senderAfter = normalizeRate(senderScore - amount);
+                showMessage(messageEl, `✅ ${sender} から ${receiver} へ レート ${formatRate(amount)} の送金を完了しました。`
+                    + (senderAfter < 0 ? ` (${sender} のレートは ${formatRate(senderAfter)} になりました)` : ''), 'success');
                 
                 TRANSFER_FORM.reset();
                 loadPlayerList();
@@ -686,6 +686,14 @@ if (TRANSFER_FORM) {
 
 
 // --- 6. スポーツくじ管理機能 ---
+
+/** くじを作ったときの全員への通知の結果 (「。全員に通知しました (3台)」)。送っていなければ空文字 */
+function describeEventNotifications(notifications) {
+    if (!notifications || !notifications.count) return '';
+    return notifications.success > 0
+        ? `。全員に通知しました (${notifications.success}台)`
+        : '。通知を送れる端末がありませんでした';
+}
 
 // イベントハンドラ: 新規くじ作成 (履歴削除)
 // ★ 修正: CREATE_BET_FORM が存在しないページもあるため、nullチェック
@@ -754,7 +762,7 @@ if (CREATE_BET_FORM) {
             const response = await updateAllData(newData);
     
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})`, 'success');
+                showMessage(messageEl, `✅ くじ「${matchName}」を作成しました (ID: ${newBetId})${describeEventNotifications(response.notifications)}`, 'success');
                 CREATE_BET_FORM.reset();
                 
                 // フォームリセット後、締切日時を再度設定
@@ -1806,7 +1814,7 @@ if (CREATE_LOTTERY_FORM) {
             const response = await updateAllData(newData);
 
             if (response.status === 'success') {
-                showMessage(messageEl, `✅ 宝くじ「${lotteryName}」を作成しました (ID: ${newLotteryId})`, 'success');
+                showMessage(messageEl, `✅ 宝くじ「${lotteryName}」を作成しました (ID: ${newLotteryId})${describeEventNotifications(response.notifications)}`, 'success');
                 CREATE_LOTTERY_FORM.reset();
                 initializeLotteryForm(); // 日付をリセット
             } else {
@@ -1836,6 +1844,7 @@ async function loadAttendanceAccessStatus() {
             ? currentData.attendance_allowed_users
             : [];
         const players = currentData.scores || [];
+        if (ATTENDANCE_MIN_RATE_INPUT) ATTENDANCE_MIN_RATE_INPUT.value = normalizeAttendanceMinRate(currentData.attendance_min_rate);
 
         if (players.length === 0) {
             ATTENDANCE_ACCESS_LIST.innerHTML = '<p>プレイヤーが見つかりません。</p>';
@@ -1889,6 +1898,30 @@ async function saveAttendanceAccessStatus() {
 
 if (ATTENDANCE_ACCESS_SAVE_BUTTON) {
     ATTENDANCE_ACCESS_SAVE_BUTTON.addEventListener('click', saveAttendanceAccessStatus);
+}
+
+if (ATTENDANCE_MIN_RATE_FORM) {
+    ATTENDANCE_MIN_RATE_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const value = Math.round(parseFloat(ATTENDANCE_MIN_RATE_INPUT?.value));
+        if (!Number.isFinite(value) || value < 0) {
+            showMessage(ATTENDANCE_ACCESS_MESSAGE, '❌ レートの下限は0以上の整数で入力してください。', 'error');
+            return;
+        }
+        const submitButton = ATTENDANCE_MIN_RATE_FORM.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        showMessage(ATTENDANCE_ACCESS_MESSAGE, 'レートの下限を保存中...', 'info');
+        try {
+            const saved = await saveAttendanceMinRate(value);
+            if (ATTENDANCE_MIN_RATE_INPUT) ATTENDANCE_MIN_RATE_INPUT.value = saved;
+            showMessage(ATTENDANCE_ACCESS_MESSAGE, `✅ レート ${formatRate(saved)} 以上の人に出席登録と出席通知を出します。`, 'success');
+        } catch (error) {
+            console.error(error);
+            showMessage(ATTENDANCE_ACCESS_MESSAGE, `❌ 保存エラー: ${error.message}`, 'error');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
 }
 
 

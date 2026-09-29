@@ -1,4 +1,4 @@
-# jong　　Ver49.3
+# jong　　Ver49.4
 
 **1.1** 麻雀得点管理アプリリリース
 
@@ -285,6 +285,8 @@
 **49.2** 管理画面に「🎁 参加ボーナス配布」を追加。指定した日 (JST) に麻雀・カジノに参加した回数に応じてレートを配る: ボーナス = 麻雀の対局数 × 1局あたり + カジノで遊んだ回数 × 1回あたり (ブラックジャック・ホールデムは1ハンド、ルーレット・スロットは1スピン = 1回。額は画面で 0〜1000 を指定)。数えるのは増減ログ (point_history) で、麻雀は reason の参加者 (レートが動かなかった人も数える、3mahjong は除く)、カジノは精算の reason の「N回」を足す (精算で増減 0 だった回は増減ログが無いので数えない)。「プレビュー」で人ごとの回数と額を確かめてから「この内容で配布する」で配る。計算は functions/participation-bonus.js、数える・配るのは管理者だけが呼べる Cloud Function participationBonus (preview / grant)。同じ日には1回しか配れず、配った内容は bonus_runs/participation_{日付} に残す (rules に無いので画面からは読み書きできない)。増減ログの source は participation_bonus で、貸し出しの「変動の大きさ」からは除く。デプロイは hosting, functions
 
 **49.3** ホームのレート推移グラフの表示日数を 3〜7日 から 1〜4日 に減らした (細かくて見づらいため)。1日ぶんに 220px 以上取れる日数まで広げるので、スマホは1日・タブレットは2日・ノートPCは3日・広い画面は4日。画面側 (assets/js/rate-chart.js) だけの変更なのでデプロイは hosting だけ
+
+**49.4** 出席登録ボタンと出席通知を出すレートの下限を 3500 から 3000 に下げ、管理画面の「📋 出席登録の表示設定」で変えられるようにした (settings/app の attendance_min_rate。無ければ 3000。画面は assets/js/common.js の ATTENDANCE_MIN_RATE_DEFAULT、通知は functions/index.js の ATTENDANCE_MIN_RATE_DEFAULT が既定値)。ホームのレート推移の下に「📜 いまのルール」を追加し、毎日の徴収率 (日次レート補正の割合と固定加算・基準)・出席の表示条件 (レートの下限)・貸し出しの利率を誰でも見られるようにした。管理画面のレート送金は、送金元のレートが足りなくても送れるようにした (送金元はマイナスになる。マイページの送金はこれまでどおり)。宝くじ・スポーツくじを作ったら、通知を登録している全員の端末にプッシュ通知を送る (updateAllData が今回新しく作られた lotteries / sports_bets の文書を見分け、保存のあとで送る。失効したトークンは消す)。デプロイは hosting, functions
 
 npx firebase deploy --only hosting,functions,firestore
 

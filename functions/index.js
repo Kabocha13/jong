@@ -903,6 +903,94 @@ async function syncManabaCredentialDoc(credentialDoc) {
 const MANABA_REMINDER_DAYS_BEFORE = 2;
 const APP_URL = 'https://q-jong.web.app/';
 
+/** 送れなかった (失効した) トークンを push_tokens から消す */
+async function removeInvalidPushTokens(tokenDoc, tokenEntries, tokens, response) {
+  const invalidTokens = new Set();
+  response.responses.forEach((sendResult, index) => {
+    if (sendResult.success) return;
+    const code = String(sendResult.error?.code || '');
+    if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
+      invalidTokens.add(tokens[index]);
+    }
+  });
+  if (invalidTokens.size) {
+    await tokenDoc.ref.set({
+      tokens: tokenEntries.filter(entry => !invalidTokens.has(String(entry?.token || ''))),
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  }
+}
+
+/**
+ * 通知を登録している全員 (push_tokens の全端末) に同じ通知を送る。
+ * 同じ端末のトークンが複数の人に登録されていても1回だけ送る。失効したトークンは消す
+ */
+async function sendPushToEveryone({ title, body, tag, link = APP_URL }) {
+  const snapshot = await db.collection('push_tokens').get();
+  const sentTokens = new Set();
+  let success = 0;
+  let failure = 0;
+  for (const tokenDoc of snapshot.docs) {
+    const tokenEntries = Array.isArray(tokenDoc.data().tokens) ? tokenDoc.data().tokens : [];
+    const tokens = [...new Set(tokenEntries.map(entry => String(entry?.token || '')).filter(Boolean))]
+      .filter(token => !sentTokens.has(token));
+    if (!tokens.length) continue;
+    tokens.forEach(token => sentTokens.add(token));
+
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: { title, body },
+      webpush: {
+        fcmOptions: { link },
+        notification: { icon: '/assets/icon.png', tag }
+      }
+    });
+    success += response.successCount;
+    failure += response.failureCount;
+    await removeInvalidPushTokens(tokenDoc, tokenEntries, tokens, response);
+  }
+  return { success, failure };
+}
+
+/** 「10/1 12:00」。通知の本文用 (JST) */
+function formatJstShortDateTime(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+/** 新しく作られた宝くじ・スポーツくじを全員に知らせる。失敗しても保存は成功扱い (ログだけ残す) */
+async function notifyNewEvents(created) {
+  const messages = [
+    ...created.lotteries.map(lottery => ({
+      title: `🎟️ 新しい宝くじ「${lottery.name}」`,
+      body: [
+        Number.isFinite(Number(lottery.ticketPrice)) ? `1枚 ${lottery.ticketPrice}` : '',
+        lottery.purchaseDeadline ? `購入締切 ${formatJstShortDateTime(lottery.purchaseDeadline)}` : ''
+      ].filter(Boolean).join(' / ') || 'ホームから購入できます',
+      tag: `lottery-${lottery.lotteryId}`
+    })),
+    ...created.sports_bets.map(bet => ({
+      title: `🏆 新しいスポーツくじ「${bet.matchName}」`,
+      body: bet.deadline ? `締切 ${formatJstShortDateTime(bet.deadline)}` : 'ホームから投票できます',
+      tag: `sports-bet-${bet.betId}`
+    }))
+  ];
+  let success = 0;
+  let failure = 0;
+  for (const message of messages) {
+    try {
+      const result = await sendPushToEveryone(message);
+      success += result.success;
+      failure += result.failure;
+    } catch (error) {
+      console.error(`くじ作成の通知に失敗しました (${message.tag}):`, error);
+    }
+  }
+  if (messages.length) console.log('notifyNewEvents:', JSON.stringify({ count: messages.length, success, failure }));
+  return { count: messages.length, success, failure };
+}
+
 function parseManabaDeadlineDateParts(item) {
   const rawText = String(item?.deadlineText || item?.deadline || '').trim();
   if (!rawText) return null;
@@ -1018,20 +1106,7 @@ export const sendManabaDeadlineReminders = onSchedule({
     });
 
     // 失効したトークンを削除する
-    const invalidTokens = new Set();
-    response.responses.forEach((sendResult, index) => {
-      if (sendResult.success) return;
-      const code = String(sendResult.error?.code || '');
-      if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
-        invalidTokens.add(tokens[index]);
-      }
-    });
-    if (invalidTokens.size) {
-      await tokenDoc.ref.set({
-        tokens: tokenEntries.filter(entry => !invalidTokens.has(String(entry?.token || ''))),
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-    }
+    await removeInvalidPushTokens(tokenDoc, tokenEntries, tokens, response);
 
     const nowIso = new Date().toISOString();
     targets.forEach(({ item }) => {
@@ -1054,9 +1129,11 @@ export const sendManabaDeadlineReminders = onSchedule({
 // 出席登録のプッシュ通知 (授業開始時刻)
 // ------------------------------------------------------------------
 
-// assets/js/main.js の ATTENDANCE_SCHEDULE / ATTENDANCE_USER_OVERRIDES / ATTENDANCE_USER_CLASSES /
-// ATTENDANCE_MIN_RATE と同じ内容。時間割を変えるときは両方を直すこと。
-const ATTENDANCE_MIN_RATE = 3500;
+// assets/js/main.js の ATTENDANCE_SCHEDULE / ATTENDANCE_USER_OVERRIDES / ATTENDANCE_USER_CLASSES
+// と同じ内容。時間割を変えるときは両方を直すこと。
+// 通知を送るレートの下限は settings/app の attendance_min_rate (管理画面で変えられる)。
+// 無いときの既定値は assets/js/common.js の ATTENDANCE_MIN_RATE_DEFAULT と揃えること
+const ATTENDANCE_MIN_RATE_DEFAULT = 3000;
 const ATTENDANCE_SCHEDULE = {
   1: [{ name: 'ネットワーク・データ工学実験', start: '14:00', room: 642 }],
   2: [{ name: '物理の世界と先端技術', start: '15:00', room: 622 }],
@@ -1147,6 +1224,8 @@ async function sendAttendanceNoticeForSlot(slot, { dow, minutes, todayKey }) {
   const allowedUsers = new Set(
     Array.isArray(settingsDoc.data()?.attendance_allowed_users) ? settingsDoc.data().attendance_allowed_users : []
   );
+  const minRateSetting = Number(settingsDoc.data()?.attendance_min_rate);
+  const minRate = Number.isFinite(minRateSetting) ? Math.max(0, Math.round(minRateSetting)) : ATTENDANCE_MIN_RATE_DEFAULT;
   const rateByName = new Map(playersSnapshot.docs.map(doc => [doc.data().name, normalizeRate(doc.data().score)]));
 
   let notified = 0;
@@ -1165,7 +1244,7 @@ async function sendAttendanceNoticeForSlot(slot, { dow, minutes, todayKey }) {
 
     // レートが足りない人にも通知しない (画面のボタンと同じ条件)
     const rate = rateByName.get(owner);
-    if (rate === undefined || rate < ATTENDANCE_MIN_RATE) continue;
+    if (rate === undefined || rate < minRate) continue;
 
     const tokenEntries = Array.isArray(data.tokens) ? data.tokens : [];
     const tokens = [...new Set(tokenEntries.map(entry => String(entry?.token || '')).filter(Boolean))];
@@ -1192,20 +1271,7 @@ async function sendAttendanceNoticeForSlot(slot, { dow, minutes, todayKey }) {
     failure += response.failureCount;
 
     // 失効したトークンを削除する
-    const invalidTokens = new Set();
-    response.responses.forEach((sendResult, index) => {
-      if (sendResult.success) return;
-      const code = String(sendResult.error?.code || '');
-      if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
-        invalidTokens.add(tokens[index]);
-      }
-    });
-    if (invalidTokens.size) {
-      await tokenDoc.ref.set({
-        tokens: tokenEntries.filter(entry => !invalidTokens.has(String(entry?.token || ''))),
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-    }
+    await removeInvalidPushTokens(tokenDoc, tokenEntries, tokens, response);
   }
 
   await noticeRef.set({ notified, success, failure }, { merge: true });
@@ -1329,7 +1395,10 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
     const actor = decoded.username || decoded.uid;
     const nowIso = new Date().toISOString();
 
+    // 新しく作られた宝くじ・スポーツくじ (保存が終わったら全員に通知する)
+    let created = { lotteries: [], sports_bets: [] };
     const historyCount = await db.runTransaction(async transaction => {
+      created = { lotteries: [], sports_bets: [] };
       const snapshots = new Map();
       for (const [key, collectionName] of Object.entries(FIREBASE_COLLECTIONS)) {
         snapshots.set(key, await transaction.get(db.collection(collectionName)));
@@ -1345,6 +1414,7 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
       for (const [key, collectionName] of Object.entries(FIREBASE_COLLECTIONS)) {
         const collectionRef = db.collection(collectionName);
         const nextIds = new Set();
+        const existingIds = new Set(snapshots.get(key).docs.map(doc => doc.id));
 
         (Array.isArray(data[key]) ? data[key] : []).forEach((item, index) => {
           const docId = getItemDocId(key, item, index);
@@ -1354,6 +1424,9 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
           delete payload._baseScore;
           if (key === 'scores' && scoreWrites.scores.has(docId)) {
             payload.score = scoreWrites.scores.get(docId);
+          }
+          if (Object.hasOwn(created, key) && !existingIds.has(docId)) {
+            created[key].push(payload);
           }
           transaction.set(collectionRef.doc(docId), payload);
         });
@@ -1381,8 +1454,9 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
     if (historyCount > 0) {
       await rebuildRateChartQuietly('updateAllData');
     }
+    const notifications = await notifyNewEvents(created);
 
-    res.status(200).json({ status: 'success', message: 'データをFirebaseに保存しました。' });
+    res.status(200).json({ status: 'success', message: 'データをFirebaseに保存しました。', notifications });
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 'error', message: `Firebase書き込み失敗: ${error.message}` });

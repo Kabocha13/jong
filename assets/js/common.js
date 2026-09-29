@@ -16,6 +16,9 @@ const FIREBASE_COLLECTIONS = {
 const RATE_BASELINE_DEFAULT = 3000;          // 基準レート
 const RATE_REVERSION_RATE_DEFAULT = 0.13;    // 1日に戻す割合 (基準との差に対して)
 const RATE_REVERSION_FLAT_DEFAULT = 10;      // 割合ぶんに上乗せする固定分
+// 出席登録ボタンと出席通知を出すレートの下限 (settings/app の attendance_min_rate。管理画面で変えられる)。
+// 無いときの既定値は functions/index.js の ATTENDANCE_MIN_RATE_DEFAULT と揃えること
+const ATTENDANCE_MIN_RATE_DEFAULT = 3000;
 // CPUを入れて打ったとき用の仮想プレイヤー。麻雀の結果入力でだけ選べる席で、
 // レートは常に基準レート(3000)に固定する。勝っても負けても本人のレートは動かさず、
 // 卓平均レートの計算にもこの3000をそのまま使うので、実プレイヤーのレートを吸わない。
@@ -305,6 +308,7 @@ function createEmptyData() {
         rate_reversion_last_run_at: '',
         rate_reversion_last_total: 0,
         attendance_allowed_users: [],
+        attendance_min_rate: ATTENDANCE_MIN_RATE_DEFAULT,
         loans: [],
         loan_settings: normalizeLoanSettings({})
     };
@@ -362,7 +366,13 @@ function normalizeFetchedRecord(record) {
     normalized.attendance_allowed_users = Array.isArray(normalized.attendance_allowed_users)
         ? normalized.attendance_allowed_users.filter(Boolean)
         : [];
+    normalized.attendance_min_rate = normalizeAttendanceMinRate(normalized.attendance_min_rate);
     return normalized;
+}
+
+/** 出席を出すレートの下限。0 以上の整数で、無ければ既定値 */
+function normalizeAttendanceMinRate(value) {
+    return Math.max(0, normalizeRate(toFiniteNumber(value, ATTENDANCE_MIN_RATE_DEFAULT)));
 }
 
 function normalizeReversionRate(value) {
@@ -791,6 +801,7 @@ async function fetchAllDataFromFirebase() {
         rate_reversion_last_run_at: settings.rate_reversion_last_run_at ?? '',
         rate_reversion_last_total: settings.rate_reversion_last_total ?? 0,
         attendance_allowed_users: settings.attendance_allowed_users ?? [],
+        attendance_min_rate: settings.attendance_min_rate ?? ATTENDANCE_MIN_RATE_DEFAULT,
         loan_settings: normalizeLoanSettings(settings)
     });
 
@@ -891,7 +902,12 @@ async function updateAllDataInFirebase(newData) {
         const functionResult = await updateAllDataViaFunction(mergedData, pointHistoryEntries);
         // サーバー側で他の変化と合成した値が正なので、手元の結果はキャッシュせず次回取り直す
         invalidateFetchCache();
-        return { status: "success", message: functionResult.message || "データをFirebaseに保存しました。", totalChange: 0 };
+        return {
+            status: "success",
+            message: functionResult.message || "データをFirebaseに保存しました。",
+            totalChange: 0,
+            notifications: functionResult.notifications || null   // 新しいくじを全員に知らせた結果
+        };
     } catch (error) {
         console.error("Firebase書き込み中にエラー:", error);
         return { status: "error", message: `Firebase書き込み失敗: ${error.message}`, totalChange: 0 };
@@ -1074,6 +1090,19 @@ function formatDebtLabel(debt) {
 }
 
 /** 管理画面から貸し出しの設定を保存する。値は normalizeLoanSettings と同じ丸めで settings/app に置く */
+/** 出席を出すレートの下限を settings/app に保存する (管理画面) */
+async function saveAttendanceMinRate(value) {
+    const db = getFirestoreDb();
+    if (!db) throw new Error('Firebase が設定されていません。');
+    const minRate = normalizeAttendanceMinRate(value);
+    await db.collection('settings').doc('app').set({
+        attendance_min_rate: minRate,
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+    invalidateFetchCache();
+    return minRate;
+}
+
 async function saveLoanSettings(values) {
     const db = getFirestoreDb();
     if (!db) throw new Error('Firebase が設定されていません。');

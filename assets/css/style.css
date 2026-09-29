@@ -1705,14 +1705,19 @@ footer {
 /* ------------------------------------------------------------
    19a. レートの貸し出し (マイページ) — 金貸しの帳場
    ------------------------------------------------------------ */
-.loan-summary {
+.loan-summary,
+.home-rules {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
     margin: 12px 0;
 }
 
-.loan-stat {
+/* ホームの「いまのルール」は説明が長いので、スマホでは1列にする */
+.home-rules { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+.loan-stat,
+.home-rule {
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -1722,13 +1727,15 @@ footer {
     border-radius: var(--radius-sm);
 }
 
-.loan-stat-label {
+.loan-stat-label,
+.home-rule-label {
     font-size: 0.78em;
     letter-spacing: 0.06em;
     color: var(--ink-soft);
 }
 
-.loan-stat-value {
+.loan-stat-value,
+.home-rule-value {
     font-family: var(--font-display);
     font-size: 1.5em;
     line-height: 1.2;
@@ -1738,7 +1745,8 @@ footer {
 
 .loan-stat-value.is-debt { color: var(--rum); }
 
-.loan-stat-note {
+.loan-stat-note,
+.home-rule-note {
     min-height: 1.2em;
     font-size: 0.78em;
     color: var(--ink-soft);

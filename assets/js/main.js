@@ -13,8 +13,7 @@ const HOME_BONUS_BUTTON = document.getElementById('home-bonus-button');
 const DECK_BAR = document.querySelector('.deck-bar');
 
 const EXCLUDED_PLAYERS = [MAHJONG_CPU_NAME];  // CPU席はランキングに出さない (common.js で定義)
-// 出席登録はこのレート以上でないと表示しない (出席通知も同じ条件。functions/index.js と揃えること)
-const ATTENDANCE_MIN_RATE = 3500;
+const HOME_RULES_CONTAINER = document.getElementById('home-rules');
 let homeLatestScores = [];
 const LS_DATA_KEY = 'cachedHomeData';
 const HOME_MANABA_SYNC_INTERVAL_MS = 60 * 60 * 1000;
@@ -69,9 +68,48 @@ function renderWithData(allData, isStale = false) {
 
     renderSportsBets(sportsBets, displayScores);
     renderLotteries(lotteries);
+    renderHomeRules(allData);
     updateHomeBonusButton(rawScores);
     const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     LAST_UPDATE_ELEMENT.textContent = isStale ? `キャッシュ表示 (更新中...)` : `最終更新: ${timeStr}`;
+}
+
+/**
+ * 「いまのルール」: 管理画面で変えられる数値のうち、誰でも知っておくべきもの。
+ * 古いキャッシュには項目が無いことがあるので、無ければ既定値で出す
+ */
+function renderHomeRules(allData) {
+    if (!HOME_RULES_CONTAINER) return;
+    const baseline = normalizeRate(allData.rate_baseline ?? RATE_BASELINE_DEFAULT);
+    const reversionPercent = (normalizeReversionRate(allData.rate_reversion_rate) * 100).toFixed(1).replace(/\.0$/, '');
+    const flat = Math.max(0, Math.round(toFiniteNumber(allData.rate_reversion_flat, RATE_REVERSION_FLAT_DEFAULT)));
+    const attendanceMinRate = normalizeAttendanceMinRate(allData.attendance_min_rate);
+    const loanSettings = normalizeLoanSettings({ loan_interest_rate: allData.loan_settings?.interestRate });
+    const loanMultiplier = Math.round((1 + loanSettings.interestRate) * 100) / 100;
+
+    const rules = [
+        {
+            label: '毎日の徴収率',
+            value: `${reversionPercent}%${flat > 0 ? ` + ${formatRate(flat)}` : ''}`,
+            note: `毎日 0:05 に基準 ${formatRate(baseline)} との差 × ${reversionPercent}%${flat > 0 ? ` + ${formatRate(flat)}` : ''} だけ基準へ寄せる (高い人は下がり、低い人は上がる)`
+        },
+        {
+            label: '出席の表示条件',
+            value: `${formatRate(attendanceMinRate)} 以上`,
+            note: 'レートがこれ未満だと出席登録ボタンと出席通知が出ない'
+        },
+        {
+            label: '貸し出しの利率',
+            value: `1日 ${formatLoanInterestRate(loanSettings.interestRate)}`,
+            note: `借金が残ったまま日付をまたぐと、毎日 0:05 に ×${loanMultiplier} (複利)。当日中に返せば無利息`
+        }
+    ];
+    HOME_RULES_CONTAINER.innerHTML = rules.map(rule => `
+        <div class="home-rule">
+            <span class="home-rule-label">${escapeText(rule.label)}</span>
+            <strong class="home-rule-value">${escapeText(rule.value)}</strong>
+            <span class="home-rule-note">${escapeText(rule.note)}</span>
+        </div>`).join('');
 }
 
 /**
@@ -627,20 +665,22 @@ loadCafeteriaMenu();
         return h * 60 + m;
     }
 
-    let attendanceAllowedUsers = null;
+    // 表示するユーザーとレートの下限 (管理画面の「出席登録の表示設定」。出席通知も同じ条件)
+    let attendanceSettings = null;
 
-    async function loadAttendanceAllowedUsers() {
-        if (attendanceAllowedUsers) return attendanceAllowedUsers;
+    async function loadAttendanceSettings() {
+        if (attendanceSettings) return attendanceSettings;
         try {
             const allData = await fetchAllData();
-            attendanceAllowedUsers = Array.isArray(allData.attendance_allowed_users)
-                ? allData.attendance_allowed_users
-                : [];
+            attendanceSettings = {
+                allowedUsers: Array.isArray(allData.attendance_allowed_users) ? allData.attendance_allowed_users : [],
+                minRate: normalizeAttendanceMinRate(allData.attendance_min_rate)
+            };
         } catch (error) {
             console.error('出席表示設定の取得に失敗:', error);
-            attendanceAllowedUsers = [];
+            attendanceSettings = { allowedUsers: [], minRate: ATTENDANCE_MIN_RATE_DEFAULT };
         }
-        return attendanceAllowedUsers;
+        return attendanceSettings;
     }
 
     /**
@@ -666,7 +706,7 @@ loadCafeteriaMenu();
         const bar = document.getElementById('attendance-bar');
         if (!bar) return;
         const loginName = localStorage.getItem('authUsername') || '';
-        const allowedUsers = await loadAttendanceAllowedUsers();
+        const { allowedUsers, minRate } = await loadAttendanceSettings();
         if (!loginName || !allowedUsers.includes(loginName)) {
             bar.innerHTML = '';
             return;
@@ -689,7 +729,7 @@ loadCafeteriaMenu();
 
         // レート不足のときは授業時間外と同じく何も出さない
         const rate = await getLoginPlayerRate(loginName);
-        if (rate !== null && rate < ATTENDANCE_MIN_RATE) {
+        if (rate !== null && rate < minRate) {
             bar.innerHTML = '';
             return;
         }
