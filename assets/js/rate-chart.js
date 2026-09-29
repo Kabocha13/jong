@@ -3,7 +3,7 @@
 // Cloud Function が point_history (レート増減ログ) から組み立てた日別データ
 // rate_chart/daily を1件読んで、その場で SVG を組み立てる。外部ライブラリは使わない。
 // 横軸は1日 = 等幅の1区間。その日の変動 (対局・日次補正) を区間の中に1列ずつ並べる。
-// 出す日数は画面の幅に合わせて直近3〜7日 (スマホは3日)。
+// 出す日数は画面の幅に合わせて直近1〜4日 (スマホは1日)。
 // 借金 (レートの貸し出し) がある区間は、同じ色の破線で「レート − 借金」を描き、間を薄く塗る。
 
 const RATE_CHART_CONTAINER = document.getElementById('rate-chart');
@@ -24,9 +24,9 @@ const RATE_CHART_SVG_NS = 'http://www.w3.org/2000/svg';
 const RATE_CHART_PAD = { top: 16, right: 68, bottom: 30, left: 48 };
 const RATE_CHART_TICK_STEPS = [10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000];
 const RATE_CHART_SURFACE = '#f1e3c4';   // 羊皮紙 (マーカーの縁取り用)
-const RATE_CHART_MIN_DAYS = 3;          // スマホ幅でもこれだけは出す
-const RATE_CHART_MAX_DAYS = 7;
-const RATE_CHART_DAY_MIN_WIDTH = 110;   // 1日ぶんに最低これだけの幅 (px) が取れる日数まで広げる
+const RATE_CHART_MIN_DAYS = 1;          // スマホ幅でもこれだけは出す
+const RATE_CHART_MAX_DAYS = 4;
+const RATE_CHART_DAY_MIN_WIDTH = 220;   // 1日ぶんに最低これだけの幅 (px) が取れる日数まで広げる
 
 let rateChartState = { days: [], hoverIndex: -1, loaded: false };
 let rateChartLoadPromise = null;
@@ -57,7 +57,7 @@ function rateChartTimeLabel(iso) {
     return date.toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' });
 }
 
-/** 描画幅から表示する日数を決める (狭いほど少なく、3〜7日) */
+/** 描画幅から表示する日数を決める (狭いほど少なく、1〜4日) */
 function rateChartDayCount(plotWidth) {
     return Math.min(RATE_CHART_MAX_DAYS, Math.max(RATE_CHART_MIN_DAYS, Math.floor(plotWidth / RATE_CHART_DAY_MIN_WIDTH)));
 }
