@@ -78,12 +78,10 @@ function renderSlotMode() {
         node.textContent = '';
         return;
     }
-    if (isSlotJackpot()) {
-        node.textContent = `ジャックポットタイム 残り${state.jackpotLeft}回 (賭け金 ${state.jackpotBet.toLocaleString('ja-JP')} で固定)`;
-        return;
-    }
-    const left = state.ceiling - state.spinsSinceJackpot;
-    node.textContent = left > 0 ? `天井まで あと${left}回` : '天井到達 (ジャックポットタイムに入りやすい)';
+    // 天井は隠しているので、通常モードでは何も出さない
+    node.textContent = isSlotJackpot()
+        ? `ジャックポットタイム 残り${state.jackpotLeft}回 (賭け金 ${state.jackpotBet.toLocaleString('ja-JP')} で固定)`
+        : '';
 }
 
 function randomGrid() {

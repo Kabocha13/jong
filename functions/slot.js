@@ -10,11 +10,12 @@
 // 通常モードとジャックポットタイム (50.10〜)
 //   通常モード: 真ん中のリールにドクロ旗が無い。還元率 84.73% / 何か当たる確率 25.77%
 //   ジャックポットタイム: 真ん中のリールのドクロ旗が7枚に増える。還元率 186.22% / 何か当たる確率 35.35%
-//   通常モードで1回まわすごとに 1% でジャックポットタイムに入り、5〜15回 (一様) 続く。
-//   天井: 前のジャックポットタイムから通常モードで100回まわすと、そのあとは1回ごとに 10% で入る
+//   通常モードで1回まわすごとに 1% でジャックポットタイムに入り、6〜16回 (一様) 続く。
+//   天井 (プレイヤーには隠す。画面にもルールにも出さず、回数も画面へ返さない):
+//   前のジャックポットタイムから通常モードで100回まわすと、そのあとは1回ごとに 10% で入る
 //   ジャックポットタイム中の賭け金は、前のジャックポットタイムから通常モードで賭けた平均で固定
 //   (通常は最低額で回し、ジャックポットタイムだけ大きく賭けて得をする、ということをさせないため)
-//   全体の還元率 97.90% (slotOverallReturnRate() で確かめられる)。50.9 までは1モードで 99.14% だった
+//   全体の還元率 99.04% (slotOverallReturnRate() で確かめられる)。50.9 までは1モードで 99.14%、50.10 は 97.90% だった
 
 export const SLOT_ROWS = 3;
 
@@ -63,8 +64,8 @@ export const SLOT_JACKPOT = {
   enterRate: 0.01,      // 通常モードで1回まわすごとに入る確率
   ceiling: 100,         // 天井: 前のジャックポットタイムから通常モードでこの回数まわすと…
   ceilingRate: 0.1,     // …そのあとは1回ごとにこの確率で入る
-  spinsMin: 5,          // ジャックポットタイムの長さ (この範囲から一様に選ぶ)
-  spinsMax: 15
+  spinsMin: 6,          // ジャックポットタイムの長さ (この範囲から一様に選ぶ)
+  spinsMax: 16
 };
 const RATE_SCALE = 1000000;   // 確率を整数の乱数で引くときの目の細かさ
 
@@ -176,16 +177,13 @@ export function playSlotRound(rawState, requestedBet, chips, randomInt) {
   };
 }
 
-/** 画面に返す形 */
+/** 画面に返す形。天井は隠すので、通常モードでまわした回数や入る確率は返さない */
 export function publicSlotState(state) {
   const current = normalizeSlotState(state);
   return {
     mode: current.mode,
     jackpotLeft: current.jackpotLeft,
-    jackpotBet: current.jackpotBet,
-    spinsSinceJackpot: current.spinsSinceJackpot,
-    ceiling: SLOT_JACKPOT.ceiling,
-    enterRate: slotEnterRate(current)
+    jackpotBet: current.jackpotBet
   };
 }
 
