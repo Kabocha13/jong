@@ -1,13 +1,14 @@
-// 船底 (レートが0以下の人の地下労働) のルール。
+// 船底 (レートが低い人の地下労働) のルール。
 //   Firestore や HTTP には触らず、数の計算だけをここに置く (index.js から呼ぶ)。
 //   乱数は呼び出し側から randomInt(n) → 0〜n-1 の整数 として受け取る。
 //
-//   - 入れるのはレートが0以下の人だけ。レートが1以上になったら船底を出て、残った金貨は没収 (0 に戻す)
+//   - 入れるのはレートが上限 (settings の underground_max_rate、既定1000) 以下の人だけ。
+//     上限を超えたら船底を出て、残った金貨は没収 (0 に戻す)
 //   - 積荷の仕分け: 1便ぶんの積荷 (並びはサーバーが決める) を木箱に振り分け、正解で金貨が増え、ミスで減る (1便でマイナスにはしない)
 //   - チンチロ: 金貨を賭けて班長 (親) と勝負する。サイコロ3つ、役ができるまで3回まで振る
 //       勝ち: 賭けた金貨 × (1 + 倍率) がレートになり、賭けた金貨は消える
 //       負け: 賭け金 × 倍率 の金貨を失う (倍払い。最悪5倍でも払えるよう、賭けられるのは手持ちの1/5まで)
-//   - 数値 (1便の個数・時間・給料・賭け金の範囲・ピンハネ率) は settings/app の underground_* で変えられる (管理画面)
+//   - 数値 (入れるレートの上限・1便の個数・時間・給料・賭け金の範囲・ピンハネ率) は settings/app の underground_* で変えられる (管理画面)
 
 export const UNDERGROUND_SOURCE = 'underground_chinchiro';
 export const UNDERGROUND_RECENT_LIMIT = 12;
@@ -17,6 +18,7 @@ export const UNDERGROUND_SUBMIT_GRACE_MS = 10000;   // 制限時間を過ぎて�
 
 // settings/app のキー名 → 既定値。管理画面はこのキーで保存する
 export const UNDERGROUND_SETTING_DEFAULTS = {
+  underground_max_rate: 1000,           // 船底に入れるレートの上限 (これ以下なら入れる。超えたら出る)
   underground_items_per_shipment: 20,   // 1便の積荷の数
   underground_shipment_seconds: 40,     // 1便の制限時間 (秒)
   underground_pay_correct: 5,           // 正しく仕分けた1個の給料 (金貨)
@@ -71,6 +73,7 @@ export function undergroundSettingsFrom(settings) {
   const read = key => toNumber(source[key], d[key]);
   const betMin = clamp(Math.round(read('underground_bet_min')), 1, 100000);
   return {
+    maxRate: clamp(Math.round(read('underground_max_rate')), -100000, 100000),
     itemsPerShipment: clamp(Math.round(read('underground_items_per_shipment')), 5, 100),
     shipmentSeconds: clamp(Math.round(read('underground_shipment_seconds')), 10, 300),
     payCorrect: clamp(Math.round(read('underground_pay_correct')), 0, 1000),
@@ -81,9 +84,9 @@ export function undergroundSettingsFrom(settings) {
   };
 }
 
-/** 船底に入れるか (レートが0以下) */
-export function isInUnderground(score) {
-  return toInt(score) <= 0;
+/** 船底に入れるか (レートが上限以下) */
+export function isInUnderground(score, config) {
+  return toInt(score) <= config.maxRate;
 }
 
 /** 保存されている船底の記録を、欠けている項目を埋めた形にする */
@@ -125,7 +128,7 @@ function pushRecent(record, entry) {
 }
 
 /**
- * 船底を出る (レートが1以上になった)。残った金貨と仕分けの途中の便は没収する。
+ * 船底を出る (レートが上限を超えた)。残った金貨と仕分けの途中の便は没収する。
  * 金貨も途中の便も無ければ null (記録を書き直す必要がない)。always なら何も無くても出たことを記録する
  */
 export function applyRelease(record, at, { always = false } = {}) {

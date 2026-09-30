@@ -68,9 +68,10 @@ function normalizeLoanSettings(settings) {
     };
 }
 
-// 船底 (レートが0以下の人の地下労働)。ルールと計算は functions/underground.js にあり、画面はサーバーの返事を表示するだけ。
+// 船底 (レートが低い人の地下労働)。ルールと計算は functions/underground.js にあり、画面はサーバーの返事を表示するだけ。
 // settings/app のキー名 → 既定値。functions/underground.js の UNDERGROUND_SETTING_DEFAULTS と同じにしておくこと
 const UNDERGROUND_SETTING_DEFAULTS = {
+    underground_max_rate: 1000,           // 船底に入れるレートの上限 (これ以下なら入れる。超えたら出る)
     underground_items_per_shipment: 20,   // 1便の積荷の数
     underground_shipment_seconds: 40,     // 1便の制限時間 (秒)
     underground_pay_correct: 5,           // 正しく仕分けた1個の給料 (金貨)
@@ -88,6 +89,7 @@ function normalizeUndergroundSettings(settings) {
     const read = key => toFiniteNumber(source[key], d[key]);
     const betMin = clamp(Math.round(read('underground_bet_min')), 1, 100000);
     return {
+        maxRate: clamp(Math.round(read('underground_max_rate')), -100000, 100000),
         itemsPerShipment: clamp(Math.round(read('underground_items_per_shipment')), 5, 100),
         shipmentSeconds: clamp(Math.round(read('underground_shipment_seconds')), 10, 300),
         payCorrect: clamp(Math.round(read('underground_pay_correct')), 0, 1000),
@@ -1086,6 +1088,7 @@ async function saveUndergroundSettings(values) {
     const db = getFirestoreDb();
     if (!db) throw new Error('Firebase が設定されていません。');
     const normalized = normalizeUndergroundSettings({
+        underground_max_rate: values.maxRate,
         underground_items_per_shipment: values.itemsPerShipment,
         underground_shipment_seconds: values.shipmentSeconds,
         underground_pay_correct: values.payCorrect,
@@ -1095,6 +1098,7 @@ async function saveUndergroundSettings(values) {
         underground_pinhane_rate: values.pinhaneRate
     });
     await db.collection('settings').doc('app').set({
+        underground_max_rate: normalized.maxRate,
         underground_items_per_shipment: normalized.itemsPerShipment,
         underground_shipment_seconds: normalized.shipmentSeconds,
         underground_pay_correct: normalized.payCorrect,

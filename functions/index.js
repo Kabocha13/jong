@@ -1653,9 +1653,10 @@ export const participationBonus = onRequest({ region: 'asia-northeast1' }, async
 });
 
 // -----------------------------------------------------------------
-// 船底 (レートが0以下の人の地下労働)
+// 船底 (レートが低い人の地下労働)
 //   ルールは underground.js。積荷の仕分けで金貨を稼ぎ、チンチロで班長に勝つとレートになる。
-//   レートが1以上になったら船底を出たことにし、残った金貨と途中の便は没収する (どの操作でも最初に確かめる)。
+//   入れるのはレートが上限 (underground_max_rate、既定1000) 以下の人。上限を超えたら船底を出たことにし、
+//   残った金貨と途中の便は没収する (どの操作でも最初に確かめる)。
 //   記録 underground/{player} は Cloud Functions だけが読み書きする (rules で禁止)。
 //   数値は settings/app の underground_* で変えられる (管理画面)。
 // -----------------------------------------------------------------
@@ -1672,9 +1673,9 @@ async function loadUndergroundSettings() {
 
 /**
  * 本人のレートと船底の記録をトランザクションで読む (読むのはここだけ。このあとは書くだけにすること)。
- * レートが1以上なら船底を出たことにして、残った金貨と途中の便を没収する
+ * レートが上限を超えていたら船底を出たことにして、残った金貨と途中の便を没収する
  */
-async function readUndergroundState(transaction, username, at) {
+async function readUndergroundState(transaction, username, at, settings) {
   const ref = undergroundRef(username);
   const [undergroundDoc, playerSnapshot] = await Promise.all([
     transaction.get(ref),
@@ -1687,7 +1688,7 @@ async function readUndergroundState(transaction, username, at) {
   const score = normalizeRate(playerDoc.data().score);
   let record = normalizeUndergroundRecord(undergroundDoc.exists ? undergroundDoc.data() : null, username);
   let released = null;
-  if (!isInUnderground(score)) {
+  if (!isInUnderground(score, settings)) {
     const release = applyRelease(record, at);
     if (release) {
       record = release.record;
@@ -1703,7 +1704,7 @@ function undergroundPayload({ score, record, released }, settings) {
   return {
     me: record.player,
     score,
-    inUnderground: isInUnderground(score),
+    inUnderground: isInUnderground(score, settings),
     underground: publicUndergroundRecord(record),
     maxBet: maxChinchiroBet(record.coins, settings),
     released,
@@ -1718,7 +1719,7 @@ function describeChinchiroTurn(turn) {
 
 async function undergroundStatus(username, settings) {
   const at = new Date().toISOString();
-  const state = await db.runTransaction(transaction => readUndergroundState(transaction, username, at));
+  const state = await db.runTransaction(transaction => readUndergroundState(transaction, username, at, settings));
   return undergroundPayload(state, settings);
 }
 
@@ -1726,9 +1727,9 @@ async function undergroundStatus(username, settings) {
 async function undergroundStartShipment(username, settings) {
   const at = new Date().toISOString();
   const state = await db.runTransaction(async transaction => {
-    const current = await readUndergroundState(transaction, username, at);
-    if (!isInUnderground(current.score)) {
-      throw new UndergroundError(403, 'レートが1以上なので船底には入れません。');
+    const current = await readUndergroundState(transaction, username, at, settings);
+    if (!isInUnderground(current.score, settings)) {
+      throw new UndergroundError(403, `船底に入れるのはレートが${settings.maxRate}以下の人だけです。`);
     }
     const shipment = {
       id: `${Date.now().toString(36)}${randomInt(1e9).toString(36)}`,
@@ -1751,7 +1752,7 @@ async function undergroundSubmitShipment(username, body, settings) {
   const state = await db.runTransaction(async transaction => {
     grade = null;
     rejected = null;
-    const current = await readUndergroundState(transaction, username, at);
+    const current = await readUndergroundState(transaction, username, at, settings);
     if (current.released) return current;   // 仕分けの途中で地上に戻った (便も没収)
     const shipment = current.record.shipment;
     if (!shipment || shipment.id !== String(body.shipmentId || '')) {
@@ -1777,16 +1778,16 @@ async function undergroundSubmitShipment(username, body, settings) {
   return { ...undergroundPayload(state, settings), grade };
 }
 
-/** チンチロを1回。勝ったらレートに足し、レートが1以上になったらそのまま船底を出る */
+/** チンチロを1回。勝ったらレートに足し、レートが上限を超えたらそのまま船底を出る */
 async function undergroundChinchiro(username, body, settings) {
   const at = new Date().toISOString();
   let game = null;
   const state = await db.runTransaction(async transaction => {
     game = null;
-    const current = await readUndergroundState(transaction, username, at);
+    const current = await readUndergroundState(transaction, username, at, settings);
     if (current.released) return current;
-    if (!isInUnderground(current.score)) {
-      throw new UndergroundError(403, 'レートが1以上なので船底にはいません。');
+    if (!isInUnderground(current.score, settings)) {
+      throw new UndergroundError(403, `船底に入れるのはレートが${settings.maxRate}以下の人だけです。`);
     }
     const bet = validateChinchiroBet(body.bet, current.record.coins, settings);
     const result = playChinchiro(randomInt);
@@ -1813,7 +1814,7 @@ async function undergroundChinchiro(username, body, settings) {
     }
 
     let released = null;
-    if (!isInUnderground(score)) {
+    if (!isInUnderground(score, settings)) {
       const release = applyRelease(record, at, { always: true });
       record = release.record;
       released = { forfeited: release.forfeited };

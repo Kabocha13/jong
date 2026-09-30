@@ -1,5 +1,5 @@
-// ゲームタブ: 船底 (レートが0以下の人の地下労働)
-//   積荷の仕分けで金貨を稼ぎ、チンチロで班長に勝つとレートになる。レートが1以上になると船底を出て、残った金貨は没収。
+// ゲームタブ: 船底 (レートが上限 (既定1000) 以下の人の地下労働)
+//   積荷の仕分けで金貨を稼ぎ、チンチロで班長に勝つとレートになる。レートが上限を超えると船底を出て、残った金貨は没収。
 //   積荷の並び・採点・サイコロの目・金貨とレートの増減はすべて Cloud Function (underground) が決める
 //   (ルールは functions/underground.js)。この画面は答えを集めて送り、返ってきた結果を見せるだけ。
 //   積荷の絵柄はスロットと同じ (SLOT_SYMBOLS と画像は game-slot.js)。画面の切り替えは game.js。
@@ -123,8 +123,8 @@ function renderUnderground() {
     el('ug-notice').textContent = !state
         ? '読み込み中...'
         : inside
-            ? 'レートが1以上になるまで働けます。地上に戻ると、残った金貨は没収されます。'
-            : `船底に入れるのはレートが0以下の人だけです (いまのレート ${formatRate(state.score)})。`;
+            ? `レートが${formatRate(settings.maxRate)}を超えるまで働けます。地上に戻ると、残った金貨は没収されます。`
+            : `船底に入れるのはレートが${formatRate(settings.maxRate)}以下の人だけです (いまのレート ${formatRate(state.score)})。`;
     el('ug-hold').classList.toggle('is-locked', !inside);
     el('ug-den').classList.toggle('is-locked', !inside);
 
@@ -208,7 +208,7 @@ function renderUgRecent() {
 function renderUgRules() {
     const settings = ugSettings();
     const rules = [
-        'レートが0以下の人だけが入れます。レートが1以上になったら (チンチロで勝つ・日次補正・借入など) 船底を出て、残った金貨は没収されます。',
+        `レートが${formatRate(settings.maxRate)}以下の人だけが入れます。${formatRate(settings.maxRate)}を超えたら (チンチロで勝つ・日次補正・借入など) 船底を出て、残った金貨は没収されます。`,
         `積荷の仕分け: 流れてくる積荷を正しい木箱へ。正解 +${settings.payCorrect}金貨、ミス −${settings.payMiss}金貨。1便 ${settings.itemsPerShipment}個・${settings.shipmentSeconds}秒で、何便でも働けます。`,
         '木箱: 財宝箱 = 宝箱・金貨 / 酒樽 = ラム酒 / 航海道具 = 羅針盤・宝の地図・錨 / 鳥かご = オウム / ドクロ旗は海へ捨てる。',
         'チンチロ: 班長が先に振り、役ができるまで3回まで振り直し。班長がピンゾロ・ゾロ目・シゴロならその場で負け、ヒフミ・目なしならその場で勝ち。班長が目なら、あなたが振って比べます。',
@@ -238,9 +238,10 @@ function receiveUnderground(data) {
     ug.loaded = true;
     if (Number.isFinite(Number(data.score))) casino.score = Number(data.score);
     if (data.released) {
+        const over = `レートが${formatRate(ugSettings().maxRate)}を超えたので地上に戻りました。`;
         showUgMessage(data.released.forfeited > 0
-            ? `レートが1以上になったので地上に戻りました。残っていた金貨 ${data.released.forfeited}枚 は没収されました。`
-            : 'レートが1以上になったので地上に戻りました。', 'success');
+            ? `${over}残っていた金貨 ${data.released.forfeited}枚 は没収されました。`
+            : over, 'success');
     }
     renderUgRules();
     renderUnderground();
@@ -558,8 +559,34 @@ function closeUnderground() {
     if (ug.work) finishUgShipment();
 }
 
+/** 船底に入れるレートの上限。状態を読む前は、公開の設定から読んだ値 (それも無ければ既定値) */
+function undergroundMaxRate() {
+    return ug.state?.settings?.maxRate ?? ug.maxRate ?? UNDERGROUND_SETTING_DEFAULTS.underground_max_rate;
+}
+
+/** ゲーム一覧のタイルの説明に、入れるレートの上限を出す */
+function renderUndergroundTile() {
+    const desc = el('ug-tile-desc');
+    if (desc) desc.textContent = `レートが${formatRate(undergroundMaxRate())}以下の人の地下労働。積荷を仕分けて金貨を稼ぎ、チンチロで地上をめざす`;
+}
+
+/** 入れるレートの上限を設定 (誰でも読める settings/app) から読んでおく。ゲーム一覧の札と説明に使う */
+async function loadUndergroundMaxRate() {
+    try {
+        const db = getFirestoreDb();
+        if (!db) return;
+        const doc = await db.collection('settings').doc('app').get();
+        ug.maxRate = normalizeUndergroundSettings(doc.exists ? doc.data() : {}).maxRate;
+        if (casino.ready && !location.hash.slice(1)) renderMenu();
+        else renderUndergroundTile();
+    } catch (error) {
+        console.warn('船底の設定を読めませんでした:', error);
+    }
+}
+
 function initUnderground() {
     if (!el('underground-view')) return;
+    loadUndergroundMaxRate();
     // ゲーム一覧のタイルのサイコロ (シゴロ)
     document.querySelectorAll('.game-tile-art.is-underground .ug-die').forEach(die => setUgDieFace(die, Number(die.dataset.face)));
     buildUgBins();

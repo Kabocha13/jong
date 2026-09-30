@@ -1,4 +1,4 @@
-# jong　　Ver50.2
+# jong　　Ver50.3
 
 **1.1** 麻雀得点管理アプリリリース
 
@@ -295,6 +295,8 @@
 **50.1** 日次レート補正 (毎日の徴収) が1日に何度も走ることがあったのを止めた。9/29 は 0:05 のほかに 14:54・15:07・19:15・22:24、9/30 は 8:52 にも走っていた (どれも補正の割合を変えた直後)。補正はホーム・マイページ・管理画面を開いたときに「その日の分がまだなら」画面から Cloud Function runDailyRateReversion を呼ぶ保険があり、settings/app の rate_reversion_last_date が今日でないと動いていた。settings/app はログインした人なら誰でも書けるので、ここが書き換わると同じ日にもう一度動いてしまう。画面から補正を呼ぶ保険と runDailyRateReversion をなくし、補正は毎日 0:05 の collectDailyPointTax だけにした。あわせて、済んだ日を rate_reversion_runs/{日付} (Cloud Functions だけが読み書き、rules に追加) に記録し、これがあればその日は動かない (rate_reversion_last_date は管理画面の表示用に残す)。デプロイは hosting, functions (runDailyRateReversion を削除するので --force), firestore
 
 **50.2** 管理画面で設定を保存するたびに、ほかの設定 (出席登録の表示ユーザーなど) が消えてしまう不具合を修正。画面から Firestore に書く自前の REST ラッパー (common.js の createFirestoreRestDb) の doc().set() が { merge: true } を無視して、いつも文書を丸ごと置き換えていた。そのため settings/app に何かを保存すると、ほかの項目 (attendance_allowed_users・rate_reversion_last_date・loan_*・underground_*・attendance_min_rate) が消えていた。50.1 で直した「日次補正が1日に何度も走る」のも、これで rate_reversion_last_date が消えていたのが原因。set() が merge を見て updateMask を付けるようにした (batch.set と同じ。項目名に英数字と _ 以外があればバッククォートで囲む)。同じく merge のつもりで丸ごと置き換えになっていた manaba_credentials・manaba_assignments・push_tokens の保存も直る。デプロイは hosting だけ
+
+**50.3** 船底に入れる条件を「レートが0以下」から「レートが1000以下」に広げた。上限を超えたら (チンチロで勝つ・日次補正・借入など) 船底を出て、残った金貨は没収するのはこれまでどおり。上限は管理画面の「⛓ 船底の設定」の「入れるレートの上限」で変えられる (settings/app の underground_max_rate、既定1000)。ゲーム一覧の船底のタイルは、説明文と「入れます」の札をこの上限で出す (誰でも読める settings/app から読む)。デプロイは hosting, functions
 
 npx firebase deploy --only hosting,functions,firestore
 

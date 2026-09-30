@@ -1289,6 +1289,7 @@ if (document.getElementById('adjustment-form')) {
 const UNDERGROUND_SETTINGS_FORM = document.getElementById('underground-settings-form');
 const UNDERGROUND_SETTINGS_MESSAGE = document.getElementById('underground-settings-message');
 const UNDERGROUND_SETTING_INPUTS = {
+    maxRate: document.getElementById('underground-max-rate'),
     itemsPerShipment: document.getElementById('underground-items'),
     shipmentSeconds: document.getElementById('underground-seconds'),
     payCorrect: document.getElementById('underground-pay-correct'),
@@ -1321,6 +1322,7 @@ if (UNDERGROUND_SETTINGS_FORM) {
         e.preventDefault();
         const read = key => parseFloat(UNDERGROUND_SETTING_INPUTS[key]?.value);
         const values = {
+            maxRate: read('maxRate'),
             itemsPerShipment: read('itemsPerShipment'),
             shipmentSeconds: read('shipmentSeconds'),
             payCorrect: read('payCorrect'),
@@ -1330,6 +1332,7 @@ if (UNDERGROUND_SETTINGS_FORM) {
             pinhaneRate: read('pinhaneRate') / 100
         };
         const checks = [
+            [Number.isFinite(values.maxRate) && Math.abs(values.maxRate) <= 100000, '入れるレートの上限は-100000〜100000で入力してください。'],
             [values.itemsPerShipment >= 5 && values.itemsPerShipment <= 100, '1便の積荷の数は5〜100で入力してください。'],
             [values.shipmentSeconds >= 10 && values.shipmentSeconds <= 300, '1便の制限時間は10〜300秒で入力してください。'],
             [values.payCorrect >= 0 && values.payCorrect <= 1000, '正解1個の給料は0〜1000で入力してください。'],
@@ -1352,7 +1355,7 @@ if (UNDERGROUND_SETTINGS_FORM) {
             fillUndergroundSettingsForm(saved);
             showMessage(
                 UNDERGROUND_SETTINGS_MESSAGE,
-                `✅ 保存しました (1便 ${saved.itemsPerShipment}個・${saved.shipmentSeconds}秒 / 給料 +${saved.payCorrect} −${saved.payMiss} / 賭け ${saved.betMin}〜${saved.betMax}金貨 / ピンハネ ${Math.round(saved.pinhaneRate * 100)}%)。`,
+                `✅ 保存しました (レート${formatRate(saved.maxRate)}以下 / 1便 ${saved.itemsPerShipment}個・${saved.shipmentSeconds}秒 / 給料 +${saved.payCorrect} −${saved.payMiss} / 賭け ${saved.betMin}〜${saved.betMax}金貨 / ピンハネ ${Math.round(saved.pinhaneRate * 100)}%)。`,
                 'success'
             );
         } catch (error) {
