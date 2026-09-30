@@ -260,6 +260,9 @@ async function initializeMyPageContent() {
 
     initializeLoanFeature();
 
+    // ログインが済んでから通知を登録し直す (待たずに続ける)
+    refreshPushRegistration();
+
     await initManabaAssignments();
 
     controlTargetContinueFormDisplay();
@@ -1781,8 +1784,8 @@ function manabaEscapeHtml(str) {
 
 const ENABLE_NOTIFICATIONS_BUTTON = document.getElementById('enable-notifications-button');
 const NOTIFICATION_MESSAGE = document.getElementById('notification-message');
-const PUSH_TOKEN_SAVED_KEY = 'manabaPushTokenSaved';
 const NOTIFICATION_ENABLED_LABEL = '通知設定済み (タップで再設定)';
+const NOTIFICATION_DEFAULT_LABEL = 'この端末で通知を受け取る';
 
 function isPushNotificationSupported() {
     return Boolean(
@@ -1837,7 +1840,6 @@ async function registerPushToken() {
     if (!token) throw new Error('通知トークンを取得できませんでした。');
 
     await savePushTokenToFirebase(token);
-    localStorage.setItem(PUSH_TOKEN_SAVED_KEY, '1');
     return token;
 }
 
@@ -1856,10 +1858,10 @@ async function enableDeadlineNotifications() {
             throw new Error('通知が許可されませんでした。端末・ブラウザの通知設定を確認してください。');
         }
         await registerPushToken();
-        showMessage(NOTIFICATION_MESSAGE, '✅ この端末で締切通知を受け取ります（毎朝9時に判定）。', 'success');
+        showMessage(NOTIFICATION_MESSAGE, '✅ この端末で通知を受け取ります。', 'success');
         ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_ENABLED_LABEL;
     } catch (error) {
-        showMessage(NOTIFICATION_MESSAGE, `通知設定エラー: ${error.message}`, 'error');
+        showNotificationStatus(`通知設定エラー: ${error.message}`, 'error');
         ENABLE_NOTIFICATIONS_BUTTON.textContent = originalLabel;
     } finally {
         ENABLE_NOTIFICATIONS_BUTTON.disabled = false;
@@ -1867,63 +1869,45 @@ async function enableDeadlineNotifications() {
     }
 }
 
+/** 通知の状態の文。登録に失敗したときに読めるよう、showMessage と違って自動では消さない */
+function showNotificationStatus(text, type) {
+    if (!NOTIFICATION_MESSAGE) return;
+    NOTIFICATION_MESSAGE.textContent = text;
+    NOTIFICATION_MESSAGE.className = `message ${type}`;
+}
+
 /**
- * 自分の端末にだけテスト通知を送る (Cloud Function sendTestPush)。
- * 登録されている端末と、それぞれに送れたかを表示する。届かないときにどこで止まっているかを見分けるため
+ * ログインしたあとに、この端末の通知を登録し直して、本当の状態をボタンと文に出す。
+ * (以前は端末に残した印だけで「設定済み」と出し、ページを開いた直後 (ログイン前) に黙って登録していたため、
+ *  登録できていなくても気づけなかった)
+ * ページを開いている間に届いた通知も firebase-messaging-sw.js が端末の通知として出す
  */
-async function sendPushTest(delaySeconds, button) {
-    const resultEl = document.getElementById('push-test-result');
-    // 端末ごとの結果を読めるよう、showMessage と違って自動では消さない
-    const show = (text, type) => {
-        resultEl.textContent = text;
-        resultEl.className = `message ${type}`;
-    };
-    const buttons = document.querySelectorAll('[data-push-test-delay]');
-    buttons.forEach(item => { item.disabled = true; });
-    show(delaySeconds > 0
-        ? `${delaySeconds}秒後に送ります。いまのうちにアプリを閉じて待ってください…`
-        : '送っています…', 'info');
+async function refreshPushRegistration() {
+    if (!ENABLE_NOTIFICATIONS_BUTTON) return;
+    if (!isPushNotificationSupported()) {
+        ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_DEFAULT_LABEL;
+        return;
+    }
+    if (Notification.permission === 'denied') {
+        ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_DEFAULT_LABEL;
+        showNotificationStatus('この端末では通知がブロックされています。端末の設定で Q-Jong の通知を許可してください。', 'error');
+        return;
+    }
+    if (Notification.permission !== 'granted') {
+        ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_DEFAULT_LABEL;
+        return;
+    }
     try {
-        const token = await getFirebaseIdToken();
-        if (!token) throw new Error('ログインが必要です。');
-        const response = await fetch(`${getFunctionsBaseUrl()}/sendTestPush`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ delaySeconds })
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || data.status !== 'success') throw new Error(data.message || `通信に失敗しました (${response.status})`);
-        if (!data.devices.length) {
-            show('通知を受け取る端末が登録されていません。上の「この端末で通知を受け取る」を押してください。', 'error');
-            return;
-        }
-        const lines = data.devices.map(device => `${device.device}${device.registeredAt ? ` (${formatLoanDateTime(device.registeredAt)} 登録)` : ''}: `
-            + (device.ok ? '送信OK' : `送れませんでした (${device.error})`));
-        const hint = data.success > 0
-            ? '送信はできています。数秒たっても届かなければ、端末の設定 (通知の許可・集中モード) を確認してください。'
-            : 'どの端末にも送れませんでした。「この端末で通知を受け取る」を押して登録し直してください。';
-        show(`登録されている端末 ${data.devices.length}台 / ${lines.join(' / ')}。${hint}`, data.success > 0 ? 'success' : 'error');
+        await registerPushToken();
+        ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_ENABLED_LABEL;
     } catch (error) {
-        show(`❌ ${error.message}`, 'error');
-    } finally {
-        buttons.forEach(item => { item.disabled = false; });
+        ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_DEFAULT_LABEL;
+        showNotificationStatus(`この端末は通知の登録ができていません: ${error.message}`, 'error');
     }
 }
 
-document.querySelectorAll('[data-push-test-delay]').forEach(button => {
-    button.addEventListener('click', () => sendPushTest(Number(button.dataset.pushTestDelay) || 0, button));
-});
-
 if (ENABLE_NOTIFICATIONS_BUTTON) {
     ENABLE_NOTIFICATIONS_BUTTON.addEventListener('click', enableDeadlineNotifications);
-
-    if (isPushNotificationSupported() && Notification.permission === 'granted' && localStorage.getItem(PUSH_TOKEN_SAVED_KEY)) {
-        ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_ENABLED_LABEL;
-
-        // ログイン済みならトークンを静かに最新化する (失敗しても画面には影響させない)。
-        // ページを開いている間に届いた通知も firebase-messaging-sw.js が端末の通知として出す
-        registerPushToken().catch(() => {});
-    }
 }
 
 

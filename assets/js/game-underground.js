@@ -156,12 +156,11 @@ function renderUgRecent() {
 function renderUgRules() {
     const settings = ugSettings();
     const rules = [
-        `レートが${formatRate(settings.maxRate)}未満の人だけが仕分けできます。${formatRate(settings.maxRate)}に届いたらそれ以上は上がりません。`,
-        `流れてくる積荷を正しい木箱に入れるたびにレートが +${settings.ratePerCorrect}`
-            + (settings.ratePerMiss > 0 ? `、間違えると −${settings.ratePerMiss}` : ' (間違えても下がりません)')
-            + '。時間の制限はなく、いつでもやめられます。',
-        '木箱: 財宝箱 = 宝箱・金貨 / 酒樽 = ラム酒 / 航海道具 = 羅針盤・宝の地図・錨 / 鳥かご = オウム / ドクロ旗は海へ捨てる。',
-        `レートには${settings.itemsPerShipment}個ごとにまとめて反映されます (やめたときは、そこまでの分)。速すぎる操作 (1個0.2秒未満) は数えません。`
+        `レートが${formatRate(settings.maxRate)}未満の人だけ。${formatRate(settings.maxRate)}に届いたら終わり。`,
+        `正しい木箱に入れるたびにレート +${settings.ratePerCorrect}`
+            + (settings.ratePerMiss > 0 ? `、間違えると −${settings.ratePerMiss}` : ' (間違えても下がらない)')
+            + '。時間の制限なし。',
+        '財宝箱 = 宝箱・金貨 / 酒樽 = ラム酒 / 航海道具 = 羅針盤・地図・錨 / 鳥かご = オウム / ドクロ旗は海へ。'
     ];
     el('ug-rules').innerHTML = '';
     rules.forEach(text => {

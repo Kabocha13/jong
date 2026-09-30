@@ -16,8 +16,8 @@
             document.documentElement.classList.add('auth-pending');
         }
     </script>
-    <link rel="stylesheet" href="assets/css/style.css?v=50.6">
-    <script src="assets/js/treasure-rain.js?v=50.6" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=50.7">
+    <script src="assets/js/treasure-rain.js?v=50.7" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="treasure">
@@ -242,23 +242,11 @@
             <details class="tool-box mypage-accordion" id="notification-section">
                 <summary><span>🔔 通知</span></summary>
                 <p class="instruction">
-                    この端末にプッシュ通知でお知らせします: 宝くじ・スポーツくじができたとき / 出席の時間 (表示の対象でレートが下限以上のとき) /
-                    manabaの未提出課題が締切2日前になったとき (毎朝9時に判定)。<br>
-                    iPhone/iPadでは「ホーム画面に追加」したQ-Jongから開いて設定してください。
+                    くじの作成・出席の時間・manabaの締切2日前 をこの端末に通知します。<br>
+                    iPhone/iPadは「ホーム画面に追加」したQ-Jongから設定してください。
                 </p>
                 <button type="button" id="enable-notifications-button" class="action-button w-auto btn-green">この端末で通知を受け取る</button>
                 <p id="notification-message" class="hidden" aria-live="polite"></p>
-                <div class="push-test">
-                    <p class="instruction">
-                        通知が届かないときは、自分の端末にだけテスト通知を送って確かめられます。
-                        「10秒後」を押したらアプリを閉じて (ホーム画面に戻って) 待つと、閉じているときの届き方も試せます。
-                    </p>
-                    <div class="push-test-buttons">
-                        <button type="button" class="action-button w-auto" data-push-test-delay="0">テスト通知を今すぐ送る</button>
-                        <button type="button" class="action-button w-auto" data-push-test-delay="10">10秒後に送る</button>
-                    </div>
-                    <p id="push-test-result" class="hidden" aria-live="polite"></p>
-                </div>
             </details>
         </section>
     </main>
@@ -278,7 +266,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=50.6"></script>
-    <script src="assets/js/mypage.js?v=50.6"></script>
+    <script src="assets/js/common.js?v=50.7"></script>
+    <script src="assets/js/mypage.js?v=50.7"></script>
 </body>
 </html>

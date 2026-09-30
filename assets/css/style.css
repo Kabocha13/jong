@@ -4035,10 +4035,6 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
     .hd-seat-note.is-win { animation: none; }
 }
 
-/* マイページの通知: 自分の端末へのテスト通知 */
-.push-test { margin-top: 14px; }
-.push-test-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
-
 /* ------------------------------------------------------------
    19g. ゲーム — 船底 (積荷の仕分け)
    ------------------------------------------------------------ */

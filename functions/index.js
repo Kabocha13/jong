@@ -1006,81 +1006,6 @@ async function sendPushToEveryone({ title, body, tag, link = APP_URL }) {
   return { success, failure };
 }
 
-/** 通知を登録した端末の見分け (userAgent から大まかに) */
-function describePushDevice(userAgent) {
-  const ua = String(userAgent || '');
-  const device = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
-    : /Macintosh/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : '不明な端末';
-  const browser = /Edg\//.test(ua) ? 'Edge' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox\//.test(ua) ? 'Firefox'
-    : /Safari\//.test(ua) ? 'Safari' : '';
-  // iPhone・iPad でホーム画面に追加したアプリは userAgent に Safari が付かない (通知が届くのはこちらだけ)
-  if ((device === 'iPhone' || device === 'iPad') && !browser) return `${device} (ホーム画面のアプリ)`;
-  return browser ? `${device} ${browser}` : device;
-}
-
-/**
- * 自分の端末にだけテスト通知を送る (マイページの「テスト通知」)。
- * 登録されている端末と、それぞれに送れたかどうかを返すので、通知が届かないときにどこで止まっているかを確かめられる。
- * delaySeconds (0〜20) だけ待ってから送るので、その間にアプリを閉じれば、閉じているときの届き方も試せる
- */
-export const sendTestPush = onRequest({ region: 'asia-northeast1', timeoutSeconds: 60 }, async (req, res) => {
-  setCors(req, res);
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-  if (req.method !== 'POST') {
-    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
-    return;
-  }
-
-  try {
-    const decoded = await getVerifiedAuthToken(req);
-    if (!decoded || !decoded.uid) {
-      res.status(401).json({ status: 'error', message: 'ログインが必要です。' });
-      return;
-    }
-    const body = req.body || {};
-    const delaySeconds = Math.min(20, Math.max(0, Math.round(Number(body.delaySeconds) || 0)));
-    const tokenDoc = await db.collection('push_tokens').doc(decoded.uid).get();
-    const tokenEntries = tokenDoc.exists && Array.isArray(tokenDoc.data().tokens) ? tokenDoc.data().tokens : [];
-    const tokens = [...new Set(tokenEntries.map(entry => String(entry?.token || '')).filter(Boolean))];
-    if (!tokens.length) {
-      res.status(200).json({ status: 'success', devices: [], success: 0, failure: 0 });
-      return;
-    }
-
-    if (delaySeconds > 0) await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
-    const response = await admin.messaging().sendEachForMulticast({
-      tokens,
-      notification: {
-        title: '🔔 テスト通知',
-        body: `${decoded.username || ''} さんの端末に届いています。通知は正しく設定されています。`
-      },
-      webpush: {
-        fcmOptions: { link: `${APP_URL}mypage.html` },
-        notification: { icon: '/assets/icon.png', tag: 'push-test' }
-      }
-    });
-    await removeInvalidPushTokens(tokenDoc, tokenEntries, tokens, response);
-
-    const devices = tokens.map((token, index) => {
-      const entry = tokenEntries.find(item => String(item?.token || '') === token) || {};
-      const result = response.responses[index];
-      return {
-        device: describePushDevice(entry.userAgent),
-        registeredAt: String(entry.updatedAt || ''),
-        ok: Boolean(result && result.success),
-        error: result && !result.success ? String(result.error?.code || result.error?.message || '') : ''
-      };
-    });
-    res.status(200).json({ status: 'success', devices, success: response.successCount, failure: response.failureCount });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ status: 'error', message: `テスト通知を送れませんでした: ${error.message}` });
-  }
-});
-
 /** 「10/1 12:00」。通知の本文用 (JST) */
 function formatJstShortDateTime(iso) {
   const date = new Date(iso);
@@ -2197,13 +2122,25 @@ const ROULETTE_BET_TYPES = {
   straight: { payout: 35, values: [0, 36], wins: (n, v) => n === v },
   dozen:    { payout: 2,  values: [1, 3],  wins: (n, v) => n !== 0 && Math.ceil(n / 12) === v },
   column:   { payout: 2,  values: [1, 3],  wins: (n, v) => n !== 0 && ((n - 1) % 3) + 1 === v },
-  red:      { payout: 1, wins: n => ROULETTE_RED_NUMBERS.has(n) },
-  black:    { payout: 1, wins: n => n !== 0 && !ROULETTE_RED_NUMBERS.has(n) },
-  even:     { payout: 1, wins: n => n !== 0 && n % 2 === 0 },
-  odd:      { payout: 1, wins: n => n % 2 === 1 },
-  low:      { payout: 1, wins: n => n >= 1 && n <= 18 },
-  high:     { payout: 1, wins: n => n >= 19 }
+  // ×2 の賭け (赤黒・偶奇・前後半) は、0 が出たら賭け金の半分を返す (halfBackOnZero)。
+  // 賭け金が奇数のときの 0.5 の端数は、半々の確率で切り上げか切り捨て (平均するとちょうど半分)
+  red:     { payout: 1, halfBackOnZero: true, wins: n => ROULETTE_RED_NUMBERS.has(n) },
+  black:    { payout: 1, halfBackOnZero: true, wins: n => n !== 0 && !ROULETTE_RED_NUMBERS.has(n) },
+  even:     { payout: 1, halfBackOnZero: true, wins: n => n !== 0 && n % 2 === 0 },
+  odd:      { payout: 1, halfBackOnZero: true, wins: n => n % 2 === 1 },
+  low:      { payout: 1, halfBackOnZero: true, wins: n => n >= 1 && n <= 18 },
+  high:     { payout: 1, halfBackOnZero: true, wins: n => n >= 19 }
 };
+
+/** ルーレットの1つの賭けの払い戻し (賭け金込み) */
+function rouletteReturn(rule, bet, number) {
+  if (rule.wins(number, bet.value)) return bet.amount * (rule.payout + 1);
+  if (number === 0 && rule.halfBackOnZero) {
+    const half = Math.floor(bet.amount / 2);
+    return bet.amount % 2 === 1 && randomInt(2) === 1 ? half + 1 : half;
+  }
+  return 0;
+}
 
 class CasinoError extends Error {
   constructor(status, message) {
@@ -2564,10 +2501,7 @@ async function casinoSpin(uid, rawBets) {
     }
 
     const number = randomInt(0, 37);
-    const returned = bets.reduce((sum, bet) => {
-      const rule = ROULETTE_BET_TYPES[bet.type];
-      return rule.wins(number, bet.value) ? sum + bet.amount * (rule.payout + 1) : sum;
-    }, 0);
+    const returned = bets.reduce((sum, bet) => sum + rouletteReturn(ROULETTE_BET_TYPES[bet.type], bet, number), 0);
     const now = new Date().toISOString();
     const chips = session.chips - total + returned;
     const result = { number, color: rouletteColor(number), bet: total, returned, at: now };

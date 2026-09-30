@@ -11,8 +11,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=50.6">
-    <script src="assets/js/treasure-rain.js?v=50.6" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=50.7">
+    <script src="assets/js/treasure-rain.js?v=50.7" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -119,19 +119,17 @@
             <h3 class="icon-title" id="casino-lobby-title"></h3>
             <p>現在のレート: <strong id="casino-lobby-score" class="text-large"></strong></p>
             <ul class="casino-rules">
-                <li>持ち込んだレートをチップにして賭けます。勝ち負けがレートに反映されるのは<strong>精算したとき</strong>だけです。チップはどのゲームでも共通です。</li>
-                <li>最後の操作から30分操作がないか、入場から3時間たつと自動で精算されます。チップが0になったときもその場で精算されます。</li>
-                <li data-rules="roulette">0〜36のシングルゼロ。配当は 1目 ×36、ダズン・カラム ×3、赤黒・偶奇・前後半 ×2 (賭け金込み)。</li>
-                <li data-rules="blackjack">6デッキを毎回シャッフル。ディーラーはソフト17を含む17以上でスタンド。払い戻しは 勝ち ×2、ブラックジャック ×2.5 (端数切り捨て)、引き分け ×1 (賭け金込み)。</li>
-                <li data-rules="blackjack">ダブルは最初の2枚で (スプリット後も可)。スプリットは同じ点数の2枚で4手まで、Aは1枚ずつ。インシュランス・サレンダーはありません。</li>
-                <li data-rules="blackjack">卓は全員共通の1つで、最大4人まで座れます。全員が賭けるか、最初の人が賭けてから15秒で配ります。</li>
-                <li data-rules="slot">3リール × 3段で、ラインは 中段・上段・下段・斜め2本 の5本。賭け金1つで5本すべてに賭けます。</li>
-                <li data-rules="slot">1本のラインに同じ絵柄が3つ並ぶと、その絵柄の倍率 × 賭け金 が戻ります (賭け金込み。複数のラインで当たれば合計)。宝箱 ×100、金貨 ×30、羅針盤 ×15、宝の地図 ×12、ラム酒 ×5、オウム ×3、錨 ×2。</li>
-                <li data-rules="slot">ドクロ旗は真ん中のリールにだけ出て、どの絵柄の代わりにもなります。還元率は約99%です。</li>
-                <li data-rules="blackjack">操作は席順に1人ずつ、持ち時間は1回20秒。時間切れの人は残りの手をスタンドにして次の人へ回します。3回続けて賭けなかった人は席を空けます。</li>
-                <li data-rules="holdem">ノーリミットのテキサスホールデム。ブラインドは 1 / 2 で、席に座ると手元チップをそのまま持ち込んでハンドが始まります。手元チップはすべて賭けの上限 (オールイン) です。</li>
-                <li data-rules="holdem">卓は6席で全員共通。人がいない席には船員 (AI) が入るので、1人でも6人で遊べます。船員は強さも性格も違い、人が座った席の船員は次のハンドから休みます。</li>
-                <li data-rules="holdem">自分の番の持ち時間は25秒。時間切れはチェックかフォールドで、2回続くと席に残したまま休憩になります。降りていれば席を立てます。</li>
+                <li>持ち込んだレートがチップになり、<strong>精算したとき</strong>にレートへ反映。チップは全ゲーム共通。</li>
+                <li>30分操作なし・入場から3時間・チップ0 で自動精算。</li>
+                <li data-rules="roulette">0〜36 (0は1つ)。1目 ×36、ダズン・カラム ×3、赤黒・偶奇・前後半 ×2 (賭け金込み)。</li>
+                <li data-rules="roulette">0が出たら、×2 の賭けは半額が戻る (0.5の端数は半々で切り上げ)。</li>
+                <li data-rules="blackjack">6デッキ、ディーラーはソフト17でスタンド。勝ち ×2、ブラックジャック ×2.5 (0.5の端数は半々で切り上げ)、引き分け ×1 (賭け金込み)。</li>
+                <li data-rules="blackjack">ダブルは最初の2枚で (スプリット後も可)。スプリットは4手まで、Aは1枚ずつ。</li>
+                <li data-rules="blackjack">最大4人。持ち時間20秒 (過ぎるとスタンド)。</li>
+                <li data-rules="slot">5ライン (賭け金1つで全ラインに賭ける)。3つそろうと倍率 × 賭け金: 宝箱 ×100、金貨 ×30、羅針盤 ×15、宝の地図 ×12、ラム酒 ×5、オウム ×3、錨 ×2。</li>
+                <li data-rules="slot">ドクロ旗 (真ん中のリールだけ) はどの絵柄の代わりにもなる。</li>
+                <li data-rules="holdem">ノーリミット、ブラインド 1 / 2。手元チップがそのまま持ち込み額。</li>
+                <li data-rules="holdem">6人卓。空いた席には強さの違う船員 (AI) が入る。持ち時間25秒。</li>
             </ul>
             <form id="casino-enter-form">
                 <div class="form-group">
@@ -424,12 +422,12 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=50.6"></script>
-    <script src="assets/js/game-roulette.js?v=50.6"></script>
-    <script src="assets/js/game-blackjack.js?v=50.6"></script>
-    <script src="assets/js/game-slot.js?v=50.6"></script>
-    <script src="assets/js/game-holdem.js?v=50.6"></script>
-    <script src="assets/js/game-underground.js?v=50.6"></script>
-    <script src="assets/js/game.js?v=50.6"></script>
+    <script src="assets/js/common.js?v=50.7"></script>
+    <script src="assets/js/game-roulette.js?v=50.7"></script>
+    <script src="assets/js/game-blackjack.js?v=50.7"></script>
+    <script src="assets/js/game-slot.js?v=50.7"></script>
+    <script src="assets/js/game-holdem.js?v=50.7"></script>
+    <script src="assets/js/game-underground.js?v=50.7"></script>
+    <script src="assets/js/game.js?v=50.7"></script>
 </body>
 </html>

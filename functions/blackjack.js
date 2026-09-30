@@ -6,7 +6,10 @@
 //   6デッキを1勝負ごとにシャッフル (前の勝負で出たカードは戻る = カウンティングは効かない)
 //   配り順は 各プレイヤー1枚 → ディーラー表 → 各プレイヤー2枚目 → ディーラー裏
 //   ディーラーはソフト17を含む17以上でスタンド。裏をのぞいてBJならその場で全員決着
-//   払い戻し (賭け金込み): 勝ち ×2 / ブラックジャック ×2.5 (端数切り捨て) / 引き分け ×1
+//   払い戻し (賭け金込み): 勝ち ×2 / ブラックジャック ×2.5 / 引き分け ×1
+//   ブラックジャックで出る 0.5 の端数 (賭け金が奇数のとき) は、半々の確率で切り上げか切り捨て。
+//   平均するとちょうど ×2.5 になり、どの賭け金でも期待値が同じになる
+//   (50.6 までは必ず切り捨てで奇数の賭け金が損をし、必ず切り上げにすると小さい奇数の賭け金が得をしすぎる)
 //   ダブル: どの2枚からでも (スプリット後も可)。スプリット: 同じ点数の2枚、1人4手まで
 //   A をスプリットした手は1枚ずつしか配らず、A+10点札でも 21 扱い (ブラックジャックではない)
 //   インシュランス・サレンダーはなし
@@ -99,15 +102,21 @@ function newHand(bet) {
   return { cards: [], bet, doubled: false, split: false, splitAces: false, done: false, opened: 0 };
 }
 
+/** ブラックジャックの勝ち分 (賭け金の1.5倍)。0.5 の端数は半々の確率で切り上げ */
+export function blackjackProfit(bet, randomInt) {
+  const profit = Math.floor(bet * 3 / 2);
+  return bet % 2 === 1 && randomInt(2) === 1 ? profit + 1 : profit;
+}
+
 /** 1手ぶんの勝敗と払い戻し (賭け金込み) */
-function judgeHand(hand, dealerCards) {
+function judgeHand(hand, dealerCards, randomInt) {
   const player = handValue(hand.cards).total;
   const dealer = handValue(dealerCards).total;
   const playerNatural = isNaturalHand(hand);
   const dealerNatural = isNatural(dealerCards);
   if (player > 21) return { result: 'bust', returned: 0 };
   if (playerNatural && dealerNatural) return { result: 'push', returned: hand.bet };
-  if (playerNatural) return { result: 'blackjack', returned: hand.bet + Math.floor(hand.bet * 3 / 2) };
+  if (playerNatural) return { result: 'blackjack', returned: hand.bet + blackjackProfit(hand.bet, randomInt) };
   if (dealerNatural) return { result: 'lose', returned: 0 };
   if (dealer > 21 || player > dealer) return { result: 'win', returned: hand.bet * 2 };
   if (player === dealer) return { result: 'push', returned: hand.bet };
@@ -125,7 +134,7 @@ function finishRound(round, randomInt) {
       round.dealer.push(drawCard(round, randomInt));
     }
   }
-  hands.forEach(hand => Object.assign(hand, judgeHand(hand, round.dealer)));
+  hands.forEach(hand => Object.assign(hand, judgeHand(hand, round.dealer, randomInt)));
   round.phase = 'done';
   round.turn = null;
   return round;
