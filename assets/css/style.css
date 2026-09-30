@@ -176,9 +176,10 @@
    ------------------------------------------------------------ */
 *, *::before, *::after { box-sizing: border-box; }
 
-/* ダブルタップで拡大しないようにする (2本指で広げる拡大はできる)。
-   touch-action は親から引き継がれないので、すべての要素に付ける (個別に指定している要素はそちらが優先) */
-* { touch-action: manipulation; }
+/* 画面の拡大・縮小をさせない (ダブルタップ・2本指とも。スクロールはできる)。
+   touch-action は親から引き継がれないので、すべての要素に付ける (個別に指定している要素はそちらが優先)。
+   viewport の user-scalable=no と assets/js/no-zoom.js (iPhone のピンチ操作を止める) と合わせて使う */
+* { touch-action: pan-x pan-y; }
 
 html {
     scroll-behavior: smooth;
@@ -227,9 +228,8 @@ a { color: var(--color-accent); }
 header.hero {
     position: relative;
     isolation: isolate;
-    /* ダブルタップで拡大したり文字が選択されたりしないようにする
-       (画像のダブルタップを隠し要素の操作に使っているため) */
-    touch-action: manipulation;
+    /* 文字が選択されないようにする (画像のダブルタップを隠し要素の操作に使っているため。
+       拡大しないのは全体の touch-action で止めている) */
     -webkit-user-select: none;
     user-select: none;
     display: flex;
