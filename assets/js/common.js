@@ -574,8 +574,12 @@ function createFirestoreRestDb(config) {
         return `${databaseRoot}/${path}`;
     }
 
+    // 更新する項目の一覧 (updateMask)。英数字と _ 以外を含む項目名はバッククォートで囲む決まり
     function updateMaskFromFields(fields) {
-        return { fieldPaths: Object.keys(fields || {}) };
+        const quote = name => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)
+            ? name
+            : `\`${name.replace(/\\/g, '\\\\').replace(/`/g, '\\`')}\``);
+        return { fieldPaths: Object.keys(fields || {}).map(quote) };
     }
 
     async function commitWrites(writes) {
@@ -617,14 +621,21 @@ function createFirestoreRestDb(config) {
                     ref: this
                 };
             },
-            async set(data) {
+            // Firestore の SDK と同じく、{ merge: true } なら渡した項目だけを書き換え、ほかの項目は残す。
+            // 付けなければ文書を丸ごと置き換える (以前は merge を無視していたため、設定を保存するたびに
+            // settings/app のほかの項目 (出席の表示ユーザー・補正の実行日など) が消えていた)
+            async set(data, options = {}) {
                 const fields = firestoreFieldsFromJson(data);
-                await commitWrites([{
+                const write = {
                     update: {
                         name: documentName(path),
                         fields
                     }
-                }]);
+                };
+                if (options && options.merge) {
+                    write.updateMask = updateMaskFromFields(fields);
+                }
+                await commitWrites([write]);
             },
             async update(data) {
                 const fields = firestoreFieldsFromJson(data);

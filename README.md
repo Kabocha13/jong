@@ -1,4 +1,4 @@
-# jong　　Ver50.1
+# jong　　Ver50.2
 
 **1.1** 麻雀得点管理アプリリリース
 
@@ -293,6 +293,8 @@
 **50.0** ゲームタブに「⛓ 船底」(#underground) を追加。レートが0以下の人の地下労働で、積荷の仕分けで金貨を稼ぎ、チンチロで班長に勝つとレートになる。レートが1以上になったら (チンチロの勝ち・日次補正・借入など何でも) 船底を出て、残った金貨と仕分けの途中の便は没収 (0 に戻す)。貸し出しはこれまでどおり使える。積荷の仕分け: 1便20個・40秒で、流れてくる積荷 (スロットの絵柄) を5つの木箱 (財宝箱 = 宝箱・金貨 / 酒樽 = ラム酒 / 航海道具 = 羅針盤・宝の地図・錨 / 鳥かご = オウム / 海へ捨てる = ドクロ旗) に振り分ける。正解 +5金貨・ミス −5金貨 (1便でマイナスにはしない)、何便でも働ける。積荷の並びと採点はサーバーで、制限時間 + 10秒を過ぎた答えと、1個0.2秒より速い答えは給料なし。チンチロ: 班長 (親) が先に振り、役ができるまで3回まで振り直す。班長がピンゾロ (5倍)・ゾロ目 (3倍)・シゴロ (2倍) なら負け、ヒフミ (2倍)・目なし (1倍) なら勝ちでその場で決まり、班長が目ならプレイヤーが振って比べる (プレイヤーの役も同じ倍率、同じ目は引き分け)。勝つと 賭け金 × (1 + 倍率) がレートになり賭けた金貨は消え、負けると 賭け金 × 倍率 の金貨を失う (倍払い)。賭け金は10〜100金貨で、5倍払いに備えて手持ちの1/5まで。勝ち46.6%・負け44.5%・引き分け8.9%で、金貨1枚は平均0.991レートになる。ピンハネ (勝ったときに班長が抜く割合) は既定0%。数値 (1便の個数・時間・給料・減額・賭け金の範囲・ピンハネ率) は管理画面の「⛓ 船底の設定」で変えられ、settings/app の underground_* に保存する。ルールは functions/underground.js、操作は Cloud Function underground (status / start / submit / chinchiro)、記録は underground/{player} (rules で画面からの読み書きを禁止)。増減ログの source は underground_chinchiro。画面は assets/js/game-underground.js。デプロイは hosting, functions, firestore
 
 **50.1** 日次レート補正 (毎日の徴収) が1日に何度も走ることがあったのを止めた。9/29 は 0:05 のほかに 14:54・15:07・19:15・22:24、9/30 は 8:52 にも走っていた (どれも補正の割合を変えた直後)。補正はホーム・マイページ・管理画面を開いたときに「その日の分がまだなら」画面から Cloud Function runDailyRateReversion を呼ぶ保険があり、settings/app の rate_reversion_last_date が今日でないと動いていた。settings/app はログインした人なら誰でも書けるので、ここが書き換わると同じ日にもう一度動いてしまう。画面から補正を呼ぶ保険と runDailyRateReversion をなくし、補正は毎日 0:05 の collectDailyPointTax だけにした。あわせて、済んだ日を rate_reversion_runs/{日付} (Cloud Functions だけが読み書き、rules に追加) に記録し、これがあればその日は動かない (rate_reversion_last_date は管理画面の表示用に残す)。デプロイは hosting, functions (runDailyRateReversion を削除するので --force), firestore
+
+**50.2** 管理画面で設定を保存するたびに、ほかの設定 (出席登録の表示ユーザーなど) が消えてしまう不具合を修正。画面から Firestore に書く自前の REST ラッパー (common.js の createFirestoreRestDb) の doc().set() が { merge: true } を無視して、いつも文書を丸ごと置き換えていた。そのため settings/app に何かを保存すると、ほかの項目 (attendance_allowed_users・rate_reversion_last_date・loan_*・underground_*・attendance_min_rate) が消えていた。50.1 で直した「日次補正が1日に何度も走る」のも、これで rate_reversion_last_date が消えていたのが原因。set() が merge を見て updateMask を付けるようにした (batch.set と同じ。項目名に英数字と _ 以外があればバッククォートで囲む)。同じく merge のつもりで丸ごと置き換えになっていた manaba_credentials・manaba_assignments・push_tokens の保存も直る。デプロイは hosting だけ
 
 npx firebase deploy --only hosting,functions,firestore
 
