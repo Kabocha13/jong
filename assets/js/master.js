@@ -137,9 +137,6 @@ async function attemptMasterLogin(username, password, isAuto = false) {
     }
 
     try {
-        await runDailyRateReversionIfNeeded().catch(error => {
-            console.warn('日次レート補正に失敗しました。マスター画面の表示は継続します。', error);
-        });
         const allData = await fetchAllData();
         const scores = allData.scores;
         

@@ -162,18 +162,10 @@ async function ensureHomeFirebaseLogin() {
     const username = localStorage.getItem('authUsername');
     const password = localStorage.getItem('authPassword');
     if (!username || !password) return false;
-    if (getCurrentFirebaseUidSync()) {
-        await runDailyRateReversionIfNeeded().catch(error => {
-            console.warn('日次レート補正に失敗しました。ホーム表示は継続します。', error);
-        });
-        return true;
-    }
+    if (getCurrentFirebaseUidSync()) return true;
 
     try {
         await qjongSignIn(username, password);
-        await runDailyRateReversionIfNeeded().catch(error => {
-            console.warn('日次レート補正に失敗しました。ホーム表示は継続します。', error);
-        });
         return true;
     } catch (error) {
         console.warn('ホームmanaba用ログインに失敗:', error);

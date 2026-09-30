@@ -103,6 +103,8 @@ const RATE_BASELINE_DEFAULT = 3000;
 const RATE_REVERSION_RATE_DEFAULT = 0.13;
 const RATE_REVERSION_FLAT_DEFAULT = 10;
 const RATE_EXCLUDED_PLAYERS = new Set(['3mahjong']);
+// 日次レート補正を済ませた日の記録 (Cloud Functions だけが読み書きする)。同じ日に2回動かさないために見る
+const RATE_REVERSION_RUN_COLLECTION = 'rate_reversion_runs';
 // レートの貸し出し (借金)。ルールは loan.js。書き込みは Cloud Functions だけ (firestore.rules で write を禁止)
 const LOAN_COLLECTION = 'loans';
 const DEFAULT_MANABA_BASE_URL = 'https://cit.manaba.jp/ct/home';
@@ -433,15 +435,24 @@ async function rebuildRateChartQuietly(context) {
   }
 }
 
+/**
+ * 日次レート補正 (と借金の利息)。毎日 0:05 の collectDailyPointTax からだけ呼ぶ (画面からは呼ばない)。
+ * その日に済んだかどうかは rate_reversion_runs/{日付} で見る。settings/app はログインした人なら書けるので、
+ * そこの rate_reversion_last_date (表示用) が書き換えられても、同じ日に2回は動かない
+ */
 async function applyDailyRateReversionForToday() {
   const todayKey = getJstDateKey();
   const settingsRef = db.collection('settings').doc('app');
+  const runRef = db.collection(RATE_REVERSION_RUN_COLLECTION).doc(todayKey);
 
   return db.runTransaction(async transaction => {
-    const settingsDoc = await transaction.get(settingsRef);
+    const [settingsDoc, runDoc] = await Promise.all([
+      transaction.get(settingsRef),
+      transaction.get(runRef)
+    ]);
     const settings = settingsDoc.exists ? settingsDoc.data() : {};
 
-    if (settings.rate_reversion_last_date === todayKey) {
+    if (runDoc.exists || settings.rate_reversion_last_date === todayKey) {
       return { status: 'skipped', date: todayKey, reason: 'already_applied' };
     }
 
@@ -527,6 +538,7 @@ async function applyDailyRateReversionForToday() {
       loan_interest_last_total: totalInterest,
       updatedAt: nowIso
     }, { merge: true });
+    transaction.set(runRef, { date: todayKey, ranAt: nowIso, baseline, rate, flat, totalMoved, totalInterest });
 
     return { status: 'success', date: todayKey, rate, totalMoved, totalInterest };
   });
@@ -1510,39 +1522,6 @@ export const rebuildRateChart = onRequest({ region: 'asia-northeast1' }, async (
   } catch (error) {
     console.error(error);
     res.status(500).json({ status: 'error', message: `レート推移の再構築に失敗しました: ${error.message}` });
-  }
-});
-
-/**
- * 日次レート補正 (と借金の利息) を、その日ぶんがまだなら今すぐ実行する。
- * 毎日 0:05 の collectDailyPointTax が本線で、これはログイン時に画面から呼ばれる保険。
- * 日付ごとに1回しか走らない (トランザクション内で rate_reversion_last_date を見る) ので、
- * 何度呼ばれても二重には動かない。
- */
-export const runDailyRateReversion = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
-  setCors(req, res);
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-  if (req.method !== 'POST') {
-    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
-    return;
-  }
-
-  try {
-    if (!await hasWriteAccess(req, req.body || {})) {
-      res.status(401).json({ status: 'error', message: '認証が必要です。' });
-      return;
-    }
-    const result = await applyDailyRateReversionForToday();
-    if (result.status === 'success') {
-      await rebuildRateChartQuietly('daily_rate_reversion_on_demand');
-    }
-    res.status(200).json({ ...result, status: 'success', applied: result.status === 'success' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ status: 'error', message: `日次レート補正に失敗しました: ${error.message}` });
   }
 });
 

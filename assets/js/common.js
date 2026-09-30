@@ -102,7 +102,6 @@ function isMahjongCpu(name) {
     return name === MAHJONG_CPU_NAME;
 }
 let _firebaseFirestoreSettingsApplied = false;
-let _rateReversionCheckedDate = '';
 
 function isFirebaseConfigured() {
     return Boolean(
@@ -1017,61 +1016,6 @@ async function saveRateReversionSettings({ baseline, rate, flat }) {
     await db.collection('settings').doc('app').set(payload, { merge: true });
     invalidateFetchCache();
     return payload;
-}
-
-/**
- * 1日1回、全員のレートを基準へ近づけ、残っている借金に利息を付ける。
- * 本線は毎日 0:05 の Cloud Scheduler (collectDailyPointTax)。ここはログイン時に当日ぶんが
- * まだなら Cloud Function (runDailyRateReversion) に頼む保険で、計算はすべてサーバー側にある
- * (補正と借金の利息を同じ1回の処理にまとめておくため、画面側では計算しない)。
- */
-async function runDailyRateReversionIfNeeded() {
-    const todayKey = getJstDateKey();
-    if (_rateReversionCheckedDate === todayKey) {
-        return { status: 'skipped', message: '本日分のレート補正は確認済みです。' };
-    }
-
-    if (!getCurrentFirebaseUidSync()) {
-        return { status: 'skipped', message: 'ログイン前のためレート補正をスキップしました。' };
-    }
-
-    const db = getFirestoreDb();
-    if (!db) return { status: 'skipped', message: 'Firebase が設定されていません。' };
-
-    // 実行済みかどうかは settings を1件読むだけで分かる
-    const settingsDoc = await db.collection('settings').doc('app').get();
-    const settings = settingsDoc.exists ? settingsDoc.data() : {};
-    if (String(settings.rate_reversion_last_date || '') === todayKey) {
-        _rateReversionCheckedDate = todayKey;
-        return { status: 'skipped', message: '本日分のレート補正は完了済みです。' };
-    }
-
-    const token = await getFirebaseIdToken();
-    if (!token) return { status: 'skipped', message: 'Firebase認証が必要です。' };
-
-    const response = await fetch(`${getFunctionsBaseUrl()}/runDailyRateReversion`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({})
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || result.status !== 'success') {
-        throw new Error(result.message || `Cloud Function Error ${response.status}`);
-    }
-
-    _rateReversionCheckedDate = todayKey;
-    invalidateFetchCache();
-    return {
-        status: 'success',
-        message: result.applied ? '日次レート補正を完了しました。' : '本日分のレート補正は完了済みです。',
-        date: todayKey,
-        applied: Boolean(result.applied),
-        totalMoved: toFiniteNumber(result.totalMoved, 0),
-        totalInterest: toFiniteNumber(result.totalInterest, 0)
-    };
 }
 
 // -----------------------------------------------------------------
