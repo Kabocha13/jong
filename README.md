@@ -1,4 +1,4 @@
-# jong　　Ver50.3
+# jong　　Ver50.4
 
 **1.1** 麻雀得点管理アプリリリース
 
@@ -297,6 +297,8 @@
 **50.2** 管理画面で設定を保存するたびに、ほかの設定 (出席登録の表示ユーザーなど) が消えてしまう不具合を修正。画面から Firestore に書く自前の REST ラッパー (common.js の createFirestoreRestDb) の doc().set() が { merge: true } を無視して、いつも文書を丸ごと置き換えていた。そのため settings/app に何かを保存すると、ほかの項目 (attendance_allowed_users・rate_reversion_last_date・loan_*・underground_*・attendance_min_rate) が消えていた。50.1 で直した「日次補正が1日に何度も走る」のも、これで rate_reversion_last_date が消えていたのが原因。set() が merge を見て updateMask を付けるようにした (batch.set と同じ。項目名に英数字と _ 以外があればバッククォートで囲む)。同じく merge のつもりで丸ごと置き換えになっていた manaba_credentials・manaba_assignments・push_tokens の保存も直る。デプロイは hosting だけ
 
 **50.3** 船底に入れる条件を「レートが0以下」から「レートが1000以下」に広げた。上限を超えたら (チンチロで勝つ・日次補正・借入など) 船底を出て、残った金貨は没収するのはこれまでどおり。上限は管理画面の「⛓ 船底の設定」の「入れるレートの上限」で変えられる (settings/app の underground_max_rate、既定1000)。ゲーム一覧の船底のタイルは、説明文と「入れます」の札をこの上限で出す (誰でも読める settings/app から読む)。デプロイは hosting, functions
+
+**50.4** ホームのレート推移グラフで、船底チンチロの勝ちを1回ずつ別の出来事として並べていたのを、続けてやった分は1つにまとめるようにした。同じ日に同じ人が続けて勝ち、その間にほかの誰のレートも動いていなければ1つの出来事にし、理由は「船底チンチロ 3勝 (+700)」のように出す (増減ログ point_history は1回ずつのまま。まとめるのはグラフを組み立てるときだけ)。まとめる source は functions/index.js の RATE_CHART_MERGED_SOURCES。すでにある分も、グラフを作り直せばまとまる。デプロイは hosting, functions
 
 npx firebase deploy --only hosting,functions,firestore
 

@@ -276,9 +276,13 @@ function debtAtEndOfDay(entries, dateKey, currentDebt, isToday) {
 }
 
 const RATE_CHART_EVENT_GAP_MS = 5000;   // 同じ source/reason でこれ以内の増減は1回の出来事とみなす
+// 1回ごとに増減ログが残るが、グラフでは続けてやった分を1つにまとめる source (船底チンチロの勝ち)。
+// 同じ日に同じ人が続けて勝ち、その間にほかの誰の増減も無ければ1つの出来事にする
+const RATE_CHART_MERGED_SOURCES = new Set([UNDERGROUND_SOURCE]);
 
 /**
  * 全員の増減ログを時刻順に並べ、同時に保存されたもの (1局ぶん・1回の補正) を1件にまとめる。
+ * RATE_CHART_MERGED_SOURCES (船底チンチロ) は、同じ人が続けた分も1件にまとめる (「船底チンチロ 5勝 (+1,200)」)。
  * 戻り値は JST 日付キー → イベント配列 (古い順)。
  */
 function groupRateChartEvents(entriesByPlayer) {
@@ -292,6 +296,23 @@ function groupRateChartEvents(entriesByPlayer) {
   let current = null;
   all.forEach(entry => {
     const time = Date.parse(entry.createdAt);
+    const delta = entry.afterScore - entry.beforeScore;
+    const continued = current
+      && RATE_CHART_MERGED_SOURCES.has(entry.source)
+      && current.source === entry.source
+      && current.date === entry.date
+      && current.changes.length === 1
+      && current.changes[0].player === entry.player;
+    if (continued) {
+      // 直前の出来事を、この回のあとの値と時刻で上書きする
+      current.count += 1;
+      current.delta += delta;
+      current.at = entry.createdAt;
+      current.lastTime = time;
+      current.reason = `船底チンチロ ${current.count}勝 (${current.delta >= 0 ? '+' : ''}${current.delta})`;
+      current.changes[0] = { player: entry.player, afterScore: entry.afterScore, debtAfter: entry.debtAfter };
+      return;
+    }
     const sameEvent = current
       && current.date === entry.date
       && current.source === entry.source
@@ -305,6 +326,8 @@ function groupRateChartEvents(entriesByPlayer) {
         source: entry.source,
         reason: entry.reason,
         lastTime: time,
+        count: 1,
+        delta,
         changes: []
       };
       if (!eventsByDate.has(entry.date)) eventsByDate.set(entry.date, []);
