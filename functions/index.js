@@ -1006,6 +1006,81 @@ async function sendPushToEveryone({ title, body, tag, link = APP_URL }) {
   return { success, failure };
 }
 
+/** 通知を登録した端末の見分け (userAgent から大まかに) */
+function describePushDevice(userAgent) {
+  const ua = String(userAgent || '');
+  const device = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
+    : /Macintosh/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : '不明な端末';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /CriOS|Chrome\//.test(ua) ? 'Chrome' : /FxiOS|Firefox\//.test(ua) ? 'Firefox'
+    : /Safari\//.test(ua) ? 'Safari' : '';
+  // iPhone・iPad でホーム画面に追加したアプリは userAgent に Safari が付かない (通知が届くのはこちらだけ)
+  if ((device === 'iPhone' || device === 'iPad') && !browser) return `${device} (ホーム画面のアプリ)`;
+  return browser ? `${device} ${browser}` : device;
+}
+
+/**
+ * 自分の端末にだけテスト通知を送る (マイページの「テスト通知」)。
+ * 登録されている端末と、それぞれに送れたかどうかを返すので、通知が届かないときにどこで止まっているかを確かめられる。
+ * delaySeconds (0〜20) だけ待ってから送るので、その間にアプリを閉じれば、閉じているときの届き方も試せる
+ */
+export const sendTestPush = onRequest({ region: 'asia-northeast1', timeoutSeconds: 60 }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const decoded = await getVerifiedAuthToken(req);
+    if (!decoded || !decoded.uid) {
+      res.status(401).json({ status: 'error', message: 'ログインが必要です。' });
+      return;
+    }
+    const body = req.body || {};
+    const delaySeconds = Math.min(20, Math.max(0, Math.round(Number(body.delaySeconds) || 0)));
+    const tokenDoc = await db.collection('push_tokens').doc(decoded.uid).get();
+    const tokenEntries = tokenDoc.exists && Array.isArray(tokenDoc.data().tokens) ? tokenDoc.data().tokens : [];
+    const tokens = [...new Set(tokenEntries.map(entry => String(entry?.token || '')).filter(Boolean))];
+    if (!tokens.length) {
+      res.status(200).json({ status: 'success', devices: [], success: 0, failure: 0 });
+      return;
+    }
+
+    if (delaySeconds > 0) await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+    const response = await admin.messaging().sendEachForMulticast({
+      tokens,
+      notification: {
+        title: '🔔 テスト通知',
+        body: `${decoded.username || ''} さんの端末に届いています。通知は正しく設定されています。`
+      },
+      webpush: {
+        fcmOptions: { link: `${APP_URL}mypage.html` },
+        notification: { icon: '/assets/icon.png', tag: 'push-test' }
+      }
+    });
+    await removeInvalidPushTokens(tokenDoc, tokenEntries, tokens, response);
+
+    const devices = tokens.map((token, index) => {
+      const entry = tokenEntries.find(item => String(item?.token || '') === token) || {};
+      const result = response.responses[index];
+      return {
+        device: describePushDevice(entry.userAgent),
+        registeredAt: String(entry.updatedAt || ''),
+        ok: Boolean(result && result.success),
+        error: result && !result.success ? String(result.error?.code || result.error?.message || '') : ''
+      };
+    });
+    res.status(200).json({ status: 'success', devices, success: response.successCount, failure: response.failureCount });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `テスト通知を送れませんでした: ${error.message}` });
+  }
+});
+
 /** 「10/1 12:00」。通知の本文用 (JST) */
 function formatJstShortDateTime(iso) {
   const date = new Date(iso);

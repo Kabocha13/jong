@@ -1867,6 +1867,53 @@ async function enableDeadlineNotifications() {
     }
 }
 
+/**
+ * 自分の端末にだけテスト通知を送る (Cloud Function sendTestPush)。
+ * 登録されている端末と、それぞれに送れたかを表示する。届かないときにどこで止まっているかを見分けるため
+ */
+async function sendPushTest(delaySeconds, button) {
+    const resultEl = document.getElementById('push-test-result');
+    // 端末ごとの結果を読めるよう、showMessage と違って自動では消さない
+    const show = (text, type) => {
+        resultEl.textContent = text;
+        resultEl.className = `message ${type}`;
+    };
+    const buttons = document.querySelectorAll('[data-push-test-delay]');
+    buttons.forEach(item => { item.disabled = true; });
+    show(delaySeconds > 0
+        ? `${delaySeconds}秒後に送ります。いまのうちにアプリを閉じて待ってください…`
+        : '送っています…', 'info');
+    try {
+        const token = await getFirebaseIdToken();
+        if (!token) throw new Error('ログインが必要です。');
+        const response = await fetch(`${getFunctionsBaseUrl()}/sendTestPush`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ delaySeconds })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.status !== 'success') throw new Error(data.message || `通信に失敗しました (${response.status})`);
+        if (!data.devices.length) {
+            show('通知を受け取る端末が登録されていません。上の「この端末で通知を受け取る」を押してください。', 'error');
+            return;
+        }
+        const lines = data.devices.map(device => `${device.device}${device.registeredAt ? ` (${formatLoanDateTime(device.registeredAt)} 登録)` : ''}: `
+            + (device.ok ? '送信OK' : `送れませんでした (${device.error})`));
+        const hint = data.success > 0
+            ? '送信はできています。数秒たっても届かなければ、端末の設定 (通知の許可・集中モード) を確認してください。'
+            : 'どの端末にも送れませんでした。「この端末で通知を受け取る」を押して登録し直してください。';
+        show(`登録されている端末 ${data.devices.length}台 / ${lines.join(' / ')}。${hint}`, data.success > 0 ? 'success' : 'error');
+    } catch (error) {
+        show(`❌ ${error.message}`, 'error');
+    } finally {
+        buttons.forEach(item => { item.disabled = false; });
+    }
+}
+
+document.querySelectorAll('[data-push-test-delay]').forEach(button => {
+    button.addEventListener('click', () => sendPushTest(Number(button.dataset.pushTestDelay) || 0, button));
+});
+
 if (ENABLE_NOTIFICATIONS_BUTTON) {
     ENABLE_NOTIFICATIONS_BUTTON.addEventListener('click', enableDeadlineNotifications);
 
