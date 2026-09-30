@@ -144,8 +144,8 @@ function renderMenu() {
         const badge = tile.querySelector('.game-tile-badge');
         let text = (tile.dataset.game === 'blackjack' && isBlackjackLive()) || (tile.dataset.game === 'holdem' && isHoldemLive())
             ? '勝負の途中' : '';
-        // 船底はレートが上限 (既定1000) 以下のときだけ入れる
-        if (tile.dataset.game === 'underground' && casino.score <= undergroundMaxRate()) text = '入れます';
+        // 船底はレートが上限 (既定1000) 未満のときだけ仕分けできる
+        if (tile.dataset.game === 'underground' && casino.score < undergroundMaxRate()) text = '入れます';
         badge.textContent = text;
         badge.classList.toggle('hidden', !text);
     });

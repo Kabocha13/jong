@@ -24,8 +24,9 @@ export const LOAN_SETTING_DEFAULTS = {
 };
 export const LOAN_RECENT_LIMIT = 12;           // 本人に見せる直近の履歴の件数
 export const LOAN_SOURCES = new Set(['loan_borrow', 'loan_repay', 'loan_interest']);
-// 変動の大きさを見るときに除く増減。日次補正・参加ボーナスは決まった動きで「変動」ではなく、借金の出入りも実力ではない
-export const LOAN_VOLATILITY_EXCLUDED_SOURCES = new Set(['daily_rate_reversion', 'participation_bonus', ...LOAN_SOURCES]);
+// 変動の大きさを見るときに除く増減。日次補正・参加ボーナス・船底の仕分けは決まった動きで「変動」ではなく、
+// 借金の出入りも実力ではない
+export const LOAN_VOLATILITY_EXCLUDED_SOURCES = new Set(['daily_rate_reversion', 'participation_bonus', 'underground_work', ...LOAN_SOURCES]);
 
 export class LoanError extends Error {
   constructor(status, message) {

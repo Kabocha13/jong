@@ -4036,43 +4036,9 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
 }
 
 /* ------------------------------------------------------------
-   19g. ゲーム — 船底 (積荷の仕分け・チンチロ)
+   19g. ゲーム — 船底 (積荷の仕分け)
    ------------------------------------------------------------ */
-/* サイコロ: 3 × 3 の升目に目を打つ。1の目だけ赤く大きく */
-.ug-die {
-    --die: clamp(34px, 10vw, 46px);
-    display: inline-grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    width: var(--die);
-    height: var(--die);
-    padding: calc(var(--die) * 0.12);
-    background: radial-gradient(circle at 30% 25%, #fffdf6, #efe4c8 70%, #d9c9a2);
-    border-radius: calc(var(--die) * 0.2);
-    box-shadow: 0 3px 0 #b8a67f, 0 6px 10px rgba(0, 0, 0, 0.45);
-}
-
-.ug-die i {
-    place-self: center;
-    width: 68%;
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background: #1d1712;
-    visibility: hidden;
-}
-
-.ug-die i.is-on { visibility: visible; }
-.ug-die[data-face="1"] i.is-on { width: 100%; background: var(--rum-light); }
-.ug-die.is-rolling { animation: ug-shake 0.14s linear infinite; }
-
-@keyframes ug-shake {
-    0%   { transform: translate(0, 0) rotate(0deg); }
-    25%  { transform: translate(-2px, 1px) rotate(-14deg); }
-    50%  { transform: translate(1px, -2px) rotate(9deg); }
-    75%  { transform: translate(2px, 1px) rotate(-6deg); }
-    100% { transform: translate(0, 0) rotate(0deg); }
-}
-
+/* ゲーム一覧のタイル: 暗い船倉に積荷を3つ */
 .game-tile-art.is-underground {
     gap: 8px;
     background:
@@ -4080,16 +4046,30 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
         linear-gradient(180deg, var(--pitch-light), var(--pitch));
 }
 
-.game-tile-art.is-underground .ug-die:nth-child(1) { transform: rotate(-10deg); }
-.game-tile-art.is-underground .ug-die:nth-child(3) { transform: rotate(12deg) translateY(4px); }
+.ug-tile-cargo { display: grid; }
+.ug-tile-cargo:nth-child(1) { transform: rotate(-8deg); }
+.ug-tile-cargo:nth-child(3) { transform: rotate(8deg) translateY(4px); }
+
+.ug-tile-cargo-icon {
+    display: grid;
+    place-items: center;
+    width: clamp(40px, 11vw, 54px);
+    height: clamp(40px, 11vw, 54px);
+    overflow: hidden;
+    font-size: 32px;
+    border: 1px solid var(--brass);
+    border-radius: 6px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
+}
+
+.ug-tile-cargo-icon img { width: 100%; height: 100%; object-fit: cover; }
 
 .ug-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .ug-notice { margin: 10px 0 0; font-size: 0.86em; }
 #ug-message { margin: 10px 0 0; }
 
 /* 船底の2つの持ち場。スロットの筐体と同じ木の箱にする */
-.ug-hold,
-.ug-den {
+.ug-hold {
     margin: 0 auto clamp(14px, 2.4vw, 24px);
     padding: 12px 12px 16px;
     color: var(--brass-pale);
@@ -4104,8 +4084,7 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
     box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), var(--shadow-deep);
 }
 
-.ug-hold.is-locked,
-.ug-den.is-locked { filter: grayscale(0.7) brightness(0.75); }
+.ug-hold.is-locked { filter: grayscale(0.7) brightness(0.75); }
 
 .ug-hold-title {
     margin: 0 0 10px;
@@ -4121,13 +4100,12 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
 
 .ug-hold-text { margin: 0 0 12px; font-size: 0.86em; line-height: 1.6; }
 
-.ug-work-idle,
-.ug-work-result { text-align: center; }
+.ug-work-idle { text-align: center; }
 
 .ug-result-head {
-    margin: 4px 0;
-    font-family: var(--font-display);
-    font-size: 2em;
+    margin: 4px 0 10px;
+    font-size: 1.1em;
+    font-weight: 700;
     color: var(--lantern);
 }
 
@@ -4137,25 +4115,6 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
     background: radial-gradient(circle at 34% 28%, #fff7dc 0%, #f4cd68 40%, #c9922f 100%);
     border: 2px solid #7d5411;
 }
-
-/* 制限時間の帯。残りが少ないと赤くなる */
-.ug-timer {
-    height: 8px;
-    overflow: hidden;
-    background: rgba(0, 0, 0, 0.45);
-    border: 1px solid rgba(201, 146, 47, 0.6);
-    border-radius: 999px;
-}
-
-.ug-timer span {
-    display: block;
-    height: 100%;
-    width: 100%;
-    background: linear-gradient(90deg, var(--brass), var(--lantern));
-    transition: width 0.1s linear;
-}
-
-.ug-timer span.is-low { background: linear-gradient(90deg, var(--rum), var(--rum-light)); }
 
 .ug-progress {
     display: flex;
@@ -4291,89 +4250,14 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
     100%    { box-shadow: 0 4px 0 #1d130a; transform: translateX(0); }
 }
 
-/* チンチロ: 班長と自分の丼 */
-.ug-bowls {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.ug-side { display: grid; justify-items: center; gap: 6px; min-width: 0; }
-
-.ug-side-name {
-    margin: 0;
-    font-family: var(--font-title);
-    letter-spacing: 0.12em;
-    color: var(--brass-light);
-}
-
-.ug-bowl {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    width: 100%;
-    max-width: 200px;
-    aspect-ratio: 16 / 10;
-    padding: 10px;
-    background: radial-gradient(ellipse at 50% 40%, #f4efe4 0%, #d8cfbe 55%, #9b8e76 100%);
-    border: 4px solid #5b3a1e;
-    border-radius: 50% / 45%;
-    box-shadow: inset 0 8px 16px rgba(0, 0, 0, 0.35), 0 6px 12px rgba(0, 0, 0, 0.45);
-}
-
-.ug-bowl .ug-die { --die: clamp(30px, 9vw, 40px); }
-
-.ug-hand {
-    min-height: 1.4em;
-    margin: 0;
-    font-weight: 700;
+.ug-stop-button {
+    display: block;
+    min-width: 140px;
+    margin: 14px auto 0;
     color: var(--brass-pale);
+    background: transparent;
+    border: 1px solid rgba(201, 146, 47, 0.7);
 }
-
-.ug-hand[data-kind="pinzoro"],
-.ug-hand[data-kind="zoro"],
-.ug-hand[data-kind="shigoro"] { color: var(--lantern); }
-
-.ug-hand[data-kind="hifumi"],
-.ug-hand[data-kind="menashi"] { color: #ff8a7e; }
-
-.ug-outcome {
-    min-height: 1.6em;
-    margin: 12px 0;
-    text-align: center;
-    font-weight: 700;
-    color: var(--brass-pale);
-}
-
-.ug-outcome[data-outcome="win"]  { color: #7fe0a8; }
-.ug-outcome[data-outcome="lose"] { color: #ff8a7e; }
-
-.ug-bet-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-}
-
-.ug-bet { grid-area: auto; }
-
-.ug-roll-button {
-    width: 84px;
-    height: 84px;
-}
-
-.ug-bet-note {
-    margin: 10px 0 0;
-    text-align: center;
-    font-size: 0.8em;
-    line-height: 1.6;
-    color: rgba(246, 227, 178, 0.8);
-}
-
-.ug-hands { margin-bottom: 16px; }
-.ug-hands small { color: var(--ink-soft); }
 
 .ug-recent {
     display: grid;
@@ -4393,9 +4277,6 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
 }
 
 .ug-recent-time { flex: none; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.ug-recent li.is-win { color: var(--ok); }
-.ug-recent li.is-lose { color: var(--ng); }
-
 /* ------------------------------------------------------------
    20. スクロールバー
    ------------------------------------------------------------ */

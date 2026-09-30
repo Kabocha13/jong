@@ -71,14 +71,10 @@ function normalizeLoanSettings(settings) {
 // 船底 (レートが低い人の地下労働)。ルールと計算は functions/underground.js にあり、画面はサーバーの返事を表示するだけ。
 // settings/app のキー名 → 既定値。functions/underground.js の UNDERGROUND_SETTING_DEFAULTS と同じにしておくこと
 const UNDERGROUND_SETTING_DEFAULTS = {
-    underground_max_rate: 1000,           // 船底に入れるレートの上限 (これ以下なら入れる。超えたら出る)
-    underground_items_per_shipment: 20,   // 1便の積荷の数
-    underground_shipment_seconds: 40,     // 1便の制限時間 (秒)
-    underground_pay_correct: 5,           // 正しく仕分けた1個の給料 (金貨)
-    underground_pay_miss: 5,              // 間違えた1個で減る金貨
-    underground_bet_min: 10,              // チンチロの賭け金の下限 (金貨)
-    underground_bet_max: 100,             // チンチロの賭け金の上限 (金貨)
-    underground_pinhane_rate: 0           // 勝ったときに班長が抜く割合 (0.05 = 5%)
+    underground_max_rate: 1000,           // 仕分けで上げられるレートの上限 (これ未満の人が仕分けできる)
+    underground_rate_per_correct: 1,      // 正しく仕分けた1個で上がるレート
+    underground_rate_per_miss: 0,         // 間違えた1個で下がるレート
+    underground_items_per_shipment: 20    // 1回に渡す積荷の数 (答えをまとめて送る単位)
 };
 
 /** settings/app の underground_* を、サーバー (functions/underground.js の undergroundSettingsFrom) と同じ形と丸めで取り出す */
@@ -87,16 +83,11 @@ function normalizeUndergroundSettings(settings) {
     const d = UNDERGROUND_SETTING_DEFAULTS;
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
     const read = key => toFiniteNumber(source[key], d[key]);
-    const betMin = clamp(Math.round(read('underground_bet_min')), 1, 100000);
     return {
         maxRate: clamp(Math.round(read('underground_max_rate')), -100000, 100000),
-        itemsPerShipment: clamp(Math.round(read('underground_items_per_shipment')), 5, 100),
-        shipmentSeconds: clamp(Math.round(read('underground_shipment_seconds')), 10, 300),
-        payCorrect: clamp(Math.round(read('underground_pay_correct')), 0, 1000),
-        payMiss: clamp(Math.round(read('underground_pay_miss')), 0, 1000),
-        betMin,
-        betMax: clamp(Math.round(read('underground_bet_max')), betMin, 100000),
-        pinhaneRate: clamp(read('underground_pinhane_rate'), 0, 0.5)
+        ratePerCorrect: clamp(Math.round(read('underground_rate_per_correct')), 0, 1000),
+        ratePerMiss: clamp(Math.round(read('underground_rate_per_miss')), 0, 1000),
+        itemsPerShipment: clamp(Math.round(read('underground_items_per_shipment')), 5, 100)
     };
 }
 
@@ -1089,23 +1080,15 @@ async function saveUndergroundSettings(values) {
     if (!db) throw new Error('Firebase が設定されていません。');
     const normalized = normalizeUndergroundSettings({
         underground_max_rate: values.maxRate,
-        underground_items_per_shipment: values.itemsPerShipment,
-        underground_shipment_seconds: values.shipmentSeconds,
-        underground_pay_correct: values.payCorrect,
-        underground_pay_miss: values.payMiss,
-        underground_bet_min: values.betMin,
-        underground_bet_max: values.betMax,
-        underground_pinhane_rate: values.pinhaneRate
+        underground_rate_per_correct: values.ratePerCorrect,
+        underground_rate_per_miss: values.ratePerMiss,
+        underground_items_per_shipment: values.itemsPerShipment
     });
     await db.collection('settings').doc('app').set({
         underground_max_rate: normalized.maxRate,
+        underground_rate_per_correct: normalized.ratePerCorrect,
+        underground_rate_per_miss: normalized.ratePerMiss,
         underground_items_per_shipment: normalized.itemsPerShipment,
-        underground_shipment_seconds: normalized.shipmentSeconds,
-        underground_pay_correct: normalized.payCorrect,
-        underground_pay_miss: normalized.payMiss,
-        underground_bet_min: normalized.betMin,
-        underground_bet_max: normalized.betMax,
-        underground_pinhane_rate: normalized.pinhaneRate,
         updatedAt: new Date().toISOString()
     }, { merge: true });
     invalidateFetchCache();
