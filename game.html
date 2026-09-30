@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="assets/js/no-zoom.js?v=50.9"></script>
+    <script src="assets/js/no-zoom.js?v=50.10"></script>
     <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,8 +12,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=50.9">
-    <script src="assets/js/treasure-rain.js?v=50.9" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=50.10">
+    <script src="assets/js/treasure-rain.js?v=50.10" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -81,7 +81,7 @@
                     <span class="game-tile-body">
                         <span class="game-tile-name">スロット</span>
                         <span class="game-tile-sub">Treasure Reels</span>
-                        <span class="game-tile-desc">5ラインの3リール。宝箱がそろえば100倍</span>
+                        <span class="game-tile-desc">5ラインの3リール。ジャックポットタイムと天井あり、宝箱がそろえば100倍</span>
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
@@ -128,7 +128,8 @@
                 <li data-rules="blackjack">ダブルは最初の2枚で (スプリット後も可)。スプリットは4手まで、Aは1枚ずつ。</li>
                 <li data-rules="blackjack">最大4人。持ち時間20秒 (過ぎるとスタンド)。</li>
                 <li data-rules="slot">5ライン (賭け金1つで全ラインに賭ける)。3つそろうと倍率 × 賭け金: 宝箱 ×100、金貨 ×30、羅針盤 ×15、宝の地図 ×12、ラム酒 ×5、オウム ×3、錨 ×2。</li>
-                <li data-rules="slot">ドクロ旗 (真ん中のリールだけ) はどの絵柄の代わりにもなる。</li>
+                <li data-rules="slot">1回ごとに1%で「ジャックポットタイム」(5〜15回) に入る。真ん中のリールにドクロ旗 (どの絵柄の代わりにもなる) が7枚出て当たりやすい。</li>
+                <li data-rules="slot">天井: 通常で100回まわすと、以後は1回ごとに10%で入る。ジャックポットタイム中の賭け金は、それまでの平均で固定。</li>
                 <li data-rules="holdem">ノーリミット、ブラインド 1 / 2。手元チップがそのまま持ち込み額。</li>
                 <li data-rules="holdem">6人卓。空いた席には強さの違う船員 (AI) が入る。持ち時間25秒。</li>
             </ul>
@@ -321,6 +322,7 @@
         <section id="slot-table" class="hidden" data-view="slot" aria-label="スロット">
             <div class="slot-cabinet">
                 <p class="slot-marquee" aria-hidden="true"><span>Treasure Reels</span></p>
+                <p class="slot-mode" id="slot-mode" aria-live="polite"></p>
                 <div class="slot-window-frame">
                     <!-- 3本のリール。当たったラインは上の svg に線で引く (1マス = 100) -->
                     <div class="slot-window" id="slot-window" role="img" aria-label="スロットのリール">
@@ -423,12 +425,12 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=50.9"></script>
-    <script src="assets/js/game-roulette.js?v=50.9"></script>
-    <script src="assets/js/game-blackjack.js?v=50.9"></script>
-    <script src="assets/js/game-slot.js?v=50.9"></script>
-    <script src="assets/js/game-holdem.js?v=50.9"></script>
-    <script src="assets/js/game-underground.js?v=50.9"></script>
-    <script src="assets/js/game.js?v=50.9"></script>
+    <script src="assets/js/common.js?v=50.10"></script>
+    <script src="assets/js/game-roulette.js?v=50.10"></script>
+    <script src="assets/js/game-blackjack.js?v=50.10"></script>
+    <script src="assets/js/game-slot.js?v=50.10"></script>
+    <script src="assets/js/game-holdem.js?v=50.10"></script>
+    <script src="assets/js/game-underground.js?v=50.10"></script>
+    <script src="assets/js/game.js?v=50.10"></script>
 </body>
 </html>

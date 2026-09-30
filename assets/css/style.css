@@ -3255,6 +3255,35 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
 .slot-cabinet:has(.slot-window.is-big) .slot-marquee::before,
 .slot-cabinet:has(.slot-window.is-big) .slot-marquee::after { animation-duration: 0.3s; }
 
+/* ジャックポットタイムの残り・天井までの回数 */
+.slot-mode {
+    min-height: 1.4em;
+    margin: -4px 0 10px;
+    text-align: center;
+    font-size: 0.86em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--brass-pale);
+}
+
+/* ジャックポットタイム中は筐体を金色に光らせる */
+.slot-cabinet.is-jackpot {
+    border-color: var(--lantern);
+    box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), 0 0 26px rgba(255, 182, 72, 0.65), var(--shadow-deep);
+    animation: slot-jackpot-glow 1.2s ease-in-out infinite alternate;
+}
+
+.slot-cabinet.is-jackpot .slot-mode { color: var(--lantern); }
+
+@keyframes slot-jackpot-glow {
+    from { box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), 0 0 14px rgba(255, 182, 72, 0.4), var(--shadow-deep); }
+    to   { box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), 0 0 34px rgba(255, 182, 72, 0.85), var(--shadow-deep); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .slot-cabinet.is-jackpot { animation: none; }
+}
+
 .slot-window-frame {
     padding: 6px;
     background: linear-gradient(135deg, var(--brass-light), #96690f 45%, var(--brass-light) 70%, #7d5411);

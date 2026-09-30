@@ -22,11 +22,13 @@ const SLOT_BETS = [1, 2, 5, 10, 20, 50, 100];
 const SLOT_BET_STORAGE_KEY = 'slotBet';
 const SLOT_IMAGE_DIR = 'assets/img/slot/';
 const SLOT_IMAGE_EXT = '.jpeg';
-// 回っている間に流す絵柄。リールの枚数の割合に合わせる (錨9 オウム7 ラム3 地図3 羅針盤3 金貨2 宝箱1 ドクロ旗1)
+// 回っている間に流す絵柄。リールの枚数の割合に合わせる (錨9 オウム7 ラム3 地図3 羅針盤3 金貨2 宝箱1)。
+// 通常モードはドクロ旗が出ないので流さず、ジャックポットタイムは多めに流す (functions/slot.js の真ん中のリールは7枚)
 const SLOT_FILLER = [
     ...Array(9).fill('anchor'), ...Array(7).fill('parrot'), ...Array(3).fill('rum'), ...Array(3).fill('map'),
-    ...Array(3).fill('compass'), ...Array(2).fill('coin'), 'chest', 'wild'
+    ...Array(3).fill('compass'), ...Array(2).fill('coin'), 'chest'
 ];
+const SLOT_FILLER_JACKPOT = [...SLOT_FILLER, ...Array(5).fill('wild')];
 const SLOT_STOP_MS = [900, 1300, 1700];   // 結果が届いてから各リールが止まるまで
 const SLOT_REACH_MS = 1300;               // リーチのとき右のリールを引き延ばす長さ
 const SLOT_REACH_MIN_PAY = 8;             // この倍率以上の絵柄でリーチになったら演出する
@@ -35,6 +37,7 @@ const SLOT_AUTO_GAP_MS = 700;             // オートで次をまわすまで�
 
 const slot = {
     bet: 1,
+    state: null,            // ジャックポットタイムの状態 (サーバーの返事。functions/slot.js の publicSlotState)
     grid: null,             // いま見えている 3段 × 3列
     images: new Set(),      // 読み込めた絵柄の画像
     auto: false,
@@ -43,7 +46,44 @@ const slot = {
 };
 
 function randomFiller() {
-    return SLOT_FILLER[Math.floor(Math.random() * SLOT_FILLER.length)];
+    const filler = isSlotJackpot() ? SLOT_FILLER_JACKPOT : SLOT_FILLER;
+    return filler[Math.floor(Math.random() * filler.length)];
+}
+
+// ------------------------------------------------------------------
+// ジャックポットタイム (ルールは functions/slot.js。入るか・何回続くかはサーバーが決める)
+// ------------------------------------------------------------------
+function isSlotJackpot() {
+    return slot.state?.mode === 'jackpot';
+}
+
+/** 次の1回の賭け金。ジャックポットタイム中は固定 (手持ちが足りなければ手持ちぶん) */
+function slotSpinBet() {
+    return isSlotJackpot() ? Math.max(1, Math.min(slot.state.jackpotBet, slotChips())) : slot.bet;
+}
+
+/** サーバーから届いたジャックポットタイムの状態を受け取って、表示を揃える (game.js の refreshCasino からも呼ぶ) */
+function receiveSlotState(state) {
+    slot.state = state || null;
+    renderSlotMode();
+    renderSlotControls();
+}
+
+function renderSlotMode() {
+    const node = el('slot-mode');
+    if (!node) return;
+    const state = slot.state;
+    document.querySelector('.slot-cabinet')?.classList.toggle('is-jackpot', isSlotJackpot());
+    if (!state) {
+        node.textContent = '';
+        return;
+    }
+    if (isSlotJackpot()) {
+        node.textContent = `ジャックポットタイム 残り${state.jackpotLeft}回 (賭け金 ${state.jackpotBet.toLocaleString('ja-JP')} で固定)`;
+        return;
+    }
+    const left = state.ceiling - state.spinsSinceJackpot;
+    node.textContent = left > 0 ? `天井まで あと${left}回` : '天井到達 (ジャックポットタイムに入りやすい)';
 }
 
 function randomGrid() {
@@ -275,11 +315,13 @@ function renderSlotControls() {
     if (!el('slot-spin-button')) return;
     const chips = slotChips();
     const locked = casino.busy || !casino.session;
-    el('slot-bet').textContent = slot.bet.toLocaleString('ja-JP');
-    el('slot-bet-down').disabled = locked || slot.bet <= SLOT_BETS[0];
-    el('slot-bet-up').disabled = locked || !SLOT_BETS.some(bet => bet > slot.bet && bet <= chips);
+    // ジャックポットタイム中は賭け金が固定なので変えられない
+    const jackpot = isSlotJackpot();
+    el('slot-bet').textContent = slotSpinBet().toLocaleString('ja-JP');
+    el('slot-bet-down').disabled = locked || jackpot || slot.bet <= SLOT_BETS[0];
+    el('slot-bet-up').disabled = locked || jackpot || !SLOT_BETS.some(bet => bet > slot.bet && bet <= chips);
     // オート中のボタンは、まわっている最中でも押せる「止める」にする
-    el('slot-spin-button').disabled = slot.auto ? false : locked || slot.bet > chips;
+    el('slot-spin-button').disabled = slot.auto ? false : locked || (!jackpot && slot.bet > chips);
     el('slot-spin-button').textContent = slot.auto ? 'オートを止める' : 'スピン';
     el('slot-spin-button').classList.toggle('is-auto', slot.auto);
     el('slot-auto').checked = slot.auto;
@@ -299,7 +341,7 @@ function queueSlotAuto(wait) {
     slot.autoTimer = setTimeout(() => {
         slot.autoTimer = null;
         if (!slot.auto || !slot.open) return;
-        if (slot.bet > slotChips()) {
+        if (!isSlotJackpot() && slot.bet > slotChips()) {
             stopSlotAuto();
             showMessage(el('slot-message'), '手元のチップが賭け金に足りないので、オートを止めました。', 'info');
             return;
@@ -310,8 +352,8 @@ function queueSlotAuto(wait) {
 
 async function spinSlot() {
     if (casino.busy || !casino.session) return;
-    const bet = slot.bet;
-    if (bet > slotChips()) return;
+    const bet = slotSpinBet();
+    if (!isSlotJackpot() && bet > slotChips()) return;
 
     setCasinoBusy(true);
     el('slot-spin-button').setAttribute('aria-busy', 'true');
@@ -331,10 +373,11 @@ async function spinSlot() {
             return;
         }
 
-        const { grid, lines, multiplier, returned } = data.result;
+        const { grid, lines, multiplier, returned, entered, finished } = data.result;
         if (motion) await landReels(grid);
         else renderGrid(grid);
         drawWinLines(lines);
+        if (data.slot) receiveSlotState(data.slot);
 
         const big = multiplier >= SLOT_BIG_WIN;
         if (returned > 0) {
@@ -351,6 +394,14 @@ async function spinSlot() {
         } else {
             setSlotResult('はずれ', 'is-miss');
             el('slot-result-detail').textContent = '';
+        }
+        if (entered) {
+            // ジャックポットタイム突入。次の回から、真ん中のリールにドクロ旗が増える
+            window.qjongTreasureRain?.preview(4500);
+            wait = Math.max(wait, 3800);
+            showMessage(el('slot-message'), `🏴‍☠️ ジャックポットタイム突入！ ${entered.spins}回 (賭け金 ${entered.bet.toLocaleString('ja-JP')} で固定)`, 'success');
+        } else if (finished) {
+            showMessage(el('slot-message'), 'ジャックポットタイムが終わりました。', 'info');
         }
 
         if (data.settled) {
@@ -392,6 +443,7 @@ function openSlotTable() {
     }
     fitSlotBet();
     renderSlotRecent();
+    renderSlotMode();
     renderSlotControls();
 }
 
@@ -422,7 +474,7 @@ function buildSlotPaytable() {
     icon.appendChild(createSymbol('wild'));
     const text = document.createElement('span');
     text.className = 'slot-pay-name';
-    text.textContent = 'ドクロ旗は真ん中のリールにだけ出て、どの絵柄の代わりにもなる';
+    text.textContent = 'ドクロ旗はジャックポットタイムだけ真ん中のリールに出て、どの絵柄の代わりにもなる';
     wild.append(icon, text);
     list.appendChild(wild);
 

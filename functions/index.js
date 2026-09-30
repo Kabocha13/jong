@@ -4,7 +4,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
-import { spinSlot } from './slot.js';
+import { normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
 import { HoldemRuleError } from './holdem.js';
 import {
   LOAN_SOURCES,
@@ -2107,6 +2107,8 @@ export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) =>
 //   誰でも読める形は holdem_public/main、本人の手札は holdem_hole/{uid} (本人だけが読める) に置く。
 // -----------------------------------------------------------------
 const CASINO_SESSIONS = 'casino_sessions';
+// スロットのジャックポットタイムの状態 (人ごと。カジノを精算しても引き継ぐ。Cloud Functions だけが読み書きする)
+const SLOT_STATES = 'slot_states';
 const CASINO_GAMES = new Set(['roulette', 'blackjack', 'slot', 'holdem']);
 const CASINO_IDLE_SETTLE_MS = 30 * 60 * 1000;
 const CASINO_MAX_SESSION_MS = 3 * 60 * 60 * 1000;
@@ -2411,18 +2413,20 @@ async function readHoldemHole(uid) {
 
 async function casinoStatus(uid, username) {
   await settleCasinoSessionIfExpired(uid);
-  const [sessionDoc, playerSnapshot, table, holdemTable, hole, autoSettled] = await Promise.all([
+  const [sessionDoc, playerSnapshot, table, holdemTable, hole, autoSettled, slotStateDoc] = await Promise.all([
     db.collection(CASINO_SESSIONS).doc(uid).get(),
     playerQuery(username).get(),
     readPublicBlackjackTable(),
     readPublicHoldemTable(),
     readHoldemHole(uid),
-    takeCasinoNotice(uid)
+    takeCasinoNotice(uid),
+    db.collection(SLOT_STATES).doc(uid).get()
   ]);
   return {
     me: username,
     score: playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score),
     session: sessionDoc.exists ? publicCasinoSession(sessionDoc.data()) : null,
+    slot: publicSlotState(slotStateDoc.exists ? slotStateDoc.data() : null),
     table,
     holdemTable,
     hole,
@@ -2530,54 +2534,74 @@ async function casinoSpin(uid, rawBets) {
   return { result: spun.result, session: publicCasinoSession(spun.session) };
 }
 
-/** スロットを1回まわす。bet は5本のラインすべてにかかる賭け金 */
+/**
+ * スロットを1回まわす。bet は5本のラインすべてにかかる賭け金。
+ * ジャックポットタイム中は賭け金が固定なので、送られてきた bet は使わない (ルールは slot.js)
+ */
 async function casinoSlotSpin(uid, rawBet) {
-  const bet = Number(rawBet);
-  if (!Number.isSafeInteger(bet) || bet < 1) {
-    throw new CasinoError(400, '賭け金は1以上の整数にしてください。');
-  }
+  const requestedBet = Number(rawBet);
   const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
+  const slotStateRef = db.collection(SLOT_STATES).doc(uid);
 
   const spun = await db.runTransaction(async transaction => {
-    const sessionDoc = await transaction.get(sessionRef);
+    const [sessionDoc, slotStateDoc] = await Promise.all([
+      transaction.get(sessionRef),
+      transaction.get(slotStateRef)
+    ]);
     if (!sessionDoc.exists) {
       throw new CasinoError(409, 'テーブルに入場していません。');
     }
     const session = sessionDoc.data();
     if (isCasinoSessionExpired(session)) return { expired: true };
-    if (bet > session.chips) {
-      throw new CasinoError(400, `手元のチップ (${session.chips}) を超えて賭けることはできません。`);
+    const slotState = normalizeSlotState(slotStateDoc.exists ? slotStateDoc.data() : null);
+    if (slotState.mode === 'normal') {
+      if (!Number.isSafeInteger(requestedBet) || requestedBet < 1) {
+        throw new CasinoError(400, '賭け金は1以上の整数にしてください。');
+      }
+      if (requestedBet > session.chips) {
+        throw new CasinoError(400, `手元のチップ (${session.chips}) を超えて賭けることはできません。`);
+      }
     }
 
     const now = new Date().toISOString();
-    const outcome = spinSlot(bet, casinoRandom);
-    const result = { ...outcome, at: now };
+    const round = playSlotRound(slotState, requestedBet, session.chips, casinoRandom);
+    const outcome = round.outcome;
+    const result = { ...outcome, at: now, entered: round.entered, finished: round.finished };
     // 直近の一覧には、いちばん高い当たりの絵柄だけ残す
     const best = outcome.lines.reduce((top, line) => (!top || line.multiplier > top.multiplier ? line : top), null);
-    const summary = { bet, returned: outcome.returned, multiplier: outcome.multiplier, symbol: best ? best.symbol : null, at: now };
+    const summary = {
+      bet: round.bet,
+      returned: outcome.returned,
+      multiplier: outcome.multiplier,
+      symbol: best ? best.symbol : null,
+      mode: outcome.mode,
+      at: now
+    };
     const next = {
       ...session,
-      chips: session.chips - bet + outcome.returned,
+      chips: session.chips - round.bet + outcome.returned,
       slotSpins: (session.slotSpins || 0) + 1,
-      wagered: (session.wagered || 0) + bet,
+      wagered: (session.wagered || 0) + round.bet,
       lastActionAt: now,
       expiresAt: casinoSessionExpiresAt(session.startedAt, now),
       slotRecent: [summary, ...(session.slotRecent || [])].slice(0, CASINO_RECENT_LIMIT)
     };
     transaction.set(sessionRef, next);
-    return { result, session: next };
+    transaction.set(slotStateRef, { ...round.state, updatedAt: now });
+    return { result, session: next, slot: round.state };
   });
 
   if (spun.expired) {
     const settled = await settleCasinoSession(uid, 'casino_auto_settle');
     return { expired: true, settled };
   }
+  const slot = publicSlotState(spun.slot);
   // チップが尽きたら続けようがないので、その場で精算する (ブラックジャックの席に置いた賭けがあれば精算で戻る)
   if (spun.session.chips <= 0) {
     const settled = await settleCasinoSession(uid, spun.session.player, { reason: 'broke' });
-    return { result: spun.result, session: null, settled };
+    return { result: spun.result, session: null, settled, slot };
   }
-  return { result: spun.result, session: publicCasinoSession(spun.session) };
+  return { result: spun.result, session: publicCasinoSession(spun.session), slot };
 }
 
 /** 財布を精算したあとの人へ返すぶんを、人ごとにまとめる */

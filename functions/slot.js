@@ -1,4 +1,4 @@
-// スロットの1回ぶんのルール (Firestore には触らない)。
+// スロットのルール (Firestore には触らない)。
 // 乱数は呼び出し側から randomInt(n) → 0〜n-1 の整数 として受け取る。
 //
 // ルール
@@ -6,7 +6,15 @@
 //   1本のラインに同じ絵柄が3つ並ぶと、その絵柄の倍率 × 賭け金 を払い戻す (賭け金込み)。当たったラインの分を合計する
 //   ドクロ旗 (wild) は真ん中のリールにだけあり、どの絵柄の代わりにもなる
 //   リールは下の並びの輪で、止まる位置はリールごとに一様に選ぶ (演出で結果を変えない)
-//   還元率 99.14% / 1回あたり何か当たる確率 26.98% (50.6 で宝の地図を ×8 → ×12 にして 95.97% から上げた) (tools なしで確かめるときは slotReturnRate() を使う)
+//
+// 通常モードとジャックポットタイム (50.10〜)
+//   通常モード: 真ん中のリールにドクロ旗が無い。還元率 84.73% / 何か当たる確率 25.77%
+//   ジャックポットタイム: 真ん中のリールのドクロ旗が7枚に増える。還元率 186.22% / 何か当たる確率 35.35%
+//   通常モードで1回まわすごとに 1% でジャックポットタイムに入り、5〜15回 (一様) 続く。
+//   天井: 前のジャックポットタイムから通常モードで100回まわすと、そのあとは1回ごとに 10% で入る
+//   ジャックポットタイム中の賭け金は、前のジャックポットタイムから通常モードで賭けた平均で固定
+//   (通常は最低額で回し、ジャックポットタイムだけ大きく賭けて得をする、ということをさせないため)
+//   全体の還元率 97.90% (slotOverallReturnRate() で確かめられる)。50.9 までは1モードで 99.14% だった
 
 export const SLOT_ROWS = 3;
 
@@ -32,21 +40,38 @@ export const SLOT_LINES = [
   [2, 1, 0]
 ];
 
-// 絵柄の枚数 (左・右のリール): 錨9 オウム7 ラム3 地図3 羅針盤3 金貨2 宝箱1 = 28
-// 真ん中のリールはこれにドクロ旗1枚を足した 29。並びは同じ絵柄がなるべく続かないようにばらしてある
-export const SLOT_REELS = [
-  ['anchor', 'parrot', 'anchor', 'rum', 'map', 'compass', 'parrot', 'coin', 'anchor', 'parrot', 'anchor', 'anchor', 'parrot', 'rum',
-    'map', 'compass', 'chest', 'anchor', 'parrot', 'anchor', 'coin', 'parrot', 'anchor', 'rum', 'map', 'compass', 'parrot', 'anchor'],
-  ['parrot', 'compass', 'anchor', 'parrot', 'rum', 'anchor', 'coin', 'map', 'parrot', 'anchor', 'compass', 'anchor', 'parrot', 'wild',
-    'rum', 'anchor', 'parrot', 'map', 'anchor', 'compass', 'parrot', 'coin', 'anchor', 'chest', 'rum', 'anchor', 'parrot', 'map', 'anchor'],
-  ['parrot', 'anchor', 'compass', 'anchor', 'parrot', 'map', 'rum', 'anchor', 'parrot', 'compass', 'anchor', 'coin', 'parrot', 'anchor',
-    'map', 'chest', 'parrot', 'rum', 'anchor', 'anchor', 'compass', 'parrot', 'anchor', 'map', 'parrot', 'coin', 'rum', 'anchor']
-];
+// 絵柄の枚数 (左・右のリール): 錨9 オウム7 ラム3 地図3 羅針盤3 金貨2 宝箱1 = 28。
+// 並びは同じ絵柄がなるべく続かないようにばらしてある
+const LEFT_REEL = ['anchor', 'parrot', 'anchor', 'rum', 'map', 'compass', 'parrot', 'coin', 'anchor', 'parrot', 'anchor', 'anchor', 'parrot', 'rum',
+  'map', 'compass', 'chest', 'anchor', 'parrot', 'anchor', 'coin', 'parrot', 'anchor', 'rum', 'map', 'compass', 'parrot', 'anchor'];
+const RIGHT_REEL = ['parrot', 'anchor', 'compass', 'anchor', 'parrot', 'map', 'rum', 'anchor', 'parrot', 'compass', 'anchor', 'coin', 'parrot', 'anchor',
+  'map', 'chest', 'parrot', 'rum', 'anchor', 'anchor', 'compass', 'parrot', 'anchor', 'map', 'parrot', 'coin', 'rum', 'anchor'];
+// 真ん中のリール (29)。通常は錨10 オウム7 ラム3 地図3 羅針盤3 金貨2 宝箱1 (ドクロ旗なし)
+const MIDDLE_REEL_NORMAL = ['parrot', 'compass', 'anchor', 'parrot', 'rum', 'anchor', 'coin', 'map', 'parrot', 'anchor', 'compass', 'anchor', 'parrot', 'anchor',
+  'rum', 'anchor', 'parrot', 'map', 'anchor', 'compass', 'parrot', 'coin', 'anchor', 'chest', 'rum', 'anchor', 'parrot', 'map', 'anchor'];
+// ジャックポットタイムは、錨4枚・オウム2枚と通常の錨1枚をドクロ旗にした7枚 (0・5・9・13・18・22・26 番目。3つ以上離してある)
+const MIDDLE_REEL_JACKPOT = ['wild', 'compass', 'anchor', 'parrot', 'rum', 'wild', 'coin', 'map', 'parrot', 'wild', 'compass', 'anchor', 'parrot', 'wild',
+  'rum', 'anchor', 'parrot', 'map', 'wild', 'compass', 'parrot', 'coin', 'wild', 'chest', 'rum', 'anchor', 'wild', 'map', 'anchor'];
+
+export const SLOT_REELS = {
+  normal: [LEFT_REEL, MIDDLE_REEL_NORMAL, RIGHT_REEL],
+  jackpot: [LEFT_REEL, MIDDLE_REEL_JACKPOT, RIGHT_REEL]
+};
+
+// ジャックポットタイムの入り方と長さ
+export const SLOT_JACKPOT = {
+  enterRate: 0.01,      // 通常モードで1回まわすごとに入る確率
+  ceiling: 100,         // 天井: 前のジャックポットタイムから通常モードでこの回数まわすと…
+  ceilingRate: 0.1,     // …そのあとは1回ごとにこの確率で入る
+  spinsMin: 5,          // ジャックポットタイムの長さ (この範囲から一様に選ぶ)
+  spinsMax: 15
+};
+const RATE_SCALE = 1000000;   // 確率を整数の乱数で引くときの目の細かさ
 
 /** 止まる位置 (各リールで窓の一番上に来る添字) から、見えている 3段 × 3列 の絵柄を返す */
-export function slotGrid(stops) {
+export function slotGrid(stops, reels = SLOT_REELS.normal) {
   return Array.from({ length: SLOT_ROWS }, (_, row) => stops.map((stop, reel) => {
-    const strip = SLOT_REELS[reel];
+    const strip = reels[reel];
     return strip[(stop + row) % strip.length];
   }));
 }
@@ -68,23 +93,115 @@ export function judgeSlotGrid(grid) {
   return { lines, multiplier: lines.reduce((sum, item) => sum + item.multiplier, 0) };
 }
 
-/** 1回まわす。bet は検証済みの正の整数 */
-export function spinSlot(bet, randomInt) {
-  const stops = SLOT_REELS.map(strip => randomInt(strip.length));
-  const grid = slotGrid(stops);
+/** 1回まわす。bet は検証済みの正の整数。mode は 'normal' か 'jackpot' */
+export function spinSlot(bet, randomInt, mode = 'normal') {
+  const reels = SLOT_REELS[mode] || SLOT_REELS.normal;
+  const stops = reels.map(strip => randomInt(strip.length));
+  const grid = slotGrid(stops, reels);
   const { lines, multiplier } = judgeSlotGrid(grid);
-  return { stops, grid, lines, multiplier, bet, returned: bet * multiplier };
+  return { stops, grid, lines, multiplier, bet, returned: bet * multiplier, mode };
 }
 
-/** 全部の止まり方を数え上げた還元率と当たる確率 (確認用) */
-export function slotReturnRate() {
-  const [a, b, c] = SLOT_REELS.map(strip => strip.length);
+// ------------------------------------------------------------------
+// ジャックポットタイム
+//   state = { mode, jackpotLeft, jackpotBet, spinsSinceJackpot, wageredSinceJackpot, jackpots }
+//   (人ごとに1つ。カジノを精算しても引き継ぐ)
+// ------------------------------------------------------------------
+function toCount(value) {
+  const number = Math.floor(Number(value));
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+export function normalizeSlotState(state) {
+  const source = state && typeof state === 'object' ? state : {};
+  const jackpotLeft = toCount(source.jackpotLeft);
+  return {
+    mode: jackpotLeft > 0 ? 'jackpot' : 'normal',
+    jackpotLeft,
+    jackpotBet: jackpotLeft > 0 ? Math.max(1, toCount(source.jackpotBet)) : 0,
+    spinsSinceJackpot: toCount(source.spinsSinceJackpot),       // 前のジャックポットタイムから通常モードでまわした回数
+    wageredSinceJackpot: toCount(source.wageredSinceJackpot),   // その間に賭けた合計
+    jackpots: toCount(source.jackpots)                          // これまでに入った回数
+  };
+}
+
+/** 次の通常モードの1回でジャックポットタイムに入る確率 (天井を過ぎていれば上がる) */
+export function slotEnterRate(state) {
+  return normalizeSlotState(state).spinsSinceJackpot >= SLOT_JACKPOT.ceiling ? SLOT_JACKPOT.ceilingRate : SLOT_JACKPOT.enterRate;
+}
+
+/**
+ * スロットを1回。通常モードなら requestedBet で通常のリール、ジャックポットタイムなら固定の賭け金
+ * (手持ちが足りなければ手持ちぶん) でドクロ旗の多いリールをまわす。
+ * 通常モードの1回ごとにジャックポットタイムに入るかを引く (入ったら次の回から)。
+ * 戻り値: { outcome, bet, state (次の状態), entered: { spins, bet } | null, finished (ジャックポットタイムが終わった) }
+ */
+export function playSlotRound(rawState, requestedBet, chips, randomInt) {
+  const state = normalizeSlotState(rawState);
+  if (state.mode === 'jackpot') {
+    const bet = Math.max(1, Math.min(state.jackpotBet, chips));
+    const outcome = spinSlot(bet, randomInt, 'jackpot');
+    const jackpotLeft = state.jackpotLeft - 1;
+    return {
+      outcome,
+      bet,
+      state: { ...state, mode: jackpotLeft > 0 ? 'jackpot' : 'normal', jackpotLeft, jackpotBet: jackpotLeft > 0 ? state.jackpotBet : 0 },
+      entered: null,
+      finished: jackpotLeft === 0
+    };
+  }
+
+  const bet = requestedBet;
+  const outcome = spinSlot(bet, randomInt, 'normal');
+  const spinsSinceJackpot = state.spinsSinceJackpot + 1;
+  const wageredSinceJackpot = state.wageredSinceJackpot + bet;
+  const rate = slotEnterRate(state);
+  if (randomInt(RATE_SCALE) < Math.round(rate * RATE_SCALE)) {
+    const spins = SLOT_JACKPOT.spinsMin + randomInt(SLOT_JACKPOT.spinsMax - SLOT_JACKPOT.spinsMin + 1);
+    const jackpotBet = Math.max(1, Math.round(wageredSinceJackpot / spinsSinceJackpot));
+    return {
+      outcome,
+      bet,
+      state: { mode: 'jackpot', jackpotLeft: spins, jackpotBet, spinsSinceJackpot: 0, wageredSinceJackpot: 0, jackpots: state.jackpots + 1 },
+      entered: { spins, bet: jackpotBet },
+      finished: false
+    };
+  }
+  return {
+    outcome,
+    bet,
+    state: { ...state, spinsSinceJackpot, wageredSinceJackpot },
+    entered: null,
+    finished: false
+  };
+}
+
+/** 画面に返す形 */
+export function publicSlotState(state) {
+  const current = normalizeSlotState(state);
+  return {
+    mode: current.mode,
+    jackpotLeft: current.jackpotLeft,
+    jackpotBet: current.jackpotBet,
+    spinsSinceJackpot: current.spinsSinceJackpot,
+    ceiling: SLOT_JACKPOT.ceiling,
+    enterRate: slotEnterRate(current)
+  };
+}
+
+// ------------------------------------------------------------------
+// 確かめ用
+// ------------------------------------------------------------------
+/** 全部の止まり方を数え上げた還元率と当たる確率 (mode ごと) */
+export function slotReturnRate(mode = 'normal') {
+  const reels = SLOT_REELS[mode];
+  const [a, b, c] = reels.map(strip => strip.length);
   let total = 0;
   let hits = 0;
   for (let i = 0; i < a; i++) {
     for (let j = 0; j < b; j++) {
       for (let k = 0; k < c; k++) {
-        const { multiplier } = judgeSlotGrid(slotGrid([i, j, k]));
+        const { multiplier } = judgeSlotGrid(slotGrid([i, j, k], reels));
         total += multiplier;
         if (multiplier > 0) hits += 1;
       }
@@ -92,4 +209,24 @@ export function slotReturnRate() {
   }
   const count = a * b * c;
   return { rate: total / count, hitRate: hits / count };
+}
+
+/**
+ * ジャックポットタイムも含めた全体の還元率 (賭け金が一定のとき)。
+ * 通常モードで入るまでの平均の回数と、ジャックポットタイムの平均の長さで重みをつける
+ */
+export function slotOverallReturnRate() {
+  const normal = slotReturnRate('normal');
+  const jackpot = slotReturnRate('jackpot');
+  const { enterRate, ceiling, ceilingRate, spinsMin, spinsMax } = SLOT_JACKPOT;
+  const reachCeiling = Math.pow(1 - enterRate, ceiling);
+  const normalSpins = (1 - reachCeiling) / enterRate + reachCeiling / ceilingRate;
+  const jackpotSpins = (spinsMin + spinsMax) / 2;
+  return {
+    rate: (normalSpins * normal.rate + jackpotSpins * jackpot.rate) / (normalSpins + jackpotSpins),
+    normal,
+    jackpot,
+    normalSpinsPerJackpot: normalSpins,
+    reachCeilingRate: reachCeiling
+  };
 }

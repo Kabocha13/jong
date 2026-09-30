@@ -117,6 +117,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // スロットのジャックポットタイムの状態 (残りの回数・天井までの回数・固定の賭け金)。
+    // 書き換えられるとジャックポットタイムを偽れるので、読み書きとも Cloud Functions (casino) だけに限る。
+    match /slot_states/{userId} {
+      allow read, write: if false;
+    }
+
     // 日次レート補正を済ませた日の記録。同じ日に2回動かさないための印なので、Cloud Functions だけが読み書きする。
     match /rate_reversion_runs/{date} {
       allow read, write: if false;

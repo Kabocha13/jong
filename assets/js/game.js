@@ -272,6 +272,7 @@ async function refreshCasino() {
     casino.ready = true;
     receiveBlackjackTable(data.table, data.now);
     receiveHoldemTable(data.holdemTable, data.now, data.hole);
+    receiveSlotState(data.slot);
     renderRoute();
     if (data.autoSettled) {
         showMessage(el('casino-message'), settledMessage(data.autoSettled), 'info');
