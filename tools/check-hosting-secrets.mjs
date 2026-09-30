@@ -20,7 +20,9 @@ const errors = [];
 const warnings = [];
 
 // この項目がプレースホルダのままなら致命的（それ以外は警告だけ）
-const CRITICAL_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'messagingSenderId', 'storageBucket'];
+// messagingVapidKey も含める: 仮の値のままデプロイすると本番の鍵を上書きし、誰も通知を登録できなくなる
+// (50.7 までに、仮の値の設定ファイルから何度もデプロイして本番の鍵を消していた)
+const CRITICAL_KEYS = ['apiKey', 'authDomain', 'projectId', 'appId', 'messagingSenderId', 'storageBucket', 'messagingVapidKey'];
 
 function checkPlaceholders(relPath, fatalList) {
     const body = readFileSync(resolve(root, relPath), 'utf8');
