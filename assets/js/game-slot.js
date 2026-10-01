@@ -36,6 +36,8 @@ const SLOT_BIG_WIN = 20;                  // 倍率の合計がこれ以上な�
 const SLOT_AUTO_GAP_MS = 700;             // オートで次をまわすまでの間 (当たりのときは長めに)
 const SLOT_FREEZE_MS = 1300;              // ジャックポットタイム突入が決まった回、リールを止める前に暗転させる長さ
 const SLOT_CUTIN_MS = 3800;               // 突入・終了の画面いっぱいの演出を出しておく長さ (タップで閉じられる)
+const SLOT_STROBE_GAP_MS = 350;           // 続けて光らせる間隔 (光過敏に配慮して1秒に3回を超えないように)
+const SLOT_HAPTIC_TAP_MS = 90;            // iPhone で震わせる代わりに触覚を鳴らす間隔
 
 const slot = {
     bet: 1,
@@ -122,8 +124,48 @@ function toggleSlotAura(show) {
     document.body.appendChild(aura);
 }
 
+/**
+ * 震わせる。pattern は ms の数か [震える, 止まる, 震える, …] の配列 (Vibration API と同じ形)。
+ * Android などは Vibration API。iPhone の Safari には無いので、iOS 18 からの「スイッチ型のチェックボックスを
+ * 切り替えると触覚が鳴る」仕組みを借り、震える区間に「コツッ」を並べる (使えない端末では何も起きない)
+ */
 function buzz(pattern) {
-    try { navigator.vibrate?.(pattern); } catch (error) { /* 震えない端末では何もしない */ }
+    const steps = Array.isArray(pattern) ? pattern : [pattern];
+    try {
+        if (typeof navigator.vibrate === 'function') {
+            navigator.vibrate(steps);
+            return;
+        }
+    } catch (error) {
+        return;
+    }
+    if (!navigator.maxTouchPoints) return;
+    let at = 0;
+    steps.forEach((ms, index) => {
+        if (index % 2 === 0) {
+            const taps = Math.max(1, Math.round(ms / SLOT_HAPTIC_TAP_MS));
+            for (let i = 0; i < taps; i++) setTimeout(hapticTap, at + i * SLOT_HAPTIC_TAP_MS);
+        }
+        at += ms;
+    });
+}
+
+/** iPhone の触覚を1回鳴らす (見えないスイッチを1回切り替える) */
+function hapticTap() {
+    try {
+        const label = document.createElement('label');
+        label.setAttribute('aria-hidden', 'true');
+        label.style.display = 'none';
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.setAttribute('switch', '');
+        label.appendChild(input);
+        document.head.appendChild(label);
+        label.click();
+        label.remove();
+    } catch (error) {
+        // 鳴らせない端末では何もしない
+    }
 }
 
 /** アニメーションを最初からやり直すため、クラスを付け直す */
@@ -134,14 +176,19 @@ function restartClass(node, name) {
     node.classList.add(name);
 }
 
-/** 画面全体を一瞬白く光らせる */
-function flashScreen() {
+/** 画面全体を一瞬光らせる。tone は white (いちばん強い)・gold (やわらかめ)・red */
+function flashScreen(tone = 'white') {
     if (prefersReducedMotion()) return;
     const flash = document.createElement('div');
-    flash.className = 'slot-flash';
+    flash.className = `slot-flash is-${tone}`;
     flash.setAttribute('aria-hidden', 'true');
     document.body.appendChild(flash);
     setTimeout(() => flash.remove(), 700);
+}
+
+/** 続けて光らせる */
+function strobeScreen(tones) {
+    tones.forEach((tone, index) => setTimeout(() => flashScreen(tone), index * SLOT_STROBE_GAP_MS));
 }
 
 /** 窓の真ん中から金貨を飛び散らせる (画面に固定した入れ物に置くので、横にはみ出してもスクロールしない) */
@@ -170,23 +217,30 @@ function burstCoins(count) {
     setTimeout(() => burst.remove(), 1600);
 }
 
-/** ジャックポットタイム中に当たった: 揺らして光らせ、倍率に応じて金貨を飛ばす */
+/** ジャックポットタイム中に当たった: 揺らして光らせ、倍率に応じて金貨を飛ばす。大当たりは何度も光らせて長く震わせる */
 function celebrateJackpotWin(multiplier) {
     restartClass(document.querySelector('.slot-window-frame'), 'is-shake');
     restartClass(document.querySelector('.slot-mode-won'), 'is-bump');
-    flashScreen();
     burstCoins(Math.min(60, 12 + multiplier * 2));
-    buzz(multiplier >= SLOT_BIG_WIN ? [60, 30, 60, 30, 200] : 70);
+    if (multiplier >= SLOT_BIG_WIN) {
+        strobeScreen(['white', 'gold', 'red', 'white']);
+        buzz([200, 80, 200, 80, 500]);
+    } else {
+        flashScreen('white');
+        buzz([80, 50, 140]);
+    }
 }
 
 /** 突入が決まった回: リールを止める前に、筐体を暗転させてドクロ旗を脈打たせ、揺らしてから光らせる */
 async function freezeSlot() {
     const cabinet = document.querySelector('.slot-cabinet');
     cabinet?.classList.add('is-freeze');
-    buzz([40, 60, 40, 60, 40, 60, 400]);
+    // 暗転のあいだは小刻みに震わせ続ける
+    buzz(Array(Math.floor(SLOT_FREEZE_MS / 100) * 2).fill(50));
     await delay(SLOT_FREEZE_MS);
     cabinet?.classList.remove('is-freeze');
-    flashScreen();
+    strobeScreen(['white', 'gold', 'red']);
+    buzz(500);
 }
 
 /** 画面いっぱいの演出を出し、時間が来るかタップされたら消す。消えたら解決する */
@@ -222,7 +276,8 @@ function showSlotOverlay(variant, build) {
 /** ジャックポットタイム突入のカットイン */
 function showJackpotCutin(spins) {
     window.qjongTreasureRain?.preview(6000);
-    buzz([80, 40, 80, 40, 300]);
+    flashScreen('white');
+    buzz([120, 60, 120, 60, 400]);
     return showSlotOverlay('is-start', body => {
         const flag = createSymbol('wild');
         flag.classList.add('slot-overlay-flag');
@@ -241,7 +296,8 @@ function showJackpotCutin(spins) {
 /** ジャックポットタイム終了: 払い戻しの合計を数え上げて見せる */
 function showJackpotResult(won) {
     if (won > 0) window.qjongTreasureRain?.preview(5000);
-    buzz([60, 40, 200]);
+    flashScreen('gold');
+    buzz([80, 40, 80, 40, 300]);
     let number = null;
     const closed = showSlotOverlay('is-result', body => {
         number = modeText('strong', 'slot-overlay-won', '0');
@@ -368,6 +424,8 @@ function isReach(grid) {
  */
 async function landReels(grid) {
     const reach = isReach(grid);
+    // ジャックポットタイム中は、リールが1本止まるたびに画面全体を光らせて震わせる
+    const jackpot = isSlotJackpot();
     const strips = reelStrips();
     const durations = SLOT_STOP_MS.map((ms, reel) => (reach && reel === 2 ? ms + SLOT_REACH_MS : ms));
     strips.forEach((strip, reel) => {
@@ -391,6 +449,10 @@ async function landReels(grid) {
             while (strip.children.length > 3) strip.lastChild.remove();
             strip.parentElement.classList.remove('is-reach');
             strip.parentElement.classList.add('is-landed');
+            if (jackpot) {
+                flashScreen('gold');
+                buzz(40);
+            }
             resolve();
         }, durations[reel]);
     }));

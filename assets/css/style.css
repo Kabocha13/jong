@@ -3442,7 +3442,7 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
 
 .slot-window-frame.is-shake { animation: slot-shake 0.5s ease-out; }
 
-/* 画面全体の閃光 */
+/* 画面全体の閃光。白がいちばん強く、金はリールが止まるたびのやわらかい光、赤は続けて光らせるときの差し色 */
 .slot-flash {
     position: fixed;
     inset: 0;
@@ -3450,6 +3450,15 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
     pointer-events: none;
     background: radial-gradient(circle at 50% 45%, #fff, #fff6c8 40%, rgba(255, 182, 72, 0.6));
     animation: slot-flash 0.6s ease-out both;
+}
+
+.slot-flash.is-gold {
+    background: radial-gradient(circle at 50% 45%, rgba(255, 240, 190, 0.85), rgba(255, 182, 72, 0.55) 55%, rgba(255, 120, 40, 0.4));
+    animation-duration: 0.4s;
+}
+
+.slot-flash.is-red {
+    background: radial-gradient(circle at 50% 45%, #fff3ec, rgba(255, 90, 74, 0.9) 50%, rgba(155, 35, 33, 0.85));
 }
 
 @keyframes slot-flash {
