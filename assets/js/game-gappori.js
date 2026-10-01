@@ -15,8 +15,8 @@ const GAPPORI_UNIT_STEPS = [1, 2, 3, 5, 10, 20, 30, 50];   // 口数の選び方
 const GAPPORI_MAX_UNITS = 50;
 const GAPPORI_MAX_TICKETS = 20;    // 1回に買える券の数 (サーバーの GAPPORI_MAX_TICKETS と同じ)
 const GAPPORI_POLL_MS = 1200;      // 卓を読み直す間隔
-const GAPPORI_SPIN_MS = 2300;      // 球ごとに盤面を回す長さ (球を入れる間隔 2.6秒より少し短く)
-const GAPPORI_SPIN_TURNS = 4;      // 止まるまでに回る回数 (このほかに、止まる位置までの端数を回る)
+const GAPPORI_SPIN_MS = 4600;      // 球ごとに盤面を回す長さ (球を入れる間隔 5.2秒より少し短く)
+const GAPPORI_SPIN_TURNS = 8;      // 止まるまでに回る回数 (このほかに、止まる位置までの端数を回る。長さに合わせて速さを保つ)
 const GAPPORI_POCKET_DEG = 360 / 16;
 const GAPPORI_BIG_WIN = 10;        // 払い戻しが賭けた額のこの倍以上なら大当たりの演出
 

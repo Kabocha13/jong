@@ -40,7 +40,7 @@ import {
 } from './gappori.js';
 
 export const GAPPORI_BETTING_MS = 30 * 1000;
-export const GAPPORI_BALL_MS = 2600;           // 球を1つ入れる間隔 (画面の演出もこの間隔)
+export const GAPPORI_BALL_MS = 5200;           // 球を1つ入れる間隔 (画面の演出もこの間隔。52.9 までは 2.6秒)
 export const GAPPORI_SETTLE_MS = 900;          // 最後の球が入ってから次の段階までの間
 export const GAPPORI_CHANCE_MS = 10 * 1000;
 export const GAPPORI_RESULT_MS = 9 * 1000;
