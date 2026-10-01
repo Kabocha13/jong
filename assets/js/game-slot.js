@@ -22,18 +22,20 @@ const SLOT_BETS = [1, 2, 5, 10, 20, 50, 100];
 const SLOT_BET_STORAGE_KEY = 'slotBet';
 const SLOT_IMAGE_DIR = 'assets/img/slot/';
 const SLOT_IMAGE_EXT = '.jpeg';
-// 回っている間に流す絵柄。リールの枚数の割合に合わせる (錨9 オウム7 ラム3 地図3 羅針盤3 金貨2 宝箱1)。
-// 通常モードはドクロ旗が出ないので流さず、ジャックポットタイムは多めに流す (functions/slot.js の真ん中のリールは7枚)
+// 回っている間に流す絵柄。通常モードの左右のリールの枚数の割合に合わせる (錨8 オウム6 ラム3 地図3 羅針盤3 金貨3 宝箱2)。
+// 通常モードはドクロ旗が出ないので流さず、ジャックポットタイムは多めに流す (functions/slot.js の真ん中のリールは約4割)
 const SLOT_FILLER = [
-    ...Array(9).fill('anchor'), ...Array(7).fill('parrot'), ...Array(3).fill('rum'), ...Array(3).fill('map'),
-    ...Array(3).fill('compass'), ...Array(2).fill('coin'), 'chest'
+    ...Array(8).fill('anchor'), ...Array(6).fill('parrot'), ...Array(3).fill('rum'), ...Array(3).fill('map'),
+    ...Array(3).fill('compass'), ...Array(3).fill('coin'), ...Array(2).fill('chest')
 ];
-const SLOT_FILLER_JACKPOT = [...SLOT_FILLER, ...Array(5).fill('wild')];
+const SLOT_FILLER_JACKPOT = [...SLOT_FILLER, ...Array(8).fill('wild')];
 const SLOT_STOP_MS = [900, 1300, 1700];   // 結果が届いてから各リールが止まるまで
 const SLOT_REACH_MS = 1300;               // リーチのとき右のリールを引き延ばす長さ
 const SLOT_REACH_MIN_PAY = 8;             // この倍率以上の絵柄でリーチになったら演出する
 const SLOT_BIG_WIN = 20;                  // 倍率の合計がこれ以上なら大当たりの演出
 const SLOT_AUTO_GAP_MS = 700;             // オートで次をまわすまでの間 (当たりのときは長めに)
+const SLOT_FREEZE_MS = 1300;              // ジャックポットタイム突入が決まった回、リールを止める前に暗転させる長さ
+const SLOT_CUTIN_MS = 3800;               // 突入・終了の画面いっぱいの演出を出しておく長さ (タップで閉じられる)
 
 const slot = {
     bet: 1,
@@ -42,7 +44,8 @@ const slot = {
     images: new Set(),      // 読み込めた絵柄の画像
     auto: false,
     autoTimer: null,
-    open: false
+    open: false,
+    jackpotWon: 0           // いまのジャックポットタイムで払い戻された合計 (画面を開き直すと0から数える)
 };
 
 function randomFiller() {
@@ -69,19 +72,197 @@ function receiveSlotState(state) {
     renderSlotControls();
 }
 
+/** 筐体の上の表示。ジャックポットタイム中は筐体・看板・画面の縁まで光らせ、残りの回数と獲得を大きく出す */
 function renderSlotMode() {
     const node = el('slot-mode');
     if (!node) return;
-    const state = slot.state;
-    document.querySelector('.slot-cabinet')?.classList.toggle('is-jackpot', isSlotJackpot());
-    if (!state) {
-        node.textContent = '';
+    const jackpot = isSlotJackpot();
+    const left = jackpot ? slot.state.jackpotLeft : 0;
+    const cabinet = document.querySelector('.slot-cabinet');
+    cabinet?.classList.toggle('is-jackpot', jackpot);
+    cabinet?.classList.toggle('is-last', left === 1);
+    toggleSlotAura(jackpot && slot.open);
+    const marquee = document.querySelector('.slot-marquee span');
+    if (marquee) marquee.textContent = jackpot ? 'Jackpot Time' : 'Treasure Reels';
+    node.innerHTML = '';
+    // 天井は隠しているので、通常モードでは何も出さない
+    if (!jackpot) return;
+    if (left === 1) {
+        node.appendChild(modeText('span', 'slot-mode-last', 'LAST GAME!!'));
+    } else {
+        node.append(modeText('span', '', '残り'), modeText('strong', '', String(left)), modeText('span', '', '回'));
+    }
+    node.append(modeText('span', 'slot-mode-gap', '獲得'), modeText('strong', 'slot-mode-won', slot.jackpotWon.toLocaleString('ja-JP')));
+}
+
+function modeText(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    node.textContent = text;
+    return node;
+}
+
+// ------------------------------------------------------------------
+// ジャックポットタイムの演出
+// ------------------------------------------------------------------
+/**
+ * ジャックポットタイム中の画面の縁の光と光線。main は入場のアニメーションで transform が残り、
+ * その中に置いた position: fixed は画面に固定されないので、body の直下に置く
+ */
+function toggleSlotAura(show) {
+    let aura = document.querySelector('body > .slot-aura');
+    if (!show) {
+        aura?.remove();
         return;
     }
-    // 天井は隠しているので、通常モードでは何も出さない
-    node.textContent = isSlotJackpot()
-        ? `ジャックポットタイム 残り${state.jackpotLeft}回 (賭け金 ${state.jackpotBet.toLocaleString('ja-JP')} で固定)`
-        : '';
+    if (aura) return;
+    aura = document.createElement('div');
+    aura.className = 'slot-aura';
+    aura.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(aura);
+}
+
+function buzz(pattern) {
+    try { navigator.vibrate?.(pattern); } catch (error) { /* 震えない端末では何もしない */ }
+}
+
+/** アニメーションを最初からやり直すため、クラスを付け直す */
+function restartClass(node, name) {
+    if (!node) return;
+    node.classList.remove(name);
+    void node.offsetWidth;
+    node.classList.add(name);
+}
+
+/** 画面全体を一瞬白く光らせる */
+function flashScreen() {
+    if (prefersReducedMotion()) return;
+    const flash = document.createElement('div');
+    flash.className = 'slot-flash';
+    flash.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 700);
+}
+
+/** 窓の真ん中から金貨を飛び散らせる (画面に固定した入れ物に置くので、横にはみ出してもスクロールしない) */
+function burstCoins(count) {
+    const frame = document.querySelector('.slot-window-frame');
+    if (!frame || prefersReducedMotion()) return;
+    const rect = frame.getBoundingClientRect();
+    const burst = document.createElement('div');
+    burst.className = 'slot-burst';
+    burst.setAttribute('aria-hidden', 'true');
+    burst.style.setProperty('--x', `${rect.left + rect.width / 2}px`);
+    burst.style.setProperty('--y', `${rect.top + rect.height / 2}px`);
+    for (let i = 0; i < count; i++) {
+        const coin = document.createElement('span');
+        coin.className = `slot-burst-coin treasure-coin${Math.random() < 0.3 ? ' is-silver' : ''}`;
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 80 + Math.random() * 180;
+        coin.style.setProperty('--dx', `${(Math.cos(angle) * distance).toFixed(0)}px`);
+        coin.style.setProperty('--dy', `${(Math.sin(angle) * distance - 70).toFixed(0)}px`);
+        coin.style.setProperty('--size', `${(12 + Math.random() * 16).toFixed(0)}px`);
+        coin.style.setProperty('--spin', `${(Math.random() * 1440 - 720).toFixed(0)}deg`);
+        coin.style.animationDelay = `${(Math.random() * 0.18).toFixed(2)}s`;
+        burst.appendChild(coin);
+    }
+    document.body.appendChild(burst);
+    setTimeout(() => burst.remove(), 1600);
+}
+
+/** ジャックポットタイム中に当たった: 揺らして光らせ、倍率に応じて金貨を飛ばす */
+function celebrateJackpotWin(multiplier) {
+    restartClass(document.querySelector('.slot-window-frame'), 'is-shake');
+    restartClass(document.querySelector('.slot-mode-won'), 'is-bump');
+    flashScreen();
+    burstCoins(Math.min(60, 12 + multiplier * 2));
+    buzz(multiplier >= SLOT_BIG_WIN ? [60, 30, 60, 30, 200] : 70);
+}
+
+/** 突入が決まった回: リールを止める前に、筐体を暗転させてドクロ旗を脈打たせ、揺らしてから光らせる */
+async function freezeSlot() {
+    const cabinet = document.querySelector('.slot-cabinet');
+    cabinet?.classList.add('is-freeze');
+    buzz([40, 60, 40, 60, 40, 60, 400]);
+    await delay(SLOT_FREEZE_MS);
+    cabinet?.classList.remove('is-freeze');
+    flashScreen();
+}
+
+/** 画面いっぱいの演出を出し、時間が来るかタップされたら消す。消えたら解決する */
+function showSlotOverlay(variant, build) {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = `slot-overlay ${variant}`;
+        overlay.setAttribute('aria-hidden', 'true');
+        const rays = document.createElement('div');
+        rays.className = 'slot-overlay-rays';
+        const body = document.createElement('div');
+        body.className = 'slot-overlay-body';
+        build(body);
+        overlay.append(rays, body, modeText('p', 'slot-overlay-hint', 'タップで閉じる'));
+        let closed = false;
+        let timer = null;
+        const close = () => {
+            if (closed) return;
+            closed = true;
+            clearTimeout(timer);
+            overlay.classList.add('is-leaving');
+            setTimeout(() => {
+                overlay.remove();
+                resolve();
+            }, 260);
+        };
+        overlay.addEventListener('click', close);
+        document.body.appendChild(overlay);
+        timer = setTimeout(close, prefersReducedMotion() ? 2200 : SLOT_CUTIN_MS);
+    });
+}
+
+/** ジャックポットタイム突入のカットイン */
+function showJackpotCutin(spins) {
+    window.qjongTreasureRain?.preview(6000);
+    buzz([80, 40, 80, 40, 300]);
+    return showSlotOverlay('is-start', body => {
+        const flag = createSymbol('wild');
+        flag.classList.add('slot-overlay-flag');
+        const count = modeText('p', 'slot-overlay-count', ' Games');
+        count.prepend(modeText('strong', '', String(spins)));
+        body.append(
+            flag,
+            modeText('p', 'slot-overlay-title', 'Jackpot'),
+            modeText('p', 'slot-overlay-title is-second', 'Time'),
+            modeText('p', 'slot-overlay-sub', 'ジャックポットタイム突入!!'),
+            count
+        );
+    });
+}
+
+/** ジャックポットタイム終了: 払い戻しの合計を数え上げて見せる */
+function showJackpotResult(won) {
+    if (won > 0) window.qjongTreasureRain?.preview(5000);
+    buzz([60, 40, 200]);
+    let number = null;
+    const closed = showSlotOverlay('is-result', body => {
+        number = modeText('strong', 'slot-overlay-won', '0');
+        const total = modeText('p', 'slot-overlay-total', '獲得 ');
+        total.appendChild(number);
+        body.append(
+            modeText('p', 'slot-overlay-sub', 'ジャックポットタイム終了'),
+            modeText('p', 'slot-overlay-title', 'Total'),
+            total
+        );
+    });
+    (async () => {
+        const steps = prefersReducedMotion() ? 1 : 30;
+        await delay(prefersReducedMotion() ? 0 : 400);
+        for (let i = 1; i <= steps; i++) {
+            number.textContent = Math.round((won * i) / steps).toLocaleString('ja-JP');
+            await delay(40);
+        }
+        number.classList.add('is-done');
+    })();
+    return closed;
 }
 
 function randomGrid() {
@@ -371,11 +552,15 @@ async function spinSlot() {
             return;
         }
 
-        const { grid, lines, multiplier, returned, entered, finished } = data.result;
+        const { grid, lines, multiplier, returned, entered, finished, mode } = data.result;
+        const jackpotSpin = mode === 'jackpot';
+        // 突入が決まった回は、止める前に暗転させる (筐体がジャックポットタイムに変わるのはカットインのとき)
+        if (entered && motion) await freezeSlot();
         if (motion) await landReels(grid);
         else renderGrid(grid);
         drawWinLines(lines);
-        if (data.slot) receiveSlotState(data.slot);
+        if (jackpotSpin) slot.jackpotWon += returned;
+        if (data.slot && !entered) receiveSlotState(data.slot);
 
         const big = multiplier >= SLOT_BIG_WIN;
         if (returned > 0) {
@@ -386,6 +571,7 @@ async function spinSlot() {
             } else {
                 wait = 1500;
             }
+            if (jackpotSpin && motion) celebrateJackpotWin(multiplier);
             await countUpWin(returned, big ? 'is-big' : 'is-win');
             el('slot-result-detail').textContent = lines
                 .map(item => `${SLOT_LINE_NAMES[item.line]} ${SLOT_SYMBOLS[item.symbol].name} ×${item.multiplier}`).join('・');
@@ -395,11 +581,18 @@ async function spinSlot() {
         }
         if (entered) {
             // ジャックポットタイム突入。次の回から、真ん中のリールにドクロ旗が増える
-            window.qjongTreasureRain?.preview(4500);
-            wait = Math.max(wait, 3800);
-            showMessage(el('slot-message'), `🏴‍☠️ ジャックポットタイム突入！ ${entered.spins}回 (賭け金 ${entered.bet.toLocaleString('ja-JP')} で固定)`, 'success');
+            showMessage(el('slot-message'), `🏴‍☠️ ジャックポットタイム突入！ ${entered.spins}回`, 'success');
+            slot.jackpotWon = 0;
+            const cutin = showJackpotCutin(entered.spins);
+            if (data.slot) receiveSlotState(data.slot);
+            await cutin;
+            wait = SLOT_AUTO_GAP_MS;
         } else if (finished) {
             showMessage(el('slot-message'), 'ジャックポットタイムが終わりました。', 'info');
+            const won = slot.jackpotWon;
+            slot.jackpotWon = 0;
+            await showJackpotResult(won);
+            wait = SLOT_AUTO_GAP_MS;
         }
 
         if (data.settled) {
@@ -448,6 +641,7 @@ function openSlotTable() {
 function closeSlotTable() {
     slot.open = false;
     if (slot.auto) stopSlotAuto();
+    toggleSlotAura(false);
 }
 
 function buildSlotPaytable() {

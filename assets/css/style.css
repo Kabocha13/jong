@@ -3266,22 +3266,355 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
     color: var(--brass-pale);
 }
 
-/* ジャックポットタイム中は筐体を金色に光らせる */
+/* ジャックポットタイム中は筐体を金と赤で交互に光らせ、ラスト1回はさらに速くする */
 .slot-cabinet.is-jackpot {
     border-color: var(--lantern);
     box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), 0 0 26px rgba(255, 182, 72, 0.65), var(--shadow-deep);
-    animation: slot-jackpot-glow 1.2s ease-in-out infinite alternate;
+    animation: slot-jackpot-glow 0.9s ease-in-out infinite;
 }
 
-.slot-cabinet.is-jackpot .slot-mode { color: var(--lantern); }
+.slot-cabinet.is-jackpot.is-last { animation-duration: 0.45s; }
 
 @keyframes slot-jackpot-glow {
-    from { box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), 0 0 14px rgba(255, 182, 72, 0.4), var(--shadow-deep); }
-    to   { box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), 0 0 34px rgba(255, 182, 72, 0.85), var(--shadow-deep); }
+    0%, 100% {
+        border-color: var(--lantern);
+        box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), 0 0 18px 2px rgba(255, 182, 72, 0.6), var(--shadow-deep);
+    }
+    50% {
+        border-color: #ff6a4a;
+        box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), 0 0 46px 10px rgba(255, 74, 52, 0.75), var(--shadow-deep);
+    }
+}
+
+/* 看板は赤く灯し、文字を虹色に流し、電球を速く瞬かせる */
+.slot-cabinet.is-jackpot .slot-marquee { background: linear-gradient(180deg, #b3201c, #3a0908); }
+
+.slot-cabinet.is-jackpot .slot-marquee span {
+    color: transparent;
+    background: linear-gradient(90deg, #ff5a4a, #ffd23f, #fff6c8, #6fe3ff, #ffd23f, #ff5a4a) 0 50% / 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    text-shadow: none;
+    /* 飾り文字の J が左にはみ出すので、色を敷く範囲を広げておく */
+    padding: 0 0.15em;
+    filter: drop-shadow(0 2px 0 #3a0908) drop-shadow(0 0 8px rgba(255, 182, 72, 0.9));
+    animation: slot-shine 1s linear infinite;
+}
+
+.slot-cabinet.is-jackpot .slot-marquee::before,
+.slot-cabinet.is-jackpot .slot-marquee::after { animation-duration: 0.25s; }
+
+/* 残りの回数と獲得。数字は看板と同じ字で大きく */
+.slot-cabinet.is-jackpot .slot-mode {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    gap: 0 4px;
+    margin-top: -6px;
+    font-size: 0.95em;
+    color: var(--brass-pale);
+}
+
+.slot-mode strong {
+    margin: 0 2px;
+    font-family: var(--font-display);
+    font-size: 1.8em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--lantern);
+    text-shadow: 0 0 10px rgba(255, 182, 72, 0.85), 0 2px 0 #3a0908;
+}
+
+.slot-mode-gap { margin-left: 14px; }
+
+.slot-mode-last {
+    font-family: var(--font-display);
+    font-size: 1.7em;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: #ff5a4a;
+    text-shadow: 0 0 12px rgba(255, 90, 74, 0.9), 0 2px 0 #3a0908;
+    animation: slot-reach-blink 0.25s ease-in-out infinite alternate;
+}
+
+@keyframes slot-bump {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.5); color: #fff6c8; }
+    100% { transform: scale(1); }
+}
+
+.slot-mode-won { display: inline-block; }
+.slot-mode-won.is-bump { animation: slot-bump 0.45s ease-out; }
+
+/* 真ん中のリール (ドクロ旗が出る) を灯で囲み、止まったドクロ旗を光らせる */
+.slot-cabinet.is-jackpot .slot-reel:nth-child(2) { box-shadow: 0 0 0 2px var(--lantern), 0 0 16px var(--lantern); }
+
+@keyframes slot-wild-glow {
+    from { box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.35), 0 0 0 2px #ff5a4a, 0 0 6px #ff5a4a; }
+    to   { box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.35), 0 0 0 3px var(--lantern-soft), 0 0 20px #ff5a4a; }
+}
+
+.slot-cabinet.is-jackpot .slot-reel:not(.is-waiting) .slot-symbol.is-wild { animation: slot-wild-glow 0.4s ease-in-out infinite alternate; }
+
+/* ジャックポットタイム中の画面全体: 縁を脈打たせ、うっすら光線を回す (タップは奪わない。game-slot.js が body の直下に置く) */
+.slot-aura {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    overflow: hidden;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    animation: slot-aura-pulse 0.9s ease-in-out infinite;
+}
+
+.slot-aura::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    width: 220vmax;
+    height: 220vmax;
+    margin: -110vmax 0 0 -110vmax;
+    background: repeating-conic-gradient(rgba(255, 206, 110, 0.12) 0 7deg, transparent 7deg 20deg);
+    animation: slot-rays 16s linear infinite;
+}
+
+@keyframes slot-aura-pulse {
+    0%, 100% { box-shadow: inset 0 0 40px 6px rgba(255, 182, 72, 0.55); }
+    50%      { box-shadow: inset 0 0 90px 22px rgba(255, 74, 52, 0.7); }
+}
+
+@keyframes slot-rays {
+    to { transform: rotate(360deg); }
+}
+
+/* 突入が決まった回の暗転: 窓を闇にしてドクロ旗を脈打たせ、筐体を小刻みに揺らす */
+.slot-cabinet.is-freeze { animation: slot-rumble 0.09s linear infinite; }
+.slot-cabinet.is-freeze .slot-marquee span { opacity: 0.25; }
+
+.slot-cabinet.is-freeze .slot-window::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    background: radial-gradient(circle, rgba(155, 35, 33, 0.9) 0%, #000 62%);
+    border-radius: 6px;
+}
+
+.slot-cabinet.is-freeze .slot-window::before {
+    content: '';
+    position: absolute;
+    left: 27%;
+    top: 27%;
+    z-index: 4;
+    width: 46%;
+    aspect-ratio: 1;
+    background: url('../img/slot/wild.jpeg') center / cover;
+    border-radius: 14%;
+    box-shadow: 0 0 0 3px #ff5a4a, 0 0 40px 10px rgba(255, 74, 52, 0.8);
+    animation: slot-heartbeat 0.42s ease-in-out infinite;
+}
+
+@keyframes slot-rumble {
+    0%   { translate: 0 0; }
+    25%  { translate: -3px 1px; }
+    50%  { translate: 2px -2px; }
+    75%  { translate: -1px 2px; }
+    100% { translate: 0 0; }
+}
+
+@keyframes slot-heartbeat {
+    0%, 100% { transform: scale(1); }
+    30%      { transform: scale(1.22); }
+    50%      { transform: scale(1.06); }
+}
+
+/* 当たったときの窓の揺れ */
+@keyframes slot-shake {
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    15% { transform: translate(-7px, 3px) rotate(-1.2deg); }
+    30% { transform: translate(6px, -4px) rotate(1deg); }
+    45% { transform: translate(-5px, 2px) rotate(-0.6deg); }
+    60% { transform: translate(4px, -2px) rotate(0.4deg); }
+    80% { transform: translate(-2px, 1px) rotate(0); }
+}
+
+.slot-window-frame.is-shake { animation: slot-shake 0.5s ease-out; }
+
+/* 画面全体の閃光 */
+.slot-flash {
+    position: fixed;
+    inset: 0;
+    z-index: 2200;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 45%, #fff, #fff6c8 40%, rgba(255, 182, 72, 0.6));
+    animation: slot-flash 0.6s ease-out both;
+}
+
+@keyframes slot-flash {
+    from { opacity: 0.95; }
+    to   { opacity: 0; }
+}
+
+/* 窓から飛び散る金貨 */
+.slot-burst {
+    position: fixed;
+    inset: 0;
+    z-index: 2050;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.slot-burst-coin {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: var(--size);
+    height: var(--size);
+    margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
+    animation: slot-coin-burst 1.2s cubic-bezier(0.15, 0.7, 0.35, 1) both;
+}
+
+@keyframes slot-coin-burst {
+    0%   { opacity: 1; transform: translate(0, 0) scale(0.4) rotate(0); }
+    70%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 120px)) scale(1) rotate(var(--spin)); }
+}
+
+/* 突入・終了の画面いっぱいの演出 (タップで閉じる) */
+.slot-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2100;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    cursor: pointer;
+    background: radial-gradient(circle at 50% 45%, rgba(179, 32, 28, 0.88), rgba(10, 4, 2, 0.95) 72%);
+    animation: slot-overlay-in 0.25s ease-out both;
+}
+
+.slot-overlay.is-leaving { animation: slot-overlay-out 0.26s ease-in both; }
+
+@keyframes slot-overlay-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes slot-overlay-out {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+}
+
+.slot-overlay-rays {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    width: 200vmax;
+    height: 200vmax;
+    margin: -100vmax 0 0 -100vmax;
+    background: repeating-conic-gradient(rgba(255, 200, 80, 0.4) 0 8deg, transparent 8deg 18deg);
+    -webkit-mask-image: radial-gradient(circle, #000 8%, transparent 42%);
+    mask-image: radial-gradient(circle, #000 8%, transparent 42%);
+    animation: slot-rays 7s linear infinite;
+}
+
+.slot-overlay-body {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    padding: 0 16px;
+    text-align: center;
+    animation: slot-shake 0.5s ease-out 0.35s;
+}
+
+.slot-overlay-flag {
+    margin-bottom: 6px;
+    font-size: min(40vw, 190px);
+    box-shadow: 0 0 0 3px var(--lantern), 0 0 40px 8px rgba(255, 182, 72, 0.85);
+    animation: slot-flag-in 0.6s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+@keyframes slot-flag-in {
+    from { opacity: 0; transform: scale(0.2) rotate(-25deg); }
+    to   { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+.slot-overlay-title {
+    margin: 0;
+    padding: 0 0.15em;   /* 飾り文字の J が左にはみ出すので、色を敷く範囲を広げておく */
+    font-family: var(--font-display);
+    font-size: clamp(56px, 18vw, 124px);
+    line-height: 0.92;
+    letter-spacing: 0.04em;
+    color: transparent;
+    background: linear-gradient(100deg, #96690f, #fff4c8 25%, var(--brass-light) 45%, #96690f 60%, #fff4c8 85%, #96690f) 0 50% / 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    filter: drop-shadow(0 4px 0 #3a0908) drop-shadow(0 0 18px rgba(255, 182, 72, 0.9));
+    animation: slot-title-in 0.5s cubic-bezier(0.2, 1.8, 0.4, 1) 0.15s both, slot-shine 1.2s linear infinite;
+}
+
+.slot-overlay-title.is-second { animation-delay: 0.3s, 0s; }
+
+@keyframes slot-title-in {
+    from { opacity: 0; transform: scale(2.6); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.slot-overlay-sub {
+    margin: 10px 0 0;
+    font-size: clamp(18px, 5.4vw, 28px);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: #fff;
+    text-shadow: 0 0 12px #ff5a4a, 0 0 2px #ff5a4a, 0 2px 0 #64110f;
+    animation: slot-reach-blink 0.22s ease-in-out infinite alternate;
+}
+
+.slot-overlay.is-result .slot-overlay-sub { margin: 0 0 6px; animation: none; }
+
+.slot-overlay-count,
+.slot-overlay-total {
+    margin: 4px 0 0;
+    font-family: var(--font-display);
+    font-size: clamp(28px, 8.5vw, 46px);
+    letter-spacing: 0.06em;
+    color: var(--lantern-soft);
+    text-shadow: 0 0 12px rgba(255, 182, 72, 0.8);
+}
+
+.slot-overlay-count strong,
+.slot-overlay-total strong {
+    font-size: 1.6em;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+}
+
+.slot-overlay-won.is-done { display: inline-block; animation: slot-bump 0.5s ease-out; }
+
+.slot-overlay-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: max(24px, env(safe-area-inset-bottom));
+    margin: 0;
+    text-align: center;
+    font-size: 0.8em;
+    letter-spacing: 0.1em;
+    color: rgba(246, 227, 178, 0.6);
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .slot-cabinet.is-jackpot { animation: none; }
+    .slot-cabinet.is-jackpot,
+    .slot-cabinet.is-jackpot .slot-marquee span,
+    .slot-cabinet.is-jackpot .slot-reel .slot-symbol.is-wild,
+    .slot-mode-last,
+    .slot-aura,
+    .slot-aura::before,
+    .slot-overlay-rays,
+    .slot-overlay-sub { animation: none; }
 }
 
 .slot-window-frame {

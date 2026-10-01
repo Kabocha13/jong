@@ -8,14 +8,16 @@
 //   リールは下の並びの輪で、止まる位置はリールごとに一様に選ぶ (演出で結果を変えない)
 //
 // 通常モードとジャックポットタイム (50.10〜)
-//   通常モード: 真ん中のリールにドクロ旗が無い。還元率 84.73% / 何か当たる確率 25.77%
-//   ジャックポットタイム: 真ん中のリールのドクロ旗が7枚に増える。還元率 186.22% / 何か当たる確率 35.35%
-//   通常モードで1回まわすごとに 1% でジャックポットタイムに入り、6〜16回 (一様) 続く。
+//   通常モード: 真ん中のリールにドクロ旗が無い。還元率 94.89% / 何か当たる確率 19.66%
+//   ジャックポットタイム: 3本ともジャックポットタイム用のリールに替わり、真ん中の4割近くがドクロ旗になる。
+//   還元率 500.59% / 何か当たる確率 58.10%
+//   通常モードで1回まわすごとに 0.15% でジャックポットタイムに入り、6〜16回 (一様) 続く。
 //   天井 (プレイヤーには隠す。画面にもルールにも出さず、回数も画面へ返さない):
-//   前のジャックポットタイムから通常モードで100回まわすと、そのあとは1回ごとに 10% で入る
+//   前のジャックポットタイムから通常モードで600回まわすと、そのあとは1回ごとに 10% で入る
 //   ジャックポットタイム中の賭け金は、前のジャックポットタイムから通常モードで賭けた平均で固定
 //   (通常は最低額で回し、ジャックポットタイムだけ大きく賭けて得をする、ということをさせないため)
-//   全体の還元率 99.04% (slotOverallReturnRate() で確かめられる)。50.9 までは1モードで 99.14%、50.10 は 97.90% だった
+//   全体の還元率 105.75% (slotOverallReturnRate() で確かめられる)。50.9 までは1モードで 99.14%、50.10 は 97.90%、
+//   50.11 は 99.04%、50.12 は 109.45% だった
 
 export const SLOT_ROWS = 3;
 
@@ -41,28 +43,37 @@ export const SLOT_LINES = [
   [2, 1, 0]
 ];
 
-// 絵柄の枚数 (左・右のリール): 錨9 オウム7 ラム3 地図3 羅針盤3 金貨2 宝箱1 = 28。
+// 通常モード (左・右 28)。錨8 オウム6 ラム3 地図3 羅針盤3 金貨3 宝箱2。
 // 並びは同じ絵柄がなるべく続かないようにばらしてある
-const LEFT_REEL = ['anchor', 'parrot', 'anchor', 'rum', 'map', 'compass', 'parrot', 'coin', 'anchor', 'parrot', 'anchor', 'anchor', 'parrot', 'rum',
-  'map', 'compass', 'chest', 'anchor', 'parrot', 'anchor', 'coin', 'parrot', 'anchor', 'rum', 'map', 'compass', 'parrot', 'anchor'];
-const RIGHT_REEL = ['parrot', 'anchor', 'compass', 'anchor', 'parrot', 'map', 'rum', 'anchor', 'parrot', 'compass', 'anchor', 'coin', 'parrot', 'anchor',
-  'map', 'chest', 'parrot', 'rum', 'anchor', 'anchor', 'compass', 'parrot', 'anchor', 'map', 'parrot', 'coin', 'rum', 'anchor'];
-// 真ん中のリール (29)。通常は錨10 オウム7 ラム3 地図3 羅針盤3 金貨2 宝箱1 (ドクロ旗なし)
-const MIDDLE_REEL_NORMAL = ['parrot', 'compass', 'anchor', 'parrot', 'rum', 'anchor', 'coin', 'map', 'parrot', 'anchor', 'compass', 'anchor', 'parrot', 'anchor',
-  'rum', 'anchor', 'parrot', 'map', 'anchor', 'compass', 'parrot', 'coin', 'anchor', 'chest', 'rum', 'anchor', 'parrot', 'map', 'anchor'];
-// ジャックポットタイムは、錨4枚・オウム2枚と通常の錨1枚をドクロ旗にした7枚 (0・5・9・13・18・22・26 番目。3つ以上離してある)
-const MIDDLE_REEL_JACKPOT = ['wild', 'compass', 'anchor', 'parrot', 'rum', 'wild', 'coin', 'map', 'parrot', 'wild', 'compass', 'anchor', 'parrot', 'wild',
-  'rum', 'anchor', 'parrot', 'map', 'wild', 'compass', 'parrot', 'coin', 'wild', 'chest', 'rum', 'anchor', 'wild', 'map', 'anchor'];
+const LEFT_REEL = ['anchor', 'map', 'parrot', 'chest', 'anchor', 'compass', 'parrot', 'rum', 'anchor', 'coin', 'map', 'anchor', 'parrot', 'compass',
+  'anchor', 'parrot', 'rum', 'chest', 'coin', 'anchor', 'map', 'parrot', 'anchor', 'compass', 'anchor', 'parrot', 'rum', 'coin'];
+const RIGHT_REEL = ['anchor', 'map', 'parrot', 'anchor', 'chest', 'compass', 'parrot', 'anchor', 'rum', 'coin', 'anchor', 'map', 'parrot', 'anchor',
+  'compass', 'parrot', 'rum', 'anchor', 'coin', 'chest', 'map', 'parrot', 'anchor', 'compass', 'anchor', 'parrot', 'rum', 'coin'];
+// 通常モードの真ん中 (28)。錨9 オウム6 ラム3 地図2 羅針盤3 金貨3 宝箱2 (ドクロ旗なし)。
+// 3本とも高い絵柄を多めにして、当たる回数を減らす代わりに1回の当たりを大きくしてある
+const MIDDLE_REEL_NORMAL = ['anchor', 'compass', 'parrot', 'chest', 'anchor', 'coin', 'anchor', 'parrot', 'rum', 'anchor', 'compass', 'parrot', 'map', 'anchor',
+  'coin', 'anchor', 'parrot', 'rum', 'chest', 'anchor', 'compass', 'parrot', 'anchor', 'coin', 'anchor', 'parrot', 'rum', 'map'];
+
+// ジャックポットタイムは3本ともこのリールに替える。
+// 左・右 (27): 錨12 オウム6 ラム1 地図1 羅針盤3 金貨1 宝箱3。錨を多くして左右が揃いやすくし、宝箱も多めにしてある
+const LEFT_REEL_JACKPOT = ['chest', 'anchor', 'parrot', 'anchor', 'coin', 'anchor', 'parrot', 'compass', 'anchor', 'chest', 'anchor', 'parrot', 'anchor', 'rum',
+  'anchor', 'parrot', 'compass', 'anchor', 'chest', 'anchor', 'parrot', 'anchor', 'map', 'anchor', 'parrot', 'compass', 'anchor'];
+const RIGHT_REEL_JACKPOT = ['anchor', 'chest', 'parrot', 'anchor', 'chest', 'parrot', 'anchor', 'compass', 'anchor', 'coin', 'anchor', 'parrot', 'anchor', 'anchor',
+  'parrot', 'anchor', 'rum', 'compass', 'anchor', 'chest', 'parrot', 'anchor', 'anchor', 'parrot', 'anchor', 'compass', 'map'];
+// 真ん中 (28): ドクロ旗11 錨10 オウム2 ラム1 地図1 羅針盤1 金貨1 宝箱1。
+// ドクロ旗は左右が揃えば当たるので、左右に多い錨を残して当たりやすくしてある (ドクロ旗どうしは隣り合わない)
+const MIDDLE_REEL_JACKPOT = ['parrot', 'wild', 'anchor', 'compass', 'wild', 'anchor', 'wild', 'anchor', 'wild', 'anchor', 'rum', 'wild', 'anchor', 'wild',
+  'coin', 'wild', 'anchor', 'wild', 'parrot', 'anchor', 'map', 'wild', 'anchor', 'wild', 'chest', 'anchor', 'wild', 'anchor'];
 
 export const SLOT_REELS = {
   normal: [LEFT_REEL, MIDDLE_REEL_NORMAL, RIGHT_REEL],
-  jackpot: [LEFT_REEL, MIDDLE_REEL_JACKPOT, RIGHT_REEL]
+  jackpot: [LEFT_REEL_JACKPOT, MIDDLE_REEL_JACKPOT, RIGHT_REEL_JACKPOT]
 };
 
 // ジャックポットタイムの入り方と長さ
 export const SLOT_JACKPOT = {
-  enterRate: 0.01,      // 通常モードで1回まわすごとに入る確率
-  ceiling: 100,         // 天井: 前のジャックポットタイムから通常モードでこの回数まわすと…
+  enterRate: 0.0015,    // 通常モードで1回まわすごとに入る確率
+  ceiling: 600,         // 天井: 前のジャックポットタイムから通常モードでこの回数まわすと…
   ceilingRate: 0.1,     // …そのあとは1回ごとにこの確率で入る
   spinsMin: 6,          // ジャックポットタイムの長さ (この範囲から一様に選ぶ)
   spinsMax: 16
