@@ -6,7 +6,9 @@
 //     時間の制限はない
 //   - 上がるのは上限 (settings の underground_max_rate、既定1000) まで。レートが上限以上の人は仕分けできない
 //   - 積荷はサーバーが1回ぶん (既定20個) ずつ決めて渡し、答えをまとめて受け取って採点する。
-//     続けるときは、採点の返事と一緒に次の積荷を渡す (画面では途切れずに流れる)
+//     いまの積荷 (shipment) のほかに次の積荷 (nextShipment) も先に渡しておき、答えが届いたら次の積荷を
+//     いまの積荷に繰り上げて、その次をまた1つ渡す。画面は答えを裏で送りながら次の積荷を続けられるので、
+//     1回ぶんごとに止まらない (50.16〜)
 //   - 数値 (上限・1個あたりの増減・1回ぶんの個数) は settings/app の underground_* で変えられる (管理画面)
 //   - チンチロ (金貨を賭けてレートにする) は 50.5 で休止した。コードは 50.4 までの git の履歴にある
 
@@ -78,20 +80,26 @@ export function canWorkUnderground(score, config) {
   return toInt(score) < config.maxRate;
 }
 
+function normalizeShipment(value) {
+  const shipment = value && typeof value === 'object' && Array.isArray(value.items)
+    ? {
+      id: String(value.id || ''),
+      items: value.items.map(String).filter(item => Object.hasOwn(CARGO_BINS, item)),
+      startedAt: String(value.startedAt || '')
+    }
+    : null;
+  return shipment && shipment.id && shipment.items.length ? shipment : null;
+}
+
 /** 保存されている船底の記録を、欠けている項目を埋めた形にする (チンチロの頃の金貨などは読まない) */
 export function normalizeUndergroundRecord(record, player) {
   const source = record && typeof record === 'object' ? record : {};
-  const shipment = source.shipment && typeof source.shipment === 'object' && Array.isArray(source.shipment.items)
-    ? {
-      id: String(source.shipment.id || ''),
-      items: source.shipment.items.map(String).filter(item => Object.hasOwn(CARGO_BINS, item)),
-      startedAt: String(source.shipment.startedAt || '')
-    }
-    : null;
+  const shipment = normalizeShipment(source.shipment);
   const stats = source.stats && typeof source.stats === 'object' ? source.stats : {};
   return {
     player: String(source.player || player || ''),
-    shipment: shipment && shipment.id && shipment.items.length ? shipment : null,
+    shipment,                                            // いま仕分けている積荷 (次に答えが届くはずのもの)
+    nextShipment: shipment ? normalizeShipment(source.nextShipment) : null,   // 先に渡してある次の積荷
     stats: {
       correct: Math.max(0, toInt(stats.correct)),        // 正しく仕分けた数
       missed: Math.max(0, toInt(stats.missed)),          // 間違えた数
@@ -141,13 +149,14 @@ export function workRateChange(score, grade, config) {
   return { beforeScore: before, afterScore: after, delta: after - before, capped: raw > 0 && after - before < raw };
 }
 
-/** 仕分けを1回ぶん終えたあとの記録。nextShipment があれば続けて渡す */
-export function applyShipmentResult(record, grade, change, at, nextShipment = null) {
+/** 仕分けを1回ぶん終えたあとの記録。shipments は次のいまの積荷と、その次の積荷 (やめるときは両方 null) */
+export function applyShipmentResult(record, grade, change, at, shipments = { shipment: null, nextShipment: null }) {
   const current = normalizeUndergroundRecord(record);
   const entry = { type: 'work', correct: grade.correct, missed: grade.missed, delta: change.delta, at };
   return {
     ...current,
-    shipment: nextShipment,
+    shipment: shipments.shipment,
+    nextShipment: shipments.shipment ? shipments.nextShipment : null,
     stats: {
       correct: current.stats.correct + grade.correct,
       missed: current.stats.missed + grade.missed,
@@ -169,6 +178,7 @@ export function publicUndergroundRecord(record) {
   return {
     player: current.player,
     shipment: current.shipment,
+    nextShipment: current.nextShipment,
     stats: current.stats,
     recent: current.recent
   };

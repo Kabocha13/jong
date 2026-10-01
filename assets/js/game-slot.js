@@ -23,21 +23,25 @@ const SLOT_BET_STORAGE_KEY = 'slotBet';
 const SLOT_IMAGE_DIR = 'assets/img/slot/';
 const SLOT_IMAGE_EXT = '.jpeg';
 // 回っている間に流す絵柄。通常モードの左右のリールの枚数の割合に合わせる (錨8 オウム6 ラム3 地図3 羅針盤3 金貨3 宝箱2)。
-// 通常モードはドクロ旗が出ないので流さず、ジャックポットタイムは多めに流す (functions/slot.js の真ん中のリールは約4割)
+// 通常モードはドクロ旗が出ないので流さない。ジャックポットタイムは高い絵柄とドクロ旗だけを流す
+// (functions/slot.js のジャックポットタイムのリールの割合に合わせる: 地図8 羅針盤7 金貨5 宝箱2 ドクロ旗3)
 const SLOT_FILLER = [
     ...Array(8).fill('anchor'), ...Array(6).fill('parrot'), ...Array(3).fill('rum'), ...Array(3).fill('map'),
     ...Array(3).fill('compass'), ...Array(3).fill('coin'), ...Array(2).fill('chest')
 ];
-const SLOT_FILLER_JACKPOT = [...SLOT_FILLER, ...Array(8).fill('wild')];
+const SLOT_FILLER_JACKPOT = [
+    ...Array(8).fill('map'), ...Array(7).fill('compass'), ...Array(5).fill('coin'), ...Array(2).fill('chest'), ...Array(3).fill('wild')
+];
 const SLOT_STOP_MS = [900, 1300, 1700];   // 結果が届いてから各リールが止まるまで
 const SLOT_REACH_MS = 1300;               // リーチのとき右のリールを引き延ばす長さ
 const SLOT_REACH_MIN_PAY = 8;             // この倍率以上の絵柄でリーチになったら演出する
+const SLOT_REACH_MIN_PAY_JACKPOT = 30;    // ジャックポットタイムは高い絵柄しか出ないので、金貨・宝箱のときだけ
 const SLOT_BIG_WIN = 20;                  // 倍率の合計がこれ以上なら大当たりの演出
 const SLOT_AUTO_GAP_MS = 700;             // オートで次をまわすまでの間 (当たりのときは長めに)
 const SLOT_FREEZE_MS = 1300;              // ジャックポットタイム突入が決まった回、リールを止める前に暗転させる長さ
 const SLOT_CUTIN_MS = 3800;               // 突入・終了の画面いっぱいの演出を出しておく長さ (タップで閉じられる)
 const SLOT_STROBE_GAP_MS = 350;           // 続けて光らせる間隔 (光過敏に配慮して1秒に3回を超えないように)
-const SLOT_HAPTIC_TAP_MS = 90;            // iPhone で震わせる代わりに触覚を鳴らす間隔
+const SLOT_HAPTIC_TAP_MS = 60;            // アプリで震わせるとき、これより短い区間は「コツッ」と叩くだけにする
 
 const slot = {
     bet: 1,
@@ -125,47 +129,24 @@ function toggleSlotAura(show) {
 }
 
 /**
- * 震わせる。pattern は ms の数か [震える, 止まる, 震える, …] の配列 (Vibration API と同じ形)。
- * Android などは Vibration API。iPhone の Safari には無いので、iOS 18 からの「スイッチ型のチェックボックスを
- * 切り替えると触覚が鳴る」仕組みを借り、震える区間に「コツッ」を並べる (使えない端末では何も起きない)
+ * 震わせる (iOS アプリだけ。ブラウザ・PWA では震わせない: iPhone の Safari には震わせる仕組みが無いため 50.18 でやめた)。
+ * pattern は ms の数か [震える, 止まる, 震える, …] の配列。ネイティブの触覚 (Haptics プラグイン) で、
+ * 震える区間ごとにその長さだけ震わせ、ごく短い区間は強く1回叩く
  */
 function buzz(pattern) {
+    const haptics = nativePlugin('Haptics');
+    if (!haptics) return;
     const steps = Array.isArray(pattern) ? pattern : [pattern];
-    try {
-        if (typeof navigator.vibrate === 'function') {
-            navigator.vibrate(steps);
-            return;
-        }
-    } catch (error) {
-        return;
-    }
-    if (!navigator.maxTouchPoints) return;
     let at = 0;
     steps.forEach((ms, index) => {
         if (index % 2 === 0) {
-            const taps = Math.max(1, Math.round(ms / SLOT_HAPTIC_TAP_MS));
-            for (let i = 0; i < taps; i++) setTimeout(hapticTap, at + i * SLOT_HAPTIC_TAP_MS);
+            setTimeout(() => {
+                const done = ms < SLOT_HAPTIC_TAP_MS ? haptics.impact({ style: 'HEAVY' }) : haptics.vibrate({ duration: ms });
+                done?.catch?.(() => {});
+            }, at);
         }
         at += ms;
     });
-}
-
-/** iPhone の触覚を1回鳴らす (見えないスイッチを1回切り替える) */
-function hapticTap() {
-    try {
-        const label = document.createElement('label');
-        label.setAttribute('aria-hidden', 'true');
-        label.style.display = 'none';
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.setAttribute('switch', '');
-        label.appendChild(input);
-        document.head.appendChild(label);
-        label.click();
-        label.remove();
-    } catch (error) {
-        // 鳴らせない端末では何もしない
-    }
 }
 
 /** アニメーションを最初からやり直すため、クラスを付け直す */
@@ -411,10 +392,11 @@ function startReelsWaiting() {
 
 /** 左と真ん中のリールで、高い絵柄が1本のラインに2つ揃っているか */
 function isReach(grid) {
+    const minPay = isSlotJackpot() ? SLOT_REACH_MIN_PAY_JACKPOT : SLOT_REACH_MIN_PAY;
     return SLOT_LINES.some(rows => {
         const left = grid[rows[0]][0];
         const middle = grid[rows[1]][1];
-        return (SLOT_PAYS[left] || 0) >= SLOT_REACH_MIN_PAY && (middle === left || middle === 'wild');
+        return (SLOT_PAYS[left] || 0) >= minPay && (middle === left || middle === 'wild');
     });
 }
 
@@ -424,7 +406,7 @@ function isReach(grid) {
  */
 async function landReels(grid) {
     const reach = isReach(grid);
-    // ジャックポットタイム中は、リールが1本止まるたびに画面全体を光らせて震わせる
+    // ジャックポットタイム中は、リールが1本止まるたびに画面全体を光らせる (アプリでは震わせる)
     const jackpot = isSlotJackpot();
     const strips = reelStrips();
     const durations = SLOT_STOP_MS.map((ms, reel) => (reach && reel === 2 ? ms + SLOT_REACH_MS : ms));

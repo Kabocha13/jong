@@ -8,6 +8,8 @@ node_modules/
 
 *-backup.json
 assets/js/firebase-config.js
+# iOS アプリの Firebase 設定 (firebase-config.js と同じ扱い。取り直し方は app/README.md)
+app/ios/App/App/GoogleService-Info.plist
 assets/js/adsense-config.js
 
 # Firebase service account keys must stay local.

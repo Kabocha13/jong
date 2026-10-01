@@ -957,6 +957,27 @@ async function syncManabaCredentialDoc(credentialDoc) {
 const MANABA_REMINDER_DAYS_BEFORE = 2;
 const APP_URL = 'https://q-jong.web.app/';
 
+/**
+ * 通知1件ぶんの送信内容。ブラウザ・PWA (Web プッシュ) と iOS アプリ (APNs) の両方に届く形にする。
+ * 同じ tag の通知は上書きして1つにまとめる (Web は tag、iOS は apns-collapse-id)。
+ * iOS アプリは通知をタップすると data.link のページを開く (assets/js/common.js の listenNativeNotificationTaps)
+ */
+function pushMessage(tokens, { title, body, tag, link = APP_URL }) {
+  return {
+    tokens,
+    notification: { title, body },
+    data: { link },
+    webpush: {
+      fcmOptions: { link },
+      notification: { icon: '/assets/icon.png', tag }
+    },
+    apns: {
+      headers: { 'apns-collapse-id': String(tag).slice(0, 64) },
+      payload: { aps: { sound: 'default', 'thread-id': String(tag) } }
+    }
+  };
+}
+
 /** 送れなかった (失効した) トークンを push_tokens から消す */
 async function removeInvalidPushTokens(tokenDoc, tokenEntries, tokens, response) {
   const invalidTokens = new Set();
@@ -991,14 +1012,7 @@ async function sendPushToEveryone({ title, body, tag, link = APP_URL }) {
     if (!tokens.length) continue;
     tokens.forEach(token => sentTokens.add(token));
 
-    const response = await admin.messaging().sendEachForMulticast({
-      tokens,
-      notification: { title, body },
-      webpush: {
-        fcmOptions: { link },
-        notification: { icon: '/assets/icon.png', tag }
-      }
-    });
+    const response = await admin.messaging().sendEachForMulticast(pushMessage(tokens, { title, body, tag, link }));
     success += response.successCount;
     failure += response.failureCount;
     await removeInvalidPushTokens(tokenDoc, tokenEntries, tokens, response);
@@ -1144,20 +1158,11 @@ export const sendManabaDeadlineReminders = onSchedule({
     }
 
     targets.sort((a, b) => a.daysLeft - b.daysLeft);
-    const response = await admin.messaging().sendEachForMulticast({
-      tokens,
-      notification: {
-        title: `📚 締切が近い課題が${targets.length}件あります`,
-        body: buildDeadlineReminderBody(targets)
-      },
-      webpush: {
-        fcmOptions: { link: APP_URL },
-        notification: {
-          icon: '/assets/icon.png',
-          tag: 'manaba-deadline-reminder'
-        }
-      }
-    });
+    const response = await admin.messaging().sendEachForMulticast(pushMessage(tokens, {
+      title: `📚 締切が近い課題が${targets.length}件あります`,
+      body: buildDeadlineReminderBody(targets),
+      tag: 'manaba-deadline-reminder'
+    }));
 
     // 失効したトークンを削除する
     await removeInvalidPushTokens(tokenDoc, tokenEntries, tokens, response);
@@ -1305,20 +1310,12 @@ async function sendAttendanceNoticeForSlot(slot, { dow, minutes, todayKey }) {
     if (!tokens.length) continue;
 
     const room = slot.user ? slot.room : resolveAttendanceRoom(owner, dow, minutes, slot);
-    const response = await admin.messaging().sendEachForMulticast({
-      tokens,
-      notification: {
-        title: '📋 出席の時間です',
-        body: `${slot.name}（${room}教室）`
-      },
-      webpush: {
-        fcmOptions: { link: `${ATTENDANCE_URL_BASE}${room}` },
-        notification: {
-          icon: '/assets/icon.png',
-          tag: `attendance-${todayKey}-${slot.start}`
-        }
-      }
-    });
+    const response = await admin.messaging().sendEachForMulticast(pushMessage(tokens, {
+      title: '📋 出席の時間です',
+      body: `${slot.name}（${room}教室）`,
+      tag: `attendance-${todayKey}-${slot.start}`,
+      link: `${ATTENDANCE_URL_BASE}${room}`
+    }));
 
     notified += 1;
     success += response.successCount;
@@ -1677,7 +1674,8 @@ export const participationBonus = onRequest({ region: 'asia-northeast1' }, async
 // -----------------------------------------------------------------
 // 船底 (レートが低い人の地下労働)
 //   ルールは underground.js。積荷を正しい木箱に仕分けるたびにレートが上がる (既定 +1、上限1000まで、時間の制限なし)。
-//   積荷は1回ぶん (既定20個) ずつ渡し、答えをまとめて受け取って採点する。続けるときは次の積荷も一緒に返す。
+//   積荷は1回ぶん (既定20個) ずつ渡し、答えをまとめて受け取って採点する。次の積荷も1つ先に渡しておくので、
+//   画面は答えを送りながら止まらずに続けられる。
 //   記録 underground/{player} は Cloud Functions だけが読み書きする (rules で禁止)。
 //   数値は settings/app の underground_* で変えられる (管理画面)。チンチロは 50.5 で休止した。
 // -----------------------------------------------------------------
@@ -1736,7 +1734,7 @@ async function undergroundStatus(username, settings) {
   return undergroundPayload(state, settings);
 }
 
-/** 仕分けを始める。途中の積荷があれば捨てて新しく渡す */
+/** 仕分けを始める。途中の積荷があれば捨てて、いまの積荷と次の積荷を新しく渡す */
 async function undergroundStartShipment(username, settings) {
   const at = new Date().toISOString();
   const state = await db.runTransaction(async transaction => {
@@ -1744,7 +1742,7 @@ async function undergroundStartShipment(username, settings) {
     if (!canWorkUnderground(current.score, settings)) {
       throw new UndergroundError(403, `船底で仕分けできるのはレートが${settings.maxRate}未満の人だけです。`);
     }
-    const record = { ...current.record, shipment: newShipment(settings, at), updatedAt: at };
+    const record = { ...current.record, shipment: newShipment(settings, at), nextShipment: newShipment(settings, at), updatedAt: at };
     transaction.set(current.ref, record);
     return { ...current, record };
   });
@@ -1753,7 +1751,8 @@ async function undergroundStartShipment(username, settings) {
 
 /**
  * 仕分けの答えを受け取って採点し、その場でレートを動かす (上限まで)。
- * body.next が true で、まだ上限に届いていなければ、次の積荷も一緒に渡す
+ * body.next が true で、まだ上限に届いていなければ、先に渡してあった次の積荷をいまの積荷に繰り上げ、
+ * その次の積荷を新しく渡す。やめるとき・上限に届いたときは両方片付ける
  */
 async function undergroundSubmitShipment(username, body, settings) {
   const at = new Date().toISOString();
@@ -1776,7 +1775,7 @@ async function undergroundSubmitShipment(username, body, settings) {
     } catch (error) {
       // 速すぎる答えは、この積荷を片付けてレートは動かさない
       rejected = error;
-      const record = { ...current.record, shipment: null, updatedAt: at };
+      const record = { ...current.record, shipment: null, nextShipment: null, updatedAt: at };
       transaction.set(current.ref, record);
       return { ...current, record };
     }
@@ -1800,8 +1799,13 @@ async function undergroundSubmitShipment(username, body, settings) {
         createdAt: at
       });
     }
-    const next = body.next && canWorkUnderground(moved.afterScore, settings) ? newShipment(settings, at) : null;
-    const record = applyShipmentResult(current.record, result, moved, at, next);
+    // 繰り上げた積荷は、いまから仕分け始めたものとして速さを測る (先に渡してあった時間を数えない)
+    const keepGoing = body.next && canWorkUnderground(moved.afterScore, settings);
+    const queued = current.record.nextShipment;
+    const shipments = keepGoing
+      ? { shipment: queued ? { ...queued, startedAt: at } : newShipment(settings, at), nextShipment: newShipment(settings, at) }
+      : { shipment: null, nextShipment: null };
+    const record = applyShipmentResult(current.record, result, moved, at, shipments);
     transaction.set(current.ref, record);
     grade = result;
     change = moved;

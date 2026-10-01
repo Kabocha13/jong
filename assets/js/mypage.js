@@ -1780,6 +1780,8 @@ function manabaEscapeHtml(str) {
 
 // -----------------------------------------------------------------
 // ★★★ manaba締切プッシュ通知 (締切2日前にFCMでお知らせ) ★★★
+// ブラウザ・ホーム画面の PWA は Web プッシュ (firebase-messaging-sw.js)、
+// iOS アプリ (app/) はネイティブの通知 (FirebaseMessaging プラグイン)。どちらも FCM のトークンを push_tokens に置く
 // -----------------------------------------------------------------
 
 const ENABLE_NOTIFICATIONS_BUTTON = document.getElementById('enable-notifications-button');
@@ -1788,6 +1790,7 @@ const NOTIFICATION_ENABLED_LABEL = '通知設定済み (タップで再設定)';
 const NOTIFICATION_DEFAULT_LABEL = 'この端末で通知を受け取る';
 
 function isPushNotificationSupported() {
+    if (isNativeApp()) return Boolean(nativePlugin('FirebaseMessaging'));
     return Boolean(
         'Notification' in window &&
         'serviceWorker' in navigator &&
@@ -1802,7 +1805,8 @@ function getMessagingVapidKey() {
     return key && !key.includes('YOUR_') ? key : '';
 }
 
-async function savePushTokenToFirebase(token) {
+/** platform は 'web' (ブラウザ・PWA) か 'ios-app' (iOS アプリ) */
+async function savePushTokenToFirebase(token, platform) {
     const db = getFirestoreDb();
     const uid = await requireFirebaseUid();
     if (!db) throw new Error('Firebaseが設定されていません。');
@@ -1810,9 +1814,12 @@ async function savePushTokenToFirebase(token) {
     const docRef = db.collection('push_tokens').doc(uid);
     const existing = await docRef.get();
     const entries = existing.exists && Array.isArray(existing.data().tokens) ? existing.data().tokens : [];
-    const nextEntries = entries.filter(entry => entry && entry.token && entry.token !== token);
+    const nextEntries = entries.filter(entry => entry && entry.token && entry.token !== token
+        // アプリで登録したら、この人の iPhone の Web プッシュ (ホーム画面の PWA) は外す。同じ通知が2回届かないように
+        && !(platform === 'ios-app' && entry.platform !== 'ios-app' && /iPhone/.test(String(entry.userAgent || ''))));
     nextEntries.push({
         token,
+        platform,
         userAgent: String(navigator.userAgent || '').slice(0, 160),
         updatedAt: new Date().toISOString()
     });
@@ -1826,6 +1833,13 @@ async function savePushTokenToFirebase(token) {
 }
 
 async function registerPushToken() {
+    if (isNativeApp()) {
+        const { token } = await nativePlugin('FirebaseMessaging').getToken();
+        if (!token) throw new Error('通知トークンを取得できませんでした。');
+        await savePushTokenToFirebase(token, 'ios-app');
+        return token;
+    }
+
     const vapidKey = getMessagingVapidKey();
     if (!vapidKey) {
         throw new Error('通知用キー(VAPID)が未設定です。firebase-config.js の messagingVapidKey を設定してください。');
@@ -1839,8 +1853,27 @@ async function registerPushToken() {
     });
     if (!token) throw new Error('通知トークンを取得できませんでした。');
 
-    await savePushTokenToFirebase(token);
+    await savePushTokenToFirebase(token, 'web');
     return token;
+}
+
+/** 通知の許可の状態 ('granted' / 'denied' / 'prompt') */
+async function getPushPermission() {
+    if (isNativeApp()) {
+        const { receive } = await nativePlugin('FirebaseMessaging').checkPermissions();
+        return receive === 'granted' || receive === 'denied' ? receive : 'prompt';
+    }
+    return Notification.permission === 'default' ? 'prompt' : Notification.permission;
+}
+
+/** 通知の許可を求める。結果は getPushPermission と同じ形 */
+async function requestPushPermission() {
+    if (isNativeApp()) {
+        const { receive } = await nativePlugin('FirebaseMessaging').requestPermissions();
+        return receive === 'granted' || receive === 'denied' ? receive : 'prompt';
+    }
+    const permission = await Notification.requestPermission();
+    return permission === 'default' ? 'prompt' : permission;
 }
 
 async function enableDeadlineNotifications() {
@@ -1851,11 +1884,15 @@ async function enableDeadlineNotifications() {
 
     try {
         if (!isPushNotificationSupported()) {
-            throw new Error('この環境はプッシュ通知に未対応です。iPhoneの場合は「ホーム画面に追加」したQ-Jongから開いてください。');
+            throw new Error(isNativeApp()
+                ? 'アプリの通知の機能を読み込めませんでした。アプリを最新にしてください。'
+                : 'この環境はプッシュ通知に未対応です。iPhoneの場合は「ホーム画面に追加」したQ-Jongから開いてください。');
         }
-        const permission = await Notification.requestPermission();
+        const permission = await requestPushPermission();
         if (permission !== 'granted') {
-            throw new Error('通知が許可されませんでした。端末・ブラウザの通知設定を確認してください。');
+            throw new Error(isNativeApp()
+                ? '通知が許可されませんでした。iPhone の 設定 → 通知 → Q-Jong で通知を許可してください。'
+                : '通知が許可されませんでした。端末・ブラウザの通知設定を確認してください。');
         }
         await registerPushToken();
         showMessage(NOTIFICATION_MESSAGE, '✅ この端末で通知を受け取ります。', 'success');
@@ -1888,16 +1925,17 @@ async function refreshPushRegistration() {
         ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_DEFAULT_LABEL;
         return;
     }
-    if (Notification.permission === 'denied') {
-        ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_DEFAULT_LABEL;
-        showNotificationStatus('この端末では通知がブロックされています。端末の設定で Q-Jong の通知を許可してください。', 'error');
-        return;
-    }
-    if (Notification.permission !== 'granted') {
-        ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_DEFAULT_LABEL;
-        return;
-    }
     try {
+        const permission = await getPushPermission();
+        if (permission === 'denied') {
+            ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_DEFAULT_LABEL;
+            showNotificationStatus('この端末では通知がブロックされています。端末の設定で Q-Jong の通知を許可してください。', 'error');
+            return;
+        }
+        if (permission !== 'granted') {
+            ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_DEFAULT_LABEL;
+            return;
+        }
         await registerPushToken();
         ENABLE_NOTIFICATIONS_BUTTON.textContent = NOTIFICATION_ENABLED_LABEL;
     } catch (error) {

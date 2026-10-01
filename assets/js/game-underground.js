@@ -1,8 +1,9 @@
 // ゲームタブ: 船底 (レートが上限 (既定1000) 未満の人の地下労働)
 //   流れてくる積荷を正しい木箱に仕分けるたびにレートが上がる (既定 +1、上限まで)。時間の制限はない。
 //   積荷の並び・採点・レートの増減はすべて Cloud Function (underground) が決める (ルールは functions/underground.js)。
-//   積荷はサーバーから1回ぶん (既定20個) ずつ受け取り、答えをまとめて送る。送った返事に次の積荷も入っているので、
-//   画面では途切れずに流れる。積荷の絵柄はスロットと同じ (SLOT_SYMBOLS と画像は game-slot.js)。画面の切り替えは game.js。
+//   積荷はサーバーから1回ぶん (既定20個) ずつ受け取り、答えをまとめて送る。次の1回ぶんも先に受け取っておき、
+//   1回ぶん終えたら答えは裏で送りながら次の積荷をすぐ続けるので、通信を待って止まらない (50.16〜)。
+//   積荷の絵柄はスロットと同じ (SLOT_SYMBOLS と画像は game-slot.js)。画面の切り替えは game.js。
 //   チンチロは 50.5 で休止した (コードは 50.4 までの git の履歴にある)。
 
 // 木箱と、そこに入れる積荷 (functions/underground.js の CARGO_BINS と同じ。表示用)
@@ -23,7 +24,13 @@ const ug = {
     busy: false,
     state: null,        // サーバーから最後に受け取った状態
     maxRate: undefined, // 状態を読む前に、公開の設定から読んだ上限
-    work: null,         // 仕分けの最中: { id, items, answers, index, correct, missed, sending }
+    work: null,         // 仕分けている積荷: { id, items, answers, index, correct, missed }
+    nextShipment: null, // 先に受け取ってある次の積荷 (いまの積荷を終えたらすぐ続ける)
+    waiting: false,     // いまの積荷を終えたのに、次の積荷がまだ届いていない
+    stopping: false,    // やめるときの答えを送っている
+    inflight: [],       // 送ったが返事がまだの積荷の、画面で数えた正解・ミス ({ correct, missed })
+    sending: Promise.resolve(),   // 答えはサーバーが渡した順に1つずつ送る
+    run: 0,             // 始めるたび・締めるたびに増やす (締めたあとに届いた返事や残っていた送信を捨てる)
     session: null,      // 今回 (始めてからやめるまで) の合計: { correct, missed, delta }
     lastSession: null   // やめたあとに見せる今回の合計
 };
@@ -56,13 +63,27 @@ function ugCanWork() {
     return Boolean(ug.state?.canWork);
 }
 
-/** 仕分けの最中の見込みのレート (サーバーの値 + まだ送っていない今回ぶん。上限まで) */
+function ugRunning() {
+    return Boolean(ug.work) || ug.waiting || ug.stopping;
+}
+
+/** サーバーにまだ数えられていない正解・ミス (仕分けている積荷と、送って返事を待っている積荷) */
+function ugUnsentCounts() {
+    const counts = { correct: 0, missed: 0 };
+    [...ug.inflight, ug.work].forEach(part => {
+        if (!part) return;
+        counts.correct += part.correct;
+        counts.missed += part.missed;
+    });
+    return counts;
+}
+
+/** 仕分けの最中の見込みのレート (サーバーの値 + まだ数えられていない今回ぶん。上限まで) */
 function ugPendingScore() {
     const score = Number(ug.state?.score) || 0;
-    const work = ug.work;
-    if (!work) return score;
+    const { correct, missed } = ugUnsentCounts();
     const settings = ugSettings();
-    const raw = work.correct * settings.ratePerCorrect - work.missed * settings.ratePerMiss;
+    const raw = correct * settings.ratePerCorrect - missed * settings.ratePerMiss;
     return raw > 0 ? Math.max(score, Math.min(settings.maxRate, score + raw)) : score + raw;
 }
 
@@ -105,7 +126,7 @@ function renderUnderground() {
         : canWork
             ? `レートが${formatRate(settings.maxRate)}になるまで、何個でも仕分けられます。時間の制限はありません。`
             : `船底で仕分けできるのはレートが${formatRate(settings.maxRate)}未満の人だけです (いまのレート ${formatRate(state.score)})。`;
-    el('ug-hold').classList.toggle('is-locked', !canWork && !ug.work);
+    el('ug-hold').classList.toggle('is-locked', !canWork && !ugRunning());
 
     el('ug-work-summary').textContent = `正しい木箱に入れるたびにレートが +${settings.ratePerCorrect}`
         + (settings.ratePerMiss > 0 ? `、間違えると −${settings.ratePerMiss}` : ' (間違えても下がりません)')
@@ -115,19 +136,19 @@ function renderUnderground() {
 }
 
 function renderUgWorkControls() {
-    const running = Boolean(ug.work);
+    const running = ugRunning();
     el('ug-work-idle').classList.toggle('hidden', running);
     el('ug-work-run').classList.toggle('hidden', !running);
-    el('ug-start-button').disabled = ug.busy || !ugCanWork();
+    el('ug-start-button').disabled = ug.busy || running || !ugCanWork();
     el('ug-start-button').textContent = ug.lastSession ? 'もう一度仕分ける' : '仕分けを始める';
-    el('ug-stop-button').disabled = !running || ug.busy;
+    el('ug-stop-button').disabled = !running || ug.stopping;
     const head = el('ug-result-head');
     if (ug.lastSession) {
         head.textContent = `正解 ${ug.lastSession.correct} / ミス ${ug.lastSession.missed} → レート ${ug.lastSession.delta >= 0 ? '+' : ''}${formatRate(ug.lastSession.delta)}`;
     }
     head.classList.toggle('hidden', !ug.lastSession || running);
     el('ug-bins').querySelectorAll('button').forEach(button => {
-        button.disabled = !running || Boolean(ug.work?.sending);
+        button.disabled = !ug.work || ug.stopping;
     });
 }
 
@@ -224,14 +245,15 @@ function buildUgBins() {
 }
 
 function renderUgCargo() {
+    if (!ugRunning()) return;
     const work = ug.work;
-    if (!work) return;
     const cargo = el('ug-cargo');
     cargo.innerHTML = '';
-    if (work.sending) {
+    if (!work) {
+        // 次の積荷の返事待ち (通信が遅いときだけ) か、やめるときの答えを送っている
         const label = document.createElement('span');
         label.className = 'ug-cargo-name';
-        label.textContent = '次の積荷を運んでいます…';
+        label.textContent = ug.stopping ? 'ここまでの仕分けを締めています…' : '次の積荷を運んでいます…';
         cargo.appendChild(label);
     } else if (work.index < work.items.length) {
         const item = work.items[work.index];
@@ -241,17 +263,19 @@ function renderUgCargo() {
         label.textContent = SLOT_SYMBOLS[item]?.name || item;
         cargo.appendChild(label);
     }
+    // 次に来る積荷。いまの積荷の残りが少なければ、先に受け取ってある次の積荷から続けて見せる
     const queue = el('ug-queue');
     queue.innerHTML = '';
-    if (!work.sending) {
-        work.items.slice(work.index + 1, work.index + 1 + UG_QUEUE_PREVIEW).forEach(item => {
+    if (work) {
+        [...work.items.slice(work.index + 1), ...(ug.nextShipment?.items || [])].slice(0, UG_QUEUE_PREVIEW).forEach(item => {
             const li = document.createElement('li');
             li.appendChild(ugCargoNode(item, 'ug-queue-icon'));
             queue.appendChild(li);
         });
     }
     const session = ug.session || { correct: 0, missed: 0 };
-    el('ug-progress').textContent = `正解 ${session.correct + work.correct} / ミス ${session.missed + work.missed}`;
+    const unsent = ugUnsentCounts();
+    el('ug-progress').textContent = `正解 ${session.correct + unsent.correct} / ミス ${session.missed + unsent.missed}`;
     const pendingDelta = (session.delta || 0) + (ugPendingScore() - (Number(ug.state?.score) || 0));
     el('ug-earning').textContent = `レート ${pendingDelta >= 0 ? '+' : ''}${formatRate(pendingDelta)}`;
     renderUnderground();
@@ -264,21 +288,24 @@ function beginUgWork(shipment) {
         answers: Array(shipment.items.length).fill(null),
         index: 0,
         correct: 0,
-        missed: 0,
-        sending: false
+        missed: 0
     };
+    ug.waiting = false;
     renderUgWorkControls();
     renderUgCargo();
 }
 
 async function startUgShipment() {
-    if (ug.busy || ug.work || !ugCanWork()) return;
+    if (ug.busy || ugRunning() || !ugCanWork()) return;
     setUgBusy(true);
     try {
         const data = await callUnderground('start');
+        ug.run += 1;
+        ug.inflight = [];
         ug.session = { correct: 0, missed: 0, delta: 0 };
         ug.lastSession = null;
         receiveUnderground(data);
+        ug.nextShipment = data.underground?.nextShipment || null;
         const shipment = data.underground?.shipment;
         if (shipment) beginUgWork(shipment);
     } catch (error) {
@@ -291,7 +318,7 @@ async function startUgShipment() {
 
 function answerUgCargo(binKey) {
     const work = ug.work;
-    if (!work || work.sending || work.index >= work.items.length) return;
+    if (!work || ug.stopping || work.index >= work.items.length) return;
     const item = work.items[work.index];
     const ok = UG_BIN_OF[item] === binKey;
     work.answers[work.index] = binKey;
@@ -306,44 +333,86 @@ function answerUgCargo(binKey) {
         void button.offsetWidth;
         button.classList.add(ok ? 'is-ok' : 'is-ng');
     }
-    // 1回ぶん仕分け終わったら答えを送り、次の積荷を受け取って続ける
-    if (work.index >= work.items.length) sendUgAnswers({ next: true });
+    if (work.index >= work.items.length) finishUgShipment();
     else renderUgCargo();
 }
 
-/** ここまでの答えを送る。next なら次の積荷を受け取って続け、そうでなければ終わる */
-async function sendUgAnswers({ next }) {
+/** 1回ぶん仕分け終えた: 答えは裏で送り、先に受け取ってある次の積荷ですぐ続ける */
+function finishUgShipment() {
     const work = ug.work;
-    if (!work || work.sending) return;
-    work.sending = true;
+    ug.work = null;
+    queueUgAnswers(work, true);
+    if (ug.nextShipment) {
+        const next = ug.nextShipment;
+        ug.nextShipment = null;
+        beginUgWork(next);
+        return;
+    }
+    // 通信が仕分けより遅れているときだけ、返事が来るまで待つ
+    ug.waiting = true;
     renderUgWorkControls();
     renderUgCargo();
-    try {
-        const data = await callUnderground('submit', { shipmentId: work.id, answers: work.answers, next });
-        const grade = data.grade || { correct: 0, missed: 0 };
-        const session = ug.session || { correct: 0, missed: 0, delta: 0 };
-        ug.session = {
-            correct: session.correct + grade.correct,
-            missed: session.missed + grade.missed,
-            delta: session.delta + (data.change?.delta || 0)
-        };
-        ug.work = null;
-        receiveUnderground(data);
-        const shipment = data.underground?.shipment;
-        if (next && shipment) {
-            beginUgWork(shipment);
-            return;
+}
+
+/**
+ * 答えを送る。サーバーは渡した順に採点するので、前に送った答えの返事を待ってから送る。
+ * next なら続ける (返事に入っている次の積荷を受け取る)。返事を待つ Promise を返す (失敗しても reject しない)
+ */
+function queueUgAnswers(work, next) {
+    const run = ug.run;
+    const part = { correct: work.correct, missed: work.missed };
+    ug.inflight.push(part);
+    ug.sending = ug.sending.then(async () => {
+        if (run !== ug.run) return;
+        try {
+            const data = await callUnderground('submit', { shipmentId: work.id, answers: work.answers, next });
+            if (run !== ug.run) return;
+            receiveUgGrade(data, part, next);
+        } catch (error) {
+            if (run !== ug.run) return;
+            endUgRun();
+            showUgMessage(error.message, 'error');
+            await loadUndergroundStatus();
         }
-        finishUgSession();
-        if (next && !data.canWork) {
-            showUgMessage(`レートが${formatRate(ugSettings().maxRate)}に届きました。お疲れさまでした！`, 'success');
-        }
-    } catch (error) {
-        ug.work = null;
-        finishUgSession();
-        showUgMessage(error.message, 'error');
-        await loadUndergroundStatus();
+    });
+    return ug.sending;
+}
+
+/** 答えの返事: 採点を今回の合計に足し、次の積荷を受け取る */
+function receiveUgGrade(data, part, next) {
+    ug.inflight = ug.inflight.filter(item => item !== part);
+    const grade = data.grade || { correct: 0, missed: 0 };
+    const session = ug.session || { correct: 0, missed: 0, delta: 0 };
+    ug.session = {
+        correct: session.correct + grade.correct,
+        missed: session.missed + grade.missed,
+        delta: session.delta + (data.change?.delta || 0)
+    };
+    receiveUnderground(data);
+    // やめるときの送信なら、締めは stopUgWork がする
+    if (!next || ug.stopping) return;
+    if (!data.canWork) {
+        // 上限に届いた。いま仕分けている積荷はもうレートにならないので、ここで終える
+        endUgRun();
+        showUgMessage(`レートが${formatRate(ugSettings().maxRate)}に届きました。お疲れさまでした！`, 'success');
+        return;
     }
+    const shipment = data.underground?.nextShipment;
+    if (!shipment) return;
+    if (ug.waiting) beginUgWork(shipment);
+    else ug.nextShipment = shipment;
+    renderUgCargo();
+}
+
+/** 今回の仕分けを締める (残っている送信や、このあと届く返事は捨てる) */
+function endUgRun() {
+    ug.run += 1;
+    ug.work = null;
+    ug.nextShipment = null;
+    ug.waiting = false;
+    ug.stopping = false;
+    ug.inflight = [];
+    finishUgSession();
 }
 
 function finishUgSession() {
@@ -352,9 +421,21 @@ function finishUgSession() {
     renderUnderground();
 }
 
+/** やめる: 仕分けている積荷のここまでの答えを (前に送った答えの返事のあとに) 送ってから締める */
 function stopUgWork() {
-    if (!ug.work || ug.work.sending) return;
-    sendUgAnswers({ next: false });
+    if (!ugRunning() || ug.stopping) return;
+    const work = ug.work;
+    const run = ug.run;
+    ug.work = null;
+    ug.nextShipment = null;
+    ug.waiting = false;
+    ug.stopping = true;
+    renderUgWorkControls();
+    renderUgCargo();
+    const done = work ? queueUgAnswers(work, false) : ug.sending;
+    done.then(() => {
+        if (run === ug.run) endUgRun();
+    });
 }
 
 // ------------------------------------------------------------------
@@ -368,7 +449,7 @@ function openUnderground() {
         renderUnderground();
     }
     // 開くたびに最新の状態を取り直す (仕分けの最中は取り直さない)
-    if (!wasOpen && !ug.work) loadUndergroundStatus();
+    if (!wasOpen && !ugRunning()) loadUndergroundStatus();
 }
 
 function closeUnderground() {

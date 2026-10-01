@@ -1,0 +1,35 @@
+{
+  "appId": "com.kabocha13.qjong",
+  "appName": "Q-Jong",
+  "webDir": "www",
+  "server": {
+    "url": "https://q-jong.web.app",
+    "cleartext": false
+  },
+  "appendUserAgent": "QJongApp",
+  "backgroundColor": "#0a1318",
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#0a1318"
+  },
+  "plugins": {
+    "FirebaseMessaging": {
+      "presentationOptions": [
+        "alert",
+        "badge",
+        "sound"
+      ]
+    }
+  },
+  "experimental": {
+    "ios": {
+      "spm": {
+        "packageOptions": {
+          "@capacitor-firebase/messaging": {
+            "symlink": true
+          }
+        }
+      }
+    }
+  }
+}

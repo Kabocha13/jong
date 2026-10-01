@@ -1401,3 +1401,33 @@ if (document.readyState === 'loading') {
 } else {
     refreshMasterNavLinks();
 }
+
+
+// -----------------------------------------------------------------
+// iOS アプリ (app/。Capacitor で本番のサイトを開いている) のときだけ使えるネイティブの機能。
+// アプリはページの読み込み前に window.Capacitor.Plugins.<名前> を入れてくれるので、プラグインの JS を読み込まずに呼べる
+// -----------------------------------------------------------------
+/** iOS アプリの中で開いているか (ブラウザ・ホーム画面の PWA では false) */
+function isNativeApp() {
+    return Boolean(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
+}
+
+/** アプリに入っているネイティブのプラグイン (FirebaseMessaging・Haptics)。ブラウザでは null */
+function nativePlugin(name) {
+    return isNativeApp() ? (window.Capacitor.Plugins || {})[name] || null : null;
+}
+
+/**
+ * アプリで通知をタップしたら、通知に付いているページを開く (サーバーが data.link に入れる。functions/index.js の pushMessage)。
+ * アプリが閉じていたときの通知も、プラグインがページ側の受け取りを待ってから渡してくれる。
+ * q-jong 以外のページ (出席の画面など) は Safari で開かれる
+ */
+function listenNativeNotificationTaps() {
+    const messaging = nativePlugin('FirebaseMessaging');
+    if (!messaging) return;
+    messaging.addListener('notificationActionPerformed', event => {
+        const link = String(event?.notification?.data?.link || '');
+        if (/^https:\/\//.test(link) && link !== location.href) location.href = link;
+    });
+}
+listenNativeNotificationTaps();
