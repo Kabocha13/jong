@@ -161,3 +161,10 @@ Gemini などが出力した元ファイルは、名前のまま **`assets/img/s
 | wild.jpeg | ドクロ旗 (ワイルド) | A fluttering black Jolly Roger pirate flag with a white skull and crossed cutlasses, surrounded by a glowing golden aura and small embers so the black flag stands out from the dark background, magical and special |
 
 ドクロ旗には CSS で下に小さく「WILD」の札を重ねるので、画像の下端 15% ほどには大事なものを置かないでください。
+
+ガッポリお宝の盤面の船長マスの絵も、同じ形式・同じ共通の末尾でここに置きます (スロットには出ません)。
+置いていないあいだは、赤い札に「船長」と書いて出します。特定の映画の登場人物に似ないよう、人物ではなく帽子にしています。
+
+| ファイル | 絵柄 | プロンプト |
+|---|---|---|
+| captain.jpeg | 船長 (ガッポリお宝のジャックポットのマス) | A black felt pirate captain's tricorn hat with ornate gold braid trim and a large crimson feather plume, a small gold anchor emblem pinned on the front, resting on a crimson velvet cushion with gold tassels, surrounded by a glowing red and gold aura with small embers so it stands out as a special prize, majestic and special, original design, no person, no face |

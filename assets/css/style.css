@@ -1844,7 +1844,8 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 }
 
 /* ------------------------------------------------------------
-   19b. ゲーム — ルーレット
+   19b. ゲーム — カジノの共通部品 (入場のルールと持ち込み額・手元チップ・結果の欄・直近の結果・賭けの操作)
+   ルーレットは 52.0 で廃止した (盤とホイールのスタイルは 52.0 より前の git の履歴にある)
    ------------------------------------------------------------ */
 .casino-rules {
     margin: 0 0 14px;
@@ -1855,16 +1856,14 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 
 .casino-rules li + li { margin-top: 4px; }
 
-.casino-presets,
-.casino-chip-picker {
+.casino-presets {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
 }
 
 /* 共通の button は幅いっぱい・板目の面なので、小さな札として上書きする */
-.casino-presets button,
-.casino-chip-picker button {
+.casino-presets button {
     flex: 1 1 0;
     width: auto;
     min-width: 0;
@@ -1880,27 +1879,11 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     box-shadow: none;
 }
 
-.casino-presets button:hover,
-.casino-chip-picker button:hover {
+.casino-presets button:hover {
     color: var(--color-indigo);
     background: #fff;
     box-shadow: none;
     transform: none;
-}
-
-/* チップは金貨で見せ、選んでいるものだけ縁と地を濃くする */
-.casino-chip-picker { margin-bottom: 12px; }
-
-.casino-chip-picker button {
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    border-radius: 999px;
-}
-
-.casino-chip-picker button[aria-checked="true"] {
-    color: #2b1d06;
-    background: radial-gradient(circle at 34% 28%, #fff7dc 0%, #f4cd68 40%, #c9922f 100%);
-    border: 2px solid #7d5411;
 }
 
 .casino-status { padding-bottom: 14px; }
@@ -1933,60 +1916,6 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 
 .casino-expiry { margin: 10px 0 0; font-size: 0.8em; }
 
-.casino-layout {
-    display: grid;
-    gap: 0 clamp(14px, 2.4vw, 24px);
-}
-
-.casino-wheel-box { text-align: center; }
-
-.roulette-wheel-frame {
-    position: relative;
-    width: min(100%, 300px);
-    margin: 10px auto 0;
-    aspect-ratio: 1;
-}
-
-/* 真上の針。ホイールは回るが針は動かない */
-.roulette-pointer {
-    position: absolute;
-    top: -6px;
-    left: 50%;
-    z-index: 1;
-    width: 0;
-    height: 0;
-    transform: translateX(-50%);
-    border-left: 9px solid transparent;
-    border-right: 9px solid transparent;
-    border-top: 16px solid var(--brass-light);
-    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
-}
-
-.roulette-wheel {
-    display: block;
-    width: 100%;
-    height: 100%;
-    transition: transform 3.2s cubic-bezier(0.12, 0.72, 0.16, 1);
-    will-change: transform;
-}
-
-.roulette-rim { fill: var(--timber); stroke: var(--brass); stroke-width: 2; }
-.roulette-pocket { stroke: rgba(236, 194, 100, 0.55); stroke-width: 0.6; }
-.roulette-pocket.is-red   { fill: var(--rum); }
-.roulette-pocket.is-black { fill: var(--pitch); }
-.roulette-pocket.is-green { fill: var(--ok); }
-.roulette-hub { fill: var(--timber-mid); stroke: var(--brass); stroke-width: 1.5; }
-.roulette-cap { fill: var(--brass); }
-
-.roulette-number {
-    font-family: var(--font-body);
-    font-size: 8.5px;
-    font-weight: 700;
-    fill: var(--brass-pale);
-    text-anchor: middle;
-    dominant-baseline: central;
-}
-
 .casino-result {
     min-height: 1.75em;
     margin: 14px 0 8px;
@@ -1995,10 +1924,6 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     color: var(--ink);
 }
 
-.casino-result.is-red   { color: var(--rum); }
-.casino-result.is-black { color: var(--pitch); }
-.casino-result.is-green { color: var(--ok); }
-.casino-result.is-spinning { color: var(--ink-soft); font-style: italic; }
 
 .casino-recent {
     display: flex;
@@ -2008,101 +1933,6 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     margin: 0;
     padding: 0;
     list-style: none;
-}
-
-.roulette-pip {
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    font-size: 0.78em;
-    font-weight: 700;
-    color: var(--brass-pale);
-    border-radius: 50%;
-}
-
-.roulette-pip:first-child { outline: 2px solid var(--brass); outline-offset: 1px; }
-.roulette-pip.is-red   { background: var(--rum); }
-.roulette-pip.is-black { background: var(--pitch); }
-.roulette-pip.is-green { background: var(--ok); }
-
-/* 盤面はスマホで縦長になるよう、実物のテーブルを手前から見た向き (3列×12段) で並べる */
-.roulette-board {
-    display: grid;
-    gap: 6px;
-    padding: 8px;
-    background: var(--water);
-    border: 1px solid var(--brass);
-    border-radius: var(--radius-sm);
-}
-
-.roulette-numbers,
-.roulette-dozens,
-.roulette-evens {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 3px;
-}
-
-.roulette-numbers .is-zero { grid-column: 1 / -1; }
-
-button.roulette-cell {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: auto;
-    min-width: 0;
-    min-height: 36px;
-    margin: 0;
-    padding: 4px 2px;
-    overflow: visible;
-    font-family: var(--font-body);
-    font-size: 0.92em;
-    font-weight: 700;
-    letter-spacing: 0;
-    color: var(--brass-pale);
-    background: var(--water-mid);
-    border: 1px solid rgba(236, 194, 100, 0.4);
-    border-radius: 2px;
-    box-shadow: none;
-    transition: filter 0.12s ease;
-}
-
-button.roulette-cell:hover {
-    filter: brightness(1.18);
-    box-shadow: none;
-    transform: none;
-}
-
-button.roulette-cell:active { filter: brightness(1.3); }
-button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
-
-.roulette-cell.is-red   { background: var(--rum); }
-.roulette-cell.is-black { background: var(--pitch); }
-.roulette-cell.is-green { background: var(--ok); }
-.roulette-cell.is-outside { font-size: 0.8em; font-weight: 400; letter-spacing: 0.04em; }
-.roulette-cell.has-stake { border-color: var(--brass-light); }
-
-/* 置いたチップ。額はセルの右上に金貨で重ねる */
-.roulette-stake:empty { display: none; }
-
-.roulette-stake {
-    position: absolute;
-    top: -5px;
-    right: -3px;
-    z-index: 1;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 4px;
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 20px;
-    color: #2b1d06;
-    background: radial-gradient(circle at 34% 28%, #fff7dc 0%, #f4cd68 40%, #c9922f 100%);
-    border: 1px solid #7d5411;
-    border-radius: 999px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-    pointer-events: none;
 }
 
 .casino-bet-total {
@@ -2137,12 +1967,6 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
     margin-top: 4px;
     font-size: 1em;
     letter-spacing: 0.2em;
-}
-
-@media (min-width: 720px) {
-    .casino-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: start; }
-    .casino-presets button,
-    .casino-chip-picker button { min-width: 0; }
 }
 
 /* ------------------------------------------------------------
@@ -2262,22 +2086,6 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
 .game-tile-art.is-blackjack .bj-card:last-child  { transform: translate(-8px, 4px) rotate(9deg); }
 .game-tile:hover .is-blackjack .bj-card:first-child { transform: translateX(2px) rotate(-17deg); }
 .game-tile:hover .is-blackjack .bj-card:last-child  { transform: translate(-2px, 4px) rotate(15deg); }
-
-/* ルーレットは円錐グラデーションで描く (0 の緑を真上に、あとは赤黒を交互に36) */
-.mini-wheel {
-    width: clamp(78px, 21vw, 116px);
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background:
-        radial-gradient(circle, var(--brass-light) 0 7%, var(--timber-mid) 7.5% 36%, var(--brass) 36.5% 38%, transparent 38.5%),
-        conic-gradient(from -4.865deg, var(--ok) 0 9.73deg, transparent 9.73deg),
-        repeating-conic-gradient(from 4.865deg, var(--rum) 0 9.73deg, var(--pitch) 9.73deg 19.46deg);
-    border: 5px solid var(--timber);
-    box-shadow: 0 0 0 2px var(--brass), 0 8px 16px rgba(0, 0, 0, 0.5);
-    transition: transform 1.4s cubic-bezier(0.12, 0.72, 0.16, 1);
-}
-
-.game-tile:hover .mini-wheel { transform: rotate(160deg); }
 
 .game-tile-body {
     display: grid;
@@ -3994,420 +3802,758 @@ button.roulette-cell:disabled { opacity: 1; filter: saturate(0.7); }
 }
 
 /* ------------------------------------------------------------
-   19f. ゲーム — テキサスホールデム
+   19f. ゲーム — ガッポリお宝 (回る盤面に5球。全員共通の1卓)
    ------------------------------------------------------------ */
-/* ゲーム一覧のタイル: A のポケットペアとディーラーボタン */
-.game-tile-art.is-holdem { --card-w: clamp(44px, 12vw, 62px); position: relative; }
-.game-tile-art.is-holdem .bj-card { transition: transform 0.25s ease; }
-.game-tile-art.is-holdem .bj-card:first-child { transform: translateX(8px) rotate(-9deg); }
-.game-tile-art.is-holdem .bj-card:nth-child(2)  { transform: translate(-8px, 4px) rotate(8deg); }
-.game-tile:hover .is-holdem .bj-card:first-child { transform: translateX(2px) rotate(-15deg); }
-.game-tile:hover .is-holdem .bj-card:nth-child(2)  { transform: translate(-2px, 4px) rotate(14deg); }
-.game-tile-art.is-holdem .hd-dealer {
-    position: absolute;
-    right: 12%;
-    bottom: 12%;
-    width: 26px;
-    height: 26px;
-    font-size: 0.8em;
-    line-height: 24px;
-}
-
-.hd-table-box {
-    --card-w: 26px;
-    display: grid;
-    gap: 0 clamp(16px, 2.6vw, 28px);
-}
-
-/* ラシャ張りの楕円テーブル。3列 × 3段に席を置き、真ん中はボード */
-.hd-felt {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr) minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
-    gap: 6px 5px;
-    padding: 10px 6px 12px;
-    color: var(--brass-pale);
-    background:
-        radial-gradient(ellipse 90% 60% at 50% 0%, rgba(255, 255, 255, 0.1), transparent 70%),
-        radial-gradient(ellipse 120% 80% at 50% 115%, rgba(0, 0, 0, 0.35), transparent 70%),
-        var(--water);
-    border: 1px solid var(--brass);
-    border-radius: 42% / 18%;
-    box-shadow: inset 0 0 0 4px rgba(58, 38, 22, 0.55), inset 0 0 26px rgba(0, 0, 0, 0.45);
-}
-
-.hd-seats { display: contents; margin: 0; padding: 0; list-style: none; }
-
-.hd-center {
-    grid-row: 2;
-    grid-column: 2;
-    display: grid;
-    align-content: center;
-    justify-items: center;
-    gap: 4px;
-    min-width: 0;
-    padding: 4px 0;
-}
-
-.hd-street {
-    margin: 0;
-    font-family: var(--font-title);
-    font-size: 0.68em;
-    letter-spacing: 0.16em;
-    color: rgba(246, 227, 178, 0.7);
-    min-height: 1.2em;
-}
-
-.hd-board { --card-w: 26px; gap: 2px; min-height: calc(var(--card-w) * 1.4); }
-.hd-board .bj-card + .bj-card { margin-left: 0; }
-
-.hd-pot {
-    margin: 0;
-    padding: 2px 10px;
-    font-size: 0.78em;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--brass-pale);
-    background: rgba(6, 13, 17, 0.55);
-    border: 1px solid rgba(236, 194, 100, 0.5);
-    border-radius: 999px;
-}
-
-.hd-felt-print { font-size: 0.72em; }
-.hd-felt-print span { font-size: 0.8em; }
-
-/* 席。名前・手元・カード・一言をぎゅっと詰める */
-.hd-seat {
+/* ゲーム一覧のタイル: 回る盤面に球が3つ */
+.mini-gappori {
     position: relative;
-    display: grid;
-    align-content: start;
-    justify-items: center;
-    gap: 3px;
-    min-width: 0;
-    min-height: calc(var(--card-w) * 1.4 + 58px);
-    padding: 6px 4px 8px;
-    overflow: hidden;
-    font-size: 0.72rem;
-    background: rgba(6, 13, 17, 0.28);
-    border: 1px solid rgba(236, 194, 100, 0.28);
-    border-radius: 10px;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    width: clamp(78px, 21vw, 116px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, var(--brass-light) 0 9%, var(--timber-mid) 9.5% 34%, var(--brass) 34.5% 36.5%, transparent 37%),
+        repeating-conic-gradient(var(--water-light) 0 11.25deg, var(--timber) 11.25deg 22.5deg);
+    border: 5px solid var(--timber);
+    box-shadow: 0 0 0 2px var(--brass), 0 8px 16px rgba(0, 0, 0, 0.5);
+    transition: transform 1.4s cubic-bezier(0.12, 0.72, 0.16, 1);
 }
 
-.hd-seat.is-me {
-    background: rgba(236, 194, 100, 0.09);
-    border-color: var(--brass-light);
+.mini-gappori-ball {
+    position: absolute;
+    width: 14%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #d8dde2 45%, #7d8790);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
-.hd-seat.is-turn {
-    border-color: var(--lantern);
-    box-shadow: 0 0 16px var(--lantern-glow), inset 0 0 12px rgba(255, 182, 72, 0.12);
-}
+.mini-gappori-ball:nth-child(1) { left: 43%; top: 6%; }
+.mini-gappori-ball:nth-child(2) { left: 76%; top: 52%; }
+.mini-gappori-ball:nth-child(3) { left: 14%; top: 64%; }
 
-.hd-seat.is-acting {
-    border-color: var(--lantern);
-    box-shadow: 0 0 12px var(--lantern-glow);
-}
+.game-tile:hover .mini-gappori { transform: rotate(150deg); }
 
-.hd-seat.is-folded,
-.hd-seat.is-idle,
-.hd-seat.is-out { opacity: 0.55; }
-
-.hd-seat.is-winner {
-    opacity: 1;
-    border-color: var(--brass-light);
-    box-shadow: 0 0 18px rgba(236, 194, 100, 0.45), inset 0 0 12px rgba(236, 194, 100, 0.12);
-}
-
-.hd-seat-head {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    width: 100%;
-    min-width: 0;
-    line-height: 1.3;
-}
-
-.hd-seat-name {
-    min-width: 0;
-    overflow: hidden;
-    font-weight: 700;
-    color: var(--brass-pale);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.hd-seat-style {
-    flex: 0 0 auto;
-    padding: 0 5px;
-    font-size: 0.82em;
-    color: var(--brass-pale);
-    background: rgba(236, 194, 100, 0.16);
-    border: 1px solid rgba(236, 194, 100, 0.4);
-    border-radius: 999px;
-    white-space: nowrap;
-}
-
-.hd-seat .bj-seat-me { font-size: 0.82em; }
-.hd-seat-chips { margin: 0; font-size: 0.72rem; color: rgba(246, 227, 178, 0.8); }
-.hd-seat-cards { --card-w: 24px; gap: 2px; min-height: calc(var(--card-w) * 1.4); }
-.hd-seat-cards .bj-card + .bj-card { margin-left: calc(var(--card-w) * -0.3); }
-.hd-seat.is-me .hd-seat-cards { --card-w: 30px; }
-
-.hd-seat-note {
-    min-height: 1.3em;
+/* 台: スロットと同じ木の筐体に真鍮の縁 */
+.gp-machine {
+    --wheel: min(84vw, 340px);
+    width: fit-content;
     max-width: 100%;
-    overflow: hidden;
-    font-size: 0.7rem;
+    margin: 0 auto clamp(14px, 2.4vw, 24px);
+    padding: 12px 12px 16px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 30%),
+        var(--img-wood),
+        linear-gradient(180deg, var(--timber-light), var(--timber) 45%, var(--pitch-light));
+    background-size: auto, 260px, auto;
+    background-blend-mode: normal, multiply, normal;
+    border: 2px solid var(--brass);
+    border-radius: 20px 20px 10px 10px;
+    box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), inset 0 2px 0 rgba(255, 238, 196, 0.25), var(--shadow-deep);
+}
+
+/* ジャックポットの額。看板と同じ赤地に金の字 */
+.gp-top { margin-bottom: 12px; text-align: center; }
+
+.gp-jackpot {
+    display: grid;
+    margin: 0;
+    padding: 8px 12px;
+    background: linear-gradient(180deg, var(--rum-dark), #3a0908);
+    border: 1px solid var(--brass-light);
+    border-radius: 12px 12px 4px 4px;
+    box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.6);
+}
+
+.gp-jackpot span {
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--brass-pale);
+}
+
+.gp-jackpot strong {
+    font-family: var(--font-display);
+    font-size: clamp(1.8em, 8vw, 2.4em);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+    color: transparent;
+    background: linear-gradient(100deg, #96690f, #fff4c8 25%, var(--brass-light) 45%, #96690f 60%, #fff4c8 85%, #96690f) 0 50% / 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    filter: drop-shadow(0 2px 0 #3a0908) drop-shadow(0 0 8px rgba(255, 182, 72, 0.7));
+    animation: slot-shine 2.4s linear infinite;
+}
+
+.gp-status {
+    min-height: 1.4em;
+    margin: 8px 0 0;
+    font-size: 0.9em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--brass-pale);
+}
+
+/* 回る盤面。マスは盤面の子なので一緒に回る */
+.gp-wheel-wrap {
+    position: relative;
+    width: var(--wheel);
+    aspect-ratio: 1;
+    margin: 0 auto;
+}
+
+.gp-wheel {
+    --radius: calc(var(--wheel) * 0.39);
+    --pocket: calc(var(--wheel) * 0.16);
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle, transparent 0 58%, rgba(0, 0, 0, 0.35) 58.5% 60%, transparent 60.5%),
+        repeating-conic-gradient(from -11.25deg, var(--water) 0 22.5deg, var(--water-mid) 22.5deg 45deg);
+    border: 8px solid var(--timber);
+    box-shadow: 0 0 0 3px var(--brass), inset 0 0 24px rgba(0, 0, 0, 0.7), 0 10px 22px rgba(0, 0, 0, 0.55);
+    /* 回す角度と速さは game-gappori.js が球ごとに決める (勢いよく回してから、だんだん遅くして止める) */
+    will-change: transform;
+}
+
+.gp-pocket {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: var(--pocket);
+    height: var(--pocket);
+    font-size: var(--pocket);
+    transform: translate(-50%, -50%) rotate(calc(var(--i) * 22.5deg)) translateY(calc(var(--radius) * -1));
+}
+
+.gp-pocket .slot-symbol { box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.45), 0 2px 6px rgba(0, 0, 0, 0.6); }
+
+/* 入った球。お宝の絵が見えるよう、マスの右下に白い球を重ねる */
+.gp-ball {
+    position: absolute;
+    right: -4%;
+    bottom: -4%;
+    width: 38%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #e6eaee 40%, #8a949c);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
+    opacity: 0;
+    transform: scale(0.4);
+    transition: opacity 0.2s ease, transform 0.35s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+.gp-pocket.has-ball .gp-ball { opacity: 1; transform: scale(1); }
+.gp-pocket.has-ball .slot-symbol { box-shadow: 0 0 0 3px var(--lantern), 0 0 16px var(--lantern); }
+
+/* もう球が入ったマスは金色に塗って、まだのマスと見分けられるようにする */
+.gp-pocket.has-ball .slot-symbol::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(255, 220, 130, 0.25), rgba(255, 170, 40, 0.6));
+    mix-blend-mode: screen;
+}
+.gp-pocket.is-captain.has-ball .slot-symbol { box-shadow: 0 0 0 3px #ff5a4a, 0 0 18px #ff5a4a; }
+
+@keyframes gp-land {
+    0%   { filter: brightness(2.2); }
+    100% { filter: brightness(1); }
+}
+
+.gp-pocket.is-landing { animation: gp-land 0.8s ease-out; }
+
+/* 船長のマス (まだ絵が無いので札で出す) */
+.gp-captain {
+    font-family: var(--font-title);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #fff4dc;
+    background: radial-gradient(circle at 50% 35%, #e0584a 0%, var(--rum) 55%, var(--rum-dark) 100%);
+    text-shadow: 0 1px 0 #3a0908;
+}
+
+/* 札の大きさは 1em 基準なので、字だけを小さくする */
+.gp-captain-label { font-size: 0.26em; }
+
+/* 真ん中の円 */
+.gp-hub {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: grid;
+    place-items: center;
+    width: 34%;
+    aspect-ratio: 1;
+    font-family: var(--font-display);
+    font-size: clamp(0.8em, 3.4vw, 1.05em);
+    line-height: 1.05;
     text-align: center;
-    color: rgba(246, 227, 178, 0.7);
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    color: var(--brass-light);
+    background: radial-gradient(circle at 40% 35%, var(--timber-light), var(--timber) 60%, var(--pitch-light));
+    border: 3px solid var(--brass);
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), inset 0 0 10px rgba(0, 0, 0, 0.5);
+    transform: translate(-50%, -50%);
 }
 
-.hd-seat-note.is-move {
-    padding: 0 8px;
-    font-weight: 700;
-    color: var(--parchment-warm);
-    background: var(--stone);
-    border-radius: 999px;
-    animation: bj-pop 0.25s ease-out both;
+/* 上の針。盤面が止まったとき、針の下のマスに球が入る */
+.gp-pointer {
+    position: absolute;
+    left: 50%;
+    top: -6px;
+    z-index: 3;
+    width: 0;
+    height: 0;
+    border-left: 13px solid transparent;
+    border-right: 13px solid transparent;
+    border-top: 22px solid var(--lantern);
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 6px rgba(255, 182, 72, 0.8));
+    transform: translateX(-50%);
 }
 
-.hd-seat-note.is-raise,
-.hd-seat-note.is-allin { background: var(--rum); }
-.hd-seat-note.is-call { background: var(--water-light); }
-.hd-seat-note.is-fold { background: rgba(0, 0, 0, 0.4); color: rgba(246, 227, 178, 0.7); }
-.hd-seat-note.is-win {
-    padding: 0 8px;
-    font-weight: 700;
-    color: #2b1d06;
-    background: linear-gradient(135deg, var(--brass-light), #96690f);
-    border-radius: 999px;
-    animation: bj-pop 0.3s ease-out both;
+/* 盤面が回っている間、針の下で待っている球 (止まったらマスに入る) */
+.gp-drop-ball {
+    position: absolute;
+    left: 50%;
+    top: calc(50% - var(--wheel) * 0.39);
+    z-index: 2;
+    width: calc(var(--wheel) * 0.065);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff, #e6eaee 40%, #8a949c);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.75);
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.2s ease;
 }
 
-.hd-seat-hand {
-    font-size: 0.66rem;
-    color: rgba(246, 227, 178, 0.75);
-    white-space: nowrap;
+.gp-wheel-wrap.is-spinning .gp-drop-ball {
+    opacity: 1;
+    animation: gp-ball-jitter 0.18s ease-in-out infinite alternate;
 }
 
-.hd-seat-hand.is-win { color: var(--lantern-soft); font-weight: 700; }
+@keyframes gp-ball-jitter {
+    from { transform: translate(-50%, -50%); }
+    to   { transform: translate(-50%, calc(-50% - 3px)); }
+}
 
-/* 手元チップと、このストリートで出したチップを1行に */
-.hd-seat-stack {
+.gp-wheel-wrap.is-shake { animation: slot-shake 0.5s ease-out; }
+
+/* 入ったお宝 (5球ぶん) */
+.gp-drawn {
     display: flex;
-    align-items: center;
     justify-content: center;
     gap: 6px;
-    min-height: 20px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
 }
 
-.hd-seat-bet {
-    min-width: 20px;
-    height: 20px;
-    padding: 0 5px;
-    font-size: 0.62rem;
-    line-height: 18px;
-}
-
-/* ディーラーボタン */
-.hd-dealer {
-    display: inline-grid;
+.gp-drawn li {
+    display: grid;
     place-items: center;
-    width: 18px;
-    height: 18px;
+    width: clamp(44px, 12vw, 56px);
+    aspect-ratio: 1;
+    font-size: clamp(44px, 12vw, 56px);
+    border-radius: 8px;
+}
+
+.gp-drawn li.is-empty {
     font-family: var(--font-display);
-    font-size: 0.66rem;
-    font-weight: 700;
-    line-height: 1;
-    color: #2b1d06;
-    background: radial-gradient(circle at 34% 28%, #fff 0%, #f1e3c4 60%, #cdb98f 100%);
-    border: 1px solid #7d5411;
-    border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    font-size: 1.1em;
+    color: rgba(246, 227, 178, 0.45);
+    background: rgba(0, 0, 0, 0.35);
+    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
-.hd-seat .hd-dealer { flex: 0 0 auto; width: 16px; height: 16px; font-size: 0.6rem; }
+.gp-drawn li.is-mine .slot-symbol { box-shadow: 0 0 0 3px var(--lantern), 0 0 14px var(--lantern); }
+.gp-drawn li.is-captain .slot-symbol { box-shadow: 0 0 0 3px #ff5a4a, 0 0 14px #ff5a4a; }
 
-/* 性格の札は狭い席では出さない (名前に添えるのは PC だけ。船員たちの欄には常に出す) */
-.hd-seat .hd-seat-style { display: none; }
-
-.hd-seat .hd-seat-sit {
-    width: auto;
-    min-width: 0;
-    min-height: 28px;
-    margin: 2px 0 0;
-    padding: 3px 9px;
-    font-size: 0.66rem;
-    letter-spacing: 0.06em;
-}
-
-.hd-seat.is-idle .hd-seat-sit,
-.hd-seat.is-idle .hd-seat-sit:hover { opacity: 1; }
-
-/* 自分の手札を大きく出す */
-.hd-mine {
-    --card-w: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin: 6px 0 10px;
-}
-
-.hd-mine .bj-cards .bj-card + .bj-card { margin-left: calc(var(--card-w) * -0.3); }
-.hd-my-hand { color: var(--ink); background: var(--parchment-warm); border-color: var(--brass); }
-.hd-my-hand:empty { display: none; }
-
-/* 操作: 上段に降りる・チェック・コール、下段にレイズ */
-.hd-actions { display: grid; gap: 8px; }
-
-.hd-action-row {
+/* 券を買う欄 */
+.gp-kinds {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
 }
 
-.hd-action-row button {
-    width: auto;
-    min-width: 0;
-    margin: 0;
-    padding-inline: 4px;
-    font-size: 0.8em;
-    letter-spacing: 0.06em;
-}
+/* 押すたびに1つ増える。選んだ数は右上の札、減らすのは右下の「−」 */
+.gp-kind-cell { position: relative; display: grid; }
 
-.hd-action-row button.hidden { display: none; }
-.hd-action-row #hd-fold-button { grid-column: 1; }
-.hd-action-row #hd-check-button,
-.hd-action-row #hd-call-button { grid-column: 2 / 4; }
-
-.hd-raise {
+.gp-kinds button.gp-kind {
+    position: relative;
     display: grid;
-    gap: 6px;
-    padding: 8px;
-    background: rgba(12, 9, 6, 0.06);
-    border: 1px solid rgba(201, 146, 47, 0.35);
-    border-radius: var(--radius-sm);
-}
-
-.hd-raise-presets {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px;
-}
-
-.hd-raise-presets button {
+    justify-items: center;
+    gap: 2px;
     width: auto;
-    min-width: 0;
-    min-height: 32px;
+    min-width: 0;   /* PC の button の min-width: 210px を打ち消す */
+    min-height: 0;
     margin: 0;
-    padding: 4px 2px;
+    padding: 8px 4px;
     font-family: var(--font-body);
-    font-size: 0.72em;
-    font-weight: 700;
-    letter-spacing: 0;
-    color: var(--ink-soft);
+    font-size: 48px;
+    color: var(--ink);
     background: var(--parchment-warm);
     border: 1px solid var(--parchment-edge);
+    border-radius: 8px;
     box-shadow: none;
 }
 
-.hd-raise-amount {
+.gp-kinds button.gp-kind:hover { transform: none; box-shadow: none; background: #fff; color: var(--ink); }
+.gp-kinds button.gp-kind:disabled { opacity: 0.55; }
+
+.gp-kinds button.gp-kind[aria-pressed="true"] {
+    background: radial-gradient(circle at 50% 30%, #fff7dc 0%, #f4cd68 60%, #c9922f 100%);
+    border: 2px solid #7d5411;
+}
+
+.gp-kind-name { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; }
+
+.gp-kind-badge {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-family: var(--font-display);
+    font-size: 18px;
+    line-height: 1;
+    color: var(--rum);
+}
+
+.gp-kinds button.gp-kind-minus {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 28px;
+    min-width: 0;
+    height: 28px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    font-size: 16px;
+    line-height: 1;
+    border-radius: 50%;
+}
+.gp-kind-count { font-size: 11px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+
+.gp-pick-info {
+    margin: 10px 0;
+    font-size: 0.86em;
+    color: var(--ink-soft);
+}
+
+.gp-pick-info.is-ready { font-weight: 700; color: var(--rum); }
+
+.gp-buy {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 84px;
-    gap: 8px;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "units cost" "button button";
+    gap: 10px 14px;
     align-items: center;
+    margin-bottom: 20px;
 }
 
-.hd-raise-amount input[type="range"] {
-    width: 100%;
+.gp-units {
+    grid-area: units;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.gp-units button {
+    width: 36px;
     min-width: 0;
+    height: 36px;
+    min-height: 0;
     margin: 0;
-    accent-color: var(--rum);
+    padding: 0;
+    font-size: 1.1em;
+    border-radius: 50%;
 }
 
-.hd-raise-amount input[type="number"] {
-    min-height: 36px;
-    padding: 4px 8px;
-    font-size: 0.9em;
+.gp-units label,
+.gp-cost {
+    display: grid;
+    justify-items: center;
+    margin: 0;
+    line-height: 1.1;
+}
+
+/* 口数は手でも打てる (−・＋は 1, 2, 3, 5, 10, 20, 30, 50 の順に動かす) */
+.gp-units input[type="number"] {
+    width: 3.2em;
+    min-height: 0;
+    margin: 2px 0 0;
+    padding: 2px 4px;
+    font-size: 18px;   /* 16px 未満だと iPhone で打つときに画面が拡大される */
+    font-weight: 700;
     font-variant-numeric: tabular-nums;
-    text-align: right;
+    text-align: center;
+    -moz-appearance: textfield;
+    appearance: textfield;
 }
 
-.hd-raise-button { margin-top: 0; font-size: 0.92em; letter-spacing: 0.14em; }
+.gp-units input[type="number"]::-webkit-inner-spin-button,
+.gp-units input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
-.hd-seat-tools {
+.gp-units span,
+.gp-cost span {
+    font-size: 0.7em;
+    letter-spacing: 0.12em;
+    color: var(--ink-soft);
+}
+
+.gp-cost strong {
+    font-size: 1.3em;
+    font-variant-numeric: tabular-nums;
+}
+
+.gp-cost { grid-area: cost; justify-self: start; }
+
+.gp-buy-button {
+    grid-area: button;
+    letter-spacing: 0.12em;
+}
+
+#gp-message { margin: -8px 0 16px; }
+
+/* すぐ始める: 受付の30秒を飛ばす (券を買った人が全員押したら始まる) */
+.gp-start-button {
+    width: 100%;
+    margin: -8px 0 22px;
+    letter-spacing: 0.08em;
+}
+
+/* 船長チャンスがはずれたとき: 暗く沈んだ画面に銀の字 */
+.slot-overlay.is-miss {
+    background: radial-gradient(circle at 50% 45%, rgba(40, 46, 56, 0.92), rgba(6, 8, 10, 0.97) 72%);
+}
+
+.slot-overlay.is-miss .slot-overlay-rays { filter: grayscale(1); opacity: 0.35; }
+
+.slot-overlay.is-miss .slot-overlay-title {
+    background: linear-gradient(100deg, #6d747c, #f2f4f6 30%, #9aa1a8 50%, #6d747c 70%, #e6e9ec 90%) 0 50% / 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    filter: drop-shadow(0 4px 0 #111) drop-shadow(0 0 12px rgba(200, 210, 220, 0.5));
+}
+
+.slot-overlay.is-miss .slot-overlay-sub { color: #dfe3e8; text-shadow: 0 0 10px rgba(120, 140, 160, 0.8); animation: none; }
+.slot-overlay.is-miss .slot-overlay-count { color: #c9ced4; text-shadow: none; }
+
+/* この回の券 */
+.gp-tickets {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    margin-top: 12px;
-}
-
-.hd-seat-tools button {
-    width: auto;
-    min-width: 0;
-    min-height: 36px;
-    margin: 0;
-    padding: 6px 10px;
-    font-size: 0.78em;
-}
-
-.hd-seat-tools button.hidden { display: none; }
-
-#hd-recent { margin-top: 14px; }
-#hd-result { min-height: 0; margin: 4px 0 8px; text-align: center; }
-#hd-result:empty { margin: 0; }
-
-/* 船員の紹介 */
-.hd-crew {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
-    gap: 8px 14px;
-    margin: 0;
+    gap: 6px;
+    margin: 0 0 8px;
     padding: 0;
     list-style: none;
 }
 
-.hd-crew-item {
+.gp-tickets li {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 2px 8px;
-    padding: 8px 10px;
-    background: rgba(12, 9, 6, 0.05);
-    border: 1px solid rgba(201, 146, 47, 0.3);
-    border-radius: var(--radius-sm);
+    gap: 8px;
+    padding: 6px 8px;
+    background: rgba(43, 30, 16, 0.06);
+    border-radius: 6px;
 }
 
-.hd-crew-item strong { font-size: 0.88em; color: var(--color-indigo); }
-.hd-crew-item .hd-seat-style { justify-self: start; color: var(--ink-soft); background: rgba(201, 146, 47, 0.14); border-color: rgba(201, 146, 47, 0.45); }
-.hd-crew-item p { grid-column: 1 / -1; margin: 0; font-size: 0.76em; line-height: 1.5; color: var(--ink-soft); }
+.gp-tickets li.is-none { display: block; font-size: 0.86em; color: var(--ink-soft); }
+.gp-tickets li.is-win { background: rgba(47, 125, 82, 0.16); }
+.gp-tickets li.is-lose { opacity: 0.6; }
+
+.gp-pick-icons {
+    display: flex;
+    gap: 3px;
+    font-size: 30px;
+}
+
+.gp-pick-icons .slot-symbol.is-hit { box-shadow: 0 0 0 2px var(--lantern), 0 0 8px var(--lantern); }
+
+.gp-pick-icons .slot-symbol.is-hit::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle, rgba(255, 220, 130, 0.25), rgba(255, 170, 40, 0.6));
+    mix-blend-mode: screen;
+}
+.gp-pick-icons .slot-symbol.is-granted { box-shadow: 0 0 0 2px var(--lantern-soft); outline: 2px dashed var(--brass); outline-offset: 1px; }
+
+.gp-ticket-info { font-size: 0.82em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.gp-ticket-state { font-variant-numeric: tabular-nums; }
+.gp-tickets li.is-win .gp-ticket-state { color: var(--ok); }
+
+.gp-others { margin: 0 0 8px; font-size: 0.8em; color: var(--ink-soft); }
+.gp-others:empty { display: none; }
+
+/* チャンス: 画面の下に出す選択の札 */
+.gp-chance {
+    position: fixed;
+    left: 50%;
+    bottom: max(20px, env(safe-area-inset-bottom));
+    z-index: 2000;
+    width: min(92vw, 420px);
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    padding: 14px 16px 12px;
+    text-align: center;
+    color: #fff4dc;
+    background: radial-gradient(circle at 50% 0%, #b3201c, var(--rum-dark) 70%);
+    border: 2px solid var(--lantern);
+    border-radius: 14px;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35), 0 0 34px rgba(255, 182, 72, 0.7), var(--shadow-deep);
+    transform: translateX(-50%);
+    animation: gp-chance-in 0.4s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+@keyframes gp-chance-in {
+    from { transform: translate(-50%, 40px) scale(0.8); opacity: 0; }
+    to   { transform: translate(-50%, 0) scale(1); opacity: 1; }
+}
+
+.gp-chance-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 2em;
+    line-height: 1;
+    color: var(--brass-light);
+    text-shadow: 0 0 12px rgba(255, 182, 72, 0.9), 0 2px 0 #3a0908;
+}
+
+.gp-chance-text { margin: 6px 0 10px; font-size: 0.82em; }
+
+.gp-chance-options {
+    display: grid;
+    gap: 6px;
+}
+
+/* チャンスの券1枚ぶん: 左にその券のお宝、右に選べるお宝 */
+.gp-chance-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 10px;
+}
+
+.gp-chance-row .gp-pick-icons { font-size: 22px; margin-right: 2px; }
+.gp-chance-row .gp-pick-icons::after { content: '→'; margin-left: 6px; font-size: 14px; color: var(--brass-light); }
+
+.gp-chance-options button.gp-chance-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 4px 8px 4px 4px;
+    font-size: 30px;
+    color: var(--ink);
+    background: var(--parchment-warm);
+    border: 2px solid var(--brass);
+    border-radius: 10px;
+}
+
+.gp-chance-options button.gp-chance-option span:last-child { font-size: 12px; font-weight: 700; }
+.gp-chance-left { margin: 8px 0 0; font-size: 0.8em; font-variant-numeric: tabular-nums; }
 
 @media (min-width: 720px) {
-    .hd-table-box {
-        --card-w: 34px;
-        grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    #gappori-table {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 0 clamp(16px, 2.6vw, 28px);
         align-items: start;
     }
 
-    .hd-felt { gap: 10px 8px; padding: 14px 10px 16px; }
-    .hd-board { --card-w: 40px; gap: 4px; }
-    .hd-seat { font-size: 0.78rem; padding: 8px 6px 10px; }
-    .hd-seat-cards { --card-w: 30px; }
-    .hd-seat.is-me .hd-seat-cards { --card-w: 36px; }
-    .hd-seat-note { font-size: 0.74rem; }
-    .hd-seat .hd-seat-style { display: inline-block; }
-    .hd-street { font-size: 0.74em; }
-    .hd-mine { --card-w: 64px; }
+    #gappori-table.hidden { display: none; }
+    .gp-machine { --wheel: 360px; margin-bottom: 0; }
+}
+
+/* スマホの切り替え (券を買う / ルーレット) と、ルーレットの画面の自分の券。PC では出さない */
+.gp-tabs,
+.gp-mine-strip { display: none; }
+
+/* スマホ: 見出しを消して、「券を買う」と「ルーレット」をそれぞれ1画面 (上の「ゲーム一覧へ」と下のメニューのあいだ) に収める。
+   手元チップと精算は宝探しの下へ回す */
+@media (max-width: 719px) {
+    body[data-casino-view="gappori"] header.hero { display: none; }
+    body[data-casino-view="gappori"] main { display: flex; flex-direction: column; margin-top: 10px; }
+    body[data-casino-view="gappori"] #casino-wallet { order: 1; margin-top: 18px; }
+    body[data-casino-view="gappori"] .casino-back { margin-bottom: 8px; }
+
+    #gappori-table {
+        /* 10 (上の余白) + 44 (ゲーム一覧へ) + 92 (下のメニュー。body の下の余白と同じ) + 少しのゆとり */
+        --gp-h: calc(100dvh - 152px - env(safe-area-inset-bottom, 0px));
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        height: var(--gp-h);
+        min-height: 360px;
+    }
+
+    #gappori-table.hidden { display: none; }
+
+    .gp-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        flex: none;
+    }
+
+    .gp-tabs button {
+        width: auto;
+        min-width: 0;
+        min-height: 38px;
+        margin: 0;
+        padding: 6px 8px;
+        font-size: 0.9em;
+        letter-spacing: 0.12em;
+        color: var(--brass-pale);
+        background: rgba(12, 9, 6, 0.5);
+        border: 1px solid rgba(201, 146, 47, 0.55);
+        border-radius: 999px;
+        box-shadow: none;
+    }
+
+    .gp-tabs button:hover { transform: none; box-shadow: none; }
+
+    .gp-tabs button[aria-selected="true"] {
+        color: var(--ink);
+        background: linear-gradient(180deg, #fff4d0, var(--brass-light) 60%, var(--brass));
+        border-color: var(--brass-light);
+    }
+
+    /* 台: 横いっぱい。ジャックポットと進み具合は1段に詰める */
+    .gp-machine {
+        --wheel: max(170px, min(100vw - var(--gutter) * 2 - 24px, 340px, var(--gp-h) - 230px));
+        flex: none;
+        width: auto;
+        margin: 0;
+        padding: 8px 10px;
+    }
+
+    .gp-top { margin-bottom: 0; }
+
+    .gp-jackpot {
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        gap: 10px;
+        padding: 3px 12px;
+    }
+
+    .gp-jackpot strong { font-size: 1.7em; }
+    .gp-status { min-height: 1.3em; margin-top: 5px; font-size: 0.84em; }
+
+    .gp-drawn { margin-top: 8px; }
+    .gp-drawn li { width: 44px; font-size: 44px; }
+
+    /* 券を買う画面: 盤面は出さない。台はジャックポットと進み具合を1行に */
+    #gappori-table[data-screen="buy"] .gp-wheel-wrap,
+    #gappori-table[data-screen="buy"] .gp-drawn,
+    #gappori-table[data-screen="buy"] .gp-mine-strip { display: none; }
+    #gappori-table[data-screen="buy"] .gp-machine { padding: 6px 8px; }
+    #gappori-table[data-screen="buy"] .gp-top { display: flex; align-items: center; gap: 8px; }
+    #gappori-table[data-screen="buy"] .gp-jackpot { flex: none; gap: 6px; padding: 2px 10px; border-radius: 10px; }
+    #gappori-table[data-screen="buy"] .gp-jackpot span { font-size: 0.58em; letter-spacing: 0.18em; }
+    #gappori-table[data-screen="buy"] .gp-jackpot strong { font-size: 1.3em; }
+    #gappori-table[data-screen="buy"] .gp-status { flex: 1; margin: 0; line-height: 1.25; }
+
+    /* ルーレット画面: 買う欄は出さず、台を残りの高さいっぱいに */
+    #gappori-table[data-screen="wheel"] .gp-panel { display: none; }
+    #gappori-table[data-screen="wheel"] .gp-machine { flex: 1; min-height: 0; padding: 10px; }
+    #gappori-table[data-screen="wheel"] .gp-top { margin-bottom: 8px; }
+
+    .gp-mine-strip {
+        display: flex;
+        gap: 6px;
+        margin: 8px 0 0;
+        padding: 0 0 2px;
+        overflow-x: auto;
+        list-style: none;
+    }
+
+    .gp-mine-strip:empty { display: none; }
+
+    .gp-mine-strip li {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px 4px 5px;
+        font-size: 12px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: var(--brass-pale);
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 8px;
+    }
+
+    .gp-mine-strip .gp-pick-icons { gap: 2px; font-size: 24px; }
+    .gp-mine-strip li.is-win { color: #fff; background: rgba(47, 125, 82, 0.75); }
+    .gp-mine-strip li.is-lose { opacity: 0.55; }
+
+    /* 券を買う画面: 残りの高さいっぱいに。この回の券は、その中だけで送る */
+    .gp-panel {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+        margin: 0;
+        padding: 10px 12px;
+        overflow-y: auto;   /* とても背の低い画面だけ、この中で送る */
+    }
+
+    .gp-panel > h3.icon-title:first-child { display: none; }   /* 切り替えが「券を買う」なので見出しは出さない */
+
+    .gp-kinds { flex: none; gap: 6px; }
+    .gp-kinds button.gp-kind { gap: 0; padding: 4px 4px 3px; font-size: 30px; }
+    .gp-kind-name { font-size: 11px; }
+    .gp-kind-count { font-size: 10px; }
+    .gp-kind-badge { top: 3px; right: 5px; font-size: 15px; }
+    .gp-kinds button.gp-kind-minus { right: 3px; bottom: 3px; width: 24px; height: 24px; font-size: 14px; }
+
+    .gp-pick-info { flex: none; min-height: 2.5em; margin: 6px 0; font-size: 0.78em; line-height: 1.25; }
+
+    .gp-buy {
+        flex: none;
+        grid-template-columns: auto auto minmax(0, 1fr);
+        grid-template-areas: "units cost button";
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .gp-units button { width: 32px; height: 32px; }
+    .gp-buy-button { min-width: 0; min-height: 44px; margin: 0; padding: 8px 10px; }
+    .gp-start-button { flex: none; min-height: 40px; margin: 0 0 8px; padding: 8px 10px; }
+
+    /* 買った・当たったのお知らせは画面の上のトーストで出るので、ここには出さない */
+    #gp-message { display: none; }
+
+    .gp-mine {
+        flex: 1;
+        min-height: 76px;
+        overflow-y: auto;
+        border-top: 1px solid var(--parchment-edge);
+        padding-top: 6px;
+    }
+
+    .gp-mine h3.icon-title { margin: 0 0 4px; padding-bottom: 0; font-size: 0.82em; border-bottom: none; }
+    .gp-mine h3.icon-title::after { display: none; }
+    .gp-tickets li { padding: 4px 8px; }
+    .gp-tickets .gp-pick-icons { font-size: 26px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .hd-seat-note.is-move,
-    .hd-seat-note.is-win { animation: none; }
+    .gp-drop-ball,
+    .gp-jackpot strong { animation: none; }
 }
 
 /* ------------------------------------------------------------

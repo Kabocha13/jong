@@ -3,15 +3,19 @@
 //
 //   - 麻雀: 参加した対局の数 (1局 = 1回)。増減ログの reason「三人麻雀 A 43600 / B 31000 / C 30400」から参加者を読むので、
 //     レートが動かなかった人 (増減ログが残らない人) も数えられる
-//   - カジノ: 遊んだ回数 (ブラックジャック・ホールデムは1ハンド、ルーレット・スロットは1スピン = 1回)。
-//     精算の reason「ブラックジャック 3回 (持込500 → 600)」「カジノ ルーレット2回・スロット5回 (…)」の「N回」を足す。
+//   - カジノ: 遊んだ回数 (ブラックジャックは1ハンド、スロットは10回転、宝探しは券を買った1回の抽選 = 1回)。
+//     スロットはその日の回転数を人ごとに足してから10で割る (端数は切り捨て。15回転と5回転の精算なら 20回転 = 2回)。
+//     ルーレットとテキサスホールデムは 52.0 で廃止したが、それまでの記録 (casino_roulette は1スピン、
+//     casino_holdem は1ハンド = 1回) も数える。
+//     精算の reason「ブラックジャック 3回 (持込500 → 600)」「カジノ ブラックジャック2回・スロット5回 (…)」の「N回」を足す。
 //     精算で増減が 0 だったとき は増減ログが残らないので数えられない
 //   - ボーナス = 麻雀の回数 × 1局あたり + カジノの回数 × 1回あたり
 
 export const PARTICIPATION_BONUS_SOURCE = 'participation_bonus';
 export const PARTICIPATION_BONUS_MAX_UNIT = 1000;   // 1回あたりの額の上限 (打ち間違いで大量に配らないように)
 const MAHJONG_SOURCE = 'mahjong';
-const CASINO_SOURCES = new Set(['casino', 'casino_roulette', 'casino_blackjack', 'casino_slot', 'casino_holdem']);
+const CASINO_SOURCES = new Set(['casino', 'casino_roulette', 'casino_blackjack', 'casino_slot', 'casino_gappori', 'casino_holdem']);
+export const SLOT_SPINS_PER_PLAY = 10;   // スロットはこの回転数で1回と数える
 
 export class ParticipationBonusError extends Error {
   constructor(status, message) {
@@ -61,12 +65,19 @@ export function mahjongPlayersFromReason(reason) {
   }).filter(Boolean);
 }
 
-/** カジノの精算の reason から遊んだ回数を取り出す。括弧 (持込…) より前の「N回」をすべて足す */
+/**
+ * カジノの精算の reason から遊んだ回数を取り出す。括弧 (持込…) より前の「ゲーム名 N回」を読む。
+ * 「スロット 25回」「カジノ ブラックジャック2回・スロット25回」→ スロットは回転数 (slotSpins)、ほかは回数 (plays) に足す
+ */
 export function casinoPlaysFromReason(reason) {
   const label = String(reason || '').split(' (')[0];
-  let total = 0;
-  for (const match of label.matchAll(/(\d+)回/g)) total += Number(match[1]);
-  return total;
+  let plays = 0;
+  let slotSpins = 0;
+  for (const match of label.matchAll(/([^\s・\d]*)\s?(\d+)回/g)) {
+    if (match[1] === 'スロット') slotSpins += Number(match[2]);
+    else plays += Number(match[2]);
+  }
+  return { plays, slotSpins };
 }
 
 /**
@@ -76,6 +87,7 @@ export function casinoPlaysFromReason(reason) {
  */
 export function tallyParticipation(entries, excluded = new Set()) {
   const counts = new Map();
+  const slotSpins = new Map();   // 名前 → その日のスロットの回転数 (最後に10回転 = 1回にする)
   const add = (name, key, amount) => {
     if (!name || excluded.has(name) || amount <= 0) return;
     const current = counts.get(name) || { mahjong: 0, casino: 0 };
@@ -94,10 +106,14 @@ export function tallyParticipation(entries, excluded = new Set()) {
       if (entry.player) players.add(String(entry.player));
       games.set(key, players);
     } else if (CASINO_SOURCES.has(source)) {
-      add(String(entry.player || ''), 'casino', casinoPlaysFromReason(entry.reason));
+      const name = String(entry.player || '');
+      const played = casinoPlaysFromReason(entry.reason);
+      add(name, 'casino', played.plays);
+      if (played.slotSpins > 0) slotSpins.set(name, (slotSpins.get(name) || 0) + played.slotSpins);
     }
   });
   games.forEach(players => players.forEach(name => add(name, 'mahjong', 1)));
+  slotSpins.forEach((spins, name) => add(name, 'casino', Math.floor(spins / SLOT_SPINS_PER_PLAY)));
   return counts;
 }
 

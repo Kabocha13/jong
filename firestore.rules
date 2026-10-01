@@ -63,7 +63,7 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // カジノ (ルーレット・ブラックジャック) の持ち込み・手元チップ・配られたカード。
+    // カジノ (ブラックジャック・スロット・宝探し) の持ち込み・手元チップ・配られたカード。
     // 残高を書き換えられると精算額を偽れ、読めるとディーラーの伏せ札が見えてしまうので、
     // 読み書きとも Cloud Functions (casino) だけに限る。
     match /casino_sessions/{userId} {
@@ -87,22 +87,19 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // ホールデムの卓。中身は全員の手札を含むので Cloud Functions だけに限る。
-    match /holdem_tables/{tableId} {
+    // 宝探しの卓。中身 (券を買った人の uid を含む) は Cloud Functions だけに限る。
+    match /gappori_tables/{tableId} {
       allow read, write: if false;
     }
 
-    // 卓を誰でも読める形に直したもの (見せていない手札と uid は含まない)。
-    match /holdem_public/{tableId} {
+    // 卓を誰でも読める形に直したもの (uid は含まない)。
+    match /gappori_public/{tableId} {
       allow read: if true;
       allow write: if false;
     }
 
-    // 本人に配られた手札。本人だけが読め、書くのは Cloud Functions (casino) だけ。
-    match /holdem_hole/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if false;
-    }
+    // テキサスホールデム (holdem_tables / holdem_public / holdem_hole) は 52.0 で廃止した。
+    // ルールを置かないので、残っているドキュメントは誰も読み書きできない。
 
     // レートの貸し出し (借金) の記録。借金の額はランキングとグラフに出す公開情報なので読み取りは許可する。
     // 書き換えられると返済を偽れるので、書き込みは Cloud Functions (loan / 日次補正) だけに限る。

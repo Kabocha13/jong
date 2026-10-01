@@ -5,7 +5,21 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
 import { normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
-import { HoldemRuleError } from './holdem.js';
+import { GapporiRuleError } from './gappori.js';
+import {
+  GAPPORI_RULES_VERSION,
+  GapporiTableError,
+  advanceGapporiTable,
+  buyGapporiTickets,
+  chooseGapporiChance,
+  createGapporiContext,
+  emptyGapporiTable,
+  gapporiTableUids,
+  isInLiveGapporiRound,
+  publicGapporiTable,
+  refreshGapporiRules,
+  startGapporiNow
+} from './gappori-table.js';
 import {
   LOAN_SOURCES,
   LoanError,
@@ -44,23 +58,6 @@ import {
   workRateChange,
   workReason
 } from './underground.js';
-import {
-  HoldemTableError,
-  createHoldemContext,
-  emptyHoldemTable,
-  holdemSeatIndexOf,
-  holdemTableUids,
-  isInLiveHoldemRound,
-  joinHoldemSeat,
-  leaveHoldemSeat,
-  maybeStartHoldemHand,
-  moveHoldemTurn,
-  publicHoldemTable,
-  setHoldemSitOut,
-  sweepHoldemSeats,
-  tickHoldemTable,
-  vacateHoldemSeat
-} from './holdem-table.js';
 import {
   TableError,
   createTableContext,
@@ -1372,7 +1369,7 @@ export const collectDailyPointTax = onSchedule({
 
 /**
  * クライアントは画面で読み込んだ全データを丸ごと送ってくる。
- * players.score をそのまま書くと、読み込んだあとに入った変化 (ルーレットの精算、
+ * players.score をそのまま書くと、読み込んだあとに入った変化 (カジノの精算、
  * 別の人の宝くじ購入、日次補正など) を古い値で巻き戻してしまうので、
  * 読み込み時点の値 (_baseScore) との差だけを「今の値」に足す。
  * 増減ログもここで実際の前後の値から作り直し、クライアントの送ってきたログは
@@ -2088,7 +2085,7 @@ export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) =>
 });
 
 // -----------------------------------------------------------------
-// カジノ (ルーレット・ブラックジャック・スロット)
+// カジノ (ブラックジャック・スロット・宝探し。ルーレットとテキサスホールデムは 52.0 で廃止)
 //   入場時に持ち込むレートを決め、以降の勝ち負けは casino_sessions のチップだけで動かす。
 //   チップは1人1つで、どのゲームでも使える
 //   (持ち込みは1回ぶんしか持てないので、同じレートを二重に持ち込めない)。
@@ -2106,47 +2103,20 @@ export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) =>
 //
 //   スロットのルール (リールの並び・ライン・配当) は slot.js にある。
 //
-//   ホールデムも全員共通の1卓 (6席)。人がいない席には船員 (holdem-bots.js) が入るので1人でも遊べる。
-//   ルールは holdem.js、卓の進め方は holdem-table.js。卓の中身 (全員の手札を含む) は holdem_tables/main、
-//   誰でも読める形は holdem_public/main、本人の手札は holdem_hole/{uid} (本人だけが読める) に置く。
+//   宝探しも全員共通の1卓。ルールは gappori.js、卓の進め方は gappori-table.js。
+//   卓の中身は gappori_tables/main、誰でも読める形は gappori_public/main に置く。
+//   ルーレットとテキサスホールデムは 52.0 で廃止した (コードは 52.0 より前の git の履歴にある)。
 // -----------------------------------------------------------------
 const CASINO_SESSIONS = 'casino_sessions';
 // スロットのジャックポットタイムの状態 (人ごと。カジノを精算しても引き継ぐ。Cloud Functions だけが読み書きする)
 const SLOT_STATES = 'slot_states';
-const CASINO_GAMES = new Set(['roulette', 'blackjack', 'slot', 'holdem']);
+const CASINO_GAMES = new Set(['blackjack', 'slot', 'gappori']);
 const CASINO_IDLE_SETTLE_MS = 30 * 60 * 1000;
 const CASINO_MAX_SESSION_MS = 3 * 60 * 60 * 1000;
 const CASINO_RECENT_LIMIT = 12;
-const CASINO_MAX_BETS_PER_SPIN = 60;
 const CASINO_NOTICES = 'casino_notices';     // 自動精算の結果を、本人の次の画面で1回だけ見せる
 const BJ_TABLE_ID = 'main';                  // ブラックジャックの卓は1つだけ
-const HOLDEM_TABLE_ID = 'main';              // ホールデムの卓も1つだけ
-
-// シングルゼロ (0〜36) のヨーロピアンルーレット。配当は賭け金に対する倍率 (元金は別に戻る)
-const ROULETTE_RED_NUMBERS = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
-const ROULETTE_BET_TYPES = {
-  straight: { payout: 35, values: [0, 36], wins: (n, v) => n === v },
-  dozen:    { payout: 2,  values: [1, 3],  wins: (n, v) => n !== 0 && Math.ceil(n / 12) === v },
-  column:   { payout: 2,  values: [1, 3],  wins: (n, v) => n !== 0 && ((n - 1) % 3) + 1 === v },
-  // ×2 の賭け (赤黒・偶奇・前後半) は、0 が出たら賭け金の半分を返す (halfBackOnZero)。
-  // 賭け金が奇数のときの 0.5 の端数は、半々の確率で切り上げか切り捨て (平均するとちょうど半分)
-  red:     { payout: 1, halfBackOnZero: true, wins: n => ROULETTE_RED_NUMBERS.has(n) },
-  black:    { payout: 1, halfBackOnZero: true, wins: n => n !== 0 && !ROULETTE_RED_NUMBERS.has(n) },
-  even:     { payout: 1, halfBackOnZero: true, wins: n => n !== 0 && n % 2 === 0 },
-  odd:      { payout: 1, halfBackOnZero: true, wins: n => n % 2 === 1 },
-  low:      { payout: 1, halfBackOnZero: true, wins: n => n >= 1 && n <= 18 },
-  high:     { payout: 1, halfBackOnZero: true, wins: n => n >= 19 }
-};
-
-/** ルーレットの1つの賭けの払い戻し (賭け金込み) */
-function rouletteReturn(rule, bet, number) {
-  if (rule.wins(number, bet.value)) return bet.amount * (rule.payout + 1);
-  if (number === 0 && rule.halfBackOnZero) {
-    const half = Math.floor(bet.amount / 2);
-    return bet.amount % 2 === 1 && randomInt(2) === 1 ? half + 1 : half;
-  }
-  return 0;
-}
+const GAPPORI_TABLE_ID = 'main';             // 宝探しの卓も1つだけ
 
 class CasinoError extends Error {
   constructor(status, message) {
@@ -2158,42 +2128,6 @@ class CasinoError extends Error {
 /** blackjack.js に渡す乱数 (0〜n-1) */
 function casinoRandom(n) {
   return randomInt(n);
-}
-
-function rouletteColor(number) {
-  if (number === 0) return 'green';
-  return ROULETTE_RED_NUMBERS.has(number) ? 'red' : 'black';
-}
-
-/** ブラウザから来た賭けを検証し、同じ賭け先はまとめて返す */
-function normalizeRouletteBets(rawBets) {
-  if (!Array.isArray(rawBets) || rawBets.length === 0) {
-    throw new CasinoError(400, '賭け先を選んでください。');
-  }
-  if (rawBets.length > CASINO_MAX_BETS_PER_SPIN) {
-    throw new CasinoError(400, `1回に賭けられるのは${CASINO_MAX_BETS_PER_SPIN}か所までです。`);
-  }
-
-  const merged = new Map();
-  rawBets.forEach(raw => {
-    const type = String(raw?.type || '');
-    const rule = Object.hasOwn(ROULETTE_BET_TYPES, type) ? ROULETTE_BET_TYPES[type] : null;
-    const amount = Number(raw?.amount);
-    if (!rule || !Number.isSafeInteger(amount) || amount < 1) {
-      throw new CasinoError(400, '賭け方が正しくありません。');
-    }
-    let value = null;
-    if (rule.values) {
-      value = Number(raw.value);
-      if (!Number.isInteger(value) || value < rule.values[0] || value > rule.values[1]) {
-        throw new CasinoError(400, '賭け方が正しくありません。');
-      }
-    }
-    const key = `${type}:${value ?? ''}`;
-    const current = merged.get(key);
-    merged.set(key, { type, value, amount: (current ? current.amount : 0) + amount });
-  });
-  return Array.from(merged.values());
 }
 
 function casinoSessionExpiresAt(startedAt, lastActionAt) {
@@ -2212,22 +2146,20 @@ function publicCasinoSession(session) {
     game: session.game,
     buyIn: session.buyIn,
     chips: session.chips,
-    spins: session.spins,
     bjHands: session.bjHands || 0,
     slotSpins: session.slotSpins || 0,
-    hdHands: session.hdHands || 0,
+    gpRounds: session.gpRounds || 0,
     startedAt: session.startedAt,
     lastActionAt: session.lastActionAt,
     expiresAt: session.expiresAt,
-    recent: session.recent || [],
     blackjack: {
       recent: session.bjRecent || []
     },
     slot: {
       recent: session.slotRecent || []
     },
-    holdem: {
-      recent: session.hdRecent || []
+    gappori: {
+      recent: session.gpRecent || []
     }
   };
 }
@@ -2238,16 +2170,18 @@ function playerQuery(name) {
 
 /**
  * 増減ログに残す遊んだ内容。1種類だけならそのゲームの名前で、2種類以上なら「カジノ」でまとめる。
- * 何も遊んでいないときは以前と同じくルーレット扱い
+ * 何も遊んでいないときは「カジノ 0回」 (52.0 より前は「ルーレット 0回」)
  */
 function casinoPlayLog(session) {
   const plays = [
-    { source: 'casino_roulette', name: 'ルーレット', count: session.spins || 0 },
     { source: 'casino_blackjack', name: 'ブラックジャック', count: session.bjHands || 0 },
     { source: 'casino_slot', name: 'スロット', count: session.slotSpins || 0 },
+    { source: 'casino_gappori', name: '宝探し', count: session.gpRounds || 0 },
+    // ルーレットとホールデムは 52.0 で廃止。廃止前に遊んだセッション (最長3時間) の回数も記録に残す
+    { source: 'casino_roulette', name: 'ルーレット', count: session.spins || 0 },
     { source: 'casino_holdem', name: 'ホールデム', count: session.hdHands || 0 }
   ].filter(play => play.count > 0);
-  if (plays.length === 0) return { source: 'casino_roulette', label: 'ルーレット 0回' };
+  if (plays.length === 0) return { source: 'casino', label: 'カジノ 0回' };
   if (plays.length === 1) return { source: plays[0].source, label: `${plays[0].name} ${plays[0].count}回` };
   return { source: 'casino', label: `カジノ ${plays.map(play => `${play.name}${play.count}回`).join('・')}` };
 }
@@ -2259,15 +2193,11 @@ function blackjackTableRefs() {
   };
 }
 
-function holdemTableRefs() {
+function gapporiTableRefs() {
   return {
-    tableRef: db.collection('holdem_tables').doc(HOLDEM_TABLE_ID),
-    publicRef: db.collection('holdem_public').doc(HOLDEM_TABLE_ID)
+    tableRef: db.collection('gappori_tables').doc(GAPPORI_TABLE_ID),
+    publicRef: db.collection('gappori_public').doc(GAPPORI_TABLE_ID)
   };
-}
-
-function holdemHoleRef(uid) {
-  return db.collection('holdem_hole').doc(uid);
 }
 
 /** 財布の最終操作時刻と自動精算の期限を進める (卓での賭けや払い戻しでも伸びる) */
@@ -2287,9 +2217,9 @@ function touchCasinoSession(session, nowIso) {
 async function settleCasinoSession(uid, actor, { manual = false, reason = null } = {}) {
   const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
   const { tableRef, publicRef } = blackjackTableRefs();
-  const holdemRefs = holdemTableRefs();
+  const gapporiRefs = gapporiTableRefs();
   const result = await db.runTransaction(async transaction => {
-    const [sessionDoc, tableDoc, holdemDoc] = await transaction.getAll(sessionRef, tableRef, holdemRefs.tableRef);
+    const [sessionDoc, tableDoc, gapporiDoc] = await transaction.getAll(sessionRef, tableRef, gapporiRefs.tableRef);
     if (!sessionDoc.exists) return null;
     const session = sessionDoc.data();
     const at = new Date().toISOString();
@@ -2305,17 +2235,11 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
       vacateSeat(table, seatIndex);
       tableChanged = true;
     }
-    // ホールデムの席も同じ。ハンドに残っている間は手動の精算を断り、自動なら決着まで席を残す
-    const holdemTable = holdemDoc.exists ? holdemDoc.data() : null;
-    const holdemSeat = holdemTable ? holdemSeatIndexOf(holdemTable, uid) : -1;
-    let holdemChanged = false;
-    if (holdemTable && isInLiveHoldemRound(holdemTable, uid)) {
-      if (manual) {
-        throw new CasinoError(409, 'ホールデムのハンドが途中です。降りるか決着してから精算してください。');
-      }
-    } else if (holdemSeat >= 0) {
-      vacateHoldemSeat(holdemTable, holdemSeat);
-      holdemChanged = true;
+    // 宝探しの券があって結果が出ていなければ、手動の精算は断る。
+    // 自動なら精算し、券は残して、結果が出たら払い戻しをレートへ直接返す
+    const gapporiTable = gapporiDoc.exists ? gapporiDoc.data() : null;
+    if (manual && gapporiTable && isInLiveGapporiRound(gapporiTable, uid)) {
+      throw new CasinoError(409, '宝探しの抽選が途中です。結果が出てから精算してください。');
     }
     const playerSnapshot = await transaction.get(playerQuery(session.player));
 
@@ -2350,21 +2274,14 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
       transaction.set(tableRef, table);
       transaction.set(publicRef, publicTable(table));
     }
-    if (holdemChanged) {
-      holdemTable.seq = (holdemTable.seq || 0) + 1;
-      holdemTable.updatedAt = at;
-      transaction.set(holdemRefs.tableRef, holdemTable);
-      transaction.set(holdemRefs.publicRef, publicHoldemTable(holdemTable));
-    }
     transaction.delete(sessionRef);
     const settled = {
       player: session.player,
       buyIn,
       chips,
-      spins: session.spins || 0,
       bjHands: session.bjHands || 0,
       slotSpins: session.slotSpins || 0,
-      hdHands: session.hdHands || 0,
+      gpRounds: session.gpRounds || 0,
       beforeScore,
       afterScore,
       delta: beforeScore === null ? 0 : afterScore - beforeScore,
@@ -2404,25 +2321,24 @@ async function readPublicBlackjackTable() {
   return publicDoc.exists ? publicDoc.data() : publicTable(emptyTable());
 }
 
-async function readPublicHoldemTable() {
-  const publicDoc = await holdemTableRefs().publicRef.get();
-  return publicDoc.exists ? publicDoc.data() : publicHoldemTable(emptyHoldemTable(casinoRandom));
-}
-
-/** 本人に配られている手札 (いまのハンドのものだけ) */
-async function readHoldemHole(uid) {
-  const holeDoc = await holdemHoleRef(uid).get();
-  return holeDoc.exists ? holeDoc.data() : null;
+/**
+ * 宝探しの卓 (誰でも読める形)。まだ卓が無いか、ルールを変える前の盤面のままなら、
+ * 卓を動かして (作るか、受付中で券が無ければ新しい作り方の盤面にして) から返す
+ */
+async function readPublicGapporiTable() {
+  const publicDoc = await gapporiTableRefs().publicRef.get();
+  if (publicDoc.exists && publicDoc.data().rulesVersion === GAPPORI_RULES_VERSION) return publicDoc.data();
+  const ctx = await runGapporiTable(null, () => {});
+  return publicGapporiTable(ctx.table);
 }
 
 async function casinoStatus(uid, username) {
   await settleCasinoSessionIfExpired(uid);
-  const [sessionDoc, playerSnapshot, table, holdemTable, hole, autoSettled, slotStateDoc] = await Promise.all([
+  const [sessionDoc, playerSnapshot, table, gappori, autoSettled, slotStateDoc] = await Promise.all([
     db.collection(CASINO_SESSIONS).doc(uid).get(),
     playerQuery(username).get(),
     readPublicBlackjackTable(),
-    readPublicHoldemTable(),
-    readHoldemHole(uid),
+    readPublicGapporiTable(),
     takeCasinoNotice(uid),
     db.collection(SLOT_STATES).doc(uid).get()
   ]);
@@ -2432,8 +2348,7 @@ async function casinoStatus(uid, username) {
     session: sessionDoc.exists ? publicCasinoSession(sessionDoc.data()) : null,
     slot: publicSlotState(slotStateDoc.exists ? slotStateDoc.data() : null),
     table,
-    holdemTable,
-    hole,
+    gappori,
     autoSettled,
     now: new Date().toISOString()
   };
@@ -2444,8 +2359,8 @@ async function casinoEnter(uid, username, rawBuyIn, rawGame) {
   if (!Number.isSafeInteger(buyIn) || buyIn < 1) {
     throw new CasinoError(400, '持ち込むレートは1以上の整数で入力してください。');
   }
-  // どのテーブルから入場したか (記録用。チップはどちらのテーブルでも使える)
-  const game = CASINO_GAMES.has(rawGame) ? rawGame : 'roulette';
+  // どのテーブルから入場したか (記録用。チップはどのテーブルでも使える)
+  const game = CASINO_GAMES.has(rawGame) ? rawGame : 'slot';
   await settleCasinoSessionIfExpired(uid);
   const autoSettled = await takeCasinoNotice(uid);
   const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
@@ -2472,70 +2387,22 @@ async function casinoEnter(uid, username, rawBuyIn, rawGame) {
       player: username,
       buyIn,
       chips: buyIn,
-      spins: 0,
       bjHands: 0,
       slotSpins: 0,
-      hdHands: 0,
+      gpRounds: 0,
       wagered: 0,
       startedAt: now,
       lastActionAt: now,
       expiresAt: casinoSessionExpiresAt(now, now),
-      recent: [],
       bjRecent: [],
       slotRecent: [],
-      hdRecent: []
+      gpRecent: []
     };
     transaction.set(sessionRef, next);
     return next;
   });
 
   return { session: publicCasinoSession(session), autoSettled };
-}
-
-async function casinoSpin(uid, rawBets) {
-  const bets = normalizeRouletteBets(rawBets);
-  const total = bets.reduce((sum, bet) => sum + bet.amount, 0);
-  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
-
-  const spun = await db.runTransaction(async transaction => {
-    const sessionDoc = await transaction.get(sessionRef);
-    if (!sessionDoc.exists) {
-      throw new CasinoError(409, 'テーブルに入場していません。');
-    }
-    const session = sessionDoc.data();
-    if (isCasinoSessionExpired(session)) return { expired: true };
-    if (total > session.chips) {
-      throw new CasinoError(400, `手元のチップ (${session.chips}) を超えて賭けることはできません。`);
-    }
-
-    const number = randomInt(0, 37);
-    const returned = bets.reduce((sum, bet) => sum + rouletteReturn(ROULETTE_BET_TYPES[bet.type], bet, number), 0);
-    const now = new Date().toISOString();
-    const chips = session.chips - total + returned;
-    const result = { number, color: rouletteColor(number), bet: total, returned, at: now };
-    const next = {
-      ...session,
-      chips,
-      spins: session.spins + 1,
-      wagered: (session.wagered || 0) + total,
-      lastActionAt: now,
-      expiresAt: casinoSessionExpiresAt(session.startedAt, now),
-      recent: [result, ...(session.recent || [])].slice(0, CASINO_RECENT_LIMIT)
-    };
-    transaction.set(sessionRef, next);
-    return { result, session: next };
-  });
-
-  if (spun.expired) {
-    const settled = await settleCasinoSession(uid, 'casino_auto_settle');
-    return { expired: true, settled };
-  }
-  // チップが尽きたら続けようがないので、その場で精算する
-  if (spun.session.chips <= 0) {
-    const settled = await settleCasinoSession(uid, spun.session.player);
-    return { result: spun.result, session: null, settled };
-  }
-  return { result: spun.result, session: publicCasinoSession(spun.session) };
 }
 
 /**
@@ -2619,22 +2486,27 @@ function groupOrphanPayouts(payouts) {
   return Array.from(byName.values());
 }
 
-/** 財布を精算済みの人の賭け金の返却・払い戻しは、レートへ直接返す */
-function creditBlackjackOrphan(transaction, playerSnapshot, payout, at, game = 'blackjack') {
+const CASINO_ORPHAN_GAMES = {
+  blackjack: { label: 'ブラックジャック', source: 'casino_blackjack' },
+  gappori: { label: '宝探し', source: 'casino_gappori' }
+};
+
+/** 財布を精算済みの人の賭け金の返却・払い戻しは、レートへ直接返す (game は blackjack / gappori) */
+function creditCasinoOrphan(transaction, playerSnapshot, payout, at, game = 'blackjack') {
+  const { label, source } = CASINO_ORPHAN_GAMES[game];
   if (playerSnapshot.empty) return;
   const playerDoc = playerSnapshot.docs[0];
   const beforeScore = normalizeRate(playerDoc.data().score);
   const afterScore = beforeScore + payout.amount;
   transaction.update(playerDoc.ref, { score: afterScore });
   const historyId = rateHistoryDocId(payout.name, at);
-  const label = game === 'holdem' ? 'ホールデム' : 'ブラックジャック';
   transaction.set(db.collection('point_history').doc(historyId), {
     id: historyId,
     player: payout.name,
     beforeScore,
     afterScore,
     delta: payout.amount,
-    source: game === 'holdem' ? 'casino_holdem' : 'casino_blackjack',
+    source,
     reason: payout.reason === 'refund'
       ? `${label} 精算後の賭け金の返却 (${payout.amount})`
       : `${label} 精算後の払い戻し (${payout.amount})`,
@@ -2681,7 +2553,7 @@ async function runBlackjackTable(actorUid, mutate) {
     context.touched.forEach(uid => {
       transaction.set(db.collection(CASINO_SESSIONS).doc(uid), context.wallets.get(uid));
     });
-    orphans.forEach((payout, index) => creditBlackjackOrphan(transaction, orphanSnapshots[index], payout, context.nowIso));
+    orphans.forEach((payout, index) => creditCasinoOrphan(transaction, orphanSnapshots[index], payout, context.nowIso, 'blackjack'));
     return context;
   });
 
@@ -2711,29 +2583,30 @@ async function blackjackTableAction(uid, username, mutate) {
 }
 
 /**
- * ホールデムの卓を1回動かす。ブラックジャックと同じく、卓と関わる人の財布をトランザクションで読み、
- * mutate(ctx) で書き換えたあと、始められればハンドを始めて (船員の番は一気に進めて) 書き戻す。
- * 配った手札は holdem_hole/{uid} に置く (本人だけが読める)。
+ * 宝探しの卓を1回動かす。ブラックジャックと同じく、卓と券を買った人 (と操作した本人) の財布を
+ * トランザクションで読み、mutate(ctx) で書き換えたあと、締め切りを過ぎた段階を先へ進めて書き戻す。
+ * 結果が出てチップが尽きた人は、書き戻したあとで精算する。
  */
-async function runHoldemTable(actorUid, mutate) {
-  const { tableRef, publicRef } = holdemTableRefs();
+async function runGapporiTable(actorUid, mutate) {
+  const { tableRef, publicRef } = gapporiTableRefs();
   const ctx = await db.runTransaction(async transaction => {
     const tableDoc = await transaction.get(tableRef);
-    const table = tableDoc.exists ? tableDoc.data() : emptyHoldemTable(casinoRandom);
-    const uids = Array.from(new Set([...holdemTableUids(table), actorUid].filter(Boolean)));
+    const table = tableDoc.exists ? tableDoc.data() : emptyGapporiTable(casinoRandom);
+    const uids = Array.from(new Set([...gapporiTableUids(table), actorUid].filter(Boolean)));
     const walletRefs = uids.map(uid => db.collection(CASINO_SESSIONS).doc(uid));
     const walletDocs = walletRefs.length ? await transaction.getAll(...walletRefs) : [];
     const wallets = new Map(uids.map((uid, index) => [uid, walletDocs[index].exists ? walletDocs[index].data() : null]));
-    const context = createHoldemContext({
+    const context = createGapporiContext({
       table,
       wallets,
       now: Date.now(),
       randomInt: casinoRandom,
       touchWallet: touchCasinoSession
     });
-    sweepHoldemSeats(context);
+    if (!tableDoc.exists) context.changed = true;
+    refreshGapporiRules(context);
     mutate(context);
-    maybeStartHoldemHand(context);
+    advanceGapporiTable(context);
 
     // 読み込みは書き込みより前にすべて済ませる
     const orphans = groupOrphanPayouts(context.orphanPayouts);
@@ -2743,15 +2616,12 @@ async function runHoldemTable(actorUid, mutate) {
       context.table.seq = (context.table.seq || 0) + 1;
       context.table.updatedAt = context.nowIso;
       transaction.set(tableRef, context.table);
-      transaction.set(publicRef, publicHoldemTable(context.table));
+      transaction.set(publicRef, publicGapporiTable(context.table));
     }
-    context.holes.forEach((hole, uid) => {
-      transaction.set(holdemHoleRef(uid), { ...hole, updatedAt: context.nowIso });
-    });
     context.touched.forEach(uid => {
       transaction.set(db.collection(CASINO_SESSIONS).doc(uid), context.wallets.get(uid));
     });
-    orphans.forEach((payout, index) => creditBlackjackOrphan(transaction, orphanSnapshots[index], payout, context.nowIso, 'holdem'));
+    orphans.forEach((payout, index) => creditCasinoOrphan(transaction, orphanSnapshots[index], payout, context.nowIso, 'gappori'));
     return context;
   });
 
@@ -2763,20 +2633,18 @@ async function runHoldemTable(actorUid, mutate) {
     }
   }
   if (ctx.orphanPayouts.length) {
-    await rebuildRateChartQuietly('holdem_orphan_payout');
+    await rebuildRateChartQuietly('gappori_orphan_payout');
   }
   return ctx;
 }
 
-/** ホールデムの卓の操作の返事: 卓の様子・本人の手札・本人の財布 */
-async function holdemTableAction(uid, username, mutate) {
-  const ctx = await runHoldemTable(uid, mutate);
+/** 宝探しの操作の返事: 卓の様子と本人の財布 */
+async function gapporiTableAction(uid, username, mutate) {
+  const ctx = await runGapporiTable(uid, mutate);
   const wallet = ctx.broke.has(uid) ? null : ctx.wallets.get(uid);
-  const hole = ctx.holes.get(uid) || await readHoldemHole(uid);
   return {
     me: username,
-    holdemTable: publicHoldemTable(ctx.table),
-    hole,
+    gappori: publicGapporiTable(ctx.table),
     session: wallet ? publicCasinoSession(wallet) : null,
     now: new Date().toISOString()
   };
@@ -2790,7 +2658,6 @@ const CASINO_ACTIONS = {
     if (!settled) throw new CasinoError(409, '精算するテーブルがありません。');
     return { settled };
   },
-  spin: ({ uid, body }) => casinoSpin(uid, body.bets),
   slotSpin: ({ uid, body }) => casinoSlotSpin(uid, body.bet),
   bjJoin: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => joinSeat(ctx, uid, username, body.seat)),
   bjLeave: ({ uid, username }) => blackjackTableAction(uid, username, ctx => leaveSeat(ctx, uid)),
@@ -2798,11 +2665,13 @@ const CASINO_ACTIONS = {
   bjMove: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => moveTurn(ctx, uid, body.move, body.seq)),
   bjOpen: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => openCards(ctx, uid, body.no, body.hands)),
   bjTick: ({ uid, username }) => blackjackTableAction(uid, username, tickTable),
-  hdJoin: ({ uid, username, body }) => holdemTableAction(uid, username, ctx => joinHoldemSeat(ctx, uid, username, body.seat)),
-  hdLeave: ({ uid, username }) => holdemTableAction(uid, username, ctx => leaveHoldemSeat(ctx, uid)),
-  hdSitOut: ({ uid, username, body }) => holdemTableAction(uid, username, ctx => setHoldemSitOut(ctx, uid, body.out !== false)),
-  hdMove: ({ uid, username, body }) => holdemTableAction(uid, username, ctx => moveHoldemTurn(ctx, uid, body.move, body.amount, body.seq)),
-  hdTick: ({ uid, username }) => holdemTableAction(uid, username, tickHoldemTable)
+  // tickets: [{ picks, units }] をまとめて買う (古い画面の { picks, units } 1枚も受け付ける)
+  gpBuy: ({ uid, username, body }) => gapporiTableAction(uid, username, ctx => buyGapporiTickets(
+    ctx, uid, username, Array.isArray(body.tickets) ? body.tickets : [{ picks: body.picks, units: body.units }]
+  )),
+  gpChance: ({ uid, username, body }) => gapporiTableAction(uid, username, ctx => chooseGapporiChance(ctx, uid, body.ticket, body.kind)),
+  gpStart: ({ uid, username }) => gapporiTableAction(uid, username, ctx => startGapporiNow(ctx, uid)),
+  gpTick: ({ uid, username }) => gapporiTableAction(uid, username, () => {})
 };
 
 async function handleCasinoRequest(req, res) {
@@ -2836,11 +2705,11 @@ async function handleCasinoRequest(req, res) {
     const payload = await CASINO_ACTIONS[action]({ uid: decoded.uid, username, body });
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
-    if (error instanceof CasinoError || error instanceof TableError || error instanceof HoldemTableError) {
+    if (error instanceof CasinoError || error instanceof TableError || error instanceof GapporiTableError || error instanceof GapporiRuleError) {
       res.status(error.status).json({ status: 'error', message: error.message });
       return;
     }
-    if (error instanceof BlackjackRuleError || error instanceof HoldemRuleError) {
+    if (error instanceof BlackjackRuleError) {
       res.status(409).json({ status: 'error', message: error.message });
       return;
     }
@@ -2851,12 +2720,12 @@ async function handleCasinoRequest(req, res) {
 
 export const casino = onRequest({ region: 'asia-northeast1' }, handleCasinoRequest);
 
-// 45.x のゲーム画面 (ルーレットのみ) が呼んでいた入口。
+// 45.x のゲーム画面 (ルーレットのみ) が呼んでいた入口。名前はそのころのまま (ルーレットは 52.0 で廃止)。
 // 更新前から開いたままのタブでも精算できるよう、同じ処理のまま残している
 export const casinoRoulette = onRequest({ region: 'asia-northeast1' }, handleCasinoRequest);
 
 // 精算せずに離れたテーブルを片付ける。期限は最後の操作から30分 / 入場から3時間。
-// ブラックジャックの卓も、誰も画面を開いていないまま時間切れで止まっていれば先へ進める
+// ブラックジャックと宝探しの卓も、誰も画面を開いていないまま時間切れで止まっていれば先へ進める
 export const settleIdleCasinoSessions = onSchedule({
   region: 'asia-northeast1',
   schedule: 'every 10 minutes',
@@ -2868,9 +2737,9 @@ export const settleIdleCasinoSessions = onSchedule({
     console.error('ブラックジャックの卓の時間切れ処理に失敗しました:', error);
   }
   try {
-    await runHoldemTable(null, tickHoldemTable);
+    await runGapporiTable(null, () => {});
   } catch (error) {
-    console.error('ホールデムの卓の時間切れ処理に失敗しました:', error);
+    console.error('宝探しの卓の時間切れ処理に失敗しました:', error);
   }
   const snapshot = await db.collection(CASINO_SESSIONS)
     .where('expiresAt', '<=', new Date().toISOString())

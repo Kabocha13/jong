@@ -13,7 +13,9 @@ const SLOT_SYMBOLS = {
     map:     { name: '宝の地図', emoji: '🗺️' },
     rum:     { name: 'ラム酒', emoji: '🍾' },
     parrot:  { name: 'オウム', emoji: '🦜' },
-    anchor:  { name: '錨', emoji: '⚓' }
+    anchor:  { name: '錨', emoji: '⚓' },
+    // 宝探しの船長マス (スロットには出ない)。画像が無いあいだは game-gappori.js が札で出す
+    captain: { name: '船長', emoji: '🎩' }
 };
 const SLOT_PAYS = { chest: 100, coin: 30, compass: 15, map: 12, rum: 5, parrot: 3, anchor: 2 };
 const SLOT_LINES = [[1, 1, 1], [0, 0, 0], [2, 2, 2], [0, 1, 2], [2, 1, 0]];
@@ -172,9 +174,12 @@ function strobeScreen(tones) {
     tones.forEach((tone, index) => setTimeout(() => flashScreen(tone), index * SLOT_STROBE_GAP_MS));
 }
 
-/** 窓の真ん中から金貨を飛び散らせる (画面に固定した入れ物に置くので、横にはみ出してもスクロールしない) */
-function burstCoins(count) {
-    const frame = document.querySelector('.slot-window-frame');
+/**
+ * from (既定はスロットの窓) の真ん中から金貨を飛び散らせる (画面に固定した入れ物に置くので、横にはみ出してもスクロールしない)。
+ * 宝探し (game-gappori.js) からも使う
+ */
+function burstCoins(count, from = document.querySelector('.slot-window-frame')) {
+    const frame = from;
     if (!frame || prefersReducedMotion()) return;
     const rect = frame.getBoundingClientRect();
     const burst = document.createElement('div');

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="assets/js/no-zoom.js?v=51.0"></script>
+    <script src="assets/js/no-zoom.js?v=52.9"></script>
     <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,8 +12,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=51.0">
-    <script src="assets/js/treasure-rain.js?v=51.0" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=52.9">
+    <script src="assets/js/treasure-rain.js?v=52.9" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -36,13 +36,13 @@
             <a href="mypage.html" class="action-button">マイページでログイン</a>
         </section>
 
-        <nav class="casino-back hidden" data-view="lobby roulette blackjack slot holdem underground" aria-label="ゲームの切り替え">
+        <nav class="casino-back hidden" data-view="lobby blackjack slot gappori underground" aria-label="ゲームの切り替え">
             <a href="#">ゲーム一覧へ</a>
         </nav>
 
         <p id="casino-message" class="hidden" aria-live="polite"></p>
 
-        <!-- ゲームの選択。タイルはそのまま #blackjack / #roulette / #slot / #holdem / #underground へのリンク -->
+        <!-- ゲームの選択。タイルはそのまま #blackjack / #slot / #gappori / #underground へのリンク -->
         <section id="casino-menu" class="casino-menu hidden" data-view="menu" aria-labelledby="casino-menu-title">
             <h2 id="casino-menu-title">ゲームを選ぶ</h2>
             <p class="casino-menu-rate" id="casino-menu-rate">現在のレート <strong id="casino-menu-score"></strong></p>
@@ -60,17 +60,6 @@
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
-                <a class="game-tile" href="#roulette" data-game="roulette">
-                    <span class="game-tile-art is-roulette" aria-hidden="true">
-                        <span class="mini-wheel"></span>
-                    </span>
-                    <span class="game-tile-body">
-                        <span class="game-tile-name">ルーレット</span>
-                        <span class="game-tile-sub">Roulette</span>
-                        <span class="game-tile-desc">0〜36のシングルゼロ。1目なら36倍</span>
-                    </span>
-                    <span class="game-tile-badge hidden"></span>
-                </a>
                 <a class="game-tile" href="#slot" data-game="slot">
                     <!-- 絵柄は game-slot.js が入れる -->
                     <span class="game-tile-art is-slot" aria-hidden="true">
@@ -85,17 +74,19 @@
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
-                <a class="game-tile" href="#holdem" data-game="holdem">
-                    <span class="game-tile-art is-holdem" aria-hidden="true">
-                        <span class="bj-card is-black"><span class="bj-card-rank">A</span><span class="bj-card-suit">&#x2660;&#xFE0E;</span></span>
-                        <span class="bj-card is-red"><span class="bj-card-rank">A</span><span class="bj-card-suit">&#x2665;&#xFE0E;</span></span>
-                        <span class="hd-dealer">D</span>
+                <a class="game-tile" href="#gappori" data-game="gappori">
+                    <span class="game-tile-art is-gappori" aria-hidden="true">
+                        <span class="mini-gappori">
+                            <span class="mini-gappori-ball"></span>
+                            <span class="mini-gappori-ball"></span>
+                            <span class="mini-gappori-ball"></span>
+                        </span>
                     </span>
                     <span class="game-tile-body">
-                        <span class="game-tile-name">ホールデム</span>
-                        <span class="game-tile-sub">Texas Hold'em</span>
-                        <span class="game-tile-desc">6人卓。空いた席は性格の違う船員が埋めるので1人でも遊べる</span>
-                        <span class="game-tile-live" id="hd-tile-live"></span>
+                        <span class="game-tile-name">宝探し</span>
+                        <span class="game-tile-sub">Treasure Balls</span>
+                        <span class="game-tile-desc">回る盤面に5球。お宝を2〜5個当てる。船長マスでジャックポット</span>
+                        <span class="game-tile-live" id="gp-tile-live"></span>
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
@@ -122,16 +113,19 @@
             <ul class="casino-rules">
                 <li>持ち込んだレートがチップになり、<strong>精算したとき</strong>にレートへ反映。チップは全ゲーム共通。</li>
                 <li>30分操作なし・入場から3時間・チップ0 で自動精算。</li>
-                <li data-rules="roulette">0〜36 (0は1つ)。1目 ×36、ダズン・カラム ×3、赤黒・偶奇・前後半 ×2 (賭け金込み)。</li>
-                <li data-rules="roulette">0が出たら、×2 の賭けは半額が戻る (0.5の端数は半々で切り上げ)。</li>
                 <li data-rules="blackjack">6デッキ、ディーラーはソフト17でスタンド。勝ち ×2、ブラックジャック ×2.5 (0.5の端数は半々で切り上げ)、引き分け ×1 (賭け金込み)。</li>
                 <li data-rules="blackjack">ダブルは最初の2枚で (スプリット後も可)。スプリットは4手まで、Aは1枚ずつ。</li>
                 <li data-rules="blackjack">最大4人。持ち時間20秒 (過ぎるとスタンド)。</li>
                 <li data-rules="slot">5ライン (賭け金1つで全ラインに賭ける)。3つそろうと倍率 × 賭け金: 宝箱 ×100、金貨 ×30、羅針盤 ×15、宝の地図 ×12、ラム酒 ×5、オウム ×3、錨 ×2。</li>
                 <li data-rules="slot">1回ごとに0.15%で「ジャックポットタイム」(6〜16回) に入る。リールが宝の地図・羅針盤・金貨・宝箱だけになり、真ん中にドクロ旗 (どの絵柄の代わりにもなる) が出る。</li>
                 <li data-rules="slot">ジャックポットタイム中の賭け金は、それまでの平均で固定。</li>
-                <li data-rules="holdem">ノーリミット、ブラインド 1 / 2。手元チップがそのまま持ち込み額。</li>
-                <li data-rules="holdem">6人卓。空いた席には強さの違う船員 (AI) が入る。持ち時間25秒。</li>
+                <li data-rules="gappori">回る盤面の16マス (お宝15マス・船長1マス) に5球が入る。お宝は毎回6種類で、マスの数も毎回変わる (レアなお宝ほど少ない)。同じお宝のマスはまとまって並ぶ。</li>
+                <li data-rules="gappori">お宝を2〜5個予想して何口でも買う。同じお宝を重ねてもよい (錨を2つなら「錨に2球」の予想。そのお宝のマスの数まで)。1口は 2個 10・3個 50・4個 100・5個 200。</li>
+                <li data-rules="gappori">お宝と口数を選んで「買う」を押すと、すぐ券が買える。違う予想の券も続けて買える (1回に20枚まで)。</li>
+                <li data-rules="gappori">予想したお宝ごとに、選んだ数だけ球が入れば当たり。倍率はその回の盤面で決まり、個数が多いほど大きい。</li>
+                <li data-rules="gappori">3球目のあと、券ごとに「お宝ゲット」が来ることがある (2個 2.5%・3個 5%・4個 7.5%・5個 15%)。その券でまだ足りないお宝を1つ選ぶと「1球入ったこと」になる (その券だけ)。</li>
+                <li data-rules="gappori">券を買ったら「すぐ始める」で受付の30秒を飛ばせる (その回に券を買った人が全員押したら始まる)。</li>
+                <li data-rules="gappori">船長マスに球が入ると「船長チャンス」。20回に1回ジャックポット (外れた券の代金の1割を貯めたもの) が当たり、その回に券を買った人みんなで、買った額に応じて山分けする。</li>
             </ul>
             <form id="casino-enter-form">
                 <div class="form-group">
@@ -160,40 +154,6 @@
             <p class="info-text casino-expiry" id="casino-expiry"></p>
             <button type="button" id="casino-settle-button" class="btn-gold">精算する</button>
             <p class="info-text casino-settle-note hidden" id="casino-settle-note">勝負が終わると精算できます。</p>
-        </section>
-
-        <section id="casino-table" class="hidden" data-view="roulette" aria-label="ルーレットテーブル">
-            <div class="casino-layout">
-                <div class="info-box casino-wheel-box">
-                    <div class="roulette-wheel-frame">
-                        <span class="roulette-pointer" aria-hidden="true"></span>
-                        <svg id="roulette-wheel" class="roulette-wheel" viewBox="0 0 200 200" aria-hidden="true"></svg>
-                    </div>
-                    <p id="casino-result" class="casino-result" aria-live="polite">賭け先を選んでスピン</p>
-                    <ol id="casino-recent" class="casino-recent" aria-label="直近の出目"></ol>
-                </div>
-
-                <div class="info-box casino-board-box">
-                    <div class="casino-chip-picker" role="radiogroup" aria-label="1回に置くチップ">
-                        <button type="button" role="radio" data-chip="1">1</button>
-                        <button type="button" role="radio" data-chip="5">5</button>
-                        <button type="button" role="radio" data-chip="10">10</button>
-                        <button type="button" role="radio" data-chip="50">50</button>
-                        <button type="button" role="radio" data-chip="100">100</button>
-                    </div>
-
-                    <div id="roulette-board" class="roulette-board"></div>
-
-                    <p class="casino-bet-total">賭け合計 <strong id="casino-bet-total">0</strong></p>
-                    <div class="casino-actions">
-                        <button type="button" id="casino-undo-button" class="secondary-button">1つ戻す</button>
-                        <button type="button" id="casino-clear-button" class="secondary-button">クリア</button>
-                        <button type="button" id="casino-rebet-button" class="secondary-button">前回と同じ</button>
-                        <button type="button" id="casino-spin-button" class="casino-spin-button">スピン</button>
-                    </div>
-                    <p id="casino-table-message" class="hidden" aria-live="polite"></p>
-                </div>
-            </div>
         </section>
 
         <section id="blackjack-table" class="hidden" data-view="blackjack" aria-label="ブラックジャックの卓">
@@ -253,72 +213,6 @@
             </div>
         </section>
 
-        <section id="holdem-table" class="hidden" data-view="holdem" aria-label="ホールデムの卓">
-            <div class="info-box hd-table-box">
-                <div class="hd-felt">
-                    <!-- 6席は game-holdem.js が自分の席を手前にして並べる。中央はボードとポット -->
-                    <ol class="hd-seats" id="hd-seats" aria-label="席 (6人)"></ol>
-                    <div class="hd-center" aria-live="polite">
-                        <p class="hd-street" id="hd-street"></p>
-                        <div class="bj-cards hd-board" id="hd-board"></div>
-                        <p class="hd-pot" id="hd-pot"></p>
-                        <p class="bj-felt-print hd-felt-print" aria-hidden="true">No-Limit Hold'em<span>Blinds 1 / 2</span></p>
-                    </div>
-                </div>
-
-                <div class="bj-side hd-side">
-                    <p id="hd-status" class="bj-status" aria-live="polite"></p>
-                    <p id="hd-result" class="casino-result" aria-live="polite"></p>
-
-                    <div id="hd-mine" class="hd-mine hidden">
-                        <div class="bj-cards" id="hd-my-cards"></div>
-                        <span class="bj-total hd-my-hand" id="hd-my-hand"></span>
-                    </div>
-
-                    <div id="hd-sit" class="bj-sit hidden">
-                        <p class="info-text">席に座ると、船員たちとのハンドがすぐ始まります。</p>
-                        <button type="button" id="hd-sit-button">席に座る</button>
-                    </div>
-
-                    <div id="hd-actions" class="hd-actions hidden" role="group" aria-label="操作">
-                        <div class="hd-action-row">
-                            <button type="button" id="hd-fold-button" class="secondary-button">フォールド</button>
-                            <button type="button" id="hd-check-button">チェック</button>
-                            <button type="button" id="hd-call-button">コール <span id="hd-call-amount"></span></button>
-                        </div>
-                        <div id="hd-raise" class="hd-raise">
-                            <div id="hd-raise-controls">
-                                <div class="hd-raise-presets" role="group" aria-label="レイズ額の候補">
-                                    <button type="button" data-hd-preset="min">最小</button>
-                                    <button type="button" data-hd-preset="half">1/2ポット</button>
-                                    <button type="button" data-hd-preset="pot">ポット</button>
-                                    <button type="button" data-hd-preset="max">全部</button>
-                                </div>
-                                <div class="hd-raise-amount">
-                                    <input type="range" id="hd-raise-range" min="0" max="0" step="1" aria-label="レイズ額">
-                                    <input type="number" id="hd-raise-input" min="0" step="1" inputmode="numeric" aria-label="レイズ額 (合計)">
-                                </div>
-                            </div>
-                            <button type="button" id="hd-raise-button" class="casino-spin-button hd-raise-button">レイズ</button>
-                        </div>
-                    </div>
-
-                    <div id="hd-seat-tools" class="hd-seat-tools hidden">
-                        <button type="button" id="hd-sitout-button" class="secondary-button">休憩する</button>
-                        <button type="button" id="hd-leave-button" class="secondary-button">席を立つ</button>
-                    </div>
-                    <p id="hd-message" class="hidden" aria-live="polite"></p>
-                    <ol id="hd-recent" class="casino-recent" aria-label="直近の自分のハンド"></ol>
-                </div>
-            </div>
-
-            <div class="info-box hd-crew-box hidden" id="hd-crew-box">
-                <h3 class="icon-title">船員たち</h3>
-                <p class="info-text">空いた席に入る相手。強さも性格も違います。</p>
-                <ul id="hd-crew" class="hd-crew"></ul>
-            </div>
-        </section>
-
         <section id="slot-table" class="hidden" data-view="slot" aria-label="スロット">
             <div class="slot-cabinet">
                 <p class="slot-marquee" aria-hidden="true"><span>Treasure Reels</span></p>
@@ -358,6 +252,66 @@
         </section>
 
         <!-- 船底。中身は game-underground.js が作る (積荷の並び・採点・レートの増減はすべて Cloud Function underground が決める) -->
+        <section id="gappori-table" class="hidden" data-view="gappori" data-screen="buy" aria-label="宝探し">
+            <!-- スマホでは「券を買う」と「ルーレット」を切り替えて、どちらも1画面に収める (PC は横に並べるので出さない)。
+                 受付中は「券を買う」、抽選が始まったら「ルーレット」に game-gappori.js が切り替える -->
+            <div class="gp-tabs" role="tablist" aria-label="宝探しの画面">
+                <button type="button" role="tab" data-screen="buy" aria-selected="true">券を買う</button>
+                <button type="button" role="tab" data-screen="wheel" aria-selected="false">ルーレット</button>
+            </div>
+
+            <div class="gp-machine">
+                <div class="gp-top">
+                    <p class="gp-jackpot"><span>JACKPOT</span><strong id="gp-jackpot">0</strong></p>
+                    <p class="gp-status" id="gp-status" aria-live="polite"></p>
+                </div>
+                <!-- 16マスは game-gappori.js が回ごとに並べる。球を入れるたびに盤面が回り、球の入ったマスが上の針で止まる -->
+                <div class="gp-wheel-wrap" id="gp-wheel-wrap">
+                    <div class="gp-wheel" id="gp-wheel" role="img" aria-label="回る盤面 (16マス)"></div>
+                    <span class="gp-hub" aria-hidden="true">Treasure<br>Balls</span>
+                    <span class="gp-pointer" aria-hidden="true"></span>
+                    <span class="gp-drop-ball" aria-hidden="true"></span>
+                </div>
+                <ol class="gp-drawn" id="gp-drawn" aria-label="入ったお宝 (5球)"></ol>
+                <!-- ルーレットの画面で見せる自分の券 (スマホだけ。PC は右の「この回の券」) -->
+                <ul class="gp-mine-strip" id="gp-mine-strip" aria-label="自分の券"></ul>
+            </div>
+
+            <div class="info-box gp-panel">
+                <h3 class="icon-title">券を買う</h3>
+                <div class="gp-kinds" id="gp-kinds" role="group" aria-label="予想するお宝 (2〜5個)"></div>
+                <p class="gp-pick-info" id="gp-pick-info"></p>
+                <div class="gp-buy">
+                    <div class="gp-units" role="group" aria-label="口数">
+                        <button type="button" id="gp-units-down" aria-label="口数を減らす">−</button>
+                        <label><span>口数</span><input type="number" id="gp-units" inputmode="numeric" min="1" max="50" step="1" value="1"></label>
+                        <button type="button" id="gp-units-up" aria-label="口数を増やす">＋</button>
+                    </div>
+                    <p class="gp-cost"><span>代金</span><strong id="gp-cost">100</strong></p>
+                    <button type="button" id="gp-buy-button" class="gp-buy-button">買う</button>
+                </div>
+                <!-- 受付の30秒を飛ばす。この回に券を買った人が全員押したら始まる -->
+                <button type="button" id="gp-start-button" class="gp-start-button hidden">すぐ始める</button>
+                <p id="gp-message" class="hidden" aria-live="polite"></p>
+
+                <div class="gp-mine">
+                    <h3 class="icon-title">この回の券</h3>
+                    <ul id="gp-my-tickets" class="gp-tickets"></ul>
+                    <p class="gp-others" id="gp-others"></p>
+                    <ol id="gp-recent" class="casino-recent" aria-label="直近の結果"></ol>
+                </div>
+            </div>
+
+            <!-- お宝ゲット (チャンス): 自分の券に来たときだけ出す。券ごとに、まだ足りないお宝から1つ選ぶ。
+                 画面の下に固定するので、game-gappori.js が body の直下へ移す (main は動きの transform を持つため) -->
+            <div id="gp-chance" class="gp-chance hidden" role="dialog" aria-label="お宝ゲット">
+                <p class="gp-chance-title">お宝ゲット!!</p>
+                <p class="gp-chance-text">お宝ゲットの券ごとに、まだ足りないお宝を1つ選ぶと「1球入ったこと」になります</p>
+                <div class="gp-chance-options" id="gp-chance-options"></div>
+                <p class="gp-chance-left" id="gp-chance-left"></p>
+            </div>
+        </section>
+
         <section id="underground-view" class="hidden" data-view="underground" aria-label="船底">
             <div class="info-box ug-status">
                 <h3 class="icon-title">⛓ 船底</h3>
@@ -425,12 +379,11 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=51.0"></script>
-    <script src="assets/js/game-roulette.js?v=51.0"></script>
-    <script src="assets/js/game-blackjack.js?v=51.0"></script>
-    <script src="assets/js/game-slot.js?v=51.0"></script>
-    <script src="assets/js/game-holdem.js?v=51.0"></script>
-    <script src="assets/js/game-underground.js?v=51.0"></script>
-    <script src="assets/js/game.js?v=51.0"></script>
+    <script src="assets/js/common.js?v=52.9"></script>
+    <script src="assets/js/game-blackjack.js?v=52.9"></script>
+    <script src="assets/js/game-slot.js?v=52.9"></script>
+    <script src="assets/js/game-gappori.js?v=52.9"></script>
+    <script src="assets/js/game-underground.js?v=52.9"></script>
+    <script src="assets/js/game.js?v=52.9"></script>
 </body>
 </html>
