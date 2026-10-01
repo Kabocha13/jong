@@ -6,6 +6,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
 import { normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
 import { GapporiRuleError } from './gappori.js';
+import { NARIAGARI_BETS, NARIAGARI_SJP_STAGE, playNariagari } from './nariagari.js';
 import {
   GAPPORI_RULES_VERSION,
   GapporiTableError,
@@ -2085,7 +2086,7 @@ export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) =>
 });
 
 // -----------------------------------------------------------------
-// カジノ (ブラックジャック・スロット・宝探し。ルーレットとテキサスホールデムは 52.0 で廃止)
+// カジノ (ブラックジャック・スロット・宝探し・成り上がり。ルーレットとテキサスホールデムは 52.0 で廃止)
 //   入場時に持ち込むレートを決め、以降の勝ち負けは casino_sessions のチップだけで動かす。
 //   チップは1人1つで、どのゲームでも使える
 //   (持ち込みは1回ぶんしか持てないので、同じレートを二重に持ち込めない)。
@@ -2102,6 +2103,8 @@ export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) =>
 //   bj_public/main に置く。画面は bj_public を読み直して、ほかの人の操作を反映する。
 //
 //   スロットのルール (リールの並び・ライン・配当) は slot.js にある。
+//   成り上がり (5段のルーレット) のルールは nariagari.js にある。1回ぶんを最初に最後の弾まで決めて払い戻し、
+//   画面は順に回して見せる。第5弾 (SJP) まで行ったら全員 (本人も含む) に通知する。
 //
 //   宝探しも全員共通の1卓。ルールは gappori.js、卓の進め方は gappori-table.js。
 //   卓の中身は gappori_tables/main、誰でも読める形は gappori_public/main に置く。
@@ -2110,7 +2113,7 @@ export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) =>
 const CASINO_SESSIONS = 'casino_sessions';
 // スロットのジャックポットタイムの状態 (人ごと。カジノを精算しても引き継ぐ。Cloud Functions だけが読み書きする)
 const SLOT_STATES = 'slot_states';
-const CASINO_GAMES = new Set(['blackjack', 'slot', 'gappori']);
+const CASINO_GAMES = new Set(['blackjack', 'slot', 'gappori', 'nariagari']);
 const CASINO_IDLE_SETTLE_MS = 30 * 60 * 1000;
 const CASINO_MAX_SESSION_MS = 3 * 60 * 60 * 1000;
 const CASINO_RECENT_LIMIT = 12;
@@ -2149,6 +2152,7 @@ function publicCasinoSession(session) {
     bjHands: session.bjHands || 0,
     slotSpins: session.slotSpins || 0,
     gpRounds: session.gpRounds || 0,
+    nrSpins: session.nrSpins || 0,
     startedAt: session.startedAt,
     lastActionAt: session.lastActionAt,
     expiresAt: session.expiresAt,
@@ -2160,6 +2164,11 @@ function publicCasinoSession(session) {
     },
     gappori: {
       recent: session.gpRecent || []
+    },
+    nariagari: {
+      recent: session.nrRecent || [],
+      // 最後の1回 (第4弾以上まで行った回を、画面を開き直したときに続きから見せるため)
+      last: session.nrLast || null
     }
   };
 }
@@ -2177,6 +2186,7 @@ function casinoPlayLog(session) {
     { source: 'casino_blackjack', name: 'ブラックジャック', count: session.bjHands || 0 },
     { source: 'casino_slot', name: 'スロット', count: session.slotSpins || 0 },
     { source: 'casino_gappori', name: '宝探し', count: session.gpRounds || 0 },
+    { source: 'casino_nariagari', name: '成り上がり', count: session.nrSpins || 0 },
     // ルーレットとホールデムは 52.0 で廃止。廃止前に遊んだセッション (最長3時間) の回数も記録に残す
     { source: 'casino_roulette', name: 'ルーレット', count: session.spins || 0 },
     { source: 'casino_holdem', name: 'ホールデム', count: session.hdHands || 0 }
@@ -2218,10 +2228,12 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
   const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
   const { tableRef, publicRef } = blackjackTableRefs();
   const gapporiRefs = gapporiTableRefs();
+  let unsentTop = null;   // 成り上がりで最上段まで行ったのに、まだ通知していない回
   const result = await db.runTransaction(async transaction => {
     const [sessionDoc, tableDoc, gapporiDoc] = await transaction.getAll(sessionRef, tableRef, gapporiRefs.tableRef);
     if (!sessionDoc.exists) return null;
     const session = sessionDoc.data();
+    unsentTop = isUnsentNariagariTop(session.nrLast) ? { player: session.player, last: session.nrLast } : null;
     const at = new Date().toISOString();
     const table = tableDoc.exists ? tableDoc.data() : null;
     const seatIndex = table ? seatIndexOf(table, uid) : -1;
@@ -2282,6 +2294,7 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
       bjHands: session.bjHands || 0,
       slotSpins: session.slotSpins || 0,
       gpRounds: session.gpRounds || 0,
+      nrSpins: session.nrSpins || 0,
       beforeScore,
       afterScore,
       delta: beforeScore === null ? 0 : afterScore - beforeScore,
@@ -2297,6 +2310,7 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
   if (result && result.delta !== 0) {
     await rebuildRateChartQuietly('casino_settle');
   }
+  if (result && unsentTop) await notifyNariagariTop(unsentTop.player, unsentTop.last);
   return result;
 }
 
@@ -2390,13 +2404,15 @@ async function casinoEnter(uid, username, rawBuyIn, rawGame) {
       bjHands: 0,
       slotSpins: 0,
       gpRounds: 0,
+      nrSpins: 0,
       wagered: 0,
       startedAt: now,
       lastActionAt: now,
       expiresAt: casinoSessionExpiresAt(now, now),
       bjRecent: [],
       slotRecent: [],
-      gpRecent: []
+      gpRecent: [],
+      nrRecent: []
     };
     transaction.set(sessionRef, next);
     return next;
@@ -2473,6 +2489,99 @@ async function casinoSlotSpin(uid, rawBet) {
     return { result: spun.result, session: null, settled, slot };
   }
   return { result: spun.result, session: publicCasinoSession(spun.session), slot };
+}
+
+/** 成り上がりで最上段 (第5弾) まで行ったのに、まだ全員へ知らせていない回か */
+function isUnsentNariagariTop(last) {
+  return Boolean(last && last.top >= NARIAGARI_SJP_STAGE && !last.notified);
+}
+
+/** 成り上がりで最上段まで行ったことを、全員 (本人も含む) に知らせる。失敗してもログだけ残す */
+async function notifyNariagariTop(player, last) {
+  try {
+    const result = await sendPushToEveryone({
+      title: '👑 成り上がり 最上段到達！',
+      body: `${player}さんが第5弾 (SJP) まで成り上がり、×${last.multiplier} で ${normalizeRate(last.payout).toLocaleString('ja-JP')} 獲得しました`,
+      tag: `nariagari-sjp-${last.id}`,
+      link: `${APP_URL}game.html#nariagari`
+    });
+    console.log('nariagari top notice:', JSON.stringify({ player, id: last.id, ...result }));
+  } catch (error) {
+    console.error('成り上がりの最上段の通知に失敗しました:', error);
+  }
+}
+
+/**
+ * 成り上がりを1回まわす。bet は NARIAGARI_BETS のどれか、layout は画面が見せている第1弾の並び
+ * (中身と並べ方が正しければそのまま使う。止まるマスはここで等確率に決めるので、並びを選べても有利にはならない)。
+ * 最後の弾まで決めて払い戻しまで済ませ、画面は返した stages を順に回して見せる。
+ * 前の回が最上段まで行ったのにまだ通知していなければ (画面を閉じたなど)、ここで送る
+ */
+async function casinoNariagariSpin(uid, rawBet, rawLayout) {
+  const bet = Number(rawBet);
+  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
+  if (!NARIAGARI_BETS.includes(bet)) {
+    throw new CasinoError(400, `賭け金は ${NARIAGARI_BETS.join('・')} のどれかにしてください。`);
+  }
+  const layout = Array.isArray(rawLayout) ? rawLayout.map(String) : null;
+
+  const spun = await db.runTransaction(async transaction => {
+    const sessionDoc = await transaction.get(sessionRef);
+    if (!sessionDoc.exists) {
+      throw new CasinoError(409, 'テーブルに入場していません。');
+    }
+    const session = sessionDoc.data();
+    if (isCasinoSessionExpired(session)) return { expired: true };
+    if (bet > session.chips) {
+      throw new CasinoError(400, `手元のチップ (${session.chips}) を超えて賭けることはできません。`);
+    }
+    const now = new Date().toISOString();
+    const play = playNariagari(bet, casinoRandom, layout);
+    const id = `${Date.now().toString(36)}${randomInt(36 ** 4).toString(36)}`;
+    const last = { id, bet, ...play, at: now, notified: false };
+    const unsent = isUnsentNariagariTop(session.nrLast) ? session.nrLast : null;
+    const summary = { bet, returned: play.payout, multiplier: play.multiplier, top: play.top, at: now };
+    const next = {
+      ...session,
+      chips: session.chips - bet + play.payout,
+      nrSpins: (session.nrSpins || 0) + 1,
+      wagered: (session.wagered || 0) + bet,
+      lastActionAt: now,
+      expiresAt: casinoSessionExpiresAt(session.startedAt, now),
+      nrRecent: [summary, ...(session.nrRecent || [])].slice(0, CASINO_RECENT_LIMIT),
+      nrLast: last
+    };
+    transaction.set(sessionRef, next);
+    return { result: last, session: next, unsent };
+  });
+
+  if (spun.expired) {
+    const settled = await settleCasinoSession(uid, 'casino_auto_settle');
+    return { expired: true, settled };
+  }
+  if (spun.unsent) await notifyNariagariTop(spun.session.player, spun.unsent);
+  // チップが尽きたら続けようがないので、その場で精算する (尽きるのははずれの回だけなので、続きを見せる回は無い)
+  if (spun.session.chips <= 0) {
+    const settled = await settleCasinoSession(uid, spun.session.player, { reason: 'broke' });
+    return { result: spun.result, session: null, settled };
+  }
+  return { result: spun.result, session: publicCasinoSession(spun.session) };
+}
+
+/** 成り上がりの第5弾の結果を画面が見せ終えたら呼ぶ。その回をまだ知らせていなければ、全員 (本人も含む) に知らせる */
+async function casinoNariagariNotify(uid, rawId) {
+  const id = String(rawId || '');
+  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
+  const unsent = await db.runTransaction(async transaction => {
+    const sessionDoc = await transaction.get(sessionRef);
+    if (!sessionDoc.exists) return null;
+    const session = sessionDoc.data();
+    if (!session.nrLast || session.nrLast.id !== id || !isUnsentNariagariTop(session.nrLast)) return null;
+    transaction.update(sessionRef, { 'nrLast.notified': true });
+    return { player: session.player, last: session.nrLast };
+  });
+  if (unsent) await notifyNariagariTop(unsent.player, unsent.last);
+  return { notified: Boolean(unsent) };
 }
 
 /** 財布を精算したあとの人へ返すぶんを、人ごとにまとめる */
@@ -2659,6 +2768,8 @@ const CASINO_ACTIONS = {
     return { settled };
   },
   slotSpin: ({ uid, body }) => casinoSlotSpin(uid, body.bet),
+  nrSpin: ({ uid, body }) => casinoNariagariSpin(uid, body.bet, body.layout),
+  nrNotify: ({ uid, body }) => casinoNariagariNotify(uid, body.id),
   bjJoin: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => joinSeat(ctx, uid, username, body.seat)),
   bjLeave: ({ uid, username }) => blackjackTableAction(uid, username, ctx => leaveSeat(ctx, uid)),
   bjBet: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => placeBet(ctx, uid, body.amount, body.squeeze)),

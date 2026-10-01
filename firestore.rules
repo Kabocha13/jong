@@ -63,7 +63,7 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // カジノ (ブラックジャック・スロット・宝探し) の持ち込み・手元チップ・配られたカード。
+    // カジノ (ブラックジャック・スロット・宝探し・成り上がり) の持ち込み・手元チップ・配られたカード。
     // 残高を書き換えられると精算額を偽れ、読めるとディーラーの伏せ札が見えてしまうので、
     // 読み書きとも Cloud Functions (casino) だけに限る。
     match /casino_sessions/{userId} {

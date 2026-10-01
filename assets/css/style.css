@@ -3802,7 +3802,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 }
 
 /* ------------------------------------------------------------
-   19f. ゲーム — ガッポリお宝 (回る盤面に5球。全員共通の1卓)
+   19f. ゲーム — 宝探し (回る盤面に5球。全員共通の1卓)
    ------------------------------------------------------------ */
 /* ゲーム一覧のタイル: 回る盤面に球が3つ */
 .mini-gappori {
@@ -4798,6 +4798,448 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 }
 
 .ug-recent-time { flex: none; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+/* ------------------------------------------------------------
+   19h. ゲーム — 成り上がり (5段のルーレット)
+   ------------------------------------------------------------ */
+/* ゲーム一覧のタイル: 下から上へ小さくなる5段の円盤。いちばん上が光る */
+.game-tile-art.is-nariagari { flex-direction: column-reverse; gap: 4px; }
+
+.mini-nr-tier {
+    display: block;
+    height: clamp(10px, 2.8vw, 15px);
+    background: linear-gradient(180deg, var(--brass-light), var(--brass) 55%, #6b4a12);
+    border-radius: 50%;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 244, 200, 0.6);
+    transition: transform 0.25s ease;
+}
+
+.mini-nr-tier:nth-child(1) { width: clamp(88px, 24vw, 128px); }
+.mini-nr-tier:nth-child(2) { width: clamp(70px, 19vw, 102px); }
+.mini-nr-tier:nth-child(3) { width: clamp(54px, 14.5vw, 78px); }
+.mini-nr-tier:nth-child(4) { width: clamp(38px, 10.5vw, 56px); background: linear-gradient(180deg, #ff8a74, var(--rum-light) 55%, var(--rum-dark)); }
+
+.mini-nr-tier:nth-child(5) {
+    width: clamp(24px, 6.5vw, 34px);
+    background: radial-gradient(circle at 50% 35%, #fffbe8, #ffd34d 50%, #ff9228);
+    box-shadow: 0 0 14px var(--lantern), 0 0 4px #fff;
+    animation: nr-tier-glow 1.2s ease-in-out infinite alternate;
+}
+
+.game-tile:hover .mini-nr-tier:nth-child(5) { transform: translateY(-5px); }
+
+@keyframes nr-tier-glow {
+    from { filter: brightness(1); }
+    to   { filter: brightness(1.35); }
+}
+
+/* 台: スロットと同じ木の筐体 */
+.nr-cabinet {
+    --nr-wheel: 360px;
+    font-variant-numeric: lining-nums;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto clamp(14px, 2.4vw, 24px);
+    padding: 12px 12px 16px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 30%),
+        var(--img-wood),
+        linear-gradient(180deg, var(--timber-light), var(--timber) 45%, var(--pitch-light));
+    background-size: auto, 260px, auto;
+    background-blend-mode: normal, multiply, normal;
+    border: 2px solid var(--brass);
+    border-radius: 20px 20px 10px 10px;
+    box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), inset 0 2px 0 rgba(255, 238, 196, 0.25), var(--shadow-deep);
+}
+
+.nr-status {
+    min-height: 1.4em;
+    margin: 0 0 8px;
+    font-size: 0.9em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-align: center;
+    color: var(--brass-pale);
+}
+
+.nr-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* 盤面。マスの色と文字は game-nariagari.js が並びに合わせて描く。針と真ん中は回らない */
+.nr-wheel-wrap {
+    --nr-up: #e9b949;
+    --nr-end: #1a3238;
+    --nr-mult: #f3e2bd;
+    --nr-q: #5b2a6e;
+    --nr-top: #ff9a2e;
+    --nr-rim: var(--timber);
+    --nr-font: 0.052;
+    position: relative;
+    flex: none;
+    width: var(--nr-wheel);
+    aspect-ratio: 1;
+}
+
+.nr-wheel-wrap.is-stage-2 { --nr-font: 0.058; }
+.nr-wheel-wrap.is-stage-3 { --nr-font: 0.08; }
+.nr-wheel-wrap.is-stage-4 { --nr-font: 0.086; --nr-mult: #f6cf8f; --nr-rim: #7a1410; }
+.nr-wheel-wrap.is-stage-5 { --nr-font: 0.09; --nr-mult: #fff0b8; --nr-q: #7a2b8f; --nr-top: #ffcf3a; --nr-rim: #8a6412; }
+
+.nr-wheel {
+    position: absolute;
+    inset: 0;
+    border: 8px solid var(--nr-rim);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px var(--brass), inset 0 0 24px rgba(0, 0, 0, 0.6), 0 10px 22px rgba(0, 0, 0, 0.55);
+    will-change: transform;
+}
+
+/* マスの境目の線 (盤面と一緒に回る) */
+.nr-wheel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: repeating-conic-gradient(rgba(0, 0, 0, 0.55) 0deg 0.7deg, transparent 0.7deg var(--nr-seg, 24deg));
+    pointer-events: none;
+}
+
+.nr-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 1;
+    font-family: var(--font-body);
+    font-size: calc(var(--nr-wheel) * var(--nr-font));
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    /* マスの位置へ回して置いたあと、盤面の角度 (--spin) ぶん戻して、回っていても文字は上向きのままにする (6 と 9 を見分けるため) */
+    transform: translate(-50%, -50%) rotate(var(--at)) translateY(calc(var(--nr-wheel) * -0.355)) rotate(calc(-1 * var(--at) - var(--spin, 0deg)));
+}
+
+.nr-label.is-up   { color: #3a2604; text-shadow: 0 1px 0 rgba(255, 244, 200, 0.6); }
+.nr-label.is-end  { font-size: calc(var(--nr-wheel) * var(--nr-font) * 0.8); font-weight: 700; color: rgba(246, 227, 178, 0.55); }
+.nr-label.is-mult { color: var(--rum); }
+.nr-label.is-q    { color: #fff; text-shadow: 0 0 6px rgba(255, 140, 255, 0.8); }
+.nr-label.is-top  { color: #3a0908; text-shadow: 0 0 8px #fff4c8; }
+
+.nr-pointer {
+    position: absolute;
+    left: 50%;
+    top: -6px;
+    z-index: 2;
+    width: 0;
+    height: 0;
+    border-top: calc(var(--nr-wheel) * 0.075) solid var(--lantern);
+    border-right: calc(var(--nr-wheel) * 0.045) solid transparent;
+    border-left: calc(var(--nr-wheel) * 0.045) solid transparent;
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.7));
+    transform: translateX(-50%);
+}
+
+.nr-hub {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: calc(var(--nr-wheel) * 0.34);
+    aspect-ratio: 1;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: calc(var(--nr-wheel) * 0.085);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--brass-light);
+    text-shadow: 0 2px 0 #1a0f06, 0 0 10px rgba(255, 182, 72, 0.6);
+    background: radial-gradient(circle at 40% 32%, var(--timber-light), var(--timber) 62%, var(--pitch-light));
+    border: 3px solid var(--brass);
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6), inset 0 2px 0 rgba(255, 238, 196, 0.25);
+    transform: translate(-50%, -50%);
+}
+
+.nr-wheel-wrap.is-stage-4 .nr-hub { background: radial-gradient(circle at 40% 32%, #e0584a, var(--rum) 55%, var(--rum-dark)); }
+.nr-wheel-wrap.is-stage-5 .nr-hub { color: #3a0908; text-shadow: 0 0 8px #fff4c8; background: radial-gradient(circle at 40% 32%, #fffbe8, #ffd34d 50%, #c9922f); }
+.nr-hub.is-up    { color: #fff4c8; animation: nr-hub-pop 0.5s ease-out; }
+.nr-hub.is-value { color: #fff4c8; animation: nr-hub-pop 0.5s ease-out; }
+.nr-hub.is-rolling { color: #f0c8ff; }
+.nr-hub.is-end   { font-family: var(--font-title); font-size: calc(var(--nr-wheel) * 0.065); color: rgba(246, 227, 178, 0.6); }
+
+@keyframes nr-hub-pop {
+    from { transform: translate(-50%, -50%) scale(1.35); }
+    to   { transform: translate(-50%, -50%) scale(1); }
+}
+
+/* 第5弾: 盤面の後ろで七色の光を回す */
+.nr-wheel-wrap.is-stage-5::before {
+    content: '';
+    position: absolute;
+    inset: -8%;
+    border-radius: 50%;
+    background: conic-gradient(#ffd34d, #ff6b6b, #c86bff, #6bc8ff, #6bff9a, #ffd34d);
+    filter: blur(14px);
+    opacity: 0.75;
+    animation: nr-rainbow 3s linear infinite;
+}
+
+.nr-wheel-wrap.is-stage-4::before {
+    content: '';
+    position: absolute;
+    inset: -5%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 90, 60, 0.75), transparent 70%);
+    filter: blur(8px);
+    animation: nr-tier-glow 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes nr-rainbow {
+    to { transform: rotate(360deg); }
+}
+
+.nr-wheel-wrap.is-up .nr-pointer { border-top-color: #fff4c8; filter: drop-shadow(0 0 10px var(--lantern)); }
+.nr-wheel-wrap.is-dim .nr-wheel { filter: brightness(0.55) saturate(0.7); }
+.nr-wheel-wrap.is-shake { animation: slot-shake 0.5s ease-out; }
+.nr-wheel-wrap.is-enter { animation: nr-enter 0.6s cubic-bezier(0.2, 1.4, 0.4, 1); }
+
+@keyframes nr-enter {
+    from { opacity: 0; transform: scale(0.6) rotate(-30deg); }
+    to   { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+/* 右の塔: 上ほど高い弾 */
+.nr-tower {
+    display: grid;
+    gap: 4px;
+    width: 62px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.nr-tower li {
+    display: grid;
+    place-content: center;
+    min-height: calc(var(--nr-wheel) / 5.8);
+    font-family: var(--font-display);
+    font-size: 1.05em;
+    line-height: 1.05;
+    text-align: center;
+    color: rgba(246, 227, 178, 0.4);
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(201, 146, 47, 0.35);
+    border-radius: 8px;
+}
+
+.nr-tower small { font-family: var(--font-body); font-size: 0.56em; letter-spacing: 0.04em; }
+.nr-tower li.is-reached { color: var(--brass-pale); background: linear-gradient(180deg, rgba(201, 146, 47, 0.35), rgba(0, 0, 0, 0.3)); border-color: var(--brass); }
+
+.nr-tower li.is-current {
+    color: #2b1d06;
+    background: radial-gradient(circle at 50% 30%, #fff7dc, #f4cd68 55%, #c9922f);
+    border-color: #fff4c8;
+    box-shadow: 0 0 14px var(--lantern);
+    animation: nr-tier-glow 0.9s ease-in-out infinite alternate;
+}
+
+.nr-tower li[data-stage="4"].is-current { color: #fff4dc; background: radial-gradient(circle at 50% 30%, #ff8a74, var(--rum-light) 55%, var(--rum-dark)); box-shadow: 0 0 16px #ff5a4a; }
+.nr-tower li[data-stage="5"].is-current { background: conic-gradient(from 0deg, #ffd34d, #ff9a8a, #e0a8ff, #9adcff, #a8ffc0, #ffd34d); box-shadow: 0 0 18px #fff4c8; }
+
+.nr-readout { margin: 10px 0; min-height: 64px; }
+
+.nr-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+}
+
+.nr-spin-button { font-size: 1.05em; }
+
+#nr-message { margin: 12px 0 0; }
+
+/* マスと倍率 */
+.nr-paytable {
+    display: grid;
+    gap: 6px;
+    margin: 12px 0;
+    padding: 0;
+    list-style: none;
+}
+
+.nr-paytable li {
+    display: grid;
+    grid-template-columns: 5.6em minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: rgba(43, 30, 16, 0.06);
+    border-radius: var(--radius-sm);
+}
+
+.nr-pay-name { font-size: 0.86em; }
+.nr-pay-pockets { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.nr-pay-chip {
+    padding: 1px 7px;
+    font-size: 0.8em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    border: 1px solid var(--parchment-edge);
+    border-radius: 999px;
+}
+
+.nr-pay-chip.is-up   { font-weight: 700; color: #3a2604; background: #f4cd68; border-color: #c9922f; }
+.nr-pay-chip.is-end  { color: var(--parchment); background: #1a3238; border-color: #1a3238; }
+.nr-pay-chip.is-mult { color: var(--rum); background: #fbf2dc; }
+.nr-pay-chip.is-q    { color: #fff; background: #5b2a6e; border-color: #5b2a6e; }
+.nr-pay-chip.is-top  { font-weight: 700; color: #3a0908; background: #ffcf3a; border-color: #c9922f; }
+
+/* 第4弾・第5弾を回す大きなボタン (画面の真ん中に固定。body の直下に置く) */
+.nr-big {
+    position: fixed;
+    font-variant-numeric: lining-nums;
+    inset: 0;
+    z-index: 2050;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(circle, rgba(40, 6, 4, 0.35), rgba(0, 0, 0, 0.82) 75%);
+    animation: nr-big-in 0.35s ease-out;
+}
+
+.nr-big.hidden { display: none; }
+.nr-big.is-sjp { background: radial-gradient(circle, rgba(60, 40, 0, 0.3), rgba(0, 0, 0, 0.85) 75%); }
+
+@keyframes nr-big-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ボタンの絵は縁まで描いてあるので、そのまま出して外側だけ丸くぼかす。光はボタン全体に付ける (ぼかしの外にも出るように) */
+.nr-big-button {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    width: auto;
+    min-width: 0;
+    height: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    color: #fff4dc;
+    font-variant-numeric: lining-nums;   /* button は font の一括指定で受け継がないので、ここでも付ける */
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    filter: drop-shadow(0 0 26px rgba(255, 90, 60, 0.75));
+}
+
+.nr-big-button:hover,
+.nr-big-button:active { transform: none; background: none; box-shadow: none; }
+.nr-big-button.is-sjp { filter: drop-shadow(0 0 34px rgba(255, 211, 77, 0.85)); }
+
+.nr-big-face {
+    display: block;
+    width: min(78vw, 46dvh, 380px);
+    aspect-ratio: 1;
+    /* 絵が読めないあいだは、下の赤い玉 (第5弾は七色の玉) だけで出る */
+    background:
+        url('../img/nariagari/jp-button.jpeg') center / contain no-repeat,
+        radial-gradient(circle at 50% 50%, #ff8a74 0%, #b3201c 30%, #3a0908 40%, transparent 41%);
+    -webkit-mask-image: radial-gradient(circle, #000 58%, transparent 71%);
+    mask-image: radial-gradient(circle, #000 58%, transparent 71%);
+    animation: nr-big-pulse 0.9s ease-in-out infinite alternate;
+}
+
+.nr-big-button:active .nr-big-face { animation: none; scale: 0.95; }
+
+.nr-big-button.is-sjp .nr-big-face {
+    background:
+        url('../img/nariagari/sjp-button.jpeg') center / contain no-repeat,
+        radial-gradient(circle at 50% 50%, #fffbe8 0%, #ffd34d 22%, #c86bff 34%, transparent 41%);
+    -webkit-mask-image: radial-gradient(circle, #000 60%, transparent 72%);
+    mask-image: radial-gradient(circle, #000 60%, transparent 72%);
+}
+
+/* 光線 (第5弾は七色で回る) */
+.nr-big::before {
+    content: '';
+    position: absolute;
+    width: min(150vw, 900px);
+    aspect-ratio: 1;
+    background: repeating-conic-gradient(rgba(255, 182, 72, 0.22) 0deg 8deg, transparent 8deg 22deg);
+    border-radius: 50%;
+    mask-image: radial-gradient(circle, #000 20%, transparent 65%);
+    -webkit-mask-image: radial-gradient(circle, #000 20%, transparent 65%);
+    animation: nr-rainbow 12s linear infinite;
+    pointer-events: none;
+}
+
+.nr-big.is-sjp::before {
+    background: repeating-conic-gradient(rgba(255, 211, 77, 0.35) 0deg 6deg, rgba(200, 107, 255, 0.25) 6deg 12deg, transparent 12deg 20deg);
+    animation-duration: 5s;
+}
+
+.nr-big-label {
+    margin-top: -4px;
+    font-family: var(--font-display);
+    font-size: clamp(2.2em, 11vw, 3em);
+    line-height: 1;
+    letter-spacing: 0.08em;
+    color: #fff4dc;
+    text-shadow: 0 3px 0 #3a0908, 0 0 18px rgba(255, 120, 60, 0.95);
+    animation: nr-tier-glow 0.6s ease-in-out infinite alternate;
+}
+
+.nr-big-sub {
+    font-size: clamp(0.95em, 4.2vw, 1.15em);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-shadow: 0 2px 0 #3a0908, 0 0 10px rgba(0, 0, 0, 0.9);
+}
+
+.nr-big-button.is-sjp .nr-big-label { color: #fffbe8; text-shadow: 0 3px 0 #6b4a12, 0 0 20px #ffd34d, 0 0 36px rgba(200, 107, 255, 0.8); }
+
+@keyframes nr-big-pulse {
+    from { filter: brightness(1); scale: 1; }
+    to   { filter: brightness(1.18); scale: 1.04; }
+}
+
+/* スマホ: 見出しを消して、台を1画面 (上の「ゲーム一覧へ」と下のメニューのあいだ) に収める。手元チップと精算は下へ回す */
+@media (max-width: 719px) {
+    body[data-casino-view="nariagari"] header.hero { display: none; }
+    body[data-casino-view="nariagari"] main { display: flex; flex-direction: column; margin-top: 10px; }
+    body[data-casino-view="nariagari"] #casino-wallet { order: 1; margin-top: 18px; }
+    body[data-casino-view="nariagari"] .casino-back { margin-bottom: 8px; }
+
+    .nr-cabinet {
+        /* 10 (上の余白) + 44 (ゲーム一覧へ) + 92 (下のメニュー) + 少しのゆとり */
+        --nr-h: calc(100dvh - 152px - env(safe-area-inset-bottom, 0px));
+        --nr-wheel: max(180px, min(100vw - var(--gutter) * 2 - 96px, 360px, var(--nr-h) - 264px));
+        width: auto;
+        margin-bottom: 14px;
+        padding: 10px 10px 12px;
+    }
+
+    .nr-marquee { margin-bottom: 6px; padding: 6px 10px; }
+    .nr-marquee span { font-size: 1.35em; }
+    .nr-status { margin-bottom: 6px; font-size: 0.84em; }
+    .nr-stage { gap: 8px; }
+    .nr-tower { width: 54px; }
+    .nr-tower li { font-size: 0.95em; }
+    .nr-readout { min-height: 58px; margin: 8px 0; padding: 4px 8px; }
+    .nr-readout .slot-result { font-size: 1.45em; }
+    .nr-spin-button { width: 80px; height: 80px; }
+}
+
 /* ------------------------------------------------------------
    20. スクロールバー
    ------------------------------------------------------------ */

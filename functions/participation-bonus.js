@@ -3,8 +3,9 @@
 //
 //   - 麻雀: 参加した対局の数 (1局 = 1回)。増減ログの reason「三人麻雀 A 43600 / B 31000 / C 30400」から参加者を読むので、
 //     レートが動かなかった人 (増減ログが残らない人) も数えられる
-//   - カジノ: 遊んだ回数 (ブラックジャックは1ハンド、スロットは10回転、宝探しは券を買った1回の抽選 = 1回)。
-//     スロットはその日の回転数を人ごとに足してから10で割る (端数は切り捨て。15回転と5回転の精算なら 20回転 = 2回)。
+//   - カジノ: 遊んだ回数 (ブラックジャックは1ハンド、スロットは10回転、宝探しは券を買った1回の抽選、成り上がりは10回 = 1回)。
+//     スロットと成り上がりは、その日の回数を人ごと・ゲームごとに足してから10で割る
+//     (端数は切り捨て。スロット15回転と5回転の精算なら 20回転 = 2回)。
 //     ルーレットとテキサスホールデムは 52.0 で廃止したが、それまでの記録 (casino_roulette は1スピン、
 //     casino_holdem は1ハンド = 1回) も数える。
 //     精算の reason「ブラックジャック 3回 (持込500 → 600)」「カジノ ブラックジャック2回・スロット5回 (…)」の「N回」を足す。
@@ -14,8 +15,9 @@
 export const PARTICIPATION_BONUS_SOURCE = 'participation_bonus';
 export const PARTICIPATION_BONUS_MAX_UNIT = 1000;   // 1回あたりの額の上限 (打ち間違いで大量に配らないように)
 const MAHJONG_SOURCE = 'mahjong';
-const CASINO_SOURCES = new Set(['casino', 'casino_roulette', 'casino_blackjack', 'casino_slot', 'casino_gappori', 'casino_holdem']);
-export const SLOT_SPINS_PER_PLAY = 10;   // スロットはこの回転数で1回と数える
+const CASINO_SOURCES = new Set(['casino', 'casino_roulette', 'casino_blackjack', 'casino_slot', 'casino_gappori', 'casino_nariagari', 'casino_holdem']);
+// この回数で1回と数えるゲーム (精算の reason に出る名前 → 回数)
+export const PLAYS_PER_COUNT = { 'スロット': 10, '成り上がり': 10 };
 
 export class ParticipationBonusError extends Error {
   constructor(status, message) {
@@ -67,17 +69,18 @@ export function mahjongPlayersFromReason(reason) {
 
 /**
  * カジノの精算の reason から遊んだ回数を取り出す。括弧 (持込…) より前の「ゲーム名 N回」を読む。
- * 「スロット 25回」「カジノ ブラックジャック2回・スロット25回」→ スロットは回転数 (slotSpins)、ほかは回数 (plays) に足す
+ * 「スロット 25回」「カジノ ブラックジャック2回・スロット25回」→ PLAYS_PER_COUNT のゲームは
+ * 生の回数のまま perCount (ゲーム名 → 回数) に、ほかは回数 (plays) に足す
  */
 export function casinoPlaysFromReason(reason) {
   const label = String(reason || '').split(' (')[0];
   let plays = 0;
-  let slotSpins = 0;
+  const perCount = {};
   for (const match of label.matchAll(/([^\s・\d]*)\s?(\d+)回/g)) {
-    if (match[1] === 'スロット') slotSpins += Number(match[2]);
+    if (Object.hasOwn(PLAYS_PER_COUNT, match[1])) perCount[match[1]] = (perCount[match[1]] || 0) + Number(match[2]);
     else plays += Number(match[2]);
   }
-  return { plays, slotSpins };
+  return { plays, perCount };
 }
 
 /**
@@ -87,7 +90,7 @@ export function casinoPlaysFromReason(reason) {
  */
 export function tallyParticipation(entries, excluded = new Set()) {
   const counts = new Map();
-  const slotSpins = new Map();   // 名前 → その日のスロットの回転数 (最後に10回転 = 1回にする)
+  const rawCounts = new Map();   // 名前 → { ゲーム名: その日の回数 } (最後に PLAYS_PER_COUNT で割る)
   const add = (name, key, amount) => {
     if (!name || excluded.has(name) || amount <= 0) return;
     const current = counts.get(name) || { mahjong: 0, casino: 0 };
@@ -109,11 +112,17 @@ export function tallyParticipation(entries, excluded = new Set()) {
       const name = String(entry.player || '');
       const played = casinoPlaysFromReason(entry.reason);
       add(name, 'casino', played.plays);
-      if (played.slotSpins > 0) slotSpins.set(name, (slotSpins.get(name) || 0) + played.slotSpins);
+      Object.entries(played.perCount).forEach(([game, count]) => {
+        const current = rawCounts.get(name) || {};
+        current[game] = (current[game] || 0) + count;
+        rawCounts.set(name, current);
+      });
     }
   });
   games.forEach(players => players.forEach(name => add(name, 'mahjong', 1)));
-  slotSpins.forEach((spins, name) => add(name, 'casino', Math.floor(spins / SLOT_SPINS_PER_PLAY)));
+  rawCounts.forEach((games, name) => Object.entries(games).forEach(([game, count]) => {
+    add(name, 'casino', Math.floor(count / PLAYS_PER_COUNT[game]));
+  }));
   return counts;
 }
 

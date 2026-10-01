@@ -162,9 +162,31 @@ Gemini などが出力した元ファイルは、名前のまま **`assets/img/s
 
 ドクロ旗には CSS で下に小さく「WILD」の札を重ねるので、画像の下端 15% ほどには大事なものを置かないでください。
 
-ガッポリお宝の盤面の船長マスの絵も、同じ形式・同じ共通の末尾でここに置きます (スロットには出ません)。
+宝探しの盤面の船長マスの絵も、同じ形式・同じ共通の末尾でここに置きます (スロットには出ません)。
 置いていないあいだは、赤い札に「船長」と書いて出します。特定の映画の登場人物に似ないよう、人物ではなく帽子にしています。
 
 | ファイル | 絵柄 | プロンプト |
 |---|---|---|
-| captain.jpeg | 船長 (ガッポリお宝のジャックポットのマス) | A black felt pirate captain's tricorn hat with ornate gold braid trim and a large crimson feather plume, a small gold anchor emblem pinned on the front, resting on a crimson velvet cushion with gold tassels, surrounded by a glowing red and gold aura with small embers so it stands out as a special prize, majestic and special, original design, no person, no face |
+| captain.jpeg | 船長 (宝探しのジャックポットのマス) | A black felt pirate captain's tricorn hat with ornate gold braid trim and a large crimson feather plume, a small gold anchor emblem pinned on the front, resting on a crimson velvet cushion with gold tassels, surrounded by a glowing red and gold aura with small embers so it stands out as a special prize, majestic and special, original design, no person, no face |
+
+## 成り上がりの大きなボタン (assets/img/nariagari/)
+
+ゲームタブの成り上がりで、第4弾 (JP)・第5弾 (SJP) を回すときに画面の真ん中に出す丸いボタン。
+**`assets/img/nariagari/<ファイル名>` に置くだけで差し替わります** (置いていないあいだは CSS の赤い玉・七色の玉で出ます)。
+
+- 形式: **JPEG (拡張子 .jpeg)、正方形 (1:1)、2048×2048**
+- 表示: 縁まで描いてある絵をそのまま出し、外側だけ丸くぼかして消す。「PUSH」と「JP 第4弾」などの文字は、CSS でボタンの下に出す。**画像には文字を入れない**
+- 背景: 外側はぼかして消すので、ボタンの外は夜の藍の深いグラデーションにしておく
+- 第5弾のほうを、第4弾よりはっきり派手にする
+
+### 共通で末尾に付ける指定
+
+> square 1:1 image, one large round push button seen from directly above, perfectly centered and filling about 85% of
+> the frame, rich painterly game-UI illustration with a crisp readable silhouette, pirate treasure theme, background:
+> smooth deep teal-black radial gradient (#0b2227 in the center fading to #060d16 at the edges) filling the whole square,
+> no text, no letters, no numbers, no watermark
+
+| ファイル | 使い道 | プロンプト (前半) |
+|---|---|---|
+| jp-button.jpeg | 第4弾 (JP) を回すボタン | A big glossy domed push button made of deep ruby-red glass, with a glowing golden skull and crossed cutlasses emblem floating inside the glass, set in a thick engraved brass ring with rivets and a rope-twist border, warm lantern light reflecting on the dome, a red and gold glow and small embers around the rim, exciting and powerful |
+| sjp-button.jpeg | 第5弾 (SJP) を回すボタン (もっと派手に) | A huge legendary domed push button made of radiant golden crystal glowing from within, with a royal crown above an open treasure chest emblem inside, set in a thick ornate gold ring studded with emeralds, sapphires and rubies, rainbow light rays bursting out behind it, sparkling gold coins and jewels flying around the rim, dazzling divine light, the most special and luxurious button imaginable |

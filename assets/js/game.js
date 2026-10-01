@@ -1,15 +1,17 @@
 // ゲームタブの共通部分
 //   ログイン、ゲームの選択 (ブロックのタイル)、入場 (持ち込み)、手元チップと精算、画面の切り替え。
-//   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js (ルーレットとテキサスホールデムは 52.0 で廃止)。
+//   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js
+//   (ルーレットとテキサスホールデムは 52.0 で廃止)。
 //   船底 (#underground) はチップを使わない別の遊び場で、中身は game-underground.js。
 //   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
-//   画面は #blackjack / #slot / #gappori のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
+//   画面は #blackjack / #slot / #gappori / #nariagari のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
 
 // plays は財布 (session) の中で、そのゲームを遊んだ回数を持つ項目
 const CASINO_GAMES = {
     blackjack: { name: 'ブラックジャック', playsLabel: '勝負', plays: 'bjHands' },
     slot:      { name: 'スロット', playsLabel: 'スピン', plays: 'slotSpins' },
-    gappori:   { name: '宝探し', playsLabel: '回', plays: 'gpRounds' }
+    gappori:   { name: '宝探し', playsLabel: '回', plays: 'gpRounds' },
+    nariagari: { name: '成り上がり', playsLabel: '回', plays: 'nrSpins' }
 };
 
 const casino = {
@@ -92,7 +94,7 @@ function settledMessage(settled) {
 }
 
 // ------------------------------------------------------------------
-// 画面の切り替え (#blackjack / #slot / #gappori / #underground / それ以外はゲーム一覧)
+// 画面の切り替え (#blackjack / #slot / #gappori / #nariagari / #underground / それ以外はゲーム一覧)
 // ------------------------------------------------------------------
 function routeGame() {
     const name = location.hash.slice(1);
@@ -120,14 +122,16 @@ function renderRoute() {
         view = game;
         if (game === 'blackjack') openBlackjackTable();
         else if (game === 'slot') openSlotTable();
-        else openGapporiTable();
+        else if (game === 'gappori') openGapporiTable();
+        else openNariagariTable();
     }
     if (view !== 'blackjack') closeBlackjackTable();
     if (view !== 'slot') closeSlotTable();
     if (view !== 'gappori') closeGapporiTable();
+    if (view !== 'nariagari') closeNariagariTable();
     if (view !== 'underground') closeUnderground();
     showView(view);
-    // 画面ごとの見た目の切り替えに使う (宝探しはスマホで見出しを消し、1画面に収める)
+    // 画面ごとの見た目の切り替えに使う (宝探しと成り上がりはスマホで見出しを消し、1画面に収める)
     document.body.dataset.casinoView = view;
     // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す (船底はチップを使わないので出さない)
     el('casino-wallet').classList.toggle('hidden', !casino.session || view === 'lobby' || view === 'underground');
@@ -143,7 +147,8 @@ function renderMenu() {
     document.querySelectorAll('.game-tile').forEach(tile => {
         const badge = tile.querySelector('.game-tile-badge');
         let text = tile.dataset.game === 'blackjack' && isBlackjackLive() ? '勝負の途中'
-            : tile.dataset.game === 'gappori' && isGapporiLive() ? '抽選の途中' : '';
+            : tile.dataset.game === 'gappori' && isGapporiLive() ? '抽選の途中'
+                : tile.dataset.game === 'nariagari' ? nariagariTileBadge() : '';
         // 船底はレートが上限 (既定1000) 未満のときだけ仕分けできる
         if (tile.dataset.game === 'underground' && casino.score < undergroundMaxRate()) text = '入れます';
         badge.textContent = text;
@@ -237,6 +242,7 @@ function setCasinoBusy(busy) {
     renderBlackjackControls();
     renderSlotControls();
     renderGapporiControls();
+    renderNariagariControls();
     if (casino.lobbyGame) el('casino-enter-button').disabled = busy || casino.score < 1;
 }
 
@@ -302,6 +308,7 @@ async function initCasino() {
     initBlackjack();
     initSlot();
     initGappori();
+    initNariagari();
     initUnderground();
     bindCasinoEvents();
     showView('loading');
