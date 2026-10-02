@@ -5,7 +5,7 @@
 //   章 (毎週月曜に進む) と盤面はサーバーから受け取る (voyage.chapter / voyage.chapters)。章ごとの物語 (アニメ) は voyage-story.js。
 //   ジャックポットと最終秘宝は voyage_public/main を読んで出す (20秒ごとに読み直す)。
 //   閃光・金貨・画面いっぱいの演出は game-slot.js のものを使う。入場・手元チップ・精算は game.js。
-//   ゲーム一覧のカードは Ver54.1 で出すまで Coming soon のままで、#voyage で直接開ける。
+//   ゲーム一覧のカードは、公式キャラ (船長ハク) を出し始める 10/4 0:00 に Coming soon から航海に切り替わる (initVoyage)。
 
 const VG_BET = 10;                // 賭け金は 10 で固定 (サーバーの VOYAGE_BET と同じ)
 const VG_SQUARES = 30;
@@ -1123,7 +1123,17 @@ async function vgAdminAction(action, payload, confirmText) {
     }
 }
 
+/** ゲーム一覧: 公式キャラ (船長ハク) を出し始める日 (common.js の CAPTAIN_REVEAL_AT) からは、Coming soon の代わりに航海のカードを出す */
+function showVoyageTile() {
+    const tile = el('vg-tile');
+    if (!tile || !isCaptainRevealed()) return;
+    tile.querySelectorAll('img[data-src]').forEach(img => { img.src = img.dataset.src; });
+    tile.classList.remove('hidden');
+    el('coming-soon-tile')?.classList.add('hidden');
+}
+
 function initVoyage() {
+    showVoyageTile();
     if (!el('vg-board')) return;
     renderVoyageDicePips(el('vg-dice-face'), 0);
     el('vg-roll-button').addEventListener('click', () => {

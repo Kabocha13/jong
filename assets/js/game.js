@@ -12,7 +12,7 @@ const CASINO_GAMES = {
     slot:      { name: 'スロット', playsLabel: 'スピン', plays: 'slotSpins' },
     gappori:   { name: '宝探し', playsLabel: '回', plays: 'gpRounds' },
     nariagari: { name: '成り上がり', playsLabel: '回', plays: 'nrSpins' },
-    // 航海 (2026/10/5〜12/21 の期間限定)。ゲーム一覧のカードは Ver54.1 で出すまで Coming soon のままで、#voyage で直接開ける
+    // 航海 (2026/10/5〜12/21 の期間限定)。ゲーム一覧のカードは 10/4 0:00 に Coming soon から切り替わる (game-voyage.js の showVoyageTile)
     voyage:    { name: '航海', playsLabel: '回', plays: 'vgRolls' }
 };
 

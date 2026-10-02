@@ -3,6 +3,8 @@
 //   絵は assets/img/captain/stand.png (背景透過。ハロウィンのあいだは halloween.png)。読めないあいだは何も出さない (見出しは今のまま)。
 //   時計は真ん中のまま、船長は右下に時計にかからない大きさで立ち、吹き出しは船長の左上 (時計の上の空き) に出す。
 //   言うことは main.js が渡すデータ (ランキング・借金・くじ) と manaba の未提出課題の数から作る。
+//   航海 (大海賊の航海日誌) の出港の前日〜当日と、新しい章が始まってから VOYAGE_NOTICE_DAYS 日は、その知らせをいちばん先に言う
+//   (章の日付と名前は voyage-rules.js = functions/voyage.js の写しから読む)。
 //   ROTATE_MS ごとに次のひとことへ。船長か吹き出しをタップしても次へ (見出しのダブルタップの隠し要素には数えない)。
 
 (function () {
@@ -13,6 +15,8 @@
     const STAND_SRC = captainStandSrc();
     const ROTATE_MS = 9000;
     const MAX_EVENT_LINES = 2;
+    const VOYAGE_NOTICE_DAYS = 3;   // 新しい章が始まってから何日、航海の知らせを言うか
+    const DAY_MS = 24 * 60 * 60 * 1000;
     // 公式キャラの船長は、航海 (大海賊の航海日誌) の主人公ハクと同じ人物
     const GREETINGS = [
         '今日も一勝負いくか？',
@@ -40,6 +44,7 @@
         debts: new Map(),
         events: [],
         manaba: 0,
+        voyage: '',
         greeting: GREETINGS[Math.floor(Math.random() * GREETINGS.length)],
         lines: [],
         index: 0,
@@ -58,8 +63,24 @@
         return typeof formatRate === 'function' ? formatRate(value) : Number(value || 0).toLocaleString('ja-JP');
     }
 
+    /** 航海の知らせ (無ければ '')。rules は voyage-rules.js */
+    function voyageLine(rules, now = Date.now()) {
+        const start = Date.parse(rules.VOYAGE_START);
+        if (now < start) {
+            if (now < start - 2 * DAY_MS) return '';
+            const day = new Date(start).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', weekday: 'short' });
+            return `${day} 0:00、大海賊の航海日誌が出港するぞ！ ゲームの「航海」で待ってる！`;
+        }
+        if (rules.isVoyageOver(now)) return '';
+        const chapter = rules.voyageChapterAt(now);
+        if (!chapter || now - Date.parse(chapter.from) >= VOYAGE_NOTICE_DAYS * DAY_MS) return '';
+        if (chapter.no >= 12) return '航海の最終日「冬至の夜」だ！ 今夜、扉が開くぞ！';
+        return `航海の第${chapter.no}章「${chapter.title}」が始まったぞ！ 物語を見に来てくれ！`;
+    }
+
     function buildLines() {
         const lines = [];
+        if (state.voyage) lines.push(state.voyage);
         const me = myName();
         const ranked = state.scores
             .filter(player => typeof MAHJONG_CPU_NAME === 'undefined' || player.name !== MAHJONG_CPU_NAME)
@@ -120,6 +141,12 @@
     });
     art.addEventListener('error', () => wrap.remove());
     art.src = STAND_SRC;
+    import('./voyage-rules.js')
+        .then(rules => {
+            state.voyage = voyageLine(rules);
+            if (state.voyage && !wrap.hidden) refresh();
+        })
+        .catch(error => console.warn('航海のルールが読めません (知らせは出さない):', error));
 
     window.qjongCaptain = {
         /** main.js から: ランキング・借金・くじ */

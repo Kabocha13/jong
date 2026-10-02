@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="assets/js/no-zoom.js?v=54.2"></script>
+    <script src="assets/js/no-zoom.js?v=54.1"></script>
     <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,8 +12,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=54.2">
-    <script src="assets/js/treasure-rain.js?v=54.2" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=54.1">
+    <script src="assets/js/treasure-rain.js?v=54.1" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -106,8 +106,9 @@
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
-                <!-- 準備中のゲーム (Ver54.1 で出す予定)。押しても何も起きない -->
-                <div class="game-tile is-coming-soon">
+                <!-- 準備中のカード。公式キャラ (船長ハク) を出し始める 10/4 0:00 (common.js の CAPTAIN_REVEAL_AT) からは隠し、
+                     下の航海のカードを出す (game-voyage.js の initVoyage が切り替える)。押しても何も起きない -->
+                <div class="game-tile is-coming-soon" id="coming-soon-tile">
                     <span class="game-tile-art is-coming-soon" aria-hidden="true">
                         <span class="coming-soon-mark">?</span>
                         <span class="coming-soon-ribbon">Coming soon</span>
@@ -118,6 +119,20 @@
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </div>
+                <!-- 航海 (2026/10/5〜12/21 の期間限定)。10/4 0:00 まで隠す。ハクの顔は出すときに src を入れる (それまで読み込まない) -->
+                <a class="game-tile hidden" href="#voyage" data-game="voyage" id="vg-tile">
+                    <span class="game-tile-art is-voyage" aria-hidden="true">
+                        <img class="vg-tile-coin" src="assets/img/voyage/coin.png" alt="">
+                        <img class="vg-tile-face" data-src="assets/img/voyage/face-smile.png" alt="">
+                        <span class="coming-soon-ribbon vg-tile-ribbon">期間限定</span>
+                    </span>
+                    <span class="game-tile-body">
+                        <span class="game-tile-name">航海</span>
+                        <span class="game-tile-sub">Pirate's Logbook</span>
+                        <span class="game-tile-desc">大海賊の航海日誌。サイコロで30マスの海を回る。10/5〜12/21、毎週月曜に物語が進む</span>
+                    </span>
+                    <span class="game-tile-badge hidden"></span>
+                </a>
                 <a class="game-tile" href="#underground" data-game="underground">
                     <!-- 絵柄は game-underground.js が入れる -->
                     <span class="game-tile-art is-underground" aria-hidden="true">
@@ -396,7 +411,7 @@
         </section>
 
         <!-- 航海 (大海賊の航海日誌)。2026/10/5〜12/21 の期間限定。1回ぶん (出目・止まるマス・払い戻し) は Cloud Function (casino の vgRoll) が決め、
-             game-voyage.js がコマを動かして見せる。物語 (章ごとのアニメ) は voyage-story.js。ゲーム一覧のカードは Ver54.1 で出すまで Coming soon のまま (#voyage で直接開ける) -->
+             game-voyage.js がコマを動かして見せる。物語 (章ごとのアニメ) は voyage-story.js。ゲーム一覧のカードは 10/4 0:00 に Coming soon から航海に切り替わる (それまでも #voyage で直接開ける) -->
         <section id="voyage-table" class="hidden" data-view="voyage" aria-label="航海">
             <div class="vg-cabinet" id="vg-cabinet">
                 <div class="vg-head">
@@ -540,15 +555,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=54.2"></script>
-    <script src="assets/js/game-sound.js?v=54.2"></script>
-    <script src="assets/js/game-blackjack.js?v=54.2"></script>
-    <script src="assets/js/game-slot.js?v=54.2"></script>
-    <script src="assets/js/game-gappori.js?v=54.2"></script>
-    <script src="assets/js/game-nariagari.js?v=54.2"></script>
-    <script src="assets/js/voyage-story.js?v=54.2"></script>
-    <script src="assets/js/game-voyage.js?v=54.2"></script>
-    <script src="assets/js/game-underground.js?v=54.2"></script>
-    <script src="assets/js/game.js?v=54.2"></script>
+    <script src="assets/js/common.js?v=54.1"></script>
+    <script src="assets/js/game-sound.js?v=54.1"></script>
+    <script src="assets/js/game-blackjack.js?v=54.1"></script>
+    <script src="assets/js/game-slot.js?v=54.1"></script>
+    <script src="assets/js/game-gappori.js?v=54.1"></script>
+    <script src="assets/js/game-nariagari.js?v=54.1"></script>
+    <script src="assets/js/voyage-story.js?v=54.1"></script>
+    <script src="assets/js/game-voyage.js?v=54.1"></script>
+    <script src="assets/js/game-underground.js?v=54.1"></script>
+    <script src="assets/js/game.js?v=54.1"></script>
 </body>
 </html>

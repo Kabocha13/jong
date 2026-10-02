@@ -2297,6 +2297,35 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 
 .game-tile.is-coming-soon .game-tile-name { color: var(--ink-soft); }
 
+/* 航海: 盤の真ん中の絵 (羅針盤の海図) に、呪いの金貨とハクの顔 */
+.game-tile-art.is-voyage {
+    position: relative;
+    overflow: hidden;
+    gap: clamp(2px, 2vw, 12px);
+    background:
+        radial-gradient(ellipse 70% 60% at 50% 45%, rgba(255, 182, 72, 0.18), transparent 70%),
+        linear-gradient(180deg, rgba(6, 13, 22, 0.1), rgba(6, 13, 22, 0.5)),
+        var(--img-voyage-board) center / cover no-repeat,
+        var(--water);
+}
+
+.vg-tile-coin {
+    width: 34%;
+    max-width: 104px;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+    transform: rotate(-12deg);
+    transition: transform 0.25s ease;
+}
+
+.vg-tile-face {
+    align-self: flex-end;
+    height: 92%;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.6));
+}
+
+.game-tile:hover .vg-tile-coin { transform: rotate(8deg) scale(1.06); }
+.vg-tile-ribbon { font-size: 0.78em; }
+
 @media (prefers-reduced-motion: reduce) {
     .coming-soon-mark { animation: none; }
 }

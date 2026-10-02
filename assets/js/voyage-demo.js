@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     demoChapters = rules.VOYAGE_CHAPTERS.map(rules.publicVoyageChapter);
     resetDemoState();
     casino.session = demoSession();
-    el('vg-demo-jp-seed').textContent = VG_DEMO_JP_SEED.toLocaleString('ja-JP');
+    el('vg-demo-jp-seed').textContent = rules.VOYAGE_JP_BASE.toLocaleString('ja-JP');
     el('vg-demo-reset').addEventListener('click', resetDemo);
     initVoyage();
     receiveVoyage(demoVoyageInfo());

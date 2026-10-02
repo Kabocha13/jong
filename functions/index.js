@@ -3237,6 +3237,56 @@ export const finalizeVoyageTreasure = onSchedule({
   }
 });
 
+// 航海の新しい章が始まったら (毎週月曜 0:00 JST)、全員に通知する。同じ章は二度知らせない (voyage_notices/chapter-N)。
+//   文面は各章の次回予告をもとに、その週のマスの特徴を添える (物語を見ていない人にも届くので、大きなネタバレは書かない)
+const VOYAGE_NOTICES = 'voyage_notices';
+const VOYAGE_CHAPTER_NOTICES = {
+  1: 'SILI港から、死んだはずの船長を追う航海が始まる。物語を見て、サイコロを振ろう',
+  2: '霧の向こうの旗艦に、見覚えのある赤ひげが。今週は霧で出目が止まるまで見えない',
+  3: '拿捕した商船の書類。署名は「提督 チュン」。今週は拿捕 ×6 のマスがある',
+  4: '流れ着いた船の名は、チュンの旧船。今週は呪いの金貨 (半々で ×10) のマスが2つ',
+  5: '金貨の骸骨の目に光を通すと、島影が浮かぶ。今週は掘る (×1〜20) のマスがある',
+  6: '水平線いっぱいの艦隊と正面衝突。今週は砲撃 (1マス戻る) と逃げ切り (6マス進む) のマスがある',
+  7: '敵のはずのハツが語る、もうひとつの真実。今週は「もう1回」のマスが4つ',
+  8: '北の氷の海へ。ポンが新しい言葉を喋る。今週は流氷で出目が 1〜3',
+  9: '再び艦隊に囲まれる、決戦の海。今週は一騎打ち (半々で ×3) のマスが3つ',
+  10: '金貨の縁の刻み目が示すもの。今週は盤が逆回り',
+  11: '宝島は、どこにあったのか。今週は船長チャンスが当たりやすい',
+  12: '一年でいちばん長い夜、扉が開く。今日は船長チャンスが当たりやすい。最終秘宝は 12/22 0:10 に山分け'
+};
+
+function voyageChapterNotice(chapter) {
+  return {
+    title: `🏴‍☠️ 航海 ${chapter.no >= 12 ? '最終日' : `第${chapter.no}章`}「${chapter.title}」が始まりました`,
+    body: VOYAGE_CHAPTER_NOTICES[chapter.no] || '新しい海へ。物語を見て、サイコロを振ろう'
+  };
+}
+
+export const notifyVoyageChapter = onSchedule({
+  region: 'asia-northeast1',
+  schedule: '0 0 * * 1',
+  timeZone: 'Asia/Tokyo'
+}, async () => {
+  const now = Date.now();
+  const chapter = voyageChapterAt(now);
+  if (!chapter || isVoyageOver(now)) return;
+  // 始まって半日を過ぎた章は知らせない (動かなかった週の分を、あとから送らない)
+  if (now - Date.parse(chapter.from) > 12 * 60 * 60 * 1000) return;
+  try {
+    await db.collection(VOYAGE_NOTICES).doc(`chapter-${chapter.no}`).create({ chapter: chapter.no, at: new Date(now).toISOString() });
+  } catch (error) {
+    if (error.code === 6) return;   // ALREADY_EXISTS: 知らせ済み
+    throw error;
+  }
+  const notice = voyageChapterNotice(chapter);
+  try {
+    const result = await sendPushToEveryone({ ...notice, tag: `voyage-chapter-${chapter.no}`, link: `${APP_URL}game.html#voyage` });
+    console.log('voyage chapter notice:', JSON.stringify({ chapter: chapter.no, ...result }));
+  } catch (error) {
+    console.error(`航海の第${chapter.no}章の通知に失敗しました:`, error);
+  }
+});
+
 export const qjongLogin = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
   setCors(req, res);
   if (req.method === 'OPTIONS') {
