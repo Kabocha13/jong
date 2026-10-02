@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="assets/js/no-zoom.js?v=54.1"></script>
+    <meta name="theme-color" content="#060d16">
+    <meta name="robots" content="noindex">
+    <title>航海 デモ</title>
+    <link rel="icon" type="image/png" href="assets/icon.png?v=2">
+    <link rel="stylesheet" href="assets/css/style.css?v=54.1">
+</head>
+<body>
+    <!-- 航海 (大海賊の航海日誌) の第1章だけを試せるデモ。本番の game.html#voyage と同じ画面・同じ演出で、
+         1回ぶんはサーバーではなく voyage-demo.js が functions/voyage.js と同じルールで決める。
+         チップは練習用 (この画面の中だけ)。レート・本番のジャックポット・最終秘宝には触らない -->
+    <header class="hero hero-compact" data-scene="tavern">
+        <div class="hero-scene" aria-hidden="true"></div>
+        <div class="hero-veil" aria-hidden="true"></div>
+        <div class="hero-inner">
+            <h1>航海 デモ</h1>
+        </div>
+    </header>
+
+    <main id="main-content">
+        <p id="casino-message" class="hidden" aria-live="polite"></p>
+
+        <section class="info-box casino-status" aria-label="デモの練習用チップ">
+            <p class="info-text">第1章「形見の金貨」だけを試せるデモです。1回 10 で、チップは練習用 (レートには反映されません)。ジャックポットはデモ用に <span id="vg-demo-jp-seed"></span> から始まります。</p>
+            <dl class="casino-stats">
+                <div><dt>チップ</dt><dd id="vg-demo-chips"></dd></div>
+                <div><dt>収支</dt><dd id="vg-demo-net"></dd></div>
+                <div><dt>回数</dt><dd id="vg-demo-rolls"></dd></div>
+            </dl>
+            <div class="casino-actions">
+                <button type="button" id="vg-demo-reset" class="secondary-button">やり直す</button>
+            </div>
+        </section>
+
+        <!-- ここから下は game.html の #voyage-table と同じ (id も同じ。game-voyage.js がそのまま動く) -->
+        <section id="voyage-table" aria-label="航海">
+            <div class="vg-cabinet" id="vg-cabinet">
+                <div class="vg-head">
+                    <p class="vg-chapter">
+                        <span class="vg-chapter-no" id="vg-chapter-no">第1章</span>
+                        <strong class="vg-chapter-title" id="vg-chapter-title">—</strong>
+                        <button type="button" id="vg-story-button" class="vg-story-button">物語を見る</button>
+                    </p>
+                    <div class="vg-pools">
+                        <p class="vg-pool is-jp"><span>JACKPOT</span><strong id="vg-jp">0</strong></p>
+                        <p class="vg-pool is-treasure"><span>最終秘宝</span><strong id="vg-treasure">0</strong></p>
+                    </div>
+                </div>
+                <p class="vg-notice hidden" id="vg-notice"></p>
+                <div class="vg-board-wrap" id="vg-board-wrap">
+                    <div class="vg-board" id="vg-board" role="img" aria-label="30マスの航路">
+                        <div class="vg-center" id="vg-center">
+                            <div class="vg-center-top">
+                                <div class="vg-dice" id="vg-dice" aria-live="polite"><span class="vg-dice-face" id="vg-dice-face" data-pips="0"></span></div>
+                                <img class="vg-center-face" id="vg-face" src="assets/img/voyage/face-smile.png" alt="">
+                            </div>
+                            <p class="vg-status" id="vg-status" aria-live="polite">「振る」で出航</p>
+                            <div class="vg-bubble hidden" id="vg-bubble"></div>
+                            <div class="vg-controls">
+                                <div class="vg-controls-row">
+                                    <p class="vg-bet-fixed"><span>BET</span><strong id="vg-bet">10</strong></p>
+                                    <button type="button" id="vg-roll-button" class="slot-spin-button vg-roll-button">振る</button>
+                                    <label class="slot-auto"><input type="checkbox" id="vg-auto"> オート</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="vg-ship" id="vg-ship" aria-hidden="true"><img src="assets/img/voyage/parrot.png" alt=""></div>
+                    </div>
+                </div>
+                <div class="slot-readout vg-readout">
+                    <p id="vg-result" class="slot-result is-idle" aria-live="polite">Bon Voyage</p>
+                    <p id="vg-result-detail" class="slot-result-detail"></p>
+                </div>
+                <p id="vg-message" class="hidden" aria-live="polite"></p>
+            </div>
+
+            <div class="info-box vg-legend-box">
+                <h3 class="icon-title">この章のマス</h3>
+                <ol class="vg-legend" id="vg-legend" aria-label="この章のマス"></ol>
+            </div>
+
+            <div class="info-box vg-log">
+                <h3 class="icon-title">航海日誌</h3>
+                <dl class="casino-stats vg-stats">
+                    <div><dt>周回</dt><dd id="vg-laps">0周</dd></div>
+                    <div><dt>振った回数</dt><dd id="vg-rolls">0回</dd></div>
+                    <div><dt>最高の当たり</dt><dd id="vg-best">0</dd></div>
+                </dl>
+                <p class="info-text vg-share-note" id="vg-share-note"></p>
+                <h3 class="icon-title">物語</h3>
+                <ol class="vg-episodes" id="vg-episodes" aria-label="章ごとの物語"></ol>
+                <div class="vg-final hidden" id="vg-final"></div>
+                <h3 class="icon-title">ジャックポットの記録</h3>
+                <ol class="casino-recent vg-jp-history" id="vg-jp-history"></ol>
+                <ol id="vg-recent" class="casino-recent" aria-label="直近の自分の航海"></ol>
+                <!-- デモでは使わない (game-voyage.js が要素を探すので置いておく) -->
+                <div class="vg-admin hidden" id="vg-admin">
+                    <select id="vg-admin-chapter"><option value="">いまの章</option></select>
+                    <button type="button" id="vg-admin-reset">試した分を全部消す</button>
+                    <button type="button" id="vg-admin-final">最終秘宝をいま配る</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <nav class="footer-nav" aria-label="メインメニュー">
+            <a href="index.html"  class="input-link"><span class="nav-icon" data-icon="home" aria-hidden="true"></span><span>ホーム</span></a>
+            <a href="game.html"   class="input-link" aria-current="page"><span class="nav-icon" data-icon="game" aria-hidden="true"></span><span>ゲーム</span></a>
+            <a href="mypage.html" class="input-link"><span class="nav-icon" data-icon="mypage" aria-hidden="true"></span><span>マイページ</span></a>
+            <a href="admin.html" class="input-link" data-master-only hidden><span class="nav-icon" data-icon="admin" aria-hidden="true"></span><span>管理</span></a>
+        </nav>
+    </footer>
+
+    <script src="assets/js/common.js?v=54.1"></script>
+    <script src="assets/js/game-sound.js?v=54.1"></script>
+    <script src="assets/js/game-slot.js?v=54.1"></script>
+    <script src="assets/js/voyage-story.js?v=54.1"></script>
+    <script src="assets/js/game-voyage.js?v=54.1"></script>
+    <script src="assets/js/voyage-demo.js?v=54.1"></script>
+</body>
+</html>

@@ -8,6 +8,7 @@ import { normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
 import { GapporiRuleError } from './gappori.js';
 import { NARIAGARI_BETS, NARIAGARI_SJP_STAGE, playNariagari } from './nariagari.js';
 import {
+  VOYAGE_BET,
   VOYAGE_BETS,
   VOYAGE_CHAPTERS,
   VOYAGE_END,
@@ -24,8 +25,7 @@ import {
   splitVoyageTreasure,
   voyageChapterAt,
   voyageChapterByNo,
-  voyageShare,
-  voyageStampMultiplier
+  voyageLapCount
 } from './voyage.js';
 import {
   GAPPORI_RULES_VERSION,
@@ -987,8 +987,9 @@ function pushMessage(tokens, { title, body, tag, link = APP_URL }) {
     data: { link },
     webpush: {
       fcmOptions: { link },
-      // 通知のアイコンは公式キャラ (船長) の顔 (iOS アプリはアプリのアイコンが出る)
-      notification: { icon: '/assets/img/captain/icon.png', tag }
+      // 通知のアイコンは公式キャラ (船長) の顔 (iOS アプリはアプリのアイコンが出る)。
+      // 船長を出し始める日時 (assets/js/common.js の CAPTAIN_REVEAL_AT と同じ) より前は、これまでのアイコン
+      notification: { icon: Date.now() >= Date.parse('2026-10-04T00:00:00+09:00') ? '/assets/img/captain/icon.png' : '/assets/icon.png', tag }
     },
     apns: {
       headers: { 'apns-collapse-id': String(tag).slice(0, 64) },
@@ -2792,11 +2793,12 @@ async function gapporiTableAction(uid, username, mutate) {
 
 // -----------------------------------------------------------------
 // 航海 (大海賊の航海日誌)。ルールは voyage.js。2026/10/5 〜 12/21 の期間限定。
-//   みんなで共有する分 (ジャックポット・最終秘宝・取り分の合計・直近の JP) は voyage_public/main (誰でも読める)、
-//   人ごとの分 (位置・周回・航海した金額・スタンプ) は voyage_players/{uid} (Cloud Functions だけ) に置く。
+//   みんなで共有する分 (ジャックポット・最終秘宝・直近の JP) は voyage_public/main (誰でも読める)、
+//   人ごとの分 (位置・周回・航海した金額) は voyage_players/{uid} (Cloud Functions だけ) に置く。
+//   賭け金は 10 で固定。最終秘宝は周回 (港を通って1周した数) の比で分ける (取り分は画面に出さない)。
 //   チップはほかのゲームと共通の財布 (casino_sessions)。1回ぶん (出目・止まるマス・払い戻し) はここで決めて
 //   払い戻しまで済ませ、画面はそれを順に見せる。JP が当たったら全員 (本人も含む) に通知する。
-//   最終秘宝は 12/22 0:10 (JST) のスケジュール (finalizeVoyageTreasure) で、取り分の比でレートへ直接配る。
+//   最終秘宝は 12/22 0:10 (JST) のスケジュール (finalizeVoyageTreasure) で、周回の数の比でレートへ直接配る。
 // -----------------------------------------------------------------
 const VOYAGE_PUBLIC = 'voyage_public';
 const VOYAGE_PLAYERS = 'voyage_players';
@@ -2815,8 +2817,7 @@ function emptyVoyagePublic(nowIso) {
     rulesVersion: VOYAGE_RULES_VERSION,
     seq: 0,
     jpCents: 0,          // ジャックポット (1/100 単位で貯める。表示は切り捨て)
-    treasureCents: 0,    // 最終秘宝 (同上)
-    totalShare: 0,       // 全員の取り分の合計 (航海した金額 × 航海日誌の倍率)
+    treasureCents: 0,    // 最終秘宝 (同上)。山分けは周回の数の比 (取り分は公開しないので、合計もここには置かない)
     rolls: 0,
     wagered: 0,
     players: 0,
@@ -2829,7 +2830,8 @@ function emptyVoyagePublic(nowIso) {
 }
 
 function emptyVoyagePlayer(uid, player, nowIso) {
-  return { uid, player, pos: 0, laps: 0, rolls: 0, wagered: 0, stamps: [], share: 0, jpWon: 0, bestWin: 0, last: null, createdAt: nowIso, updatedAt: nowIso };
+  // laps は港を通って1周した数。lapDebt は押し戻されて港より手前へ戻った回数 (次に港を通っても周回に数えない分)
+  return { uid, player, pos: 0, laps: 0, lapDebt: 0, rolls: 0, wagered: 0, jpWon: 0, bestWin: 0, last: null, createdAt: nowIso, updatedAt: nowIso };
 }
 
 /** みんなで共有する分を画面へ返す形 */
@@ -2838,7 +2840,6 @@ function publicVoyageState(data) {
   return {
     jp: Math.floor((state.jpCents || 0) / 100),
     treasure: Math.floor((state.treasureCents || 0) / 100),
-    totalShare: state.totalShare || 0,
     rolls: state.rolls || 0,
     wagered: state.wagered || 0,
     players: state.players || 0,
@@ -2852,15 +2853,12 @@ function publicVoyageState(data) {
 /** 本人の分を画面へ返す形 (uid は含めない) */
 function publicVoyagePlayer(data) {
   if (!data) return null;
-  const stamps = Array.isArray(data.stamps) ? data.stamps : [];
+  // 取り分 (全員の周回の合計に対する割合) は公開しない
   return {
     pos: data.pos || 0,
-    laps: data.laps || 0,
     rolls: data.rolls || 0,
     wagered: data.wagered || 0,
-    stamps,
-    multiplier: voyageStampMultiplier(stamps.length),
-    share: data.share || 0,
+    laps: voyageLapCount(data.laps),
     jpWon: data.jpWon || 0,
     bestWin: data.bestWin || 0,
     last: data.last || null
@@ -2909,14 +2907,14 @@ async function notifyVoyageJp(player, amount, chapter) {
 }
 
 /**
- * 航海を1回振る。bet は VOYAGE_BETS のどれか。管理者は chapter で章を指定して (始まる前でも) 試せる。
+ * 航海を1回振る。bet は VOYAGE_BET (10) で固定。管理者は chapter で章を指定して (始まる前でも) 試せる。
  * 出目・止まるマス・払い戻し・JP はここで決め、ジャックポットと最終秘宝に賭け金の一部を貯め、
- * その章で初めて振ったならスタンプを押し、取り分 (航海した金額 × 倍率) を更新する
+ * 港を通って1周したら周回を数える。罰のマス (loss) で払い戻しがマイナスなら、手元から引く (0 より下にはしない)
  */
 async function casinoVoyageRoll(uid, username, rawBet, rawChapter, admin = false) {
   const bet = Number(rawBet);
   if (!VOYAGE_BETS.includes(bet)) {
-    throw new CasinoError(400, `賭け金は ${VOYAGE_BETS.join('・')} のどれかにしてください。`);
+    throw new CasinoError(400, `航海の賭け金は ${VOYAGE_BET} で固定です。`);
   }
   const now = Date.now();
   let chapter = voyageChapterAt(now);
@@ -2946,7 +2944,7 @@ async function casinoVoyageRoll(uid, username, rawBet, rawChapter, admin = false
     const isNewPlayer = !playerDoc.exists;
     const player = isNewPlayer ? emptyVoyagePlayer(uid, username, nowIso) : playerDoc.data();
 
-    const play = playVoyage({ chapter, bet, pos: player.pos || 0, jp: Math.floor((state.jpCents || 0) / 100), randomInt: casinoRandom });
+    const play = playVoyage({ chapter, bet, pos: player.pos || 0, jp: Math.floor((state.jpCents || 0) / 100), lapDebt: player.lapDebt || 0, randomInt: casinoRandom });
     const id = `${Date.now().toString(36)}${randomInt(36 ** 4).toString(36)}`;
 
     // 貯める分と JP の払い出し
@@ -2954,28 +2952,19 @@ async function casinoVoyageRoll(uid, username, rawBet, rawChapter, admin = false
     state.treasureCents = (state.treasureCents || 0) + bet * VOYAGE_TREASURE_RATE;
     if (play.jpHit) state.jpCents = Math.max(0, state.jpCents - play.jpWon * 100);
 
-    // スタンプと取り分
-    const stamps = Array.isArray(player.stamps) ? [...player.stamps] : [];
-    let newStamp = null;
-    if (!stamps.includes(chapter.no)) {
-      stamps.push(chapter.no);
-      stamps.sort((a, b) => a - b);
-      newStamp = chapter.no;
-    }
+    // 周回 (港を通って1周するたびに1つ)
+    const laps = voyageLapCount(player.laps) + play.laps;
     const wagered = (player.wagered || 0) + bet;
-    const share = voyageShare(wagered, stamps.length);
-    state.totalShare = Math.max(0, (state.totalShare || 0) + share - (player.share || 0));
 
-    const last = { id, bet, chapter: chapter.no, dice: play.dice, from: player.pos || 0, pos: play.pos, laps: play.laps, payout: play.payout, multiplier: play.multiplier, jpHit: play.jpHit, jpWon: play.jpWon, newStamp, at: nowIso };
+    const last = { id, bet, chapter: chapter.no, dice: play.dice, from: player.pos || 0, pos: play.pos, newLaps: play.laps, laps, payout: play.payout, multiplier: play.multiplier, jpHit: play.jpHit, jpWon: play.jpWon, at: nowIso };
     const nextPlayer = {
       ...player,
       player: username,
       pos: play.pos,
-      laps: (player.laps || 0) + play.laps,
+      laps,
+      lapDebt: play.lapDebt,
       rolls: (player.rolls || 0) + 1,
       wagered,
-      stamps,
-      share,
       jpWon: (player.jpWon || 0) + play.jpWon,
       bestWin: Math.max(player.bestWin || 0, play.payout),
       last,
@@ -2994,7 +2983,7 @@ async function casinoVoyageRoll(uid, username, rawBet, rawChapter, admin = false
     const summary = { bet, returned: play.payout, multiplier: play.multiplier, dice: play.dice, square: play.moves[play.moves.length - 1].square, jp: play.jpHit, at: nowIso };
     const nextSession = {
       ...session,
-      chips: session.chips - bet + play.payout,
+      chips: Math.max(0, session.chips - bet + play.payout),
       vgRolls: (session.vgRolls || 0) + 1,
       wagered: (session.wagered || 0) + bet,
       lastActionAt: nowIso,
@@ -3005,7 +2994,7 @@ async function casinoVoyageRoll(uid, username, rawBet, rawChapter, admin = false
     transaction.set(publicRef, state);
     transaction.set(playerRef, nextPlayer);
     return {
-      result: { id, bet, chapter: chapter.no, ...play, newStamp, at: nowIso },
+      result: { id, bet, chapter: chapter.no, ...play, lapsTotal: laps, at: nowIso },
       session: nextSession,
       state,
       player: nextPlayer
@@ -3076,12 +3065,12 @@ async function finalizeVoyage({ force = false } = {}) {
           afterScore,
           delta: winner.amount,
           source: VOYAGE_SOURCE,
-          reason: `大海賊の秘宝 山分け (航海 ${winner.wagered.toLocaleString('ja-JP')} × 日誌 ${voyageStampMultiplier(winner.stamps)}倍)`,
+          reason: `大海賊の秘宝 山分け (${winner.laps.toLocaleString('ja-JP')}周)`,
           actor: 'voyage_final',
           createdAt: at
         });
       });
-      paid.push({ player: winner.player, amount: winner.amount, share: winner.share, wagered: winner.wagered, stamps: winner.stamps });
+      paid.push({ player: winner.player, amount: winner.amount, laps: winner.laps });
     } catch (error) {
       console.error(`航海の最終秘宝を ${winner.player} へ配れませんでした:`, error);
     }

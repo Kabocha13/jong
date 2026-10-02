@@ -1,13 +1,13 @@
 // 航海 (大海賊の航海日誌) の物語。章ごとのアニメ風の寸劇と、それを見せる仕組み。
 //   台本 (VG_EPISODES) は「拍 (beat)」の並び。背景・人物の出入り・効果は自動で進み、台詞・字幕・題字はタップで進む。
-//   登場人物: ハク (船長。表情は assets/img/voyage/face-*.png)、ポン (オウム parrot.png)、
-//   チュン (赤ひげの前船長 = 海軍提督)、ハツ (緑旗の女海賊 = ハクの姉)。チュン・ハツは絵が無いあいだは影 (シルエット) で出し、
-//   assets/img/voyage/chun.png・hatsu.png を置けばそれを使う。背景は bg-01.jpg〜bg-12.jpg (無いあいだは章ごとの色)。
+//   登場人物: ハク (船長。公式キャラの船長と同じ人物。表情は assets/img/voyage/face-*.png)、ポン (オウム parrot.png)、
+//   チュン (赤ひげの前船長 = 海軍提督)、ハツ (緑旗の女海賊 = ハクの姉)、酒場の男 (第1章)。チュン・ハツ・酒場の男は絵が無いあいだは影 (シルエット) で出し、
+//   assets/img/voyage/chun.png・hatsu.png・mob.png を置けばそれを使う。背景は bg-01.jpeg〜bg-12.jpeg (無いあいだは章ごとの色)。
 //   拍の書き方:
 //     { title, sub }            題字 (章の名前)
 //     { bg: 1 }                 背景を章 n のものに
 //     { caption: '…' }          字幕 (ナレーション)
-//     { enter: 'haku', side: 'left', face: 'smile' } / { exit: 'haku' }
+//     { enter: 'haku', side: 'left', face: 'smile' } / { exit: 'haku' }   side は left・right・center (2人の間)
 //     { say: 'haku', text: '…', face: 'angry' }   台詞 (face はハクの表情)
 //     { fx: 'flash' | 'shake' | 'lightning' | 'dark' | 'fog' | 'red' | 'coins' | 'gold' }
 //     { pause: ms }
@@ -19,7 +19,7 @@ const VG_CAST = {
     pon: { name: 'ポン', kind: 'img', src: 'assets/img/voyage/parrot.png', tone: 'red' },
     chun: { name: 'チュン', kind: 'silhouette', src: 'assets/img/voyage/chun.png', tile: '中', tone: 'red' },
     hatsu: { name: 'ハツ', kind: 'silhouette', src: 'assets/img/voyage/hatsu.png', tile: '發', tone: 'green' },
-    mob: { name: '酒場の男', kind: 'silhouette', src: '', tile: '', tone: 'grey' }
+    mob: { name: '酒場の男', kind: 'silhouette', src: 'assets/img/voyage/mob.png', tile: '', tone: 'grey' }
 };
 const VG_TYPE_MS = 34;   // 台詞を1文字ずつ出す速さ
 
@@ -27,7 +27,7 @@ const VG_EPISODES = {
     1: { title: '第1章', sub: '形見の金貨', beats: [
         { bg: 1 },
         { title: '第1章', sub: '形見の金貨' },
-        { caption: '港町。船長チュンが海に消えて、ちょうど一年。' },
+        { caption: 'SILI港。船長チュンが海に消えて、ちょうど一年。' },
         { enter: 'haku', side: 'left', face: 'smile' },
         { say: 'haku', face: 'smile', text: '一年か。早いもんだな、チュン。' },
         { enter: 'pon', side: 'right' },
@@ -98,7 +98,7 @@ const VG_EPISODES = {
         { say: 'haku', face: 'angry', text: '帰れるか。乗り込むぞ。' },
         { fx: 'dark' },
         { caption: '船室。チュンの日記が残されていた。' },
-        { say: 'haku', face: 'smile', text: '「海軍は私の過去を知った。私を使ってハクを捕らえる気だ。ならば、私が死ねばいい」' },
+        { say: 'haku', face: 'smile', text: '「海軍は私の過去を知った。ハクを人質にして、私に金のありかを吐かせる気だ。ならば、私が死ねばいい」' },
         { say: 'haku', face: 'surprise', text: '「死を偽る。ハクを守るために。あの子はまだ、知らなくていい」' },
         { say: 'haku', face: 'sad', text: '守るためって……俺に黙って、死んだことにしたのか。' },
         { fx: 'shake' },
@@ -122,7 +122,7 @@ const VG_EPISODES = {
         { caption: 'いや、ひとつだけ。' },
         { fx: 'red' },
         { say: 'haku', face: 'angry', text: '短剣。緑の旗の紋──「緑旗のハツ」。先回りされた。' },
-        { say: 'haku', face: 'angry', text: 'ハツ。チュンの元・一等航海士。なんであいつが、ここを知ってる。' },
+        { say: 'haku', face: 'angry', text: 'ハツ……あの女海賊が、なんでここを知ってる。' },
         { next: '第6章「海軍の砲火」── チュン艦隊と正面衝突。ポンが撃たれる' }
     ] },
     6: { title: '第6章', sub: '海軍の砲火', beats: [
@@ -132,7 +132,7 @@ const VG_EPISODES = {
         { enter: 'haku', side: 'left', face: 'angry' },
         { enter: 'chun', side: 'right' },
         { say: 'chun', text: 'ハク。金貨を渡せ。渡せば船は沈めない。' },
-        { say: 'haku', face: 'angry', text: '死んだふりして海軍に戻って、今さら父親づらか！' },
+        { say: 'haku', face: 'angry', text: '死んだふりして海軍に寝返って、今さら父親づらか！' },
         { say: 'chun', text: '父親？ ……お前は、俺の息子じゃない。' },
         { fx: 'shake' },
         { say: 'haku', face: 'surprise', text: '……え。' },
@@ -160,7 +160,8 @@ const VG_EPISODES = {
         { say: 'hatsu', text: '何も。あそこは最初から空だった。チュンが掘り返したのは、私たちが生まれる前よ。' },
         { say: 'haku', face: 'angry', text: 'チュンは海軍に寝返った。それだけの話だ。' },
         { say: 'hatsu', text: '逆よ。チュンは寝返ってなんかいない。「海軍にいた男が、海賊になった」の。' },
-        { say: 'haku', face: 'surprise', text: '……' },
+        { say: 'haku', face: 'surprise', text: '……なんでお前が、そんなことを知ってる。' },
+        { say: 'hatsu', text: '私はチュンの船の一等航海士だった。あんたが船に乗るずっと前に、降りたけどね。' },
         { say: 'hatsu', text: 'チュンは最初から海軍の提督。妻を亡くして、娘と赤ん坊を残して海に出た。その赤ん坊が──' },
         { say: 'haku', face: 'sad', text: 'やめろ。' },
         { fx: 'gold' },
@@ -175,7 +176,8 @@ const VG_EPISODES = {
         { enter: 'hatsu', side: 'right' },
         { say: 'hatsu', text: '母さんが死んで、父さん──チュンは壊れた。海軍の仕事で、何年も家に帰らなかった。' },
         { say: 'hatsu', text: 'だから私はあんたを連れて家を出た。七つの私と、赤ん坊のあんたで。' },
-        { say: 'haku', face: 'sad', text: 'それで海賊に拾われた、と思ってた。拾ったのは、チュン本人だったのか。' },
+        { say: 'hatsu', text: 'でも、七つの子どもに赤ん坊は育てられない。SILI港の孤児院に、あんたを置いていくしかなかった。' },
+        { say: 'haku', face: 'sad', text: '孤児の俺を、チュンが拾ってくれた……と思ってた。拾ったんじゃない。迎えに来てたのか。' },
         { say: 'hatsu', text: '自分の子を取り戻すために、提督は海賊になった。それがチュン。' },
         { say: 'haku', face: 'surprise', text: 'じゃあ「俺の息子じゃない」ってのは……' },
         { say: 'hatsu', text: '海軍の前で言わなきゃ、あんたは人質にされてた。' },
@@ -211,8 +213,8 @@ const VG_EPISODES = {
         { exit: 'chun' },
         { caption: 'ハクは牢へ。格子の向こうで、ハツが囁いた。' },
         { enter: 'hatsu', side: 'right' },
-        { say: 'hatsu', text: 'ねえ。金貨、よく見た？ 数字は年号じゃない。あんたが毎晩飲んでた、酒場の看板よ。' },
-        { next: '第10章「逆さの地図」── 「1715」の正体。盤が逆回りになる' }
+        { say: 'hatsu', text: 'ねえ。金貨、よく見た？ 見るのは数字じゃない。縁よ。' },
+        { next: '第10章「逆さの地図」── 金貨の縁の刻み目。盤が逆回りになる' }
     ] },
     10: { title: '第10章', sub: '逆さの地図', beats: [
         { bg: 10 },
@@ -220,8 +222,8 @@ const VG_EPISODES = {
         { fx: 'dark' },
         { caption: '牢の中。ハツの言葉が回る。' },
         { enter: 'haku', side: 'left', face: 'sad' },
-        { say: 'haku', face: 'sad', text: '酒場の看板……「1715」。創業の年だとばかり思ってた。' },
-        { say: 'haku', face: 'surprise', text: '違う。金貨の縁の刻み目──三十。俺たちが回ってきた海の数だ。' },
+        { say: 'haku', face: 'sad', text: '縁……？ 「1715」の年号ばかり見てた。' },
+        { say: 'haku', face: 'surprise', text: '思い出せ……金貨の縁の刻み目は、三十。俺たちが回ってきた海の数だ。' },
         { fx: 'flash' },
         { say: 'haku', face: 'surprise', text: '地図は円だったんだ。どこまで行っても港に帰る。宝は──出発した場所。' },
         { caption: '格子が、音を立てて開いた。' },
@@ -236,7 +238,7 @@ const VG_EPISODES = {
     11: { title: '第11章', sub: '宝島は港だった', beats: [
         { bg: 11 },
         { title: '第11章', sub: '宝島は港だった' },
-        { caption: '十二月。港町。酒場「1715」の地下。' },
+        { caption: '十二月。SILI港。旅の始まりの酒場、その地下。' },
         { enter: 'haku', side: 'left', face: 'smile' },
         { say: 'haku', face: 'surprise', text: '樽の下……床板が違う。ここだ。' },
         { fx: 'flash' },
@@ -245,15 +247,17 @@ const VG_EPISODES = {
         { say: 'chun', text: '……早かったな。' },
         { say: 'haku', face: 'angry', text: '父さん。' },
         { say: 'chun', text: '…………' },
-        { enter: 'hatsu', side: 'right' },
+        { enter: 'hatsu', side: 'center' },
         { say: 'hatsu', text: '二人とも、剣を下ろして。' },
         { say: 'chun', text: '俺はこの宝を、海軍にもお前たちにも渡したくなかった。だから死んだことにした。' },
         { say: 'chun', text: '一七一五年に沈んだ艦隊の金。これを追った者はみんな死んだ。……母さんも。' },
         { say: 'haku', face: 'sad', text: '母さんが……' },
         { fx: 'gold' },
         { say: 'chun', text: '俺が守りたかったのは金じゃない。お前たち二人だ。……言うのが、遅すぎたが。' },
+        { caption: 'チュンは金貨を、ハクの手に戻した。' },
+        { say: 'chun', text: 'この扉が開くのは、一年でいちばん長い夜だけだ。そのときは、お前が開けろ。' },
         { exit: 'hatsu' },
-        { enter: 'pon', side: 'right' },
+        { enter: 'pon', side: 'center' },
         { say: 'pon', text: '「タカラハ、サイショカラ、ココニ」' },
         { caption: '冬至まで、あと七日。' },
         { next: '最終日「冬至の夜」── 扉が開く' }
@@ -269,7 +273,7 @@ const VG_EPISODES = {
         { caption: '扉の向こう。一七一五年の金が、ランタンの光で燃えるように光った。' },
         { say: 'haku', face: 'laugh', text: '……でかい。' },
         { enter: 'hatsu', side: 'right' },
-        { say: 'hatsu', text: '山分けよ。航海した分だけ。それが海賊のやり方。' },
+        { say: 'hatsu', text: '山分けよ。港に帰ってきた数だけ。それが海賊のやり方。' },
         { exit: 'hatsu' },
         { enter: 'chun', side: 'right' },
         { say: 'chun', text: '海軍は辞めてきた。提督の席より、お前たちと同じ船のほうがいい。' },
@@ -280,7 +284,7 @@ const VG_EPISODES = {
         { say: 'pon', text: '「ツギハ、ドコヘ」' },
         { say: 'haku', face: 'laugh', text: '風の向くほうへ。──出港！' },
         { fx: 'gold' },
-        { fin: '大海賊の航海日誌 ─ 完 ─\n最終秘宝は 12/22 0:10 に、航海した分の比で山分けされます。ご乗船ありがとうございました。' }
+        { fin: '大海賊の航海日誌 ─ 完 ─\n最終秘宝は 12/22 0:10 に、港を回った数 (周回) の比で山分けされます。ご乗船ありがとうございました。' }
     ] }
 };
 
@@ -388,7 +392,7 @@ function playVoyageEpisode(no) {
             bgImg.classList.remove('is-ready');
             bgImg.onload = () => bgImg.classList.add('is-ready');
             bgImg.onerror = () => bgImg.classList.remove('is-ready');
-            bgImg.src = `assets/img/voyage/bg-${String(n).padStart(2, '0')}.jpg`;
+            bgImg.src = `assets/img/voyage/bg-${String(n).padStart(2, '0')}.jpeg`;
             restartClass(root.querySelector('.vg-story-bg'), 'is-pan');
         };
 

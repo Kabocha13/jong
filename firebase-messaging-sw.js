@@ -16,8 +16,12 @@ self.addEventListener('activate', event => event.waitUntil(self.clients.claim())
 // 画面側で受け取って出す処理は無いので、そのままだと管理画面やホームを開いている端末には何も出ない
 // (くじを作った本人の端末など)。見えているページがあるときはここで表示する。
 // 見えていないときは SDK が表示するので二重には出ない (同じ tag なので重なっても1つにまとまる)
-// 通知のアイコンは公式キャラ (船長) の顔 (サイトのタブやホーム画面のアイコン assets/icon.png とは別)
-const QJONG_NOTIFICATION_ICON = '/assets/img/captain/icon.png';
+// 通知のアイコンは公式キャラ (船長) の顔 (サイトのタブやホーム画面のアイコン assets/icon.png とは別)。
+// 船長を出し始める日時 (assets/js/common.js の CAPTAIN_REVEAL_AT と同じ) より前は、これまでのアイコン
+const QJONG_CAPTAIN_REVEAL_AT = Date.parse('2026-10-04T00:00:00+09:00');
+function qjongNotificationIcon() {
+  return Date.now() >= QJONG_CAPTAIN_REVEAL_AT ? '/assets/img/captain/icon.png' : '/assets/icon.png';
+}
 
 self.addEventListener('push', event => {
     let payload = null;
@@ -33,7 +37,7 @@ self.addEventListener('push', event => {
         if (!clients.some(client => client.visibilityState === 'visible')) return undefined;
         return self.registration.showNotification(notification.title, {
             body: notification.body || '',
-            icon: notification.icon || QJONG_NOTIFICATION_ICON,
+            icon: notification.icon || qjongNotificationIcon(),
             tag: notification.tag,
             data: { qjongLink: (payload.fcmOptions && payload.fcmOptions.link) || '/' }
         });

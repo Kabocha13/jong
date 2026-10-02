@@ -87,6 +87,7 @@
     --img-auction:  url('../img/scene-auction.jpg');
     --img-parchment:url('../img/texture-parchment.jpeg');
     --img-wood:     url('../img/texture-wood.jpeg');
+    --img-voyage-board: url('../img/voyage/board.jpeg');   /* 航海の盤の真ん中 (サイコロを振るところ)。無いあいだは章の色だけ */
     --img-nav-home:   url('../img/nav-home.png');
     --img-nav-mypage: url('../img/nav-mypage.png');
     --img-nav-admin:  url('../img/nav-admin.png');
@@ -5684,9 +5685,11 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     gap: 3px;
     aspect-ratio: calc(var(--vg-cols, 10) / var(--vg-rows, 7));
     padding: 6px;
+    /* 上から: 周りを沈める影 → 章の色 (半分透かして絵に重ねる) → 盤の絵 (assets/img/voyage/board.jpeg) → 絵が無いときの章の色 */
     background:
-        radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.08), transparent 60%),
-        repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0 6px, transparent 6px 14px),
+        radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(6, 13, 22, 0.55) 100%),
+        linear-gradient(180deg, color-mix(in srgb, var(--vg-sea) 40%, transparent), color-mix(in srgb, var(--vg-sea-deep) 55%, transparent)),
+        var(--img-voyage-board) center / cover no-repeat,
         linear-gradient(180deg, var(--vg-sea), var(--vg-sea-deep));
     border: 3px solid var(--brass);
     border-radius: 12px;
@@ -5695,47 +5698,114 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 
 .vg-cell {
     position: relative;
-    display: grid;
-    align-content: center;
-    justify-items: center;
-    gap: 1px;
     min-width: 0;
     min-height: 0;
-    padding: 2px;
-    font-size: clamp(8px, 1.9vw, 11px);
+    font-size: clamp(8px, 1.8vw, 11px);
     line-height: 1.1;
-    text-align: center;
-    color: var(--ink);
-    background: linear-gradient(180deg, #fbf2dc, var(--vg-cell));
-    border: 1px solid rgba(43, 30, 16, 0.4);
-    border-radius: 4px;
-    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+    color: var(--parchment);
+    background: radial-gradient(circle at 50% 45%, #1f5560, #0b2227 75%);
+    border: 1px solid rgba(var(--brass-rgb), 0.55);
+    border-radius: 7px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.45);
     overflow: hidden;
 }
 
-.vg-cell-icon { font-size: 1.25em; line-height: 1; }
-.vg-cell-label { font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.vg-cell-sub { font-size: 0.86em; color: var(--ink-soft); white-space: nowrap; }
-
-.vg-cell.is-sea {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
-    border-color: rgba(255, 255, 255, 0.18);
-    box-shadow: none;
+/* マスの絵 (スロットの絵柄など)。絵は外側に余白があるので少し拡大して切り抜く。読めないあいだは絵文字 */
+.vg-art {
+    position: relative;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 45%, #1f5560, #0b2227 75%);
 }
-.vg-cell.is-sea::after { content: '〜'; font-size: 1.1em; color: rgba(255, 255, 255, 0.35); }
-.vg-cell.is-port { background: linear-gradient(180deg, #ffe9a8, var(--brass-light)); border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass), inset 0 -2px 0 rgba(0, 0, 0, 0.15); }
-.vg-cell.is-x { background: linear-gradient(180deg, #fff3cf, #f3d58a); }
-.vg-cell.is-q { background: linear-gradient(180deg, #e6d2f0, #b78ccc); color: #2b0f3a; }
-.vg-cell.is-again { background: linear-gradient(180deg, #ffd9d2, #f39a8c); }
-.vg-cell.is-fwd { background: linear-gradient(180deg, #d9f3ff, #8fcbe8); }
-.vg-cell.is-back { background: linear-gradient(180deg, #7b8a92, #46545c); color: #f1e3c4; }
-.vg-cell.is-back .vg-cell-sub { color: rgba(241, 227, 196, 0.8); }
-.vg-cell.is-captain { background: linear-gradient(180deg, #3a1a1a, #14100c); color: #ffd34d; border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass), 0 0 10px rgba(255, 182, 72, 0.5); }
-.vg-cell.is-captain .vg-cell-sub { color: #ffd34d; }
-.vg-cell.is-gamble { background: linear-gradient(180deg, #4a3a1a, #2a1a0a); color: #ffd34d; }
-.vg-cell.is-gamble .vg-cell-sub { color: rgba(255, 211, 77, 0.8); }
-.vg-cell.is-duel { background: linear-gradient(180deg, #6b1c1c, #3a0b0b); color: #fff0e0; }
-.vg-cell.is-duel .vg-cell-sub { color: rgba(255, 240, 224, 0.8); }
+
+.vg-art-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1.3);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.vg-art.has-art .vg-art-img { opacity: 1; }
+.vg-art.has-art .vg-art-icon { display: none; }
+.vg-art-icon { position: relative; font-size: 1.5em; line-height: 1; }
+.vg-art[data-art="captain"] .vg-art-img { transform: none; }
+.vg-art[data-art="curse"] .vg-art-img { object-fit: contain; transform: scale(0.92); }
+.vg-art[data-art="storm"]:not(.has-art) { background: radial-gradient(circle at 50% 40%, #5b6b74, #1e282e 75%); }
+.vg-art[data-art="loss"]:not(.has-art) { background: radial-gradient(circle at 50% 40%, #8f2a20, #2a0b08 75%); }
+.vg-art[data-art=""] { background: none; }
+
+.vg-cell-art { position: absolute; inset: 0; }
+
+/* マスの名前 (広い盤だけ。スマホの縦長の盤では「この章のマス」で見る) */
+.vg-cell-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 2px 2px 6px;
+    font-size: 0.86em;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff3d6;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    background: linear-gradient(180deg, rgba(6, 13, 22, 0.78), transparent);
+}
+
+.vg-board.is-portrait .vg-cell-label { display: none; }
+
+/* マスの隅の数字 (×2・−10・1/12 など) */
+.vg-cell-badge {
+    position: absolute;
+    left: 50%;
+    bottom: 2px;
+    max-width: calc(100% - 4px);
+    padding: 1px 5px;
+    font-family: var(--font-display);
+    font-size: 1.12em;
+    line-height: 1.15;
+    white-space: nowrap;
+    color: #fff3d6;
+    background: rgba(6, 13, 22, 0.82);
+    border: 1px solid rgba(var(--brass-rgb), 0.7);
+    border-radius: 999px;
+    transform: translateX(-50%);
+}
+
+.vg-cell-badge:empty { display: none; }
+.vg-cell.tone-win .vg-cell-badge,
+.vg-legend-item.tone-win .vg-legend-badge { color: #ffe08a; }
+.vg-cell.tone-gold .vg-cell-badge,
+.vg-legend-item.tone-gold .vg-legend-badge { color: var(--pitch); background: linear-gradient(180deg, #ffe9a8, var(--brass-light)); border-color: #fff3d6; }
+.vg-cell.tone-bad .vg-cell-badge,
+.vg-legend-item.tone-bad .vg-legend-badge { color: #fff; background: linear-gradient(180deg, var(--rum-light), var(--rum-dark)); border-color: #ff9a8a; }
+.vg-cell.tone-dim .vg-cell-badge,
+.vg-legend-item.tone-dim .vg-legend-badge { color: rgba(246, 227, 178, 0.8); }
+.vg-cell.tone-jp .vg-cell-badge,
+.vg-legend-item.tone-jp .vg-legend-badge { color: #ffd34d; background: linear-gradient(180deg, #5a1414, #1a0606); border-color: #ffd34d; }
+
+/* 何もない海: 絵を置かず、水面だけ */
+.vg-cell.is-sea {
+    background:
+        radial-gradient(ellipse at 30% 35%, rgba(255, 255, 255, 0.12), transparent 45%),
+        repeating-linear-gradient(170deg, rgba(255, 255, 255, 0.06) 0 2px, transparent 2px 7px),
+        rgba(6, 13, 22, 0.25);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.35);
+}
+
+.vg-cell.is-port { border: 2px solid var(--brass-light); box-shadow: 0 0 0 1px var(--brass), 0 0 12px rgba(255, 211, 77, 0.55); }
+.vg-cell.is-captain { border: 2px solid #ffd34d; box-shadow: 0 0 0 1px var(--rum), 0 0 14px rgba(255, 90, 70, 0.6); }
+.vg-cell.is-loss,
+.vg-cell.is-back { border-color: rgba(191, 59, 49, 0.85); }
+.vg-cell.is-half .vg-cell-art { filter: saturate(0.55) brightness(0.8); }
 
 .vg-cell.is-here { outline: 2px solid var(--lantern); outline-offset: -2px; }
 .vg-cell.is-hit { animation: vg-cell-hit 0.9s ease-out; }
@@ -5827,7 +5897,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 .vg-controls-row { display: flex; align-items: center; gap: 12px; }
 .vg-roll-button { grid-area: auto; width: 76px; height: 76px; font-size: 1.05em; }
 .vg-roll-button.is-auto { font-size: 0.72em; }
-.vg-controls .slot-auto { grid-area: auto; }
+.vg-controls .slot-auto { grid-area: auto; white-space: nowrap; }
 
 .vg-status {
     min-height: 1.4em;
@@ -5930,7 +6000,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     75% { transform: rotate(14deg) translateY(-6px); }
 }
 
-/* トースト (1周・スタンプ) */
+/* トースト (1周) */
 .vg-toast {
     position: absolute;
     top: 10px;
@@ -5953,7 +6023,6 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 }
 
 .vg-toast.is-gold { color: var(--lantern); }
-.vg-toast.is-stamp { color: #ffd34d; border-color: #ffd34d; }
 
 @keyframes vg-toast {
     0%   { opacity: 0; transform: translate(-50%, -10px); }
@@ -6031,38 +6100,82 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 .vg-log .casino-stats dd { font-variant-numeric: tabular-nums; }
 .vg-share-note { margin: 8px 0 10px; font-size: 0.82em; }
 
-.vg-stamps {
+/* この章のマス */
+.vg-legend {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 6px;
-    margin: 0 0 16px;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+    margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.vg-stamp {
-    position: relative;
+.vg-legend-item {
     display: grid;
-    place-items: center;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px 6px 6px;
+    background: rgba(43, 30, 16, 0.05);
+    border: 1px solid var(--parchment-edge);
+    border-radius: 10px;
+}
+
+.vg-legend-art {
+    width: 44px;
     aspect-ratio: 1;
+    border: 1px solid rgba(var(--brass-rgb), 0.6);
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.vg-legend-item.is-sea .vg-legend-art { background: linear-gradient(180deg, #2a6e78, #0f3a40); }
+.vg-legend-item.is-sea .vg-legend-art .vg-art-icon::before { content: '〜'; color: rgba(255, 255, 255, 0.6); }
+.vg-legend-text { display: grid; gap: 1px; min-width: 0; }
+.vg-legend-name { display: flex; align-items: center; gap: 6px; font-size: 0.95em; color: var(--ink); }
+
+.vg-legend-badge {
+    padding: 0 6px;
     font-family: var(--font-display);
-    font-size: 1.1em;
-    color: var(--ink-soft);
-    background: var(--parchment);
-    border: 2px dashed var(--parchment-edge);
-    border-radius: 50%;
+    font-size: 0.95em;
+    font-weight: 400;
+    color: #fff3d6;
+    background: rgba(6, 13, 22, 0.85);
+    border: 1px solid rgba(var(--brass-rgb), 0.7);
+    border-radius: 999px;
 }
 
-.vg-stamp-no { line-height: 1; }
-.vg-stamp-mark { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.6em; color: var(--rum); opacity: 0.85; transform: rotate(-14deg); }
-.vg-stamp.is-on { border: 2px solid var(--rum); color: rgba(43, 30, 16, 0.5); }
-.vg-stamp.is-current { box-shadow: 0 0 0 2px var(--lantern); }
-.vg-stamp.is-new .vg-stamp-mark { animation: vg-stamp-in 0.6s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.vg-legend-note { font-size: 0.8em; line-height: 1.35; color: var(--ink-soft); }
+.vg-legend-count { font-size: 0.75em; color: var(--ink-soft); white-space: nowrap; }
 
-@keyframes vg-stamp-in {
-    from { transform: rotate(-14deg) scale(3); opacity: 0; }
-    to   { transform: rotate(-14deg) scale(1); opacity: 0.85; }
+/* BET は 10 で固定 */
+.vg-bet-fixed {
+    display: grid;
+    justify-items: center;
+    min-width: 54px;
+    margin: 0;
+    padding: 2px 10px;
+    line-height: 1.1;
+    background: #0b0806;
+    border: 1px solid rgba(201, 146, 47, 0.6);
+    border-radius: 8px;
 }
+
+.vg-bet-fixed span { font-family: var(--font-title); font-size: 0.68em; letter-spacing: 0.2em; color: rgba(246, 227, 178, 0.7); }
+.vg-bet-fixed strong { font-family: var(--font-display); font-size: 1.4em; color: var(--lantern); }
+
+/* 宝箱を開ける */
+.vg-flip-coin.is-chest { border-radius: 22%; animation: vg-chest-shake 0.22s ease-in-out infinite; }
+.vg-flip-coin.is-chest.is-hit { animation: vg-coin-hit 0.5s ease-out both; }
+.vg-flip-coin.is-chest.is-miss { animation: vg-coin-miss 0.5s ease-in both; }
+
+@keyframes vg-chest-shake {
+    0%, 100% { transform: translate(-50%, -50%) rotate(0); }
+    25% { transform: translate(-52%, -50%) rotate(-5deg); }
+    75% { transform: translate(-48%, -50%) rotate(5deg); }
+}
+
+.vg-readout .slot-result.is-small { color: var(--brass-pale); }
 
 .vg-episodes {
     display: grid;
@@ -6125,10 +6238,13 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     .vg-cabinet { padding: 10px 8px 12px; }
     .vg-pools { width: 100%; }
     .vg-pool { flex: 1; }
-    .vg-cell-sub { display: none; }
-    .vg-cell.is-x .vg-cell-sub, .vg-cell.is-port .vg-cell-sub, .vg-cell.is-captain .vg-cell-sub { display: block; }
-    .vg-cell.is-x .vg-cell-label { display: none; }
-    .vg-stamps { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .vg-cell-badge { padding: 0 3px; font-size: 1em; }
+    .vg-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .vg-legend-item { grid-template-columns: 32px minmax(0, 1fr); gap: 6px; padding: 5px 6px 5px 5px; }
+    .vg-legend-art { width: 32px; font-size: 12px; }
+    .vg-legend-name { flex-wrap: wrap; gap: 4px; font-size: 0.86em; }
+    .vg-legend-note { font-size: 0.72em; }
+    .vg-legend-count { display: none; }
 }
 
 @media (min-width: 720px) {
@@ -6211,6 +6327,8 @@ body.vg-story-open { overflow: hidden; }
 
 .vg-actor[data-side="left"] { left: 2%; }
 .vg-actor[data-side="right"] { right: 2%; }
+/* 2人の間に立つ (第11章のハツ)。幅 (min(44vw, 300px)) の半分だけ左へ */
+.vg-actor[data-side="center"] { left: calc(50% - min(22vw, 150px)); }
 .vg-actor.is-in { animation: vg-actor-in 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 .vg-actor.is-out { animation: vg-actor-out 0.4s ease-in both; }
 .vg-actor.is-dim { filter: brightness(0.45) saturate(0.6); transform: scale(0.94); }
@@ -6527,6 +6645,7 @@ body.vg-story-open { overflow: hidden; }
 
 @media (max-width: 719px) {
     .vg-actor { width: 46vw; }
+    .vg-actor[data-side="center"] { left: 27vw; }
     .vg-actor-img { max-height: 40vh; }
     .vg-story-stage { inset: 0 0 30%; }
 }

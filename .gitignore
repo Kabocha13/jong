@@ -11,6 +11,8 @@ assets/js/firebase-config.js
 # iOS アプリの Firebase 設定 (firebase-config.js と同じ扱い。取り直し方は app/README.md)
 app/ios/App/App/GoogleService-Info.plist
 assets/js/adsense-config.js
+# 航海のルールの写し (functions/voyage.js から tools/copy-voyage-rules.mjs が Hosting の predeploy で作る)
+assets/js/voyage-rules.js
 
 # Firebase service account keys must stay local.
 *serviceAccount*.json

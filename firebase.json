@@ -1,7 +1,8 @@
 {
   "hosting": {
     "predeploy": [
-      "node tools/check-hosting-secrets.mjs"
+      "node tools/check-hosting-secrets.mjs",
+      "node tools/copy-voyage-rules.mjs"
     ],
     "public": ".",
     "ignore": [

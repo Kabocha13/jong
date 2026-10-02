@@ -440,6 +440,25 @@ function getJstDateKey(date = new Date()) {
     }).format(date);
 }
 
+// 公式キャラ (船長) を出し始める日時 (日本時間)。それより前は船長の絵 (assets/img/captain/) をどこにも出さない
+// (ホームの見出し・カットイン・宝探しの船長マスの顔。通知のアイコンは firebase-messaging-sw.js と functions/index.js に同じ日時がある)
+const CAPTAIN_REVEAL_AT = '2026-10-04T00:00:00+09:00';
+
+function isCaptainRevealed(now = Date.now()) {
+    return now >= Date.parse(CAPTAIN_REVEAL_AT);
+}
+
+// ハロウィンのあいだ (日本時間で毎年 10/18〜10/31 の2週間)。公式キャラ (船長) の立ち絵をハロウィン版にする
+function isHalloweenSeason(date = new Date()) {
+    const monthDay = getJstDateKey(date).slice(5);
+    return monthDay >= '10-18' && monthDay <= '10-31';
+}
+
+/** 公式キャラ (船長) の立ち絵。ハロウィンのあいだは halloween.png */
+function captainStandSrc() {
+    return isHalloweenSeason() ? 'assets/img/captain/halloween.png' : 'assets/img/captain/stand.png';
+}
+
 function toFiniteNumber(value, fallback = 0) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;

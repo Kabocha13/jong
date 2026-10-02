@@ -17,7 +17,8 @@ const SLOT_SYMBOLS = {
     anchor:  { name: '錨', emoji: '⚓' },
     // 宝探しの船長マス (スロットには出ない)。公式キャラの顔の絵を先に探し、無ければ帽子の絵。
     // どちらも無いあいだは game-gappori.js が札で出す
-    captain: { name: '船長', emoji: '🎩', src: ['assets/img/captain/face.jpeg', 'assets/img/slot/captain.jpeg'] }
+    // 公式キャラの顔は出し始める日 (common.js の CAPTAIN_REVEAL_AT) から。それまでは帽子の絵
+    captain: { name: '船長', emoji: '🎩', src: [...(isCaptainRevealed() ? ['assets/img/captain/face.jpeg'] : []), 'assets/img/slot/captain.jpeg'] }
 };
 const SLOT_PAYS = { chest: 100, coin: 30, compass: 15, map: 12, rum: 5, parrot: 3, anchor: 2 };
 const SLOT_LINES = [[1, 1, 1], [0, 0, 0], [2, 2, 2], [0, 1, 2], [2, 1, 0]];
@@ -248,7 +249,7 @@ function showSlotOverlay(variant, build, { captain = null } = {}) {
         body.className = 'slot-overlay-body';
         build(body);
         overlay.append(rays);
-        if (captain) overlay.append(captainArt(captain));
+        if (captain && isCaptainRevealed()) overlay.append(captainArt(captain));
         overlay.append(body, modeText('p', 'slot-overlay-hint', 'タップで閉じる'));
         let closed = false;
         let timer = null;
@@ -371,7 +372,8 @@ function loadSlotImages() {
     });
 }
 
-/** 公式キャラ (船長) の絵。expression は stand / surprised / laugh / disappointed。絵が無ければ消えて何も出さない */
+/** 公式キャラ (船長) の絵。expression は stand / surprised / laugh / disappointed。絵が無ければ消えて何も出さない。
+ *  stand (立ち絵) だけはハロウィンのあいだハロウィン版になる */
 function captainArt(expression) {
     const img = document.createElement('img');
     img.className = `captain-art is-${expression}`;
@@ -379,7 +381,7 @@ function captainArt(expression) {
     img.draggable = false;
     img.decoding = 'async';
     img.addEventListener('error', () => img.remove());
-    img.src = `${CAPTAIN_ART_DIR}${expression}.png`;
+    img.src = expression === 'stand' ? captainStandSrc() : `${CAPTAIN_ART_DIR}${expression}.png`;
     return img;
 }
 

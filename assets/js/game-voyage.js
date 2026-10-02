@@ -1,15 +1,14 @@
 // ゲームタブ: 航海 (大海賊の航海日誌)。2026/10/5〜12/21 の期間限定のエンドレス双六。
 //   30マスの海をぐるぐる回る。賭け金を決めて「振る」と、サイコロの目だけコマが進み、止まったマスで払い戻しが決まる。
-//   1回ぶん (出目・動き・止まるマス・払い戻し・JP・スタンプ) は Cloud Function (casino の vgRoll) が最初にすべて決め、
+//   1回ぶん (出目・動き・止まるマス・払い戻し・JP・周回) は Cloud Function (casino の vgRoll) が最初にすべて決め、
 //   画面はそれを順に見せる (サイコロ → コマの移動 → マスの効果)。途中で閉じても払い戻しは入っている。
 //   章 (毎週月曜に進む) と盤面はサーバーから受け取る (voyage.chapter / voyage.chapters)。章ごとの物語 (アニメ) は voyage-story.js。
 //   ジャックポットと最終秘宝は voyage_public/main を読んで出す (20秒ごとに読み直す)。
 //   閃光・金貨・画面いっぱいの演出は game-slot.js のものを使う。入場・手元チップ・精算は game.js。
 //   ゲーム一覧のカードは Ver54.1 で出すまで Coming soon のままで、#voyage で直接開ける。
 
-const VG_BETS = [1, 2, 5, 10, 20, 50, 100, 500, 1000, 5000];   // サーバーの VOYAGE_BETS と同じ
+const VG_BET = 10;                // 賭け金は 10 で固定 (サーバーの VOYAGE_BET と同じ)
 const VG_SQUARES = 30;
-const VG_BET_STORAGE_KEY = 'voyageBet';
 const VG_SEEN_STORAGE_KEY = 'voyageSeenChapters';   // 物語を見せた章 (この端末)
 const VG_HOP_MS = 230;            // コマが1マス動く時間
 const VG_DICE_MS = 1100;          // サイコロを振っている時間
@@ -19,37 +18,82 @@ const VG_POLL_MS = 20000;         // JP・最終秘宝を読み直す間隔
 const VG_BIG_MULTIPLIER = 8;      // この倍率以上は大きく祝う
 const VG_FACES = ['smile', 'laugh', 'surprise', 'angry', 'sad'];
 
-// マスの見た目。label は章で上書きできる (VG_FLAVOR)
-const VG_SQUARE_LOOK = {
-    port: { label: '港', sub: '×2', icon: '⚓' },
-    sea: { label: '', sub: '', icon: '' },
-    x: { label: '', sub: '', icon: '🪙' },
-    q: { label: '×?', sub: '', icon: '🗺' },
-    again: { label: 'もう1回', sub: '', icon: '🦜' },
-    fwd: { label: '追い風', sub: '', icon: '💨' },
-    back: { label: '嵐', sub: '', icon: '🌪' },
-    captain: { label: '船長', sub: 'JP', icon: '🏴‍☠️' },
-    gamble: { label: '呪いの金貨', sub: '', icon: '💀' },
-    duel: { label: '一騎打ち', sub: '', icon: '⚔' }
-};
-// 章ごとのマスの呼び方 (その週の物語に合わせる)
-const VG_FLAVOR = {
-    1: { x: '酒場' },
-    2: { x: '霧の商い' },
-    3: { x6: '拿捕', x: '商船' },
-    4: { gamble: '呪いの金貨', x: '幽霊の金貨' },
-    5: { q: '掘る', x: '漂着物' },
-    6: { back: '砲撃', fwd: '逃げ切り', x: '戦利品' },
-    7: { again: '人魚の歌', x: '真珠' },
-    8: { x: '流氷の金貨', back: '流氷' },
-    9: { duel: '一騎打ち', x: '戦利品' },
-    10: { x: '帰り荷', back: '逆風' },
-    11: { captain: '船長', x: '港の酒場' },
-    12: { captain: '船長', x: '秘宝のかけら' }
+// マスの絵 (スロットの絵柄・船長の顔・呪いの金貨を使う)。sq-*.jpeg はまだ無ければ icon (絵文字) で出す (assets/img/voyage/README.md)
+const VG_ART = {
+    anchor: 'assets/img/slot/anchor.jpeg',
+    coin: 'assets/img/slot/coin.jpeg',
+    chest: 'assets/img/slot/chest.jpeg',
+    rum: 'assets/img/slot/rum.jpeg',
+    map: 'assets/img/slot/map.jpeg',
+    parrot: 'assets/img/slot/parrot.jpeg',
+    compass: 'assets/img/slot/compass.jpeg',
+    flag: 'assets/img/slot/wild.jpeg',
+    curse: 'assets/img/voyage/coin.png',
+    storm: 'assets/img/voyage/sq-storm.jpeg',
+    loss: 'assets/img/voyage/sq-loss.jpeg'
 };
 
+/** 公式キャラ (船長) の顔。出し始める日 (common.js の CAPTAIN_REVEAL_AT) より前は帽子の絵 */
+function vgCaptainArt() {
+    return isCaptainRevealed() ? 'assets/img/captain/face.jpeg' : 'assets/img/slot/captain.jpeg';
+}
+
+// マスの見た目。label は章で上書きできる (VG_FLAVOR)。art は VG_ART のキー
+const VG_SQUARE_LOOK = {
+    port: { label: '港', icon: '⚓', art: 'anchor' },
+    sea: { label: '海', icon: '', art: '' },
+    x: { label: '金貨', icon: '🪙', art: 'coin' },
+    half: { label: 'おこぼれ', icon: '🪙', art: 'coin' },
+    q: { label: '古地図', icon: '🗺', art: 'map' },
+    risk: { label: '宝箱', icon: '🧰', art: 'chest' },
+    loss: { label: '災難', icon: '💥', art: 'loss' },
+    again: { label: 'もう1回', icon: '🦜', art: 'parrot' },
+    fwd: { label: '追い風', icon: '🧭', art: 'compass' },
+    back: { label: '嵐', icon: '🌪', art: 'storm' },
+    captain: { label: '船長', icon: '🏴‍☠️', art: 'captain' },
+    gamble: { label: '呪いの金貨', icon: '💀', art: 'curse' },
+    duel: { label: '一騎打ち', icon: '⚔', art: 'flag' }
+};
+// 章ごとのマスの呼び方 (その週の物語に合わせる)。キーはマスの文字列 (x6 など) か種類 (x・half・loss など)
+const VG_FLAVOR = {
+    1: { x: '酒場', half: 'おこぼれ', loss: 'ツケ', risk: '賭け札', back: '高波' },
+    2: { x: '霧の商い', half: '漂流物', loss: '座礁', risk: '霧の宝箱', q: '海図', back: '逆潮' },
+    3: { x6: '拿捕', x: '商船', half: '落とし荷', loss: '護衛の砲撃', risk: '積荷' },
+    4: { gamble: '呪いの金貨', x: '幽霊の金貨', half: '古銭', loss: '亡霊', risk: '棺' },
+    5: { q: '掘る', x: '漂着物', half: '貝殻', loss: '毒蛇', risk: '埋めた箱' },
+    6: { back: '砲撃', fwd: '逃げ切り', x: '戦利品', half: '流れ樽', loss: '被弾', risk: '補給船' },
+    7: { again: '人魚の歌', x: '真珠', half: '小さな貝', loss: '渦潮', risk: '人魚の箱' },
+    8: { x: '流氷の金貨', back: '流氷', half: '氷漬けの銀貨', loss: '凍傷', risk: '氷の箱' },
+    9: { duel: '一騎打ち', x: '戦利品', half: '拾い物', loss: '被弾', risk: '敵の金庫' },
+    10: { x: '帰り荷', back: '逆風', half: '拾い物', loss: '牢の罰金', risk: '隠し箱' },
+    11: { captain: '船長', x: '港の酒場', half: 'おこぼれ', loss: '昔のツケ', risk: '地下の箱' },
+    12: { captain: '船長', x: '秘宝のかけら', half: '金のかけら', loss: '罠', risk: '秘宝の箱' }
+};
+// 止まったときのハクのひとこと (章ごと)。無い種類は VG_STORY_DEFAULT
+const VG_STORY = {
+    1: { x: ['酒場の腕相撲に勝った！', '常連が一杯おごってくれた'], half: ['床に落ちた銀貨を拾った', 'つり銭が少し戻った'], loss: ['酒場のツケを払わされた…', '酔っ払いのケンカに巻き込まれた'], riskHit: ['賭け札が当たった！'], riskMiss: ['イカサマだ… 札は白紙'], sea: ['静かな夜だ'] },
+    2: { x: ['霧の中で商いがまとまった'], half: ['漂流物を拾った'], loss: ['霧で岩にぶつけた！'], riskHit: ['霧の中に宝箱が！'], riskMiss: ['…空っぽだ'], sea: ['何も見えない…'] },
+    3: { x: ['商船から通行料をもらった'], half: ['落ちた荷を拾った'], loss: ['護衛艦に撃たれた！'], riskHit: ['積荷は金貨だ！'], riskMiss: ['積荷は石ころだった'], sea: ['商船は通り過ぎた'] },
+    4: { x: ['幽霊の金貨を拾った'], half: ['古い銭が一枚'], loss: ['亡霊に積荷を持っていかれた'], riskHit: ['棺の中に金貨が！'], riskMiss: ['棺は空だった…'], sea: ['冷たい風だけが吹く'] },
+    5: { x: ['漂着物に金目の物！'], half: ['きれいな貝殻だ'], loss: ['毒蛇に噛まれた！'], riskHit: ['埋めた箱を見つけた！'], riskMiss: ['掘ったが空っぽ…'], sea: ['波の音だけだ'] },
+    6: { x: ['戦利品を手に入れた'], half: ['流れてきた樽を拾った'], loss: ['被弾！ 修理代だ'], riskHit: ['補給船を奪った！'], riskMiss: ['補給船は空だった'], sea: ['砲声が遠い'] },
+    7: { x: ['真珠を見つけた！'], half: ['小さな貝をひとつ'], loss: ['渦潮に巻かれた！'], riskHit: ['人魚の宝箱だ！'], riskMiss: ['泡になって消えた…'], sea: ['月がきれいだ'] },
+    8: { x: ['氷の下に金貨が！'], half: ['氷漬けの銀貨だ'], loss: ['凍えて薪代がかさむ'], riskHit: ['氷を割ったら宝箱！'], riskMiss: ['中まで氷だった'], sea: ['吐く息が白い'] },
+    9: { x: ['敵船から戦利品！'], half: ['甲板の銀貨を拾った'], loss: ['被弾！ 帆が裂けた'], riskHit: ['敵の金庫を開けた！'], riskMiss: ['金庫は空だ…'], sea: ['にらみ合いが続く'] },
+    10: { x: ['帰り荷を売った'], half: ['牢で拾った銀貨だ'], loss: ['牢番に罰金を取られた'], riskHit: ['隠し箱を見つけた！'], riskMiss: ['隠し箱は空だった'], sea: ['港の灯りはまだ遠い'] },
+    11: { x: ['懐かしい港の酒場で一杯'], half: ['おこぼれをもらった'], loss: ['昔のツケを払わされた'], riskHit: ['地下の箱に金貨！'], riskMiss: ['箱は空だった'], sea: ['港は静かだ'] },
+    12: { x: ['秘宝のかけらだ！'], half: ['金のかけらを拾った'], loss: ['罠だ！'], riskHit: ['秘宝の箱が開いた！'], riskMiss: ['偽物の箱だった…'], sea: ['長い夜だ'] }
+};
+const VG_STORY_DEFAULT = { x: ['よし、稼いだ'], half: ['少しだけ戻った'], loss: ['やられた…'], riskHit: ['当たりだ！'], riskMiss: ['空っぽだ…'], sea: ['…何もない海'] };
+
+/** 章 chapterNo で、止まったマスの種類 kind のひとことを1つ選ぶ */
+function vgStoryLine(chapterNo, kind) {
+    const lines = VG_STORY[chapterNo]?.[kind] || VG_STORY_DEFAULT[kind] || [''];
+    return lines[Math.floor(Math.random() * lines.length)];
+}
+
 const vg = {
-    bet: 10,
+    bet: VG_BET,
     open: false,
     playing: false,       // 1回ぶんを見せている途中
     storyOpen: false,     // 物語を見せている途中
@@ -86,29 +130,89 @@ function vgParseSquare(square) {
     const text = String(square || 'sea');
     let match;
     if (['port', 'sea', 'again', 'captain', 'duel'].includes(text)) return { type: text };
-    if ((match = /^x(\d+)$/.exec(text))) return { type: 'x', value: Number(match[1]) };
+    if ((match = /^x(\d+(?:\.\d+)?)$/.exec(text))) return { type: 'x', value: Number(match[1]) };
     if ((match = /^q(\d+)-(\d+)$/.exec(text))) return { type: 'q', min: Number(match[1]), max: Number(match[2]) };
+    if ((match = /^risk(\d+(?:\.\d+)?)-(\d+)$/.exec(text))) return { type: 'risk', value: Number(match[1]), odds: Number(match[2]) };
+    if ((match = /^loss(\d+(?:\.\d+)?)$/.exec(text))) return { type: 'loss', value: Number(match[1]) };
     if ((match = /^fwd(\d+)$/.exec(text))) return { type: 'fwd', value: Number(match[1]) };
     if ((match = /^back(\d+)$/.exec(text))) return { type: 'back', value: Number(match[1]) };
     if ((match = /^gamble(\d+)-(\d+)$/.exec(text))) return { type: 'gamble', value: Number(match[1]), back: Number(match[2]) };
     return { type: 'sea' };
 }
 
-/** マスの表示 { label, sub, icon } */
+/**
+ * マスの表示 { type, kind, label, badge, tone, icon, art, note }。
+ * kind は見た目の種類 (×1 未満の x は half)、badge はマスの隅に出す短い数字、note は「この章のマス」の説明
+ */
 function vgSquareLook(square, chapterNo) {
     const parsed = vgParseSquare(square);
-    const look = { ...VG_SQUARE_LOOK[parsed.type] };
+    const kind = parsed.type === 'x' && parsed.value < 1 ? 'half' : parsed.type;
+    const look = { ...VG_SQUARE_LOOK[kind], type: parsed.type, kind, badge: '', tone: '', note: '' };
     const flavor = VG_FLAVOR[chapterNo] || {};
     if (flavor[square]) look.label = flavor[square];
-    else if (flavor[parsed.type]) look.label = flavor[parsed.type];
-    if (parsed.type === 'x') look.sub = `×${parsed.value}`;
-    if (parsed.type === 'q') look.sub = `${parsed.min}〜${parsed.max}`;
-    if (parsed.type === 'fwd') look.sub = `+${parsed.value}`;
-    if (parsed.type === 'back') look.sub = `−${parsed.value}`;
-    if (parsed.type === 'gamble') look.sub = `×${parsed.value} / −${parsed.back}`;
-    if (parsed.type === 'duel') look.sub = '×3 / −2';
-    if (parsed.type === 'captain' && vg.chapter) look.sub = `1/${vg.chapter.jpOdds}`;
-    return { ...look, type: parsed.type };
+    else if (flavor[kind]) look.label = flavor[kind];
+    const odds = vg.chapter?.jpOdds || 12;
+    switch (kind) {
+        case 'port': look.badge = '×2'; look.tone = 'gold'; look.note = 'ぴったり止まると ×2。通るたびに1周 (最終秘宝の分け前が増える)'; break;
+        case 'x':
+            look.badge = `×${parsed.value}`;
+            look.tone = parsed.value >= 3 ? 'gold' : 'win';
+            look.note = `×${parsed.value} (${vgFormat(VG_BET * parsed.value)}) が戻る`;
+            if (parsed.value >= 5) look.art = 'chest';
+            if (chapterNo === 1 || chapterNo === 11) look.art = parsed.value >= 5 ? 'chest' : 'rum';
+            break;
+        case 'half': look.badge = `×${parsed.value}`; look.tone = 'dim'; look.note = `賭け金の一部 (${vgFormat(VG_BET * parsed.value)}) だけ戻る`; break;
+        case 'q': look.badge = `×${parsed.min}〜${parsed.max}`; look.tone = 'gold'; look.note = `×${parsed.min}〜${parsed.max} のどれか${parsed.min === 0 ? ' (0 もある)' : ''}`; break;
+        case 'risk': look.badge = `×${parsed.value}`; look.tone = 'gold'; look.note = `×${parsed.value}。ただし 1/${parsed.odds} で空っぽ`; break;
+        case 'loss': look.badge = `−${vgFormat(VG_BET * parsed.value)}`; look.tone = 'bad'; look.note = `賭け金に加えて、さらに ${vgFormat(VG_BET * parsed.value)} 失う`; break;
+        case 'again': look.badge = '🎲'; look.note = 'もう1回振れる (無料)'; break;
+        case 'fwd': look.badge = `+${parsed.value}`; look.note = `${parsed.value}マス進む (着いたマスも効く)`; break;
+        case 'back': look.badge = `−${parsed.value}`; look.tone = 'bad'; look.note = `${parsed.value}マス戻る (戻った先は効かない)`; break;
+        case 'captain': look.badge = `1/${odds}`; look.tone = 'jp'; look.note = `船長チャンス。1/${odds} でジャックポット総取り`; break;
+        case 'gamble': look.badge = `×${parsed.value}`; look.tone = 'gold'; look.note = `半々で ×${parsed.value} か ${parsed.back}マス戻る`; break;
+        case 'duel': look.badge = '×3'; look.tone = 'gold'; look.note = '半々で ×3 か 2マス戻る'; break;
+        default: look.note = '何もない';
+    }
+    return look;
+}
+
+/** マスの絵の URL (無ければ '') */
+function vgArtSrc(art) {
+    if (art === 'captain') return vgCaptainArt();
+    return VG_ART[art] || '';
+}
+
+/** 絵を入れる (読めなければ絵文字を出す)。node は .vg-art を持つ要素 */
+function vgPaintArt(node, look) {
+    const src = vgArtSrc(look.art);
+    node.dataset.art = look.art || '';
+    node.classList.toggle('has-art', false);
+    node.querySelector('.vg-art-icon').textContent = look.icon || '';
+    const img = node.querySelector('.vg-art-img');
+    if (!src) {
+        img.removeAttribute('src');
+        return;
+    }
+    if (img.getAttribute('src') === src) {
+        node.classList.toggle('has-art', img.complete && img.naturalWidth > 0);
+        return;
+    }
+    img.onload = () => node.classList.add('has-art');
+    img.onerror = () => node.classList.remove('has-art');
+    img.src = src;
+}
+
+/** .vg-art (絵 + 絵文字の代わり) を作る */
+function vgCreateArt(className) {
+    const art = document.createElement('span');
+    art.className = `vg-art ${className}`;
+    const img = document.createElement('img');
+    img.className = 'vg-art-img';
+    img.alt = '';
+    img.decoding = 'async';
+    img.draggable = false;
+    art.append(img, modeText('span', 'vg-art-icon', ''));
+    return art;
 }
 
 // ------------------------------------------------------------------
@@ -151,7 +255,7 @@ function renderVoyageBoard() {
             const cell = document.createElement('div');
             cell.className = 'vg-cell';
             cell.dataset.index = String(i);
-            cell.append(modeText('span', 'vg-cell-icon', ''), modeText('span', 'vg-cell-label', ''), modeText('span', 'vg-cell-sub', ''));
+            cell.append(vgCreateArt('vg-cell-art'), modeText('span', 'vg-cell-label', ''), modeText('span', 'vg-cell-badge', ''));
             board.appendChild(cell);
             vg.cells.push(cell);
         }
@@ -165,13 +269,44 @@ function renderVoyageBoard() {
         const at = vgCellPosition(i, layout);
         cell.style.gridRow = String(at.row + 1);
         cell.style.gridColumn = String(at.col + 1);
-        cell.className = `vg-cell is-${look.type}`;
-        cell.querySelector('.vg-cell-icon').textContent = look.icon;
-        cell.querySelector('.vg-cell-label').textContent = look.label;
-        cell.querySelector('.vg-cell-sub').textContent = look.sub;
-        cell.title = look.label ? `${look.label} ${look.sub}`.trim() : '海';
+        cell.className = `vg-cell is-${look.kind}${look.tone ? ` tone-${look.tone}` : ''}`;
+        vgPaintArt(cell.querySelector('.vg-cell-art'), look);
+        cell.querySelector('.vg-cell-label').textContent = look.kind === 'sea' ? '' : look.label;
+        cell.querySelector('.vg-cell-badge').textContent = look.badge;
+        cell.title = `${look.label}: ${look.note}`;
     });
     placeVoyageShip(vg.pos, false);
+    renderVoyageLegend();
+}
+
+/** 盤の下の「この章のマス」(マスの種類ごとに絵・名前・効果・数) */
+function renderVoyageLegend() {
+    const list = el('vg-legend');
+    if (!list || !vg.chapter) return;
+    const groups = new Map();
+    vg.chapter.board.forEach(square => {
+        const look = vgSquareLook(square, vg.chapter.no);
+        const key = `${look.kind}:${look.label}:${look.badge}`;
+        if (groups.has(key)) groups.get(key).count += 1;
+        else groups.set(key, { look, count: 1, value: vgParseSquare(square).value || 0 });
+    });
+    // 種類の順、同じ種類は倍率の大きい順
+    const order = ['port', 'x', 'half', 'q', 'risk', 'gamble', 'duel', 'captain', 'again', 'fwd', 'back', 'loss', 'sea'];
+    const items = [...groups.values()].sort((a, b) => order.indexOf(a.look.kind) - order.indexOf(b.look.kind) || b.value - a.value);
+    list.innerHTML = '';
+    items.forEach(({ look, count }) => {
+        const item = document.createElement('li');
+        item.className = `vg-legend-item is-${look.kind}${look.tone ? ` tone-${look.tone}` : ''}`;
+        const art = vgCreateArt('vg-legend-art');
+        vgPaintArt(art, look);
+        const text = document.createElement('span');
+        text.className = 'vg-legend-text';
+        const head = modeText('strong', 'vg-legend-name', look.label);
+        if (look.badge) head.appendChild(modeText('span', 'vg-legend-badge', look.badge));
+        text.append(head, modeText('span', 'vg-legend-note', look.note));
+        item.append(art, text, modeText('span', 'vg-legend-count', `${count}マス`));
+        list.appendChild(item);
+    });
 }
 
 /** コマをマス index の上へ。animate が真なら滑らかに動く */
@@ -187,25 +322,30 @@ function placeVoyageShip(index, animate = true) {
 }
 
 /** path のマスを順に進む。港 (0) を通ったら祝う */
-async function moveVoyageShipAlong(path, { back = false } = {}) {
+async function moveVoyageShipAlong(path, { back = false, lap = false } = {}) {
     const ship = el('vg-ship');
     ship.classList.toggle('is-back', back);
     for (const index of path) {
         vg.pos = index;
         placeVoyageShip(index, !prefersReducedMotion());
         restartClass(ship, 'is-hop');
-        if (index === 0 && !back) celebrateVoyageLap();
+        if (index === 0 && !back) celebrateVoyageLap(lap);
         await delay(prefersReducedMotion() ? 30 : VG_HOP_MS);
     }
     ship.classList.remove('is-back');
 }
 
-function celebrateVoyageLap() {
+/** 港を通った。lap が真なら1周して周回が増える (押し戻されて通り直した分は増えない) */
+function celebrateVoyageLap(lap) {
     const port = vg.cells[0];
     restartClass(port, 'is-lap');
+    if (!lap) {
+        showVoyageToast('⚓ 港を通過', 'is-gold');
+        return;
+    }
     flashScreen('gold');
     buzz([60, 40, 60]);
-    showVoyageToast('⚓ 1周！ 港を通過', 'is-gold');
+    showVoyageToast('⚓ 1周！ 最終秘宝の分け前アップ', 'is-gold');
     burstCoins(16, port);
 }
 
@@ -318,18 +458,18 @@ async function revealVoyageQ(min, max, value) {
     status.textContent = `×${value}`;
 }
 
-/** 呪いの金貨: 真ん中で金貨を回す */
-async function flipVoyageCoin(hit) {
+/** 呪いの金貨・宝箱: 真ん中で絵を回して (揺らして)、当たりなら光らせ、はずれなら灰色にする */
+async function revealVoyageArt(src, hit, variant = '') {
     const center = el('vg-center');
-    const coin = document.createElement('img');
-    coin.className = 'vg-flip-coin';
-    coin.src = 'assets/img/voyage/coin.png';
-    coin.alt = '';
-    center.appendChild(coin);
+    const art = document.createElement('img');
+    art.className = `vg-flip-coin ${variant}`.trim();
+    art.src = src;
+    art.alt = '';
+    center.appendChild(art);
     await delay(prefersReducedMotion() ? 200 : 1300);
-    coin.classList.add(hit ? 'is-hit' : 'is-miss');
+    art.classList.add(hit ? 'is-hit' : 'is-miss');
     await delay(prefersReducedMotion() ? 100 : 500);
-    coin.remove();
+    art.remove();
 }
 
 /** 一騎打ち: 剣を交える */
@@ -406,78 +546,103 @@ async function drawVoyageCaptain(effect, play) {
     });
 }
 
-/** 止まったマスの効果を見せる。払い戻しがあれば win に足す */
-async function presentVoyageEffect(move, play, tally) {
+/** 金貨・倍率の当たりを祝う (value は倍率) */
+function cheerVoyageWin(value, cell) {
+    burstCoins(Math.min(50, 8 + Math.round(value * 4)), cell);
+    if (value >= VG_BIG_MULTIPLIER) {
+        strobeScreen(['white', 'gold', 'white']);
+        buzz([200, 80, 200, 80, 500]);
+        window.qjongTreasureRain?.preview(4000);
+    } else {
+        flashScreen('gold');
+        buzz([80, 50, 140]);
+    }
+}
+
+/** 止まったマスの効果を見せる (ひとことは章の物語に合わせる) */
+async function presentVoyageEffect(move, play) {
     const effect = move.effect || { type: 'sea' };
     const cell = vg.cells[move.to];
-    const look = vgSquareLook(move.square, play.chapter);
+    const no = play.chapter;
+    const look = vgSquareLook(move.square, no);
     if (cell) restartClass(cell, 'is-hit');
     switch (effect.type) {
         case 'sea':
-            setVoyageFace('smile');
-            setVoyageStatus('…何もない海');
-            await delay(500);
+            setVoyageStatus('何もない海');
+            await showVoyageBubble(vgStoryLine(no, 'sea'), 'smile', 600);
             break;
         case 'port':
-        case 'x': {
-            const big = effect.value >= VG_BIG_MULTIPLIER;
-            setVoyageStatus(`${look.label || '港'} ×${effect.value}`);
-            tally.win += effect.payout;
-            tally.mult += effect.value;
-            burstCoins(Math.min(50, 8 + effect.value * 4), cell);
-            if (big) {
-                strobeScreen(['white', 'gold', 'white']);
-                buzz([200, 80, 200, 80, 500]);
-                window.qjongTreasureRain?.preview(4000);
-            } else {
-                flashScreen('gold');
-                buzz([80, 50, 140]);
-            }
-            await showVoyageBubble(effect.value >= 3 ? 'いい風だ！' : 'よし、稼いだ', effect.value >= 3 ? 'laugh' : 'smile', 700);
+            setVoyageStatus(`${look.label} ×${effect.value}`);
+            cheerVoyageWin(effect.value, cell);
+            await showVoyageBubble('港にぴったり！ ×2', 'laugh', 800);
             break;
-        }
+        case 'x':
+            setVoyageStatus(`${look.label} ×${effect.value}`);
+            if (effect.value < 1) {
+                burstCoins(4, cell);
+                await showVoyageBubble(vgStoryLine(no, 'half'), 'smile', 900);
+                break;
+            }
+            cheerVoyageWin(effect.value, cell);
+            await showVoyageBubble(vgStoryLine(no, 'x'), effect.value >= 3 ? 'laugh' : 'smile', 900);
+            break;
         case 'q':
             setVoyageFace('surprise');
-            await showVoyageBubble(`${look.label || '×?'}… いくらだ？`, 'surprise', 500);
+            await showVoyageBubble(`${look.label}… いくらだ？`, 'surprise', 500);
             await revealVoyageQ(effect.min, effect.max, effect.value);
-            tally.win += effect.payout;
-            tally.mult += effect.value;
-            burstCoins(Math.min(60, 8 + effect.value * 3), cell);
-            if (effect.value >= VG_BIG_MULTIPLIER) {
-                strobeScreen(['white', 'gold', 'white']);
-                buzz([200, 80, 200, 80, 500]);
-                window.qjongTreasureRain?.preview(4000);
-                setVoyageFace('laugh');
-            } else {
-                flashScreen('gold');
-                buzz([80, 50, 140]);
+            if (effect.value === 0) {
+                flashScreen('red');
+                await showVoyageBubble('…何も出なかった', 'sad', 800);
+                break;
             }
+            cheerVoyageWin(effect.value, cell);
+            if (effect.value >= VG_BIG_MULTIPLIER) setVoyageFace('laugh');
             await delay(600);
+            break;
+        case 'risk':
+            setVoyageStatus(`${look.label} ×${effect.value}？`);
+            await showVoyageBubble(`${look.label}だ… 開けるぞ`, 'surprise', 600);
+            await revealVoyageArt(vgArtSrc(look.art), effect.hit, 'is-chest');
+            if (effect.hit) {
+                cheerVoyageWin(effect.value, cell);
+                setVoyageStatus(`${look.label} ×${effect.value}`);
+                await showVoyageBubble(vgStoryLine(no, 'riskHit'), 'laugh', 900);
+            } else {
+                flashScreen('red');
+                restartClass(el('vg-cabinet'), 'is-shake');
+                setVoyageStatus(`${look.label} … 空っぽ`);
+                await showVoyageBubble(vgStoryLine(no, 'riskMiss'), 'sad', 900);
+            }
+            break;
+        case 'loss':
+            flashScreen('red');
+            restartClass(el('vg-cabinet'), 'is-shake');
+            buzz([60, 40, 60, 40, 200]);
+            setVoyageStatus(`${look.label} −${vgFormat(-effect.payout)}`);
+            await showVoyageBubble(vgStoryLine(no, 'loss'), 'angry', 1000);
             break;
         case 'again':
             window.playGameSound?.('nrUp');
             flashScreen('gold');
             restartClass(el('vg-ship'), 'is-cheer');
-            await showVoyageBubble(play.chapter === 7 ? '歌が聞こえる… もう1回！' : 'ポン「もういっかい！」', 'laugh', 900);
+            await showVoyageBubble(no === 7 ? '歌が聞こえる… もう1回！' : 'ポン「もういっかい！」', 'laugh', 900);
             break;
         case 'fwd':
             flashScreen('white');
-            await showVoyageBubble(`${look.label || '追い風'}！ +${effect.value}`, 'laugh', 700);
+            await showVoyageBubble(`${look.label}！ +${effect.value}`, 'laugh', 700);
             break;
         case 'back':
             flashScreen('red');
             restartClass(el('vg-cabinet'), 'is-shake');
             buzz([60, 40, 60, 40, 200]);
-            await showVoyageBubble(`${look.label || '嵐'}だ… −${effect.value}`, 'angry', 700);
+            await showVoyageBubble(`${look.label}だ… −${effect.value}`, 'angry', 700);
             await moveVoyageShipAlong(effect.path, { back: true });
             break;
         case 'gamble':
-            setVoyageStatus(look.label || '呪いの金貨');
+            setVoyageStatus(look.label);
             await showVoyageBubble('呪いの金貨… 表か裏か', 'surprise', 600);
-            await flipVoyageCoin(effect.hit);
+            await revealVoyageArt(VG_ART.curse, effect.hit);
             if (effect.hit) {
-                tally.win += effect.payout;
-                tally.mult += effect.value;
                 strobeScreen(['white', 'gold', 'white']);
                 buzz([200, 80, 200, 80, 500]);
                 burstCoins(50, cell);
@@ -491,12 +656,10 @@ async function presentVoyageEffect(move, play, tally) {
             }
             break;
         case 'duel':
-            setVoyageStatus('一騎打ち');
+            setVoyageStatus(look.label);
             await showVoyageBubble('来い！', 'angry', 500);
             await clashVoyageSwords(effect.hit);
             if (effect.hit) {
-                tally.win += effect.payout;
-                tally.mult += effect.value;
                 buzz([120, 60, 300]);
                 burstCoins(30, cell);
                 await showVoyageBubble('勝った！ ×3', 'laugh', 800);
@@ -508,45 +671,31 @@ async function presentVoyageEffect(move, play, tally) {
             break;
         case 'captain':
             await drawVoyageCaptain(effect, play);
-            if (effect.hit) {
-                tally.win += effect.payout;
-                tally.jp = effect.payout;
-            }
             break;
         default:
             await delay(300);
     }
 }
 
-/** 払い戻しを数え上げて見せる */
-async function countVoyageWin(tally, bet) {
-    const head = tally.jp ? 'JACKPOT ' : `×${Math.round(tally.mult * 100) / 100}  WIN `;
-    const tone = tally.jp || tally.mult >= VG_BIG_MULTIPLIER ? 'is-big' : 'is-win';
-    if (prefersReducedMotion() || tally.win <= 10) {
-        setVoyageResult(`${head}${vgFormat(tally.win)}`, tone);
+/** 払い戻しを数え上げて見せる (play.payout > 0 のとき) */
+async function countVoyageWin(play) {
+    const won = play.payout > play.bet;
+    const head = play.jpHit ? 'JACKPOT ' : `×${play.multiplier}${won ? '  WIN ' : '  '}`;
+    const tone = play.jpHit || play.multiplier >= VG_BIG_MULTIPLIER ? 'is-big' : won ? 'is-win' : 'is-small';
+    if (prefersReducedMotion() || play.payout <= 10) {
+        setVoyageResult(`${head}${vgFormat(play.payout)}`, tone);
         return;
     }
-    const steps = Math.min(24, tally.win);
+    const steps = Math.min(24, play.payout);
     for (let i = 1; i <= steps; i++) {
-        setVoyageResult(`${head}${vgFormat((tally.win * i) / steps)}`, tone);
+        setVoyageResult(`${head}${vgFormat((play.payout * i) / steps)}`, tone);
         await delay(40);
     }
-}
-
-/** スタンプが押された */
-async function celebrateVoyageStamp(no) {
-    renderVoyageLog();
-    const stamp = el('vg-stamps')?.querySelector(`[data-no="${no}"]`);
-    if (stamp) restartClass(stamp, 'is-new');
-    showVoyageToast(`📜 航海日誌に 第${no}章 のスタンプ`, 'is-stamp');
-    flashScreen('gold');
-    await delay(600);
 }
 
 /** play (サーバーが決めた1回ぶん) を順に見せる */
 async function presentVoyagePlay(play) {
     const chapter = vg.chapter;
-    const tally = { win: 0, mult: 0, jp: 0 };
     hideVoyageBubble();
     for (let index = 0; index < play.moves.length; index++) {
         const move = play.moves[index];
@@ -558,41 +707,28 @@ async function presentVoyagePlay(play) {
             setVoyageStatus(`${move.path.length} マス進む`);
         }
         hideVoyageBubble();
-        await moveVoyageShipAlong(move.path);
+        await moveVoyageShipAlong(move.path, { lap: move.lap });
         if (move.dice && chapter.fog) revealVoyageDice(move.dice);
-        await presentVoyageEffect(move, play, tally);
+        await presentVoyageEffect(move, play);
     }
     hideVoyageBubble();
-    if (play.newStamp) await celebrateVoyageStamp(play.newStamp);
-    if (tally.win > 0) {
-        await countVoyageWin(tally, play.bet);
+    if (play.payout > 0) {
+        await countVoyageWin(play);
         el('vg-result-detail').textContent = `賭け ${vgFormat(play.bet)} → 払い戻し ${vgFormat(play.payout)}`;
+    } else if (play.payout < 0) {
+        setVoyageResult(`LOSS −${vgFormat(play.bet - play.payout)}`, 'is-miss');
+        el('vg-result-detail').textContent = `賭け ${vgFormat(play.bet)} に加えて ${vgFormat(-play.payout)} を失った`;
     } else {
         setVoyageResult('はずれ', 'is-miss');
         el('vg-result-detail').textContent = `賭け ${vgFormat(play.bet)}`;
     }
-    setVoyageStatus('賭け金を決めて「振る」');
+    setVoyageStatus('「振る」で出航');
 }
 
 // ------------------------------------------------------------------
 // 賭け金と「振る」
 // ------------------------------------------------------------------
-function fitVoyageBet() {
-    const chips = vgChips();
-    if (vg.bet <= chips) return;
-    const fits = VG_BETS.filter(bet => bet <= chips);
-    vg.bet = fits.length ? fits[fits.length - 1] : VG_BETS[0];
-}
-
-function stepVoyageBet(direction) {
-    const index = VG_BETS.indexOf(vg.bet);
-    const next = VG_BETS[index + direction];
-    if (!next || next > vgChips()) return;
-    vg.bet = next;
-    try { localStorage.setItem(VG_BET_STORAGE_KEY, String(vg.bet)); } catch (error) { /* 無視 */ }
-    renderVoyageControls();
-}
-
+// 賭け金は VG_BET (10) で固定
 /** いま振れるか (期間の外・山分け済みは振れない。管理者は章を指定していれば振れる) */
 function vgCanRoll() {
     const info = vg.info;
@@ -606,8 +742,6 @@ function renderVoyageControls() {
     if (!el('vg-roll-button')) return;
     const locked = casino.busy || !casino.session || vg.playing || vg.storyOpen || !vgCanRoll();
     el('vg-bet').textContent = vgFormat(vg.bet);
-    el('vg-bet-down').disabled = locked || vg.bet <= VG_BETS[0];
-    el('vg-bet-up').disabled = locked || !VG_BETS.some(bet => bet > vg.bet && bet <= vgChips());
     el('vg-roll-button').disabled = vg.auto ? false : locked || vg.bet > vgChips();
     el('vg-roll-button').textContent = vg.auto ? 'オートを止める' : '振る';
     el('vg-roll-button').classList.toggle('is-auto', vg.auto);
@@ -685,7 +819,6 @@ async function rollVoyage() {
             return;
         }
         casino.session = data.session;
-        fitVoyageBet();
         renderWallet();
         renderVoyageRecent();
     } catch (error) {
@@ -774,31 +907,13 @@ function renderVoyagePools() {
 
 function renderVoyageLog() {
     const info = vg.info;
-    if (!info || !el('vg-stamps')) return;
-    const me = info.me || { wagered: 0, laps: 0, stamps: [], multiplier: 1, share: 0 };
+    if (!info || !el('vg-laps')) return;
+    const me = info.me || { rolls: 0, laps: 0, bestWin: 0 };
     const state = info.state || {};
-    el('vg-wagered').textContent = vgFormat(me.wagered);
-    el('vg-multiplier').textContent = `×${(me.multiplier || 1).toFixed(1)}`;
-    const expect = state.totalShare > 0 ? Math.floor((state.treasure * me.share) / state.totalShare) : 0;
-    el('vg-expect').textContent = vgFormat(expect);
-    el('vg-laps').textContent = `${vgFormat(me.laps)}周`;
-    el('vg-share-note').textContent = state.totalShare > 0
-        ? `取り分 ${vgFormat(me.share)} / 全員 ${vgFormat(state.totalShare)} (${((me.share / state.totalShare) * 100).toFixed(1)}%)。最終秘宝はこの比で ${vgFormatDate(info.finalAt)} に山分け`
-        : `取り分 = 航海した金額 × 日誌の倍率。最終秘宝はこの比で ${vgFormatDate(info.finalAt)} に山分け`;
-
-    // スタンプ (12章)
-    const stamps = el('vg-stamps');
-    stamps.innerHTML = '';
-    const current = vg.chapter?.no || 0;
-    (info.chapters || []).forEach(chapter => {
-        const item = document.createElement('li');
-        const has = (me.stamps || []).includes(chapter.no);
-        item.className = `vg-stamp${has ? ' is-on' : ''}${chapter.no === current ? ' is-current' : ''}`;
-        item.dataset.no = String(chapter.no);
-        item.title = `${chapter.no >= 12 ? '最終日' : `第${chapter.no}章`} ${chapter.title} (${vgFormatDate(chapter.from)}〜)`;
-        item.append(modeText('span', 'vg-stamp-no', chapter.no >= 12 ? '終' : String(chapter.no)), modeText('span', 'vg-stamp-mark', has ? '⚓' : ''));
-        stamps.appendChild(item);
-    });
+    el('vg-laps').textContent = `${vgFormat(me.laps || 0)}周`;
+    el('vg-rolls').textContent = `${vgFormat(me.rolls)}回`;
+    el('vg-best').textContent = vgFormat(me.bestWin);
+    el('vg-share-note').textContent = `港を通って1周するたびに、最終秘宝の分け前が増えます。最終秘宝は ${vgFormatDate(info.finalAt)} 0:10 に、全員の周回の数の比で山分けします。`;
 
     // 物語の一覧
     const episodes = el('vg-episodes');
@@ -829,12 +944,12 @@ function renderVoyageLog() {
     if (state.final) {
         finalBox.classList.remove('hidden');
         finalBox.append(modeText('h3', 'icon-title', '最終秘宝の山分け'));
-        finalBox.append(modeText('p', 'info-text', `秘宝 ${vgFormat(state.final.treasure)} を ${state.final.count}人で。取り分の合計 ${vgFormat(state.final.total)}`));
+        finalBox.append(modeText('p', 'info-text', `秘宝 ${vgFormat(state.final.treasure)} を ${state.final.count}人で。周回の合計 ${vgFormat(state.final.total)}周`));
         const list = document.createElement('ol');
         list.className = 'vg-final-list';
         (state.final.winners || []).forEach(winner => {
             const row = document.createElement('li');
-            row.append(modeText('span', 'vg-final-name', winner.player), modeText('strong', 'vg-final-amount', `+${vgFormat(winner.amount)}`), modeText('span', 'vg-final-share', `航海 ${vgFormat(winner.wagered)} × ${(winner.stamps >= 12 ? 3 : 1 + 0.1 * winner.stamps).toFixed(1)}`));
+            row.append(modeText('span', 'vg-final-name', winner.player), modeText('strong', 'vg-final-amount', `+${vgFormat(winner.amount)}`), modeText('span', 'vg-final-share', `${vgFormat(winner.laps)}周`));
             if (winner.player === casino.me) row.classList.add('is-me');
             list.appendChild(row);
         });
@@ -877,9 +992,10 @@ function renderVoyageRecent() {
         const row = document.createElement('li');
         const look = vgSquareLook(entry.square, vg.chapter?.no || 1);
         row.className = entry.returned > entry.bet ? 'is-win' : entry.returned > 0 ? '' : 'is-lose';
+        const net = entry.returned - entry.bet;
         row.append(
-            modeText('span', '', `${formatClock(entry.at)}  🎲${entry.dice ?? '?'}  ${look.label || '海'}`),
-            modeText('strong', '', entry.jp ? `JP +${vgFormat(entry.returned)}` : entry.returned > 0 ? `×${entry.multiplier} +${vgFormat(entry.returned)}` : `−${vgFormat(entry.bet)}`)
+            modeText('span', '', `${formatClock(entry.at)}  🎲${entry.dice ?? '?'}  ${look.label}`),
+            modeText('strong', '', entry.jp ? `JP +${vgFormat(entry.returned)}` : `${net > 0 ? '+' : net < 0 ? '−' : '±'}${vgFormat(Math.abs(net))}`)
         );
         list.appendChild(row);
     });
@@ -897,7 +1013,6 @@ async function pollVoyagePublic() {
                 ...vg.info.state,
                 jp: Math.floor((data.jpCents || 0) / 100),
                 treasure: Math.floor((data.treasureCents || 0) / 100),
-                totalShare: data.totalShare || 0,
                 lastJp: data.lastJp || null,
                 jpHistory: data.jpHistory || [],
                 final: data.final || null
@@ -971,7 +1086,6 @@ function openVoyageTable() {
     } else {
         receiveVoyage(vg.info, { keepPos: true });
     }
-    fitVoyageBet();
     renderVoyageControls();
     // 画面に出た直後はマスの位置が決まっていないので、1コマ描いてからコマを置き直す
     requestAnimationFrame(() => { if (vg.open) renderVoyageBoard(); });
@@ -1005,15 +1119,7 @@ async function vgAdminAction(action, payload, confirmText) {
 
 function initVoyage() {
     if (!el('vg-board')) return;
-    try {
-        const saved = Number(localStorage.getItem(VG_BET_STORAGE_KEY));
-        if (VG_BETS.includes(saved)) vg.bet = saved;
-    } catch (error) {
-        // 保存できない環境では既定値のまま
-    }
     renderVoyageDicePips(el('vg-dice-face'), 0);
-    el('vg-bet-down').addEventListener('click', () => stepVoyageBet(-1));
-    el('vg-bet-up').addEventListener('click', () => stepVoyageBet(1));
     el('vg-roll-button').addEventListener('click', () => {
         if (vg.auto) {
             stopVoyageAuto();
@@ -1039,7 +1145,7 @@ function initVoyage() {
         renderVoyageLog();
         renderVoyageControls();
     });
-    el('vg-admin-reset').addEventListener('click', () => vgAdminAction('vgReset', {}, '航海の共有の分 (JP・最終秘宝) と全員の分 (位置・スタンプ・取り分) を全部消します。本番の前の片付け用です。よろしいですか？'));
+    el('vg-admin-reset').addEventListener('click', () => vgAdminAction('vgReset', {}, '航海の共有の分 (JP・最終秘宝) と全員の分 (位置・周回) を全部消します。本番の前の片付け用です。よろしいですか？'));
     el('vg-admin-final').addEventListener('click', () => vgAdminAction('vgFinalize', { force: true }, '最終秘宝をいま、取り分の比で全員のレートへ配ります (取り消せません)。よろしいですか？'));
     window.addEventListener('resize', () => { if (vg.open) renderVoyageBoard(); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden && vg.open) pollVoyagePublic(); });

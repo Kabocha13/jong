@@ -157,9 +157,10 @@
                 <li data-rules="nariagari">賭け金を決めて「回す」を押すと、第1弾のルーレットが回る。UP に止まると次の弾へ進み、終了で終わり。×N に止まったら賭け金 × N が戻る (賭け金込み)。</li>
                 <li data-rules="nariagari">第2弾・第3弾は UP の2秒後に自動で回る。第4弾 (JP)・第5弾 (SJP) は、画面の真ん中に出る大きなボタンを押して回す。</li>
                 <li data-rules="voyage">2026/10/5〜12/21 の期間限定。30マスの海をぐるぐる回るエンドレス双六。毎週月曜に物語と海 (マスの中身) が進む。</li>
-                <li data-rules="voyage">賭け金を決めて「振る」とサイコロの目だけ進み、止まったマスの倍率 × 賭け金が戻る (×? は止まったときに決まる。港にぴったりで ×2)。もう1回・追い風・嵐・船長チャンスのマスもある。</li>
+                <li data-rules="voyage">1回 10 (賭け金は固定)。「振る」とサイコロの目だけ進み、止まったマスで払い戻しが決まる (×2 なら 20 が戻る)。マスの種類と効果は、盤の下の「この章のマス」にある。</li>
+                <li data-rules="voyage">宝箱は当たりなら大きいが、空っぽのこともある。災難のマス (ツケ・座礁など) に止まると、賭け金に加えてさらにチップを失う。</li>
                 <li data-rules="voyage">賭け金の 6% はジャックポットに貯まり、船長マスに止まると 1/12 で総取り (第11章・最終日は 1/6)。</li>
-                <li data-rules="voyage">賭け金の 8% は「最終秘宝」に貯まり、12/22 0:10 に 取り分 = 航海した金額 (賭け金の合計) × 航海日誌の倍率 の比で全員に山分け (レートへ直接)。倍率はスタンプ1つにつき +0.1、全12章そろえば ×3。スタンプは、その章 (週) に1回でも振ると押される。</li>
+                <li data-rules="voyage">賭け金の 8% は「最終秘宝」に貯まり、12/22 0:10 に全員に山分け (レートへ直接)。港を通って1周するたびに、その分け前が増える (全員の周回の数の比で分ける)。</li>
             </ul>
             <form id="casino-enter-form">
                 <div class="form-group">
@@ -419,15 +420,11 @@
                                 <div class="vg-dice" id="vg-dice" aria-live="polite"><span class="vg-dice-face" id="vg-dice-face" data-pips="0"></span></div>
                                 <img class="vg-center-face" id="vg-face" src="assets/img/voyage/face-smile.png" alt="">
                             </div>
-                            <p class="vg-status" id="vg-status" aria-live="polite">賭け金を決めて「振る」</p>
+                            <p class="vg-status" id="vg-status" aria-live="polite">「振る」で出航</p>
                             <div class="vg-bubble hidden" id="vg-bubble"></div>
                             <div class="vg-controls">
-                                <div class="slot-bet" role="group" aria-label="賭け金">
-                                    <button type="button" id="vg-bet-down" aria-label="賭け金を下げる">−</button>
-                                    <p><span>BET</span><strong id="vg-bet">10</strong></p>
-                                    <button type="button" id="vg-bet-up" aria-label="賭け金を上げる">＋</button>
-                                </div>
                                 <div class="vg-controls-row">
+                                    <p class="vg-bet-fixed"><span>BET</span><strong id="vg-bet">10</strong></p>
                                     <button type="button" id="vg-roll-button" class="slot-spin-button vg-roll-button">振る</button>
                                     <label class="slot-auto"><input type="checkbox" id="vg-auto"> オート</label>
                                 </div>
@@ -443,16 +440,20 @@
                 <p id="vg-message" class="hidden" aria-live="polite"></p>
             </div>
 
+            <!-- この章のマス (種類ごとに絵・名前・効果・数)。game-voyage.js が盤に合わせて作る -->
+            <div class="info-box vg-legend-box">
+                <h3 class="icon-title">この章のマス</h3>
+                <ol class="vg-legend" id="vg-legend" aria-label="この章のマス"></ol>
+            </div>
+
             <div class="info-box vg-log">
                 <h3 class="icon-title">航海日誌</h3>
                 <dl class="casino-stats vg-stats">
-                    <div><dt>航海した金額</dt><dd id="vg-wagered">0</dd></div>
-                    <div><dt>日誌の倍率</dt><dd id="vg-multiplier">×1.0</dd></div>
-                    <div><dt>取り分の見込み</dt><dd id="vg-expect">0</dd></div>
-                    <div><dt>周回</dt><dd id="vg-laps">0</dd></div>
+                    <div><dt>周回</dt><dd id="vg-laps">0周</dd></div>
+                    <div><dt>振った回数</dt><dd id="vg-rolls">0回</dd></div>
+                    <div><dt>最高の当たり</dt><dd id="vg-best">0</dd></div>
                 </dl>
                 <p class="info-text vg-share-note" id="vg-share-note"></p>
-                <ol class="vg-stamps" id="vg-stamps" aria-label="章ごとのスタンプ"></ol>
                 <h3 class="icon-title">物語</h3>
                 <ol class="vg-episodes" id="vg-episodes" aria-label="章ごとの物語"></ol>
                 <div class="vg-final hidden" id="vg-final"></div>

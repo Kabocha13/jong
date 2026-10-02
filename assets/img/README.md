@@ -193,8 +193,9 @@ Gemini などが出力した元ファイルは、名前のまま **`assets/img/s
 
 ## 公式キャラクター (船長) (assets/img/captain/)
 
-Q-Jong の公式キャラ。**`assets/img/captain/<ファイル名>` に置くだけで出ます** (無いあいだは出さず、いまの見た目のまま)。
-いまの絵は Gemini で作った3枚 (元の画像は `assets/img/src/captain/` にある。サイトには配信しない) から作った。
+Q-Jong の公式キャラ。名前は**ハク**で、航海 (大海賊の航海日誌、assets/img/voyage/) の主人公と同じ人物 (20歳ほどの若い船長。一人称は「俺」)。**`assets/img/captain/<ファイル名>` に置くだけで出ます** (無いあいだは出さず、いまの見た目のまま)。
+**出し始めるのは 2026/10/4 0:00 (JST)** から (`assets/js/common.js` の `CAPTAIN_REVEAL_AT`)。それより前は置いてあってもどこにも出さない (通知のアイコンは firebase-messaging-sw.js と functions/index.js に同じ日時がある)。
+いまの絵は Gemini で作った4枚 (元の画像は `assets/img/src/captain/` にある。サイトには配信しない) から作った。
 Gemini は背景透過の画像を出せないので、**明るい無地 (羊皮紙色) の背景で作ってもらい、`tools/cutout-parchment.py` で背景を透明にする**。
 
 | ファイル | 中身 | 出るところ |
@@ -205,7 +206,7 @@ Gemini は背景透過の画像を出せないので、**明るい無地 (羊皮
 | disappointed.png | がっかりの顔 (同じく5つ目) | 宝探しのジャックポットを逃したとき |
 | face.jpeg | 笑顔 (同じく1つ目) を青緑のグラデーションに置いた 1024×1024 | 宝探しの船長マス (無ければ slot/captain.jpeg の帽子) |
 | icon.png | face.jpeg を 512×512 にしたもの | 通知のアイコン (サイトのタブ・ホーム画面のアイコン assets/icon.png と、iOS アプリのアイコンは別) |
-| halloween.png | (月末に) ハロウィン版の全身・背景透過 | ハロウィンのあいだのホームの見出し |
+| halloween.png | ハロウィン版の全身・背景透過 (original-halloween.jpeg を `FLOOR=0.14` で切り抜き) | ハロウィンのあいだ (日本時間で毎年 10/18〜10/31) だけ、stand.png の代わりに出る (ホームの見出し・宝探しの船長チャンスのカットイン)。期間は common.js の `isHalloweenSeason` |
 
 設定画の顔の切り出し: `KEEP_MAIN=1 python3 tools/cutout-parchment.py assets/img/src/captain/original-sheet.jpeg 出力.png x0 1590 x1 2048`
 (顔の中心 x は 242・633・1024・1415・1806。x0 = 中心 − 215、x1 = 中心 + 245)

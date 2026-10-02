@@ -1,18 +1,19 @@
 // assets/js/home-captain.js
 // ホームの見出しに公式キャラ (船長) を立たせ、吹き出しでひとこと言わせる。
-//   絵は assets/img/captain/stand.png (背景透過)。読めないあいだは何も出さない (見出しは今のまま)。
+//   絵は assets/img/captain/stand.png (背景透過。ハロウィンのあいだは halloween.png)。読めないあいだは何も出さない (見出しは今のまま)。
 //   時計は真ん中のまま、船長は右下に時計にかからない大きさで立ち、吹き出しは船長の左上 (時計の上の空き) に出す。
 //   言うことは main.js が渡すデータ (ランキング・借金・くじ) と manaba の未提出課題の数から作る。
 //   ROTATE_MS ごとに次のひとことへ。船長か吹き出しをタップしても次へ (見出しのダブルタップの隠し要素には数えない)。
 
 (function () {
     const hero = document.querySelector('header.hero');
-    if (!hero) return;
+    // 出し始める日 (common.js の CAPTAIN_REVEAL_AT) より前は何も出さない
+    if (!hero || !isCaptainRevealed()) return;
 
-    const STAND_SRC = 'assets/img/captain/stand.png';
+    const STAND_SRC = captainStandSrc();
     const ROTATE_MS = 9000;
     const MAX_EVENT_LINES = 2;
-    // 一人称を使わない (キャラの性別を決めていないため)
+    // 公式キャラの船長は、航海 (大海賊の航海日誌) の主人公ハクと同じ人物
     const GREETINGS = [
         '今日も一勝負いくか？',
         '宝探しの船長マスに入ったら、ジャックポットのチャンスだ！',
