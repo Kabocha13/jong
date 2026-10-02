@@ -307,7 +307,7 @@ async function celebrateNariagariReach(stageIndex) {
                 modeText('p', 'slot-overlay-title', 'Super'),
                 modeText('p', 'slot-overlay-title is-second', 'Jackpot')
             );
-        });
+        }, { captain: 'laugh' });
         return;
     }
     strobeScreen(['red', 'gold', 'white']);
@@ -317,7 +317,7 @@ async function celebrateNariagariReach(stageIndex) {
             modeText('p', 'slot-overlay-title', 'Jackpot'),
             modeText('p', 'slot-overlay-sub', 'JP 第4弾 突入!!')
         );
-    });
+    }, { captain: 'surprised' });
 }
 
 /** 払い戻しを数え上げて見せる */

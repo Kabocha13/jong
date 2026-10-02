@@ -115,7 +115,8 @@ function gapporiShownHits(table = gp.table) {
 // 絵
 // ------------------------------------------------------------------
 /**
- * お宝の絵 (スロットと同じ)。船長は assets/img/slot/captain.jpeg が読めればその絵、読めないあいだは札で出す
+ * お宝の絵 (スロットと同じ)。船長は公式キャラの顔 (assets/img/captain/face.jpeg)、無ければ帽子の絵
+ * (assets/img/slot/captain.jpeg)。どちらも読めないあいだは札で出す
  * (札にも data-symbol を付けておくので、あとから画像が読めたら game-slot.js の loadSlotImages が絵に差し替える)
  */
 function gapporiSymbol(kind) {
@@ -573,7 +574,7 @@ async function celebrateGapporiResult() {
                 modeText('p', 'slot-overlay-sub', '船長チャンス!!'),
                 modeText('p', 'slot-overlay-count', `ジャックポット ${(jackpot.won ? jackpot.amount : table.jackpot).toLocaleString('ja-JP')}`)
             );
-        });
+        }, { captain: 'stand' });
         if (jackpot.won) {
             window.playGameSound?.('gpJackpotWin');
             window.qjongTreasureRain?.preview(7000);
@@ -587,7 +588,7 @@ async function celebrateGapporiResult() {
                     modeText('p', 'slot-overlay-title', 'Jackpot'),
                     total
                 );
-            });
+            }, { captain: 'laugh' });
         } else {
             // はずれ: 暗い画面で「ジャックポットならず」。貯まった額は持ち越し
             window.playGameSound?.('gpJackpotMiss');
@@ -598,7 +599,7 @@ async function celebrateGapporiResult() {
                     modeText('p', 'slot-overlay-title', 'Miss'),
                     modeText('p', 'slot-overlay-count', `JACKPOT ${table.jackpot.toLocaleString('ja-JP')} 持ち越し`)
                 );
-            });
+            }, { captain: 'disappointed' });
         }
     }
 

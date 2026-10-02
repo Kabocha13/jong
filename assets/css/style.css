@@ -350,6 +350,95 @@ header.hero h1 {
     animation: lantern-flicker 5s ease-in-out infinite;
 }
 
+/* ホームの見出しの公式キャラ (船長)。絵が読めたときだけ出す (assets/js/home-captain.js)。
+   時計は真ん中のまま、船長は右下に時計にかからない大きさで立ち、吹き出しは船長の左上 (時計の上の空き) に出す */
+.hero-captain {
+    /* 見出しの高さ (header.hero の min-height と同じ) の9割。幅は立ち絵の縦横 (約 1:2) から */
+    --captain-h: calc(clamp(150px, 32vw, 260px) * 0.9);
+    --captain-w: calc(var(--captain-h) * 0.5);
+    --captain-right: max(6px, calc(50% - 540px));
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.hero-captain[hidden] { display: none; }
+
+.hero-captain-art {
+    position: absolute;
+    right: var(--captain-right);
+    bottom: 0;
+    width: auto;
+    height: var(--captain-h);
+    max-width: calc(var(--captain-w) * 1.2);
+    object-fit: contain;
+    object-position: right bottom;
+    pointer-events: auto;
+    cursor: pointer;
+    filter: drop-shadow(0 0 14px rgba(0, 0, 0, 0.7));
+    animation: hero-captain-in 0.7s cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+
+.hero-captain-bubble {
+    position: absolute;
+    top: clamp(6px, 2.2vw, 22px);
+    right: calc(var(--captain-right) + var(--captain-w) * 0.82);
+    /* スマホでも2行に収まりやすい幅にする (3行になると時計の数字にかかるため) */
+    max-width: min(72vw, 340px);
+    margin: 0;
+    padding: 5px 11px 6px;
+    font-family: var(--font-body);
+    font-size: clamp(0.7em, 2.8vw, 0.86em);
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: left;
+    color: var(--ink);
+    background: linear-gradient(180deg, var(--parchment-warm), var(--parchment));
+    border: 1px solid var(--brass);
+    border-radius: 12px 12px 2px 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+    pointer-events: auto;
+    cursor: pointer;
+    animation: hero-captain-bubble-in 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) 0.35s both;
+}
+
+/* 吹き出しのしっぽ (船長のほうへ) */
+.hero-captain-bubble::after {
+    content: '';
+    position: absolute;
+    right: -7px;
+    bottom: 6px;
+    width: 12px;
+    height: 12px;
+    background: var(--parchment);
+    border-right: 1px solid var(--brass);
+    border-bottom: 1px solid var(--brass);
+    transform: rotate(-45deg);
+}
+
+.hero-captain-bubble.is-changing { animation: hero-captain-bubble-change 0.3s ease-out; }
+
+@keyframes hero-captain-in {
+    from { opacity: 0; transform: translateY(18%); }
+    to   { opacity: 1; transform: none; }
+}
+
+@keyframes hero-captain-bubble-in {
+    from { opacity: 0; transform: scale(0.6); transform-origin: right bottom; }
+    to   { opacity: 1; transform: none; }
+}
+
+@keyframes hero-captain-bubble-change {
+    from { opacity: 0.2; }
+    to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-captain-art,
+    .hero-captain-bubble,
+    .hero-captain-bubble.is-changing { animation: none; }
+}
+
 /* ------------------------------------------------------------
    5. メイン — ランタンに照らされた船着き場
    ------------------------------------------------------------ */
@@ -3389,6 +3478,32 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     -webkit-mask-image: radial-gradient(circle, #000 8%, transparent 42%);
     mask-image: radial-gradient(circle, #000 8%, transparent 42%);
     animation: slot-rays 7s linear infinite;
+}
+
+/* 公式キャラ (船長)。画面の右下から出てくる。文字はその上に重ねる (DOM の順で文字が上になる) */
+.captain-art {
+    position: absolute;
+    right: max(-4vw, calc(50% - 560px));
+    bottom: 0;
+    width: auto;
+    height: min(56vh, 540px);
+    max-width: 72vw;
+    object-fit: contain;
+    object-position: right bottom;
+    pointer-events: none;
+    filter: drop-shadow(0 0 22px rgba(0, 0, 0, 0.65));
+    animation: captain-in 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) 0.1s both;
+}
+
+.slot-overlay.is-miss .captain-art { filter: saturate(0.6) brightness(0.85) drop-shadow(0 0 22px rgba(0, 0, 0, 0.65)); }
+
+@keyframes captain-in {
+    from { opacity: 0; transform: translate(30%, 12%); }
+    to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .captain-art { animation: none; }
 }
 
 .slot-overlay-body {

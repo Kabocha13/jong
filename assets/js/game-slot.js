@@ -2,6 +2,7 @@
 // 止まる位置・当たり・払い戻しは Cloud Function (casino の slotSpin) が決める。
 // この画面は賭け金を送り、返ってきた絵柄の並びにリールを止めて見せるだけ。
 // 絵柄の画像は assets/img/slot/<絵柄>.jpeg。まだ置かれていない絵柄は絵文字で代わりに出す。
+// 大当たりのカットインには公式キャラ (船長) の絵を添える (assets/img/captain/。置かれていなければ出さない)。
 // 入場・手元チップ・精算・画面の切り替えは game.js。
 
 // 配当とラインは functions/slot.js と同じ (表示用)
@@ -14,8 +15,9 @@ const SLOT_SYMBOLS = {
     rum:     { name: 'ラム酒', emoji: '🍾' },
     parrot:  { name: 'オウム', emoji: '🦜' },
     anchor:  { name: '錨', emoji: '⚓' },
-    // 宝探しの船長マス (スロットには出ない)。画像が無いあいだは game-gappori.js が札で出す
-    captain: { name: '船長', emoji: '🎩' }
+    // 宝探しの船長マス (スロットには出ない)。公式キャラの顔の絵を先に探し、無ければ帽子の絵。
+    // どちらも無いあいだは game-gappori.js が札で出す
+    captain: { name: '船長', emoji: '🎩', src: ['assets/img/captain/face.jpeg', 'assets/img/slot/captain.jpeg'] }
 };
 const SLOT_PAYS = { chest: 100, coin: 30, compass: 15, map: 12, rum: 5, parrot: 3, anchor: 2 };
 const SLOT_LINES = [[1, 1, 1], [0, 0, 0], [2, 2, 2], [0, 1, 2], [2, 1, 0]];
@@ -24,6 +26,8 @@ const SLOT_BETS = [1, 2, 5, 10, 20, 50, 100];
 const SLOT_BET_STORAGE_KEY = 'slotBet';
 const SLOT_IMAGE_DIR = 'assets/img/slot/';
 const SLOT_IMAGE_EXT = '.jpeg';
+// 公式キャラ (船長) の演出用の絵 (背景透過の PNG)。表情ごとに stand / surprised / laugh / disappointed
+const CAPTAIN_ART_DIR = 'assets/img/captain/';
 // 回っている間に流す絵柄。通常モードの左右のリールの枚数の割合に合わせる (錨8 オウム6 ラム3 地図3 羅針盤3 金貨3 宝箱2)。
 // 通常モードはドクロ旗が出ないので流さない。ジャックポットタイムは高い絵柄とドクロ旗だけを流す
 // (functions/slot.js のジャックポットタイムのリールの割合に合わせる: 地図8 羅針盤7 金貨5 宝箱2 ドクロ旗3)
@@ -49,7 +53,7 @@ const slot = {
     bet: 1,
     state: null,            // ジャックポットタイムの状態 (サーバーの返事。functions/slot.js の publicSlotState)
     grid: null,             // いま見えている 3段 × 3列
-    images: new Set(),      // 読み込めた絵柄の画像
+    images: new Map(),      // 読み込めた絵柄の画像 (絵柄 → 画像の場所)
     auto: false,
     autoTimer: null,
     open: false,
@@ -229,8 +233,11 @@ async function freezeSlot() {
     buzz(500);
 }
 
-/** 画面いっぱいの演出を出し、時間が来るかタップされたら消す。消えたら解決する */
-function showSlotOverlay(variant, build) {
+/**
+ * 画面いっぱいの演出を出し、時間が来るかタップされたら消す。消えたら解決する。
+ * captain に表情を渡すと、公式キャラ (船長) の絵を右下から出す (文字はその上に重ねる)
+ */
+function showSlotOverlay(variant, build, { captain = null } = {}) {
     return new Promise(resolve => {
         const overlay = document.createElement('div');
         overlay.className = `slot-overlay ${variant}`;
@@ -240,7 +247,9 @@ function showSlotOverlay(variant, build) {
         const body = document.createElement('div');
         body.className = 'slot-overlay-body';
         build(body);
-        overlay.append(rays, body, modeText('p', 'slot-overlay-hint', 'タップで閉じる'));
+        overlay.append(rays);
+        if (captain) overlay.append(captainArt(captain));
+        overlay.append(body, modeText('p', 'slot-overlay-hint', 'タップで閉じる'));
         let closed = false;
         let timer = null;
         const close = () => {
@@ -277,7 +286,7 @@ function showJackpotCutin(spins) {
             modeText('p', 'slot-overlay-sub', 'ジャックポットタイム突入!!'),
             count
         );
-    });
+    }, { captain: 'laugh' });
 }
 
 /** ジャックポットタイム終了: 払い戻しの合計を数え上げて見せる */
@@ -320,7 +329,7 @@ function fillSymbol(node, symbol) {
     node.dataset.symbol = symbol;
     if (slot.images.has(symbol)) {
         const img = document.createElement('img');
-        img.src = `${SLOT_IMAGE_DIR}${symbol}${SLOT_IMAGE_EXT}`;
+        img.src = slot.images.get(symbol);
         img.alt = '';
         img.draggable = false;
         node.appendChild(img);
@@ -339,16 +348,39 @@ function createSymbol(symbol) {
     return node;
 }
 
+/** 絵柄の画像の候補 (先に書いたものから探す)。ふつうは assets/img/slot/<絵柄>.jpeg だけ */
+function slotImageSources(symbol) {
+    return SLOT_SYMBOLS[symbol].src || [`${SLOT_IMAGE_DIR}${symbol}${SLOT_IMAGE_EXT}`];
+}
+
 /** 画像が置かれている絵柄だけ、見えているところも含めて画像に差し替える */
 function loadSlotImages() {
     Object.keys(SLOT_SYMBOLS).forEach(symbol => {
-        const img = new Image();
-        img.onload = () => {
-            slot.images.add(symbol);
-            document.querySelectorAll(`.slot-symbol[data-symbol="${symbol}"]`).forEach(node => fillSymbol(node, symbol));
+        const sources = slotImageSources(symbol);
+        const tryAt = index => {
+            if (index >= sources.length) return;
+            const img = new Image();
+            img.onload = () => {
+                slot.images.set(symbol, sources[index]);
+                document.querySelectorAll(`.slot-symbol[data-symbol="${symbol}"]`).forEach(node => fillSymbol(node, symbol));
+            };
+            img.onerror = () => tryAt(index + 1);
+            img.src = sources[index];
         };
-        img.src = `${SLOT_IMAGE_DIR}${symbol}${SLOT_IMAGE_EXT}`;
+        tryAt(0);
     });
+}
+
+/** 公式キャラ (船長) の絵。expression は stand / surprised / laugh / disappointed。絵が無ければ消えて何も出さない */
+function captainArt(expression) {
+    const img = document.createElement('img');
+    img.className = `captain-art is-${expression}`;
+    img.alt = '';
+    img.draggable = false;
+    img.decoding = 'async';
+    img.addEventListener('error', () => img.remove());
+    img.src = `${CAPTAIN_ART_DIR}${expression}.png`;
+    return img;
 }
 
 // ------------------------------------------------------------------
