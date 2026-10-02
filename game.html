@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="assets/js/no-zoom.js?v=54.1"></script>
+    <script src="assets/js/no-zoom.js?v=54.2"></script>
     <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,8 +12,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=54.1">
-    <script src="assets/js/treasure-rain.js?v=54.1" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=54.2">
+    <script src="assets/js/treasure-rain.js?v=54.2" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -159,8 +159,8 @@
                 <li data-rules="voyage">2026/10/5〜12/21 の期間限定。30マスの海をぐるぐる回るエンドレス双六。毎週月曜に物語と海 (マスの中身) が進む。</li>
                 <li data-rules="voyage">1回 10 (賭け金は固定)。「振る」とサイコロの目だけ進み、止まったマスで払い戻しが決まる (×2 なら 20 が戻る)。マスの種類と効果は、盤の下の「この章のマス」にある。</li>
                 <li data-rules="voyage">宝箱は当たりなら大きいが、空っぽのこともある。災難のマス (ツケ・座礁など) に止まると、賭け金に加えてさらにチップを失う。</li>
-                <li data-rules="voyage">賭け金の 6% はジャックポットに貯まり、船長マスに止まると 1/12 で総取り (第11章・最終日は 1/6)。</li>
-                <li data-rules="voyage">賭け金の 8% は「最終秘宝」に貯まり、12/22 0:10 に全員に山分け (レートへ直接)。港を通って1周するたびに、その分け前が増える (全員の周回の数の比で分ける)。</li>
+                <li data-rules="voyage">ジャックポットは 1,000 から始まり、賭け金の 6% が上乗せされて貯まる。船長マスに止まると 1/2 で総取り (第11章・最終日は必ず)。当たると 1,000 から貯め直し。</li>
+                <li data-rules="voyage">「最終秘宝」は 5,000 から始まり、賭け金の 8% が上乗せされて貯まる。12/22 0:10 に全員に山分け (レートへ直接)。港を通って1周するたびに、その分け前が増える (全員の周回の数の比で分ける)。</li>
             </ul>
             <form id="casino-enter-form">
                 <div class="form-group">
@@ -540,15 +540,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=54.1"></script>
-    <script src="assets/js/game-sound.js?v=54.1"></script>
-    <script src="assets/js/game-blackjack.js?v=54.1"></script>
-    <script src="assets/js/game-slot.js?v=54.1"></script>
-    <script src="assets/js/game-gappori.js?v=54.1"></script>
-    <script src="assets/js/game-nariagari.js?v=54.1"></script>
-    <script src="assets/js/voyage-story.js?v=54.1"></script>
-    <script src="assets/js/game-voyage.js?v=54.1"></script>
-    <script src="assets/js/game-underground.js?v=54.1"></script>
-    <script src="assets/js/game.js?v=54.1"></script>
+    <script src="assets/js/common.js?v=54.2"></script>
+    <script src="assets/js/game-sound.js?v=54.2"></script>
+    <script src="assets/js/game-blackjack.js?v=54.2"></script>
+    <script src="assets/js/game-slot.js?v=54.2"></script>
+    <script src="assets/js/game-gappori.js?v=54.2"></script>
+    <script src="assets/js/game-nariagari.js?v=54.2"></script>
+    <script src="assets/js/voyage-story.js?v=54.2"></script>
+    <script src="assets/js/game-voyage.js?v=54.2"></script>
+    <script src="assets/js/game-underground.js?v=54.2"></script>
+    <script src="assets/js/game.js?v=54.2"></script>
 </body>
 </html>

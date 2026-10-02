@@ -144,6 +144,11 @@ function vgParseSquare(square) {
  * マスの表示 { type, kind, label, badge, tone, icon, art, note }。
  * kind は見た目の種類 (×1 未満の x は half)、badge はマスの隅に出す短い数字、note は「この章のマス」の説明
  */
+/** 船長チャンスの当たりやすさの言い方 (1 なら必ず) */
+function vgOddsText(odds) {
+    return odds <= 1 ? '必ず ' : `1/${odds} で`;
+}
+
 function vgSquareLook(square, chapterNo) {
     const parsed = vgParseSquare(square);
     const kind = parsed.type === 'x' && parsed.value < 1 ? 'half' : parsed.type;
@@ -151,7 +156,7 @@ function vgSquareLook(square, chapterNo) {
     const flavor = VG_FLAVOR[chapterNo] || {};
     if (flavor[square]) look.label = flavor[square];
     else if (flavor[kind]) look.label = flavor[kind];
-    const odds = vg.chapter?.jpOdds || 12;
+    const odds = vg.chapter?.jpOdds || 2;
     switch (kind) {
         case 'port': look.badge = '×2'; look.tone = 'gold'; look.note = 'ぴったり止まると ×2。通るたびに1周 (最終秘宝の分け前が増える)'; break;
         case 'x':
@@ -168,7 +173,7 @@ function vgSquareLook(square, chapterNo) {
         case 'again': look.badge = '🎲'; look.note = 'もう1回振れる (無料)'; break;
         case 'fwd': look.badge = `+${parsed.value}`; look.note = `${parsed.value}マス進む (着いたマスも効く)`; break;
         case 'back': look.badge = `−${parsed.value}`; look.tone = 'bad'; look.note = `${parsed.value}マス戻る (戻った先は効かない)`; break;
-        case 'captain': look.badge = `1/${odds}`; look.tone = 'jp'; look.note = `船長チャンス。1/${odds} でジャックポット総取り`; break;
+        case 'captain': look.badge = odds <= 1 ? 'JP' : `1/${odds}`; look.tone = 'jp'; look.note = `船長チャンス。${vgOddsText(odds)}ジャックポット総取り`; break;
         case 'gamble': look.badge = `×${parsed.value}`; look.tone = 'gold'; look.note = `半々で ×${parsed.value} か ${parsed.back}マス戻る`; break;
         case 'duel': look.badge = '×3'; look.tone = 'gold'; look.note = '半々で ×3 か 2マス戻る'; break;
         default: look.note = '何もない';
@@ -499,7 +504,7 @@ async function drawVoyageCaptain(effect, play) {
             face,
             modeText('p', 'slot-overlay-title', 'Captain'),
             modeText('p', 'slot-overlay-title is-second', 'Chance'),
-            modeText('p', 'slot-overlay-sub', `船長チャンス!!  1/${effect.odds} でジャックポット総取り`)
+            modeText('p', 'slot-overlay-sub', `船長チャンス!!  ${vgOddsText(effect.odds)}ジャックポット総取り`)
         );
     });
     // 抽選: 真ん中で数字を回す
@@ -889,7 +894,7 @@ function renderVoyageChapterHead() {
     else if (chapter.reverse) text = '第10章: 盤が逆回り。港から時計と反対に進みます。';
     else if (chapter.fog) text = '第2章: 霧で出目が見えません。止まってから分かります。';
     else if (chapter.dice && chapter.dice < 6) text = `第${chapter.no}章: 流氷で出目は 1〜${chapter.dice}。進みは遅いが、港を踏む回数も変わります。`;
-    else if (chapter.jpOdds && chapter.jpOdds < 12) text = `第${chapter.no}章: 船長チャンスが 1/${chapter.jpOdds} で当たります。`;
+    else if (chapter.jpOdds && chapter.jpOdds <= 1) text = `第${chapter.no}章: 船長チャンスは必ず当たります (ジャックポット総取り)。`;
     if (vgIsMaster() && vg.adminChapter) text = `管理者の試し: 第${chapter.no}章の盤面で振ります。${text}`;
     notice.textContent = text;
     notice.classList.toggle('hidden', !text);
@@ -1011,8 +1016,9 @@ async function pollVoyagePublic() {
             const data = doc.data();
             vg.info.state = {
                 ...vg.info.state,
-                jp: Math.floor((data.jpCents || 0) / 100),
-                treasure: Math.floor((data.treasureCents || 0) / 100),
+                // 額 (土台込み) はサーバーが jp / treasure に書く。古い文書には無いので、無ければいまの表示のまま
+                jp: typeof data.jp === 'number' ? data.jp : vg.info.state?.jp || 0,
+                treasure: data.final ? 0 : typeof data.treasure === 'number' ? data.treasure : vg.info.state?.treasure || 0,
                 lastJp: data.lastJp || null,
                 jpHistory: data.jpHistory || [],
                 final: data.final || null
