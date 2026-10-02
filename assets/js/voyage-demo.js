@@ -7,7 +7,6 @@
 //   チップは練習用で、ページを開き直すと最初から。物語は開くたびに見せる (本番の「見た章」の記録には触らない)。
 
 const VG_DEMO_CHIPS = 1000;          // 練習用チップ (尽きたらこの額を足す)
-const VG_DEMO_JP_SEED = 2000;        // ジャックポットの始まりの額 (デモ用。本番は 0 から全員の賭け金で貯まる)
 const VG_DEMO_RECENT_LIMIT = 12;
 
 let rules = null;                    // functions/voyage.js の写し
@@ -49,7 +48,7 @@ function resetDemoState() {
         wagered: 0,
         jpWon: 0,
         bestWin: 0,
-        jpCents: VG_DEMO_JP_SEED * 100,
+        jpCents: 0,                      // 貯まった分。額は本番と同じく土台 (VOYAGE_JP_BASE) を足した voyageJpAmount
         treasureCents: 0,
         jpHistory: [],
         recent: [],
@@ -81,8 +80,8 @@ function demoVoyageInfo() {
         chapter: demoChapters[0],
         chapters: demoChapters,
         state: {
-            jp: Math.floor(demo.jpCents / 100),
-            treasure: Math.floor(demo.treasureCents / 100),
+            jp: rules.voyageJpAmount(demo.jpCents),
+            treasure: rules.voyageTreasureAmount(demo.treasureCents),
             rolls: demo.rolls,
             wagered: demo.wagered,
             players: demo.rolls > 0 ? 1 : 0,
@@ -109,13 +108,13 @@ function demoRoll(bet) {
     const at = new Date().toISOString();
     const chapter = rules.voyageChapterByNo(1);
     const play = rules.playVoyage({
-        chapter, bet, pos: demo.pos, jp: Math.floor(demo.jpCents / 100), lapDebt: demo.lapDebt,
+        chapter, bet, pos: demo.pos, jp: rules.voyageJpAmount(demo.jpCents), lapDebt: demo.lapDebt,
         randomInt: n => Math.floor(Math.random() * n)
     });
 
     demo.jpCents += bet * rules.VOYAGE_JP_RATE;
     demo.treasureCents += bet * rules.VOYAGE_TREASURE_RATE;
-    if (play.jpHit) demo.jpCents = Math.max(0, demo.jpCents - play.jpWon * 100);
+    if (play.jpHit) demo.jpCents = rules.voyageJpCentsAfterWin(demo.jpCents, play.jpWon);
 
     demo.laps += play.laps;
     demo.lapDebt = play.lapDebt;

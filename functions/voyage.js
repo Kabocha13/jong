@@ -2,23 +2,28 @@
 //   2026/10/5 (月) 〜 12/21 (月) の期間限定。1周30マスのエンドレス双六で、毎週月曜 0:00 (JST) に章が進む
 //   (11章 + 最終日の第12章。章は日付から決めるので、週ごとのデプロイは要らない)。
 //   賭け金は VOYAGE_BET (10) で固定。「振る」と、サイコロの目だけコマが進み、止まったマスで払い戻しが決まる。
-//   賭け金の VOYAGE_JP_RATE % はジャックポット (船長マスで 1/VOYAGE_JP_ODDS で総取り)、
-//   VOYAGE_TREASURE_RATE % は最終秘宝に貯め、最終秘宝は 12/22 0:10 に「周回の数」の比で全員に山分けする。
+//   ジャックポットは VOYAGE_JP_BASE (1000) を土台に、賭け金の VOYAGE_JP_RATE % を上乗せして貯める
+//   (船長マスで 1/VOYAGE_JP_ODDS で総取り。当たると土台の VOYAGE_JP_BASE から貯め直す)。
+//   最終秘宝は VOYAGE_TREASURE_BASE (5000) を土台に、賭け金の VOYAGE_TREASURE_RATE % を上乗せして貯め、
+//   12/22 0:10 に「周回の数」の比で全員に山分けする。土台の分は運営が出す (賭け金からは出ない)。
 //   周回は港を通って1周するたびに1つ増える (港より手前へ押し戻されて通り直した分は数えない)。
 //   取り分 (全員の周回の合計に対する自分の割合) は画面には出さない。
-//   マスの中身は章ごとに変わる (第8章は目が 1〜3、第10章は盤が逆回り、第11・12章は船長チャンスが当たりやすい)。
+//   マスの中身は章ごとに変わる (第8章は目が 1〜3、第10章は盤が逆回り、第11・12章は船長チャンスが必ず当たる)。
 //   還元率は 即時の配当 約99% (章ごとに 98〜100%)。JP 6% と最終秘宝 8% はその上に乗せる (全体で約113%。
 //   ゲームの釣り合いより、その場で戻る手応えを優先した)。正確な値は tools/voyage-sim.mjs で測る。
+//   船長マスに止まるのは 約28回に1回。4人が週10回ずつ振る想定 (週40回) で、JP は週に 0.7〜0.8 回ほど誰かが当てる。
 
 export const VOYAGE_BET = 10;
 export const VOYAGE_BETS = [VOYAGE_BET];
 export const VOYAGE_SQUARES = 30;
 export const VOYAGE_JP_RATE = 6;          // 賭け金のうちジャックポットに貯める割合 (%)
+export const VOYAGE_JP_BASE = 1000;       // ジャックポットの土台 (運営が出す。当たるたびにここから貯め直す)
 export const VOYAGE_TREASURE_RATE = 8;    // 賭け金のうち最終秘宝に貯める割合 (%)
-export const VOYAGE_JP_ODDS = 12;         // 船長マスに止まったとき、この中の1で JP
+export const VOYAGE_TREASURE_BASE = 5000; // 最終秘宝の土台 (運営が出す。これに賭け金の分が乗る)
+export const VOYAGE_JP_ODDS = 2;          // 船長マスに止まったとき、この中の1で JP (1 なら必ず)
 export const VOYAGE_PORT_MULT = 2;        // 港 (0番) にぴったり止まったときの倍率
 export const VOYAGE_MAX_MOVES = 3;        // 1回で動く回数の上限 (もう1回・追い風の連鎖)
-export const VOYAGE_RULES_VERSION = 2;
+export const VOYAGE_RULES_VERSION = 3;
 export const VOYAGE_START = '2026-10-05T00:00:00+09:00';   // 第1章の始まり
 export const VOYAGE_END = '2026-12-22T00:00:00+09:00';     // ここからは振れない (12/21 いっぱいまで)
 export const VOYAGE_FINAL_AT = '2026-12-22T00:10:00+09:00'; // 最終秘宝の山分け
@@ -65,10 +70,10 @@ export const VOYAGE_CHAPTERS = [
   { no: 9, from: '2026-11-30T00:00:00+09:00', title: '決戦', place: '決戦の海', board: variant({ 3: 'duel', 17: 'duel', 13: 'duel', 25: 'sea' }) },
   // 逆さの地図: 盤が逆回り
   { no: 10, from: '2026-12-07T00:00:00+09:00', title: '逆さの地図', place: '帰路', reverse: true, board: variant({ 21: 'x1' }) },
-  // 宝島は港だった: 船長チャンスが2倍当たりやすい
-  { no: 11, from: '2026-12-14T00:00:00+09:00', title: '宝島は港だった', place: 'SILI港 (ふたたび)', jpOdds: 6, board: B.standard },
+  // 宝島は港だった: 船長チャンスが必ず当たる
+  { no: 11, from: '2026-12-14T00:00:00+09:00', title: '宝島は港だった', place: 'SILI港 (ふたたび)', jpOdds: 1, board: B.standard },
   // 最終日 (冬至): 12/21 の1日だけ
-  { no: 12, from: '2026-12-21T00:00:00+09:00', title: '冬至の夜', place: '酒場の地下', jpOdds: 6, board: B.standard }
+  { no: 12, from: '2026-12-21T00:00:00+09:00', title: '冬至の夜', place: '酒場の地下', jpOdds: 1, board: B.standard }
 ];
 
 export class VoyageRuleError extends Error {
@@ -117,6 +122,21 @@ export function publicVoyageChapter(chapter) {
   };
 }
 
+/** いまのジャックポットの額 (土台 + 貯まった分)。jpCents は 1/100 単位で貯めた分 */
+export function voyageJpAmount(jpCents) {
+  return VOYAGE_JP_BASE + Math.floor(Math.max(0, Number(jpCents) || 0) / 100);
+}
+
+/** JP を won だけ払ったあとの貯まった分 (土台の分は貯まった分からは引かない) */
+export function voyageJpCentsAfterWin(jpCents, won) {
+  return Math.max(0, (Number(jpCents) || 0) - Math.max(0, won - VOYAGE_JP_BASE) * 100);
+}
+
+/** いまの最終秘宝の額 (土台 + 貯まった分)。treasureCents は 1/100 単位で貯めた分 */
+export function voyageTreasureAmount(treasureCents) {
+  return VOYAGE_TREASURE_BASE + Math.floor(Math.max(0, Number(treasureCents) || 0) / 100);
+}
+
 /** 周回の数 (港を通って1周するたびに1つ)。数でない値は 0 とみなす */
 export function voyageLapCount(value) {
   if (Array.isArray(value)) return 0;
@@ -162,7 +182,7 @@ function voyagePay(bet, value) {
 }
 
 /**
- * 1回ぶんを決める。chapter はいまの章、bet は賭け金、pos はいまの位置、jp はいまのジャックポット (払える額)、
+ * 1回ぶんを決める。chapter はいまの章、bet は賭け金、pos はいまの位置、jp はいまのジャックポット (払える額。土台込み = voyageJpAmount)、
  * lapDebt は「押し戻されて港より手前へ戻った回数」(次に港を通ったときは周回に数えず、これを返す)。randomInt(n) は 0〜n-1。
  * 返り値: { dice, moves: [{ dice?, from, to, path, lap, square, effect }], pos, laps, lapDebt, payout, multiplier, jpHit, jpWon }
  *   laps はこの1回で増えた周回の数、move.lap はその動きで周回が増えたか。

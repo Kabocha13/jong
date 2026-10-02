@@ -22,6 +22,9 @@ import {
   isVoyageStarted,
   playVoyage,
   publicVoyageChapter,
+  voyageJpAmount,
+  voyageJpCentsAfterWin,
+  voyageTreasureAmount,
   splitVoyageTreasure,
   voyageChapterAt,
   voyageChapterByNo,
@@ -2816,8 +2819,10 @@ function emptyVoyagePublic(nowIso) {
   return {
     rulesVersion: VOYAGE_RULES_VERSION,
     seq: 0,
-    jpCents: 0,          // ジャックポット (1/100 単位で貯める。表示は切り捨て)
-    treasureCents: 0,    // 最終秘宝 (同上)。山分けは周回の数の比 (取り分は公開しないので、合計もここには置かない)
+    jpCents: 0,          // ジャックポットの貯まった分 (1/100 単位。額は土台 VOYAGE_JP_BASE を足した voyageJpAmount)
+    treasureCents: 0,    // 最終秘宝の貯まった分 (同上。額は voyageTreasureAmount)。山分けは周回の数の比 (取り分は公開しないので、合計もここには置かない)
+    jp: voyageJpAmount(0),               // 画面が直接読む額 (土台込み)。振るたびに書き直す
+    treasure: voyageTreasureAmount(0),   // 同上。山分けを済ませたら 0
     rolls: 0,
     wagered: 0,
     players: 0,
@@ -2838,8 +2843,8 @@ function emptyVoyagePlayer(uid, player, nowIso) {
 function publicVoyageState(data) {
   const state = data || emptyVoyagePublic(new Date().toISOString());
   return {
-    jp: Math.floor((state.jpCents || 0) / 100),
-    treasure: Math.floor((state.treasureCents || 0) / 100),
+    jp: voyageJpAmount(state.jpCents),
+    treasure: state.final ? 0 : voyageTreasureAmount(state.treasureCents),
     rolls: state.rolls || 0,
     wagered: state.wagered || 0,
     players: state.players || 0,
@@ -2944,13 +2949,15 @@ async function casinoVoyageRoll(uid, username, rawBet, rawChapter, admin = false
     const isNewPlayer = !playerDoc.exists;
     const player = isNewPlayer ? emptyVoyagePlayer(uid, username, nowIso) : playerDoc.data();
 
-    const play = playVoyage({ chapter, bet, pos: player.pos || 0, jp: Math.floor((state.jpCents || 0) / 100), lapDebt: player.lapDebt || 0, randomInt: casinoRandom });
+    const play = playVoyage({ chapter, bet, pos: player.pos || 0, jp: voyageJpAmount(state.jpCents), lapDebt: player.lapDebt || 0, randomInt: casinoRandom });
     const id = `${Date.now().toString(36)}${randomInt(36 ** 4).toString(36)}`;
 
-    // 貯める分と JP の払い出し
+    // 貯める分と JP の払い出し (当たったら貯まった分を払い、土台 VOYAGE_JP_BASE から貯め直す)
     state.jpCents = (state.jpCents || 0) + bet * VOYAGE_JP_RATE;
     state.treasureCents = (state.treasureCents || 0) + bet * VOYAGE_TREASURE_RATE;
-    if (play.jpHit) state.jpCents = Math.max(0, state.jpCents - play.jpWon * 100);
+    if (play.jpHit) state.jpCents = voyageJpCentsAfterWin(state.jpCents, play.jpWon);
+    state.jp = voyageJpAmount(state.jpCents);
+    state.treasure = voyageTreasureAmount(state.treasureCents);
 
     // 周回 (港を通って1周するたびに1つ)
     const laps = voyageLapCount(player.laps) + play.laps;
@@ -3041,7 +3048,7 @@ async function finalizeVoyage({ force = false } = {}) {
   const publicDoc = await publicRef.get();
   if (!publicDoc.exists) return { final: null, skipped: 'no-state' };
   if (publicDoc.data().final) return { final: publicDoc.data().final, skipped: 'done' };
-  const treasure = Math.floor((publicDoc.data().treasureCents || 0) / 100);
+  const treasure = voyageTreasureAmount(publicDoc.data().treasureCents);
   const snapshot = await db.collection(VOYAGE_PLAYERS).get();
   const split = splitVoyageTreasure(snapshot.docs.map(doc => doc.data()), treasure);
   const at = new Date().toISOString();
@@ -3078,7 +3085,8 @@ async function finalizeVoyage({ force = false } = {}) {
   const final = { at, treasure, total: split.total, paid: paid.reduce((sum, entry) => sum + entry.amount, 0), count: paid.length, winners: paid };
   await publicRef.set({
     final,
-    treasureCents: Math.max(0, (publicDoc.data().treasureCents || 0) - final.paid * 100),
+    treasureCents: 0,
+    treasure: 0,
     seq: (publicDoc.data().seq || 0) + 1,
     updatedAt: at
   }, { merge: true });
