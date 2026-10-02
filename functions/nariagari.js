@@ -4,17 +4,18 @@
 //   ×N に止まったら賭け金 × N を払い戻して終わり (×1 は賭け金がそのまま戻る)。
 //   ×? は止まったときに、弾ごとの範囲から均等に倍率を決める。
 //   マスの並びは回ごとにシャッフルし、UP どうしは円の端と端も含めて隣り合わせない。
-//   第1弾は UP 5・終了 12 の17マス。還元率は 100.83% (2弾で止まる分 46.57%・3弾 33.09%・4弾 10.29%・5弾 10.88%)。
-//   到達する確率は 2弾 5/17 (約1/3.4)・3弾 約1/13.6・4弾 (JP) 約1/81.6・5弾 (SJP) 1/408。×100 は 1/1632。
+//   ×? の範囲は 2弾 1〜6・3弾 3〜12・4弾 6〜20・5弾 15〜50。還元率は 99.69%
+//   (2弾で止まる分 41.67%・3弾 35.42%・4弾 10.28%・5弾 12.33%)。
+//   到達する確率は 2弾 1/3・3弾 1/12・4弾 (JP) 1/72・5弾 (SJP) 1/360。×100 は 1/1440。
 
-export const NARIAGARI_BETS = [1, 2, 5, 10, 20, 50, 100];
+export const NARIAGARI_BETS = [1, 2, 5, 10, 20, 50, 100, 500, 1000, 5000];
 
 // 弾ごとのマス。'up' / 'end' / 'x<倍率>' / 'q' (×?)。q はその弾の ×? の範囲 [最小, 最大]
 export const NARIAGARI_STAGES = [
-  { pockets: ['up', 'up', 'up', 'up', 'up', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end'] },
-  { pockets: ['up', 'up', 'up', 'end', 'end', 'end', 'x1', 'x2', 'x2', 'x3', 'q', 'q'], q: [1, 10] },
-  { pockets: ['up', 'x3', 'x3', 'x6', 'x6', 'q'], q: [3, 15] },
-  { pockets: ['up', 'x6', 'x6', 'x12', 'q'], q: [6, 30] },
+  { pockets: ['up', 'up', 'up', 'up', 'up', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end'] },
+  { pockets: ['up', 'up', 'up', 'end', 'end', 'end', 'x1', 'x2', 'x2', 'x3', 'q', 'q'], q: [1, 6] },
+  { pockets: ['up', 'x3', 'x3', 'x6', 'x6', 'q'], q: [3, 12] },
+  { pockets: ['up', 'x6', 'x6', 'x12', 'q'], q: [6, 20] },
   { pockets: ['x100', 'x15', 'x30', 'q'], q: [15, 50] }
 ];
 
@@ -48,7 +49,7 @@ export function shuffleNariagariLayout(stageIndex, randomInt) {
     }
     if (isNariagariLayoutValid(stageIndex, layout)) return layout;
   }
-  // 引き直しで外れ続けることは実際には起こらない (第1弾でも1回に約18%で通る)。念のため UP を間を空けて差し込む
+  // 引き直しで外れ続けることは実際には起こらない (第1弾でも1回に約13%で通る)。念のため UP を間を空けて差し込む
   const others = pockets.filter(pocket => pocket !== 'up');
   const ups = pockets.length - others.length;
   const layout = [];

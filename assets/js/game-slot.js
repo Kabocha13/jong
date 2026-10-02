@@ -259,8 +259,9 @@ function showSlotOverlay(variant, build) {
     });
 }
 
-/** ジャックポットタイム突入のカットイン */
+/** ジャックポットタイム突入のカットイン (効果音 a.mp3 はカットインとほぼ同じ長さ) */
 function showJackpotCutin(spins) {
+    window.playGameSound?.('slotJackpot');
     window.qjongTreasureRain?.preview(6000);
     flashScreen('white');
     buzz([120, 60, 120, 60, 400]);

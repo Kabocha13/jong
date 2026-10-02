@@ -5,33 +5,37 @@
 //   第1弾の並びは画面で作って nrSpin に送る (止まるマスはサーバーが等確率に決めるので、並びで有利にはならない)。
 //   第5弾の結果を見せたら nrNotify を送り、全員 (本人も含む) に通知してもらう (送れなかったぶんはサーバーが次の回や精算で送る)。
 //   途中で閉じても払い戻しは入っている。第4弾以上まで行った回は、次に開いたときに第4弾のボタンから続きを見せる。
+//   オートは結果が出たら少し間を置いて次を回す。第4弾・第5弾のボタンはオートでも押さず、押してもらうまで待つ。
 //   閃光・金貨・震え・画面いっぱいの演出は game-slot.js のものを使う。入場・手元チップ・精算は game.js。
 
-const NR_BETS = [1, 2, 5, 10, 20, 50, 100];          // サーバーの NARIAGARI_BETS と同じ
+const NR_BETS = [1, 2, 5, 10, 20, 50, 100, 500, 1000, 5000];   // サーバーの NARIAGARI_BETS と同じ
 const NR_BET_STORAGE_KEY = 'nariagariBet';
 const NR_SHOWN_STORAGE_KEY = 'nariagariShown';       // 最後まで見せた回の id (続きを見せるかどうか)
 // 弾ごとのマス (サーバーの NARIAGARI_STAGES と同じ)。q はその弾の ×? の範囲
 const NR_STAGES = [
-    { pockets: ['up', 'up', 'up', 'up', 'up', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end'] },
-    { pockets: ['up', 'up', 'up', 'end', 'end', 'end', 'x1', 'x2', 'x2', 'x3', 'q', 'q'], q: [1, 10] },
-    { pockets: ['up', 'x3', 'x3', 'x6', 'x6', 'q'], q: [3, 15] },
-    { pockets: ['up', 'x6', 'x6', 'x12', 'q'], q: [6, 30] },
+    { pockets: ['up', 'up', 'up', 'up', 'up', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end'] },
+    { pockets: ['up', 'up', 'up', 'end', 'end', 'end', 'x1', 'x2', 'x2', 'x3', 'q', 'q'], q: [1, 6] },
+    { pockets: ['up', 'x3', 'x3', 'x6', 'x6', 'q'], q: [3, 12] },
+    { pockets: ['up', 'x6', 'x6', 'x12', 'q'], q: [6, 20] },
     { pockets: ['x100', 'x15', 'x30', 'q'], q: [15, 50] }
 ];
 const NR_STAGE_NAMES = ['第1弾', '第2弾', '第3弾', 'JP 第4弾', 'SJP 第5弾'];
 const NR_HUB_NAMES = ['1弾', '2弾', '3弾', 'JP', 'SJP'];
-// 回し方。speed は速さ (度/秒。第1〜3弾は同じ)、ms は回す長さの範囲 (止める位置までの端数で最大1周ぶん伸びる。
-// 第1〜3弾は平均およそ10秒)、slow は最後にゆっくりになる長さ
+// 回し方。speed は最高の速さ (度/秒)、ms は回す長さの範囲 (止める位置までの端数で最大1周ぶん伸びる)、
+// slow はゆっくりになっていく長さ、curve はゆっくりになり方 (3: 最後にぐっと遅くなる / 2: 一定の割合でだんだん遅くなる)。
+// 第1〜3弾は同じ速さで平均およそ10秒。第4弾 (JP) は平均15秒・第5弾 (SJP) は平均20秒で、ほとんどの時間をかけてだんだん遅くなる
 const NR_SPINS = [
-    { speed: 300, ms: [7500, 11500], slow: 4000 },
-    { speed: 300, ms: [7500, 11500], slow: 4000 },
-    { speed: 300, ms: [7500, 11500], slow: 4000 },
-    { speed: 220, ms: [9000, 12000], slow: 5500 },
-    { speed: 180, ms: [10000, 13000], slow: 6500 }
+    { speed: 300, ms: [7500, 11500], slow: 4000, curve: 3 },
+    { speed: 300, ms: [7500, 11500], slow: 4000, curve: 3 },
+    { speed: 300, ms: [7500, 11500], slow: 4000, curve: 3 },
+    { speed: 240, ms: [13000, 15500], slow: 12000, curve: 2 },
+    { speed: 220, ms: [17900, 20500], slow: 16000, curve: 2 }
 ];
 const NR_ACCEL_MS = 500;        // 回し始めて最高の速さになるまで
 const NR_NEXT_MS = 2000;        // 第2弾・第3弾: UP に止まってから次を回し始めるまで
 const NR_BIG_MULTIPLIER = 30;   // この倍率以上の当たりは大きく祝う
+const NR_AUTO_GAP_MS = 800;        // オート: 結果が出てから次を回すまで
+const NR_AUTO_WIN_GAP_MS = 1800;   // オート: 当たったときは結果を長めに見せる
 
 const nr = {
     bet: 10,
@@ -41,7 +45,9 @@ const nr = {
     layout: null,        // いま出している弾の並び
     angle: 0,            // 盤面の角度 (度。時計回り)
     motion: null,        // 回している途中の動き
-    waitButton: null     // 第4弾・第5弾のボタンが押されるのを待っているときの { stage, resolve }
+    waitButton: null,    // 第4弾・第5弾のボタンが押されるのを待っているときの { stage, resolve }
+    auto: false,         // オート (第4弾・第5弾のボタンは自分で押す)
+    autoTimer: null      // オートで次を回すまでのタイマー
 };
 
 function nrChips() {
@@ -137,7 +143,8 @@ function setNariagariResult(text, tone = '') {
     result.textContent = text;
 }
 
-// 回す動き: 0.5秒で最高の速さになり、そのまま回って、止める位置が決まったら最後の slow ミリ秒でゆっくり止まる
+// 回す動き: 0.5秒で最高の速さになり、そのまま回って、止める位置が決まったら最後の slow ミリ秒でゆっくり止まる。
+// ゆっくりになるあいだの速さは 最高の速さ × (1 − 経った割合)^(curve − 1) (curve 2 は一定の割合で、3 は最後ほどぐっと遅くなる)
 function nrFreeAngle(motion, t) {
     const dt = Math.max(0, t - motion.t0);
     return dt < NR_ACCEL_MS
@@ -149,7 +156,7 @@ function nrAngleAt(motion, t) {
     const land = motion.land;
     if (!land || t < land.at) return nrFreeAngle(motion, t);
     const u = Math.min(1, (t - land.at) / land.ms);
-    return land.from + (motion.speed * land.ms * (1 - (1 - u) ** 3)) / 3;
+    return land.from + (motion.speed * land.ms * (1 - (1 - u) ** land.curve)) / land.curve;
 }
 
 /** 止める時刻が来た: 止める角度にぴったり合わせて終える (描画の合間とタイマーのどちらから呼ばれてもよい) */
@@ -206,13 +213,13 @@ function landNariagariWheel(stop, total) {
         el('nr-wheel-wrap').classList.remove('is-spinning');
         return Promise.resolve();
     }
-    const slow = NR_SPINS[nr.stage].slow;
+    const { slow, curve } = NR_SPINS[nr.stage];
     let at = Math.max(performance.now() + 50, motion.t0 + NR_ACCEL_MS, motion.t0 + total - slow);
-    const end = nrFreeAngle(motion, at) + (motion.speed * slow) / 3;
+    const end = nrFreeAngle(motion, at) + (motion.speed * slow) / curve;
     at += ((((target - end) % 360) + 360) % 360) / motion.speed;
     return new Promise(resolve => {
         const from = nrFreeAngle(motion, at);
-        motion.land = { at, ms: slow, from, to: from + (motion.speed * slow) / 3, resolve };
+        motion.land = { at, ms: slow, curve, from, to: from + (motion.speed * slow) / curve, resolve };
         // 画面が裏に回るなどして描画が止まっていても、止める時刻には止める
         motion.timer = setTimeout(() => finishNariagariMotion(motion), Math.max(0, at + slow - performance.now()) + 30);
     });
@@ -280,6 +287,7 @@ function pressNariagariBigButton() {
     if (!waiting) return;
     nr.waitButton = null;
     renderNariagariBigButton();
+    window.playGameSound?.(waiting.stage >= 4 ? 'nrSjpButton' : 'nrJpButton');
     buzz(80);
     waiting.resolve();
 }
@@ -376,13 +384,19 @@ async function presentNariagariPlay(play, from = 0) {
             renderNariagariWheel(index, step.layout, true);
         }
         if (index >= 3) {
+            // オート中でも、ここは自分で押す
             setNariagariStatus(`${NR_STAGE_NAMES[index]}  ボタンを押して回す`);
             await waitNariagariButton(index);
         }
         setNariagariStatus(`${NR_STAGE_NAMES[index]} 回転中…`);
         setNariagariHub(NR_HUB_NAMES[index]);
+        // JP・SJP の抽選中は、盤面が止まるまで音を流し続ける (1.mp3・2.mp3)
+        const stopSpinSound = index >= 3 && !prefersReducedMotion()
+            ? (window.startGameSoundLoop?.(index >= 4 ? 'nrSjpSpin' : 'nrJpSpin') || (() => {}))
+            : () => {};
         if (index === 0) await landNariagariWheel(step.stop, NR_SPINS[0].ms[0] + Math.random() * (NR_SPINS[0].ms[1] - NR_SPINS[0].ms[0]));
         else await spinNariagariStage(index, step.stop);
+        stopSpinSound();
         if (step.pocket !== 'up') {
             await finishNariagariPlay(play, index, step);
             return;
@@ -390,6 +404,7 @@ async function presentNariagariPlay(play, from = 0) {
         // UP: 次の弾へ
         el('nr-wheel-wrap').classList.add('is-up');
         setNariagariHub('UP!', 'is-up');
+        window.playGameSound?.('nrUp');
         flashScreen('gold');
         buzz([80, 40, 80]);
         renderNariagariTower(index, index + 1);
@@ -412,21 +427,6 @@ async function presentNariagariPlay(play, from = 0) {
 function doneNariagariPlay(play) {
     if (play.top >= 5) callCasino('nrNotify', { id: play.id }).catch(error => console.warn('成り上がりの通知に失敗:', error));
     try { localStorage.setItem(NR_SHOWN_STORAGE_KEY, play.id); } catch (error) { /* 無視 */ }
-}
-
-function renderNariagariRecent() {
-    const list = el('nr-recent');
-    if (!list) return;
-    list.innerHTML = '';
-    (casino.session?.nariagari?.recent || []).forEach(item => {
-        const li = document.createElement('li');
-        const net = item.returned - item.bet;
-        const big = item.top >= 4 || item.multiplier >= NR_BIG_MULTIPLIER;
-        li.className = `bj-pip ${big ? 'is-blackjack' : net > 0 ? 'is-plus' : net < 0 ? 'is-minus' : 'is-even'}`;
-        li.textContent = item.top >= 5 ? 'SJP' : item.top >= 4 ? 'JP' : formatSigned(net);
-        li.title = `${NR_STAGE_NAMES[item.top - 1]}まで / ${item.multiplier ? `×${item.multiplier}` : '終了'} / 賭け ${item.bet} → 払戻 ${item.returned}`;
-        list.appendChild(li);
-    });
 }
 
 // ------------------------------------------------------------------
@@ -454,7 +454,35 @@ function renderNariagariControls() {
     el('nr-bet').textContent = nr.bet.toLocaleString('ja-JP');
     el('nr-bet-down').disabled = locked || nr.bet <= NR_BETS[0];
     el('nr-bet-up').disabled = locked || !NR_BETS.some(bet => bet > nr.bet && bet <= nrChips());
-    el('nr-spin-button').disabled = locked || nr.bet > nrChips();
+    // オート中のボタンは、回している最中でも押せる「オートを止める」にする
+    el('nr-spin-button').disabled = nr.auto ? false : locked || nr.bet > nrChips();
+    el('nr-spin-button').textContent = nr.auto ? 'オートを止める' : '回す';
+    el('nr-spin-button').classList.toggle('is-auto', nr.auto);
+    el('nr-auto').checked = nr.auto;
+    el('nr-auto').disabled = !casino.session;
+}
+
+function stopNariagariAuto() {
+    nr.auto = false;
+    clearTimeout(nr.autoTimer);
+    nr.autoTimer = null;
+    renderNariagariControls();
+}
+
+/** オート: wait ミリ秒後に次を回す (手元が賭け金に足りなければ止める) */
+function queueNariagariAuto(wait) {
+    clearTimeout(nr.autoTimer);
+    if (!nr.auto || !nr.open) return;
+    nr.autoTimer = setTimeout(() => {
+        nr.autoTimer = null;
+        if (!nr.auto || !nr.open) return;
+        if (nr.bet > nrChips()) {
+            stopNariagariAuto();
+            showMessage(el('nr-message'), '手元のチップが賭け金に足りないので、オートを止めました。', 'info');
+            return;
+        }
+        spinNariagari();
+    }, wait);
 }
 
 async function spinNariagari() {
@@ -471,9 +499,11 @@ async function spinNariagari() {
     setNariagariStatus(`${NR_STAGE_NAMES[0]} 回転中…`);
     if (!prefersReducedMotion()) startNariagariWheel(0);
     let data = null;
+    let wait = NR_AUTO_GAP_MS;
     try {
         data = await callCasino('nrSpin', { bet, layout });
         if (data.expired) {
+            stopNariagariAuto();
             stopNariagariWheel();
             await refreshCasino();
             showMessage(el('casino-message'), settledMessage(data.settled), 'info');
@@ -484,8 +514,10 @@ async function spinNariagari() {
         if (play.stages[0].layout.join() !== layout.join()) renderNariagariWheel(0, play.stages[0].layout);
         await presentNariagariPlay(play);
         doneNariagariPlay(play);
+        if (play.payout > 0) wait = NR_AUTO_WIN_GAP_MS;
         if (data.settled) {
             // チップが尽きてサーバー側で精算済み
+            stopNariagariAuto();
             casino.session = null;
             showMessage(el('nr-message'), `チップがなくなりました。${settledMessage(data.settled)}`, 'info');
             await delay(2500);
@@ -495,10 +527,10 @@ async function spinNariagari() {
         }
         casino.session = data.session;
         fitNariagariBet();
-        renderNariagariRecent();
         renderWallet();
         setNariagariStatus('賭け金を決めて「回す」');
     } catch (error) {
+        stopNariagariAuto();
         stopNariagariWheel();
         setNariagariStatus('');
         showMessage(el('nr-message'), error.message, 'error');
@@ -507,6 +539,7 @@ async function spinNariagari() {
         el('nr-spin-button').removeAttribute('aria-busy');
         nr.playing = false;
         setCasinoBusy(false);
+        queueNariagariAuto(wait);
     }
 }
 
@@ -532,7 +565,6 @@ async function resumeNariagari(play) {
     } finally {
         nr.playing = false;
         setCasinoBusy(false);
-        renderNariagariRecent();
         renderWallet();
     }
 }
@@ -548,7 +580,6 @@ function openNariagariTable() {
         setNariagariStatus('賭け金を決めて「回す」');
     }
     fitNariagariBet();
-    renderNariagariRecent();
     renderNariagariControls();
     renderNariagariBigButton();
     const pending = nr.playing ? null : pendingNariagariPlay();
@@ -560,34 +591,13 @@ function openNariagariTable() {
 
 function closeNariagariTable() {
     nr.open = false;
+    if (nr.auto) stopNariagariAuto();
     renderNariagariBigButton();
 }
 
 /** ゲーム一覧のタイルの札: 続きがあるとき */
 function nariagariTileBadge() {
     return !nr.playing && pendingNariagariPlay() ? '続きがあります' : '';
-}
-
-/** 配当表: 弾ごとのマス */
-function buildNariagariPaytable() {
-    const list = el('nr-paytable');
-    if (!list) return;
-    NR_STAGES.forEach((stage, index) => {
-        const li = document.createElement('li');
-        li.className = `is-stage-${index + 1}`;
-        const name = modeText('strong', 'nr-pay-name', NR_STAGE_NAMES[index]);
-        const pockets = document.createElement('span');
-        pockets.className = 'nr-pay-pockets';
-        const counts = new Map();
-        stage.pockets.forEach(pocket => counts.set(pocket, (counts.get(pocket) || 0) + 1));
-        counts.forEach((count, pocket) => {
-            const label = pocket === 'q' ? `×?(${stage.q[0]}〜${stage.q[1]})` : nrPocketLabel(pocket);
-            const chip = modeText('span', `nr-pay-chip is-${nrPocketType(pocket)}`, count > 1 ? `${label} ${count}マス` : label);
-            pockets.appendChild(chip);
-        });
-        li.append(name, pockets);
-        list.appendChild(li);
-    });
 }
 
 function initNariagari() {
@@ -600,9 +610,24 @@ function initNariagari() {
     }
     // 大きなボタンは画面の真ん中に固定する。main は入場の動きの transform を持ち、その中では main が基準になるので body へ移す
     document.body.appendChild(el('nr-big'));
-    buildNariagariPaytable();
     el('nr-bet-down').addEventListener('click', () => stepNariagariBet(-1));
     el('nr-bet-up').addEventListener('click', () => stepNariagariBet(1));
-    el('nr-spin-button').addEventListener('click', spinNariagari);
+    el('nr-spin-button').addEventListener('click', () => {
+        if (nr.auto) {
+            stopNariagariAuto();
+            return;
+        }
+        spinNariagari();
+    });
+    el('nr-auto').addEventListener('change', event => {
+        nr.auto = event.target.checked;
+        renderNariagariControls();
+        if (!nr.auto) {
+            stopNariagariAuto();
+            return;
+        }
+        // 回していなければすぐ始める (回している途中なら、その回が終わってから続ける)
+        if (!casino.busy && !nr.playing) spinNariagari();
+    });
     el('nr-big-button').addEventListener('click', pressNariagariBigButton);
 }

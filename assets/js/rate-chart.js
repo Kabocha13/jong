@@ -5,6 +5,7 @@
 // 横軸は1日 = 等幅の1区間。その日の変動 (対局・日次補正) を区間の中に1列ずつ並べる。
 // 出す日数は画面の幅に合わせて直近1〜4日 (スマホは1日)。
 // 借金 (レートの貸し出し) がある区間は、同じ色の破線で「レート − 借金」を描き、間を薄く塗る。
+// 数値はグラフに重ねず、下の読み取り欄に出す (ふだんは最新、なぞっている・タップしたあいだはその時点)。
 
 const RATE_CHART_CONTAINER = document.getElementById('rate-chart');
 
@@ -28,7 +29,7 @@ const RATE_CHART_MIN_DAYS = 1;          // スマホ幅でもこれだけは出�
 const RATE_CHART_MAX_DAYS = 4;
 const RATE_CHART_DAY_MIN_WIDTH = 220;   // 1日ぶんに最低これだけの幅 (px) が取れる日数まで広げる
 
-let rateChartState = { days: [], hoverIndex: -1, loaded: false };
+let rateChartState = { days: [], hoverIndex: -1, loaded: false, hide: null };
 let rateChartLoadPromise = null;
 
 function svgEl(name, attrs = {}) {
@@ -386,23 +387,33 @@ function renderRateChart() {
     figure.className = 'rate-chart-figure';
     figure.appendChild(svg);
 
-    const tooltip = document.createElement('div');
-    tooltip.className = 'rate-chart-tooltip';
-    tooltip.hidden = true;
-    figure.appendChild(tooltip);
-
+    const readout = buildRateChartReadout(series, points);
     RATE_CHART_CONTAINER.replaceChildren();
-    RATE_CHART_CONTAINER.appendChild(figure);
-    RATE_CHART_CONTAINER.appendChild(buildRateChartLegend(series));
+    RATE_CHART_CONTAINER.append(figure, readout.element);
 
-    attachRateChartHover({ svg, figure, tooltip, crosshair, hoverDots, series, points, scale, x, plotLeft, plotRight });
+    attachRateChartHover({ svg, crosshair, hoverDots, series, points, scale, x, readout });
 }
 
-/** 系列が2本以上あるときは凡例を必ず出す (色だけに意味を持たせない) */
-function buildRateChartLegend(series) {
+/**
+ * グラフの下の読み取り欄 (凡例を兼ねる)。ふだんは最新のレート、グラフをなぞっている・タップしたあいだは
+ * その時点の日時・内容と全員のレートを出す。カードをグラフに重ねると線が隠れるので、グラフの外に置く。
+ * 系列が2本以上あるときも名前と色を並べて出す (色だけに意味を持たせない)
+ */
+function buildRateChartReadout(series, points) {
+    const element = document.createElement('div');
+    element.className = 'rate-chart-readout';
+    const head = document.createElement('p');
+    head.className = 'rate-chart-readout-head';
+    head.setAttribute('aria-live', 'polite');
+    const date = document.createElement('span');
+    date.className = 'rate-chart-readout-date';
+    const event = document.createElement('span');
+    event.className = 'rate-chart-readout-event';
+    head.append(date, event);
+
     const legend = document.createElement('ul');
     legend.className = 'rate-chart-legend';
-    series.forEach(item => {
+    const rows = series.map(item => {
         const row = document.createElement('li');
         const key = document.createElement('span');
         key.className = 'rate-chart-legend-key';
@@ -411,32 +422,48 @@ function buildRateChartLegend(series) {
         name.textContent = item.name;
         const value = document.createElement('span');
         value.className = 'rate-chart-legend-value';
-        value.textContent = Number.isFinite(item.last) ? item.last.toLocaleString('ja-JP') : '—';
-        row.append(key, name, value);
-        if (item.lastDebt > 0) {
-            const debt = document.createElement('span');
-            debt.className = 'rate-chart-legend-debt';
-            debt.textContent = `借金 ${item.lastDebt.toLocaleString('ja-JP')}`;
-            row.appendChild(debt);
-        }
+        const debt = document.createElement('span');
+        debt.className = 'rate-chart-legend-debt';
+        row.append(key, name, value, debt);
         legend.appendChild(row);
+        return { item, value, debt };
     });
-    return legend;
+    element.append(head, legend);
+
+    /** index は点の番号。-1 なら最新 */
+    const update = index => {
+        const latest = index < 0;
+        const point = points[latest ? points.length - 1 : index];
+        element.classList.toggle('is-latest', latest);
+        date.textContent = latest ? `最新 (${rateChartDateLabel(point.date)})` : rateChartDateLabel(point.date);
+        event.textContent = latest ? 'なぞる (タップする) とその時点のレート' : point.label || '';
+        rows.forEach(({ item, value, debt }) => {
+            const amount = latest ? item.last : item.values[index];
+            const owed = latest ? item.lastDebt : item.debts[index];
+            value.textContent = Number.isFinite(amount) ? amount.toLocaleString('ja-JP') : '—';
+            debt.hidden = !(Number.isFinite(amount) && owed > 0);
+            debt.textContent = owed > 0 ? `借金 ${owed.toLocaleString('ja-JP')}` : '';
+        });
+    };
+    update(-1);
+    return { element, update };
 }
 
 /**
- * 縦線 + ツールチップ。線の上を狙わなくても、その変動の直後の全員の数値が出る。
+ * 縦線と点で時点を示し、その変動の直後の全員の数値を下の読み取り欄に出す (線の上を狙わなくてよい)。
  * マウス・タッチ・キーボード (←→) のどれでも同じ内容を出す。
+ * マウスはグラフから外れたら最新に戻す。タッチは指を離しても残し、グラフの外をタップしたら最新に戻す
  */
 function attachRateChartHover(context) {
-    const { svg, figure, tooltip, crosshair, hoverDots, series, points, scale, x, plotLeft, plotRight } = context;
+    const { svg, crosshair, hoverDots, series, points, scale, x, readout } = context;
 
     const hide = () => {
         crosshair.setAttribute('visibility', 'hidden');
         hoverDots.setAttribute('visibility', 'hidden');
-        tooltip.hidden = true;
+        readout.update(-1);
         rateChartState.hoverIndex = -1;
     };
+    rateChartState.hide = hide;
 
     const show = index => {
         const clamped = Math.min(points.length - 1, Math.max(0, index));
@@ -459,46 +486,7 @@ function attachRateChartHover(context) {
             dot.setAttribute('cy', scale.y(value));
         });
         hoverDots.setAttribute('visibility', 'visible');
-
-        tooltip.replaceChildren();
-        const dateRow = document.createElement('p');
-        dateRow.className = 'rate-chart-tooltip-date';
-        dateRow.textContent = rateChartDateLabel(points[clamped].date);
-        tooltip.appendChild(dateRow);
-        if (points[clamped].label) {
-            const eventRow = document.createElement('p');
-            eventRow.className = 'rate-chart-tooltip-event';
-            eventRow.textContent = points[clamped].label;
-            tooltip.appendChild(eventRow);
-        }
-
-        series.forEach(item => {
-            const value = item.values[clamped];
-            const row = document.createElement('p');
-            row.className = 'rate-chart-tooltip-row';
-            const key = document.createElement('span');
-            key.className = 'rate-chart-tooltip-key';
-            key.style.backgroundColor = item.color;
-            const amount = document.createElement('strong');
-            amount.textContent = value === null ? '—' : value.toLocaleString('ja-JP');
-            const name = document.createElement('span');
-            name.className = 'rate-chart-tooltip-name';
-            name.textContent = item.name;
-            row.append(key, amount, name);
-            const debt = item.debts[clamped];
-            if (value !== null && debt > 0) {
-                const debtText = document.createElement('span');
-                debtText.className = 'rate-chart-tooltip-debt';
-                debtText.textContent = `借金 ${debt.toLocaleString('ja-JP')}`;
-                row.appendChild(debtText);
-            }
-            tooltip.appendChild(row);
-        });
-
-        tooltip.hidden = false;
-        const half = tooltip.offsetWidth / 2;
-        const left = Math.min(Math.max(pointX, plotLeft + half), plotRight + RATE_CHART_PAD.right - half);
-        tooltip.style.left = `${left}px`;
+        readout.update(clamped);
     };
 
     const indexFromEvent = event => {
@@ -515,7 +503,10 @@ function attachRateChartHover(context) {
 
     svg.addEventListener('pointermove', event => show(indexFromEvent(event)));
     svg.addEventListener('pointerdown', event => show(indexFromEvent(event)));
-    svg.addEventListener('pointerleave', hide);
+    // タッチは指を離すと pointerleave が来るが、読めるように残す (グラフの外をタップしたら戻す)
+    svg.addEventListener('pointerleave', event => {
+        if (event.pointerType !== 'touch') hide();
+    });
     svg.addEventListener('pointercancel', hide);   // スクロールに取られたとき
     svg.addEventListener('blur', hide);
     svg.addEventListener('focus', () => show(rateChartState.hoverIndex < 0 ? points.length - 1 : rateChartState.hoverIndex));
@@ -528,8 +519,12 @@ function attachRateChartHover(context) {
             hide();
         }
     });
-    figure.addEventListener('pointerleave', hide);
 }
+
+// グラフの外をタップ・クリックしたら最新の表示に戻す (描き直しても1つだけ)
+document.addEventListener('pointerdown', event => {
+    if (RATE_CHART_CONTAINER && !RATE_CHART_CONTAINER.contains(event.target)) rateChartState.hide?.();
+});
 
 let rateChartHealAttempted = false;
 
@@ -551,10 +546,10 @@ async function loadRateChart() {
     if (!RATE_CHART_CONTAINER) return;
     try {
         const chart = typeof fetchRateChart === 'function' ? await fetchRateChart() : null;
-        rateChartState = { days: chart?.days || [], hoverIndex: -1, loaded: true };
+        rateChartState = { days: chart?.days || [], hoverIndex: -1, loaded: true, hide: null };
     } catch (error) {
         console.error('レート推移の取得に失敗しました:', error);
-        rateChartState = { days: [], hoverIndex: -1, loaded: true };
+        rateChartState = { days: [], hoverIndex: -1, loaded: true, hide: null };
     }
     renderRateChart();
 }

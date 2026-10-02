@@ -6,8 +6,23 @@
 | ファイル名 | 鳴らし方 | 実装 |
 |---|---|---|
 | hero.mp3 | ホーム画面上部のヒーロー画像を**ダブルタップ** | `assets/js/main.js` の末尾 |
+| a.mp3 | スロットのジャックポットタイム突入のカットイン | `assets/js/game-slot.js` の `showJackpotCutin` |
+| b.mp3 | 成り上がりの JP (第4弾) のボタンを押したとき | `assets/js/game-nariagari.js` の `pressNariagariBigButton` |
+| c.mp3 | 成り上がりの SJP (第5弾) のボタンを押したとき | 同上 |
+| d.mp3 | 成り上がりで UP に止まったとき | `assets/js/game-nariagari.js` の `presentNariagariPlay` |
+| e.mp3 | 宝探しの船長チャンスのカットイン | `assets/js/game-gappori.js` の `celebrateGapporiResult` |
+| g.mp3 | 宝探しの船長チャンスでジャックポットが当たったカットイン | 同上 |
+| h.mp3 | 宝探しの船長チャンスでジャックポットを逃したカットイン | 同上 |
+| f.mp3 | ブラックジャックでカードを配るとき (1枚ごと。めくるときは鳴らさない) | `assets/js/game-blackjack.js` の `renderCardRow` |
+| 1.mp3 | 成り上がりの JP (第4弾) の抽選中。盤面が止まるまで 1.75〜4.2秒の区間を繰り返す | `assets/js/game-nariagari.js` の `presentNariagariPlay` |
+| 2.mp3 | 成り上がりの SJP (第5弾) の抽選中。盤面が止まるまで 0.5〜4.0秒の区間を繰り返す | 同上 |
 
-もう一度ダブルタップすると停止します。
+hero.mp3 は、もう一度ダブルタップすると停止します。
+
+a〜h・1・2 はゲームの効果音で、鳴らす仕組みは `assets/js/game-sound.js` にまとめてあります
+(名前とファイルの対応は `GAME_SOUNDS`)。通信や回転のあと (タップの直後でないとき) に鳴らすため、
+Web Audio を使い、ゲーム画面で最初にタップしたときに音を出せる状態にしてまとめて読み込みます。
+読み込む前やファイルが無いときは鳴らないだけで、ゲームはそのまま動きます。
 
 ## 置くときの注意
 

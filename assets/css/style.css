@@ -181,6 +181,25 @@
    viewport の user-scalable=no と assets/js/no-zoom.js (iPhone のピンチ操作を止める) と合わせて使う */
 * { touch-action: pan-x pan-y; }
 
+/* 長押しで文字が選択されたり、コピー・リンクのプレビュー・画像の保存のメニューが出たりしないようにする
+   (アプリと同じ操作感にするため)。文字を打つ欄だけは、選んだり貼り付けたりできるように戻す */
+body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+}
+
+img { -webkit-user-drag: none; }
+
 html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
@@ -1621,48 +1640,40 @@ footer {
 }
 .rate-chart-end-text      { font-size: 12px; fill: var(--ink); }
 
-.rate-chart-tooltip {
-    position: absolute;
-    top: 4px;
-    transform: translateX(-50%);
-    min-width: 108px;
-    padding: 7px 10px 8px;
-    color: var(--ink);
-    background: var(--parchment-warm);
-    border: 1px solid rgba(var(--brass-rgb), 0.55);
-    border-radius: 3px;
-    box-shadow: 0 4px 12px rgba(6, 13, 17, 0.28);
-    pointer-events: none;
-    z-index: 2;
+/* グラフの下の読み取り欄 (凡例を兼ねる)。グラフに重ねると線が隠れるので、下に置く。
+   ふだんは最新のレート、なぞっている・タップしたあいだはその時点の日時・内容とレート */
+.rate-chart-readout {
+    margin-top: 10px;
+    padding: 8px 10px 10px;
+    background: rgba(43, 30, 16, 0.05);
+    border: 1px solid rgba(var(--brass-rgb), 0.35);
+    border-radius: 4px;
 }
 
-.rate-chart-tooltip-date {
-    margin: 0 0 5px;
-    font-size: 0.76em;
-    letter-spacing: 0.08em;
-    color: var(--ink-soft);
-}
-
-.rate-chart-tooltip-event {
-    max-width: 220px;
-    margin: -2px 0 6px;
-    font-size: 0.78em;
-    color: var(--ink);
-}
-
-.rate-chart-tooltip-row {
+/* 内容が長くても下の行がずれにくいように、2行ぶんの高さを取っておく */
+.rate-chart-readout-head {
     display: flex;
+    flex-wrap: wrap;
     align-items: baseline;
-    gap: 7px;
-    margin: 0 0 3px;
-    font-size: 0.84em;
+    gap: 0 8px;
+    min-height: 2.9em;
+    margin: 0 0 6px;
+    font-size: 0.8em;
+    line-height: 1.45;
+    color: var(--ink);
 }
 
-.rate-chart-tooltip-row:last-child { margin-bottom: 0; }
-.rate-chart-tooltip-row strong { font-variant-numeric: tabular-nums; }
-.rate-chart-tooltip-name { color: var(--ink-soft); }
+.rate-chart-readout-date {
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+}
 
-.rate-chart-tooltip-debt,
+.rate-chart-readout.is-latest .rate-chart-readout-head { color: var(--ink-soft); }
+.rate-chart-readout.is-latest .rate-chart-readout-date { font-weight: 400; }
+/* その時点を見ているあいだは数値を太く */
+.rate-chart-readout:not(.is-latest) .rate-chart-legend-value { font-weight: 700; color: var(--ink); }
+
 .rate-chart-legend-debt {
     font-size: 0.86em;
     font-weight: 700;
@@ -1671,19 +1682,13 @@ footer {
     white-space: nowrap;
 }
 
-.rate-chart-tooltip-key {
-    flex: none;
-    width: 12px;
-    height: 2px;
-    border-radius: 2px;
-    transform: translateY(-3px);
-}
+.rate-chart-legend-debt[hidden] { display: none; }
 
 .rate-chart-legend {
     display: flex;
     flex-wrap: wrap;
     gap: 6px 16px;
-    margin: 10px 0 0;
+    margin: 0;
     padding: 0;
     list-style: none;
     font-size: 0.88em;
@@ -2155,6 +2160,55 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     border: 1px solid var(--brass-light);
     border-radius: 999px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* 準備中のカード (押せない)。絵は暗い海に大きな「?」と「Coming soon」の帯 */
+.game-tile.is-coming-soon { cursor: default; }
+
+.game-tile.is-coming-soon:hover {
+    transform: none;
+    box-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255, 238, 196, 0.5);
+}
+
+.game-tile-art.is-coming-soon {
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse 70% 60% at 50% 45%, rgba(255, 182, 72, 0.18), transparent 70%),
+        linear-gradient(180deg, var(--water-mid), var(--water));
+}
+
+.coming-soon-mark {
+    font-family: var(--font-display);
+    font-size: clamp(56px, 15vw, 84px);
+    line-height: 1;
+    color: var(--brass-light);
+    text-shadow: 0 3px 0 #1a0f06, 0 0 18px rgba(255, 182, 72, 0.6);
+    animation: nr-glow-pulse 1.6s ease-in-out infinite alternate;
+}
+
+.coming-soon-ribbon {
+    position: absolute;
+    top: 16px;
+    right: -38px;
+    width: 150px;
+    padding: 3px 0;
+    font-family: var(--font-display);
+    font-size: 0.82em;
+    letter-spacing: 0.08em;
+    text-align: center;
+    color: var(--parchment-warm);
+    background: linear-gradient(180deg, var(--rum-light), var(--rum-dark));
+    border-top: 1px solid var(--brass-light);
+    border-bottom: 1px solid var(--brass-light);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    transform: rotate(35deg);
+}
+
+.game-tile.is-coming-soon .game-tile-name { color: var(--ink-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+    .coming-soon-mark { animation: none; }
 }
 
 /* PC では見出しに合わせて中央に寄せ、ゲームが増えても1段に3つまで並ぶ幅にする */
@@ -4918,8 +4972,11 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     line-height: 1;
     letter-spacing: 0.02em;
     white-space: nowrap;
-    /* マスの位置へ回して置いたあと、盤面の角度 (--spin) ぶん戻して、回っていても文字は上向きのままにする (6 と 9 を見分けるため) */
+    /* マスの位置へ回して置いたあと、盤面の角度 (--spin) ぶん戻して、回っていても文字は上向きのままにする (6 と 9 を見分けるため)。
+       文字ごとに別の層にして、回すたびに盤面ごと描き直さないようにする (描き直すとスマホでカクカクする) */
     transform: translate(-50%, -50%) rotate(var(--at)) translateY(calc(var(--nr-wheel) * -0.355)) rotate(calc(-1 * var(--at) - var(--spin, 0deg)));
+    will-change: transform;
+    backface-visibility: hidden;
 }
 
 .nr-label.is-up   { color: #3a2604; text-shadow: 0 1px 0 rgba(255, 244, 200, 0.6); }
@@ -4996,7 +5053,13 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     border-radius: 50%;
     background: radial-gradient(circle, rgba(255, 90, 60, 0.75), transparent 70%);
     filter: blur(8px);
-    animation: nr-tier-glow 0.8s ease-in-out infinite alternate;
+    animation: nr-glow-pulse 0.8s ease-in-out infinite alternate;
+}
+
+/* 光の点滅は透明度だけで行う (明るさ (filter) を変えると、盤面を回すあいだも毎回描き直してカクカクする) */
+@keyframes nr-glow-pulse {
+    from { opacity: 0.5; }
+    to   { opacity: 1; }
 }
 
 @keyframes nr-rainbow {
@@ -5024,6 +5087,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 }
 
 .nr-tower li {
+    position: relative;
     display: grid;
     place-content: center;
     min-height: calc(var(--nr-wheel) / 5.8);
@@ -5041,65 +5105,42 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 .nr-tower li.is-reached { color: var(--brass-pale); background: linear-gradient(180deg, rgba(201, 146, 47, 0.35), rgba(0, 0, 0, 0.3)); border-color: var(--brass); }
 
 .nr-tower li.is-current {
+    --nr-glow: var(--lantern);
     color: #2b1d06;
     background: radial-gradient(circle at 50% 30%, #fff7dc, #f4cd68 55%, #c9922f);
     border-color: #fff4c8;
-    box-shadow: 0 0 14px var(--lantern);
-    animation: nr-tier-glow 0.9s ease-in-out infinite alternate;
 }
 
-.nr-tower li[data-stage="4"].is-current { color: #fff4dc; background: radial-gradient(circle at 50% 30%, #ff8a74, var(--rum-light) 55%, var(--rum-dark)); box-shadow: 0 0 16px #ff5a4a; }
-.nr-tower li[data-stage="5"].is-current { background: conic-gradient(from 0deg, #ffd34d, #ff9a8a, #e0a8ff, #9adcff, #a8ffc0, #ffd34d); box-shadow: 0 0 18px #fff4c8; }
+/* いまの段の光。光の輪は別の層にして、透明度だけを点滅させる */
+.nr-tower li.is-current::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    box-shadow: 0 0 16px var(--nr-glow);
+    animation: nr-glow-pulse 0.9s ease-in-out infinite alternate;
+    will-change: opacity;
+    pointer-events: none;
+}
+
+.nr-tower li[data-stage="4"].is-current { --nr-glow: #ff5a4a; color: #fff4dc; background: radial-gradient(circle at 50% 30%, #ff8a74, var(--rum-light) 55%, var(--rum-dark)); }
+.nr-tower li[data-stage="5"].is-current { --nr-glow: #fff4c8; background: conic-gradient(from 0deg, #ffd34d, #ff9a8a, #e0a8ff, #9adcff, #a8ffc0, #ffd34d); }
 
 .nr-readout { margin: 10px 0; min-height: 64px; }
 
+/* 左に賭け金とオート、右に大きな丸い「回す」 (スロットと同じ並び。高さは「回す」の丸に収まる) */
 .nr-controls {
-    display: flex;
-    align-items: center;
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas: "bet spin" "auto spin";
     justify-content: center;
-    gap: 18px;
+    align-items: center;
+    gap: 6px 18px;
 }
 
 .nr-spin-button { font-size: 1.05em; }
 
 #nr-message { margin: 12px 0 0; }
-
-/* マスと倍率 */
-.nr-paytable {
-    display: grid;
-    gap: 6px;
-    margin: 12px 0;
-    padding: 0;
-    list-style: none;
-}
-
-.nr-paytable li {
-    display: grid;
-    grid-template-columns: 5.6em minmax(0, 1fr);
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    background: rgba(43, 30, 16, 0.06);
-    border-radius: var(--radius-sm);
-}
-
-.nr-pay-name { font-size: 0.86em; }
-.nr-pay-pockets { display: flex; flex-wrap: wrap; gap: 4px; }
-
-.nr-pay-chip {
-    padding: 1px 7px;
-    font-size: 0.8em;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-    border: 1px solid var(--parchment-edge);
-    border-radius: 999px;
-}
-
-.nr-pay-chip.is-up   { font-weight: 700; color: #3a2604; background: #f4cd68; border-color: #c9922f; }
-.nr-pay-chip.is-end  { color: var(--parchment); background: #1a3238; border-color: #1a3238; }
-.nr-pay-chip.is-mult { color: var(--rum); background: #fbf2dc; }
-.nr-pay-chip.is-q    { color: #fff; background: #5b2a6e; border-color: #5b2a6e; }
-.nr-pay-chip.is-top  { font-weight: 700; color: #3a0908; background: #ffcf3a; border-color: #c9922f; }
 
 /* 第4弾・第5弾を回す大きなボタン (画面の真ん中に固定。body の直下に置く) */
 .nr-big {
@@ -5196,7 +5237,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     letter-spacing: 0.08em;
     color: #fff4dc;
     text-shadow: 0 3px 0 #3a0908, 0 0 18px rgba(255, 120, 60, 0.95);
-    animation: nr-tier-glow 0.6s ease-in-out infinite alternate;
+    animation: nr-glow-pulse 0.6s ease-in-out infinite alternate;
 }
 
 .nr-big-sub {

@@ -564,6 +564,7 @@ async function celebrateGapporiResult() {
     const myShare = jackpot.shares.find(share => share.name === myName())?.amount || 0;
 
     if (jackpot.captain) {
+        window.playGameSound?.('gpCaptain');
         strobeScreen(['red', 'gold', 'white']);
         buzz([120, 60, 120, 60, 400]);
         await showSlotOverlay('is-start', body => {
@@ -574,6 +575,7 @@ async function celebrateGapporiResult() {
             );
         });
         if (jackpot.won) {
+            window.playGameSound?.('gpJackpotWin');
             window.qjongTreasureRain?.preview(7000);
             strobeScreen(['white', 'gold', 'red', 'white']);
             buzz([200, 80, 200, 80, 600]);
@@ -588,6 +590,7 @@ async function celebrateGapporiResult() {
             });
         } else {
             // はずれ: 暗い画面で「ジャックポットならず」。貯まった額は持ち越し
+            window.playGameSound?.('gpJackpotMiss');
             buzz([300]);
             await showSlotOverlay('is-miss', body => {
                 body.append(

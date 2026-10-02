@@ -8,6 +8,8 @@
 
 const BLACKJACK_POLL_MS = 1200;     // 卓を読み直す間隔
 const BLACKJACK_DEAL_MS = 200;      // 配るときの1枚ごとの間隔
+const BLACKJACK_DEAL_SOUND_GAP_MS = 80;    // 配る音をこれより短い間隔で重ねない
+const BLACKJACK_DEAL_SOUND_VOLUME = 0.8;   // 配る音は何度も鳴るので、ほかの効果音より少し小さく
 const BLACKJACK_DEALER_MS = 650;    // ディーラーが1枚ずつめくる・引く間隔
 const BLACKJACK_TURN_MS = 20000;    // 1回の操作の持ち時間 (サーバーの TABLE_TURN_MS と同じ)
 const BLACKJACK_SEATS = 4;
@@ -60,7 +62,8 @@ const blackjack = {
     seen: { no: null, counts: new Map() },  // この勝負で自分が見たカードの枚数
     squeezing: null,    // 絞る画面を出している間だけ { openAll }
     opening: false,     // 見たカードを知らせている途中
-    openRetryAt: 0      // 知らせるのに失敗したとき、次に送ってよい時刻
+    openRetryAt: 0,     // 知らせるのに失敗したとき、次に送ってよい時刻
+    dealSoundAt: -Infinity   // 最後に配る音を鳴らした時刻 (重ねて鳴らさないため)
 };
 
 const EMPTY_BLACKJACK_TABLE = { phase: 'betting', seq: -1, seats: Array(BLACKJACK_SEATS).fill(null), round: null };
@@ -166,8 +169,22 @@ function createCardElement(card) {
 }
 
 /**
+ * 配る音 (f.mp3) を、カードが飛んでくる時刻に鳴らす。
+ * 同じ瞬間に何枚も出るとき (スプリットなど) は、音が重なって大きくならないように1回にまとめる
+ */
+function playDealSound(wait) {
+    setTimeout(() => {
+        const now = performance.now();
+        if (now - blackjack.dealSoundAt < BLACKJACK_DEAL_SOUND_GAP_MS) return;
+        blackjack.dealSoundAt = now;
+        window.playGameSound?.('bjDeal', BLACKJACK_DEAL_SOUND_VOLUME);
+    }, wait);
+}
+
+/**
  * 前に出していた並び (before) と違う位置のカードだけ動かす。
  * before が null なら動かさない。伏せていたカードが表になったときはめくる動きにする。
+ * 配ったカード (めくったのではないもの) は、飛んでくる時刻に配る音を鳴らす
  */
 function renderCardRow(container, cards, before, delayFor) {
     container.innerHTML = '';
@@ -175,9 +192,11 @@ function renderCardRow(container, cards, before, delayFor) {
         const node = createCardElement(card);
         const previous = before && index < before.length ? before[index] : undefined;
         if (before && previous !== card) {
-            node.classList.add(previous === null ? 'is-flip' : 'is-dealt');
+            const dealt = previous !== null;
+            node.classList.add(dealt ? 'is-dealt' : 'is-flip');
             const wait = delayFor ? delayFor(index) : 0;
             if (wait) node.style.animationDelay = `${wait}ms`;
+            if (dealt) playDealSound(wait);
         }
         container.appendChild(node);
     });
