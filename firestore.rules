@@ -98,6 +98,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 航海 (大海賊の航海日誌。2026/10/5〜12/21) のみんなで共有する分 (ジャックポット・最終秘宝・取り分の合計・直近の JP)。
+    // 画面はこれを読んで JP を出す。書き込みは Cloud Functions (casino) だけ。
+    match /voyage_public/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 航海の人ごとの分 (位置・周回・航海した金額・スタンプ)。書き換えられると取り分を偽れるので Cloud Functions だけに限る。
+    match /voyage_players/{userId} {
+      allow read, write: if false;
+    }
+
     // テキサスホールデム (holdem_tables / holdem_public / holdem_hole) は 52.0 で廃止した。
     // ルールを置かないので、残っているドキュメントは誰も読み書きできない。
 

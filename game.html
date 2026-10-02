@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="assets/js/no-zoom.js?v=54.0"></script>
+    <script src="assets/js/no-zoom.js?v=54.1"></script>
     <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,8 +12,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=54.0">
-    <script src="assets/js/treasure-rain.js?v=54.0" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=54.1">
+    <script src="assets/js/treasure-rain.js?v=54.1" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -36,7 +36,7 @@
             <a href="mypage.html" class="action-button">マイページでログイン</a>
         </section>
 
-        <nav class="casino-back hidden" data-view="lobby blackjack slot gappori nariagari underground" aria-label="ゲームの切り替え">
+        <nav class="casino-back hidden" data-view="lobby blackjack slot gappori nariagari voyage underground" aria-label="ゲームの切り替え">
             <a href="#">ゲーム一覧へ</a>
         </nav>
 
@@ -156,6 +156,10 @@
                 <li data-rules="gappori">船長マスに球が入ると「船長チャンス」。20回に1回ジャックポット (外れた券の代金の1割を貯めたもの) が当たり、その回に券を買った人みんなで、買った額に応じて山分けする。</li>
                 <li data-rules="nariagari">賭け金を決めて「回す」を押すと、第1弾のルーレットが回る。UP に止まると次の弾へ進み、終了で終わり。×N に止まったら賭け金 × N が戻る (賭け金込み)。</li>
                 <li data-rules="nariagari">第2弾・第3弾は UP の2秒後に自動で回る。第4弾 (JP)・第5弾 (SJP) は、画面の真ん中に出る大きなボタンを押して回す。</li>
+                <li data-rules="voyage">2026/10/5〜12/21 の期間限定。30マスの海をぐるぐる回るエンドレス双六。毎週月曜に物語と海 (マスの中身) が進む。</li>
+                <li data-rules="voyage">賭け金を決めて「振る」とサイコロの目だけ進み、止まったマスの倍率 × 賭け金が戻る (×? は止まったときに決まる。港にぴったりで ×2)。もう1回・追い風・嵐・船長チャンスのマスもある。</li>
+                <li data-rules="voyage">賭け金の 6% はジャックポットに貯まり、船長マスに止まると 1/12 で総取り (第11章・最終日は 1/6)。</li>
+                <li data-rules="voyage">賭け金の 8% は「最終秘宝」に貯まり、12/22 0:10 に 取り分 = 航海した金額 (賭け金の合計) × 航海日誌の倍率 の比で全員に山分け (レートへ直接)。倍率はスタンプ1つにつき +0.1、全12章そろえば ×3。スタンプは、その章 (週) に1回でも振ると押される。</li>
             </ul>
             <form id="casino-enter-form">
                 <div class="form-group">
@@ -390,6 +394,83 @@
             </div>
         </section>
 
+        <!-- 航海 (大海賊の航海日誌)。2026/10/5〜12/21 の期間限定。1回ぶん (出目・止まるマス・払い戻し) は Cloud Function (casino の vgRoll) が決め、
+             game-voyage.js がコマを動かして見せる。物語 (章ごとのアニメ) は voyage-story.js。ゲーム一覧のカードは Ver54.1 で出すまで Coming soon のまま (#voyage で直接開ける) -->
+        <section id="voyage-table" class="hidden" data-view="voyage" aria-label="航海">
+            <div class="vg-cabinet" id="vg-cabinet">
+                <div class="vg-head">
+                    <p class="vg-chapter">
+                        <span class="vg-chapter-no" id="vg-chapter-no">第1章</span>
+                        <strong class="vg-chapter-title" id="vg-chapter-title">—</strong>
+                        <button type="button" id="vg-story-button" class="vg-story-button">物語を見る</button>
+                    </p>
+                    <div class="vg-pools">
+                        <p class="vg-pool is-jp"><span>JACKPOT</span><strong id="vg-jp">0</strong></p>
+                        <p class="vg-pool is-treasure"><span>最終秘宝</span><strong id="vg-treasure">0</strong></p>
+                    </div>
+                </div>
+                <p class="vg-notice hidden" id="vg-notice"></p>
+                <!-- 30マスの盤。マスは game-voyage.js が章の盤面に合わせて並べる (スマホは縦長 7×10、PC は横長 10×7 の外周) -->
+                <div class="vg-board-wrap" id="vg-board-wrap">
+                    <div class="vg-board" id="vg-board" role="img" aria-label="30マスの航路">
+                        <!-- 真ん中: サイコロ・状態・賭け金と「振る」。船長の顔は右上 -->
+                        <div class="vg-center" id="vg-center">
+                            <div class="vg-center-top">
+                                <div class="vg-dice" id="vg-dice" aria-live="polite"><span class="vg-dice-face" id="vg-dice-face" data-pips="0"></span></div>
+                                <img class="vg-center-face" id="vg-face" src="assets/img/voyage/face-smile.png" alt="">
+                            </div>
+                            <p class="vg-status" id="vg-status" aria-live="polite">賭け金を決めて「振る」</p>
+                            <div class="vg-bubble hidden" id="vg-bubble"></div>
+                            <div class="vg-controls">
+                                <div class="slot-bet" role="group" aria-label="賭け金">
+                                    <button type="button" id="vg-bet-down" aria-label="賭け金を下げる">−</button>
+                                    <p><span>BET</span><strong id="vg-bet">10</strong></p>
+                                    <button type="button" id="vg-bet-up" aria-label="賭け金を上げる">＋</button>
+                                </div>
+                                <div class="vg-controls-row">
+                                    <button type="button" id="vg-roll-button" class="slot-spin-button vg-roll-button">振る</button>
+                                    <label class="slot-auto"><input type="checkbox" id="vg-auto"> オート</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="vg-ship" id="vg-ship" aria-hidden="true"><img src="assets/img/voyage/parrot.png" alt=""></div>
+                    </div>
+                </div>
+                <div class="slot-readout vg-readout">
+                    <p id="vg-result" class="slot-result is-idle" aria-live="polite">Bon Voyage</p>
+                    <p id="vg-result-detail" class="slot-result-detail"></p>
+                </div>
+                <p id="vg-message" class="hidden" aria-live="polite"></p>
+            </div>
+
+            <div class="info-box vg-log">
+                <h3 class="icon-title">航海日誌</h3>
+                <dl class="casino-stats vg-stats">
+                    <div><dt>航海した金額</dt><dd id="vg-wagered">0</dd></div>
+                    <div><dt>日誌の倍率</dt><dd id="vg-multiplier">×1.0</dd></div>
+                    <div><dt>取り分の見込み</dt><dd id="vg-expect">0</dd></div>
+                    <div><dt>周回</dt><dd id="vg-laps">0</dd></div>
+                </dl>
+                <p class="info-text vg-share-note" id="vg-share-note"></p>
+                <ol class="vg-stamps" id="vg-stamps" aria-label="章ごとのスタンプ"></ol>
+                <h3 class="icon-title">物語</h3>
+                <ol class="vg-episodes" id="vg-episodes" aria-label="章ごとの物語"></ol>
+                <div class="vg-final hidden" id="vg-final"></div>
+                <h3 class="icon-title">ジャックポットの記録</h3>
+                <ol class="casino-recent vg-jp-history" id="vg-jp-history"></ol>
+                <ol id="vg-recent" class="casino-recent" aria-label="直近の自分の航海"></ol>
+                <!-- 管理者だけ: 章を選んで試す・試した分を消す・最終秘宝を配る -->
+                <div class="vg-admin hidden" id="vg-admin">
+                    <h3 class="icon-title">管理 (試し)</h3>
+                    <label class="vg-admin-row">章を指定して振る <select id="vg-admin-chapter"><option value="">いまの章 (日付どおり)</option></select></label>
+                    <div class="casino-actions">
+                        <button type="button" id="vg-admin-reset" class="secondary-button">試した分を全部消す</button>
+                        <button type="button" id="vg-admin-final" class="secondary-button">最終秘宝をいま配る</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- 船底。中身は game-underground.js が作る (積荷の並び・採点・レートの増減はすべて Cloud Function underground が決める) -->
         <section id="underground-view" class="hidden" data-view="underground" aria-label="船底">
             <div class="info-box ug-status">
@@ -458,13 +539,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=54.0"></script>
-    <script src="assets/js/game-sound.js?v=54.0"></script>
-    <script src="assets/js/game-blackjack.js?v=54.0"></script>
-    <script src="assets/js/game-slot.js?v=54.0"></script>
-    <script src="assets/js/game-gappori.js?v=54.0"></script>
-    <script src="assets/js/game-nariagari.js?v=54.0"></script>
-    <script src="assets/js/game-underground.js?v=54.0"></script>
-    <script src="assets/js/game.js?v=54.0"></script>
+    <script src="assets/js/common.js?v=54.1"></script>
+    <script src="assets/js/game-sound.js?v=54.1"></script>
+    <script src="assets/js/game-blackjack.js?v=54.1"></script>
+    <script src="assets/js/game-slot.js?v=54.1"></script>
+    <script src="assets/js/game-gappori.js?v=54.1"></script>
+    <script src="assets/js/game-nariagari.js?v=54.1"></script>
+    <script src="assets/js/voyage-story.js?v=54.1"></script>
+    <script src="assets/js/game-voyage.js?v=54.1"></script>
+    <script src="assets/js/game-underground.js?v=54.1"></script>
+    <script src="assets/js/game.js?v=54.1"></script>
 </body>
 </html>

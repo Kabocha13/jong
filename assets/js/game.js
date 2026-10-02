@@ -1,6 +1,6 @@
 // ゲームタブの共通部分
 //   ログイン、ゲームの選択 (ブロックのタイル)、入場 (持ち込み)、手元チップと精算、画面の切り替え。
-//   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js
+//   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js / game-voyage.js
 //   (ルーレットとテキサスホールデムは 52.0 で廃止)。
 //   船底 (#underground) はチップを使わない別の遊び場で、中身は game-underground.js。
 //   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
@@ -11,7 +11,9 @@ const CASINO_GAMES = {
     blackjack: { name: 'ブラックジャック', playsLabel: '勝負', plays: 'bjHands' },
     slot:      { name: 'スロット', playsLabel: 'スピン', plays: 'slotSpins' },
     gappori:   { name: '宝探し', playsLabel: '回', plays: 'gpRounds' },
-    nariagari: { name: '成り上がり', playsLabel: '回', plays: 'nrSpins' }
+    nariagari: { name: '成り上がり', playsLabel: '回', plays: 'nrSpins' },
+    // 航海 (2026/10/5〜12/21 の期間限定)。ゲーム一覧のカードは Ver54.1 で出すまで Coming soon のままで、#voyage で直接開ける
+    voyage:    { name: '航海', playsLabel: '回', plays: 'vgRolls' }
 };
 
 const casino = {
@@ -123,12 +125,14 @@ function renderRoute() {
         if (game === 'blackjack') openBlackjackTable();
         else if (game === 'slot') openSlotTable();
         else if (game === 'gappori') openGapporiTable();
+        else if (game === 'voyage') openVoyageTable();
         else openNariagariTable();
     }
     if (view !== 'blackjack') closeBlackjackTable();
     if (view !== 'slot') closeSlotTable();
     if (view !== 'gappori') closeGapporiTable();
     if (view !== 'nariagari') closeNariagariTable();
+    if (view !== 'voyage') closeVoyageTable();
     if (view !== 'underground') closeUnderground();
     showView(view);
     // 画面ごとの見た目の切り替えに使う (宝探しと成り上がりはスマホで見出しを消し、1画面に収める)
@@ -243,6 +247,7 @@ function setCasinoBusy(busy) {
     renderSlotControls();
     renderGapporiControls();
     renderNariagariControls();
+    renderVoyageControls();
     if (casino.lobbyGame) el('casino-enter-button').disabled = busy || casino.score < 1;
 }
 
@@ -277,6 +282,7 @@ async function refreshCasino() {
     receiveBlackjackTable(data.table, data.now);
     receiveGapporiTable(data.gappori, data.now);
     receiveSlotState(data.slot);
+    receiveVoyage(data.voyage);
     renderRoute();
     if (data.autoSettled) {
         showMessage(el('casino-message'), settledMessage(data.autoSettled), 'info');
@@ -309,6 +315,7 @@ async function initCasino() {
     initSlot();
     initGappori();
     initNariagari();
+    initVoyage();
     initUnderground();
     bindCasinoEvents();
     showView('loading');
