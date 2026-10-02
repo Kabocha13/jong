@@ -16,7 +16,8 @@ self.addEventListener('activate', event => event.waitUntil(self.clients.claim())
 // 画面側で受け取って出す処理は無いので、そのままだと管理画面やホームを開いている端末には何も出ない
 // (くじを作った本人の端末など)。見えているページがあるときはここで表示する。
 // 見えていないときは SDK が表示するので二重には出ない (同じ tag なので重なっても1つにまとまる)
-const QJONG_NOTIFICATION_ICON = '/assets/icon.png';
+// 通知のアイコンは公式キャラ (船長) の顔 (サイトのタブやホーム画面のアイコン assets/icon.png とは別)
+const QJONG_NOTIFICATION_ICON = '/assets/img/captain/icon.png';
 
 self.addEventListener('push', event => {
     let payload = null;

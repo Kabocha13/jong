@@ -70,6 +70,8 @@ function renderWithData(allData, isStale = false) {
     renderLotteries(lotteries);
     renderHomeRules(allData);
     updateHomeBonusButton(rawScores);
+    // 見出しの船長のひとこと (home-captain.js)
+    window.qjongCaptain?.update({ scores: rawScores, loans: allData.loans, lotteries, sportsBets });
     const timeStr = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     LAST_UPDATE_ELEMENT.textContent = isStale ? `キャッシュ表示 (更新中...)` : `最終更新: ${timeStr}`;
 }
@@ -223,6 +225,7 @@ function renderHomeManabaAssignmentTable(record) {
     const syncedAt = record.lastSyncedAt
         ? new Date(record.lastSyncedAt).toLocaleString('ja-JP')
         : '未取得';
+    window.qjongCaptain?.setManaba(assignments.length);
 
     if (!assignments.length) {
         HOME_MANABA_ASSIGNMENT_LIST.innerHTML = `<p class="text-small">最終取得: ${escapeText(syncedAt)}</p><p class="info-text">未提出課題はありません。</p>`;

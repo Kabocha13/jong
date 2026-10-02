@@ -987,7 +987,8 @@ function pushMessage(tokens, { title, body, tag, link = APP_URL }) {
     data: { link },
     webpush: {
       fcmOptions: { link },
-      notification: { icon: '/assets/icon.png', tag }
+      // 通知のアイコンは公式キャラ (船長) の顔 (iOS アプリはアプリのアイコンが出る)
+      notification: { icon: '/assets/img/captain/icon.png', tag }
     },
     apns: {
       headers: { 'apns-collapse-id': String(tag).slice(0, 64) },

@@ -190,3 +190,40 @@ Gemini などが出力した元ファイルは、名前のまま **`assets/img/s
 |---|---|---|
 | jp-button.jpeg | 第4弾 (JP) を回すボタン | A big glossy domed push button made of deep ruby-red glass, with a glowing golden skull and crossed cutlasses emblem floating inside the glass, set in a thick engraved brass ring with rivets and a rope-twist border, warm lantern light reflecting on the dome, a red and gold glow and small embers around the rim, exciting and powerful |
 | sjp-button.jpeg | 第5弾 (SJP) を回すボタン (もっと派手に) | A huge legendary domed push button made of radiant golden crystal glowing from within, with a royal crown above an open treasure chest emblem inside, set in a thick ornate gold ring studded with emeralds, sapphires and rubies, rainbow light rays bursting out behind it, sparkling gold coins and jewels flying around the rim, dazzling divine light, the most special and luxurious button imaginable |
+
+## 公式キャラクター (船長) (assets/img/captain/)
+
+Q-Jong の公式キャラ。**`assets/img/captain/<ファイル名>` に置くだけで出ます** (無いあいだは出さず、いまの見た目のまま)。
+いまの絵は Gemini で作った3枚 (元の画像は `assets/img/src/captain/` にある。サイトには配信しない) から作った。
+Gemini は背景透過の画像を出せないので、**明るい無地 (羊皮紙色) の背景で作ってもらい、`tools/cutout-parchment.py` で背景を透明にする**。
+
+| ファイル | 中身 | 出るところ |
+|---|---|---|
+| stand.png | 全身・背景透過 (original-stand.jpeg を `FLOOR=0.14` で切り抜き) | ホームの見出し (吹き出しでひとこと)・宝探しの船長チャンスのカットイン |
+| surprised.png | 驚きの顔 (original-sheet.jpeg の下の段の3つ目) | 成り上がりの JP 突入 |
+| laugh.png | 大笑いの顔 (同じく2つ目) | 成り上がりの SJP 突入・スロットのジャックポットタイム突入・宝探しのジャックポット当たり |
+| disappointed.png | がっかりの顔 (同じく5つ目) | 宝探しのジャックポットを逃したとき |
+| face.jpeg | 笑顔 (同じく1つ目) を青緑のグラデーションに置いた 1024×1024 | 宝探しの船長マス (無ければ slot/captain.jpeg の帽子) |
+| icon.png | face.jpeg を 512×512 にしたもの | 通知のアイコン (サイトのタブ・ホーム画面のアイコン assets/icon.png と、iOS アプリのアイコンは別) |
+| halloween.png | (月末に) ハロウィン版の全身・背景透過 | ハロウィンのあいだのホームの見出し |
+
+設定画の顔の切り出し: `KEEP_MAIN=1 python3 tools/cutout-parchment.py assets/img/src/captain/original-sheet.jpeg 出力.png x0 1590 x1 2048`
+(顔の中心 x は 242・633・1024・1415・1806。x0 = 中心 − 215、x1 = 中心 + 245)
+
+### 全身 (stand / halloween) のプロンプト
+
+> Original official mascot character for a pirate-themed game app: a cheerful, confident young pirate captain (a young man, around 20 years old), full body, dynamic heroic standing pose, front three-quarter view, holding a gleaming gold doubloon between two fingers like a casino chip, slight friendly grin. Outfit: black felt tricorn hat with ornate gold braid trim and a crimson feather, a polished round brass compass badge on the front of the hat; deep navy long coat with brass buttons and gold embroidery; crimson sash around the waist; cream linen shirt; brown leather belt with a rolled treasure map and a small brass spyglass; tall brown leather boots. Mahjong motif: a small ivory mahjong tile dangling as an earring, and a few ivory mahjong tiles tucked into the crimson sash. Sidekick: a small scarlet macaw parrot perched on one shoulder. Color palette: deep navy and teal-black, brass gold (#c9922f), crimson (#9b2321), parchment cream (#f1e3c4), warm lantern-orange accents. Style: high-quality anime-inspired character illustration, clean dark outlines with rich painterly shading, warm lantern rim light, crisp readable silhouette. Background: plain flat light parchment-cream color only, no scenery, no ground shadow. Original design, not resembling any existing character or real person. No text, no letters, no logo, no watermark.
+
+ハロウィン版 (halloween.png) は、元の全身の画像を参考に渡して次で頼む:
+
+> Halloween version of the same pirate captain mascot from the reference image: full body, same face and hairstyle, same heroic standing pose and framing. Outfit restyled for Halloween: black-and-deep-purple long coat with pumpkin-orange trim and small pumpkin-shaped brass buttons, the black tricorn hat decorated with a tiny jack-o'-lantern badge and little bat wings, an orange-and-purple striped sash with ivory mahjong tiles, holding a carved jack-o'-lantern lantern glowing warm orange instead of the coin. The scarlet macaw on the shoulder wears a tiny witch hat. A couple of small cute bats near the hat. Playful, spooky but friendly mood. Color palette: deep purple, pumpkin orange, black, brass gold. Anime-inspired illustration with clean dark outlines and painterly shading. Background: plain flat light parchment-cream color only, no scenery, no mist, no ground shadow. No text, no letters, no watermark.
+
+### 表情 (個別に作り直すとき)
+
+> Waist-up portrait of the same pirate captain mascot from the reference image, same face, outfit and colors, the scarlet macaw on the shoulder reacting the same way, anime-inspired illustration with clean dark outlines and painterly shading, warm lantern rim light. Background: plain flat light parchment-cream color only, no shadow. No text, no watermark.
+
+表情ごとに後ろへ足す:
+
+- surprised: `eyes wide open and mouth open in shock and excitement, leaning forward, one hand raised in amazement`
+- laugh: `laughing out loud with a huge open-mouthed grin, eyes squeezed shut with joy, holding up a gold doubloon triumphantly`
+- disappointed: `slumped shoulders, frowning with a heavy sigh, looking down at an empty open palm, the parrot drooping too`
