@@ -6,7 +6,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
 import { normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
 import { GapporiRuleError } from './gappori.js';
-import { NARIAGARI_BETS, NARIAGARI_SJP_STAGE, playNariagari } from './nariagari.js';
+import { NARIAGARI_BETS, playNariagari } from './nariagari.js';
 import {
   VOYAGE_BET,
   VOYAGE_BETS,
@@ -27,7 +27,6 @@ import {
   voyageTreasureAmount,
   splitVoyageTreasure,
   voyageChapterAt,
-  voyageChapterByNo,
   voyageLapCount
 } from './voyage.js';
 import {
@@ -2258,12 +2257,10 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
   const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
   const { tableRef, publicRef } = blackjackTableRefs();
   const gapporiRefs = gapporiTableRefs();
-  let unsentTop = null;   // 成り上がりで最上段まで行ったのに、まだ通知していない回
   const result = await db.runTransaction(async transaction => {
     const [sessionDoc, tableDoc, gapporiDoc] = await transaction.getAll(sessionRef, tableRef, gapporiRefs.tableRef);
     if (!sessionDoc.exists) return null;
     const session = sessionDoc.data();
-    unsentTop = isUnsentNariagariTop(session.nrLast) ? { player: session.player, last: session.nrLast } : null;
     const at = new Date().toISOString();
     const table = tableDoc.exists ? tableDoc.data() : null;
     const seatIndex = table ? seatIndexOf(table, uid) : -1;
@@ -2341,7 +2338,6 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
   if (result && result.delta !== 0) {
     await rebuildRateChartQuietly('casino_settle');
   }
-  if (result && unsentTop) await notifyNariagariTop(unsentTop.player, unsentTop.last);
   return result;
 }
 
@@ -2526,31 +2522,10 @@ async function casinoSlotSpin(uid, rawBet) {
   return { result: spun.result, session: publicCasinoSession(spun.session), slot };
 }
 
-/** 成り上がりで最上段 (第5弾) まで行ったのに、まだ全員へ知らせていない回か */
-function isUnsentNariagariTop(last) {
-  return Boolean(last && last.top >= NARIAGARI_SJP_STAGE && !last.notified);
-}
-
-/** 成り上がりで最上段まで行ったことを、全員 (本人も含む) に知らせる。失敗してもログだけ残す */
-async function notifyNariagariTop(player, last) {
-  try {
-    const result = await sendPushToEveryone({
-      title: '👑 成り上がり 最上段到達！',
-      body: `${player}さんが第5弾 (SJP) まで成り上がり、×${last.multiplier} で ${normalizeRate(last.payout).toLocaleString('ja-JP')} 獲得しました`,
-      tag: `nariagari-sjp-${last.id}`,
-      link: `${APP_URL}game.html#nariagari`
-    });
-    console.log('nariagari top notice:', JSON.stringify({ player, id: last.id, ...result }));
-  } catch (error) {
-    console.error('成り上がりの最上段の通知に失敗しました:', error);
-  }
-}
-
 /**
  * 成り上がりを1回まわす。bet は NARIAGARI_BETS のどれか、layout は画面が見せている第1弾の並び
  * (中身と並べ方が正しければそのまま使う。止まるマスはここで等確率に決めるので、並びを選べても有利にはならない)。
  * 最後の弾まで決めて払い戻しまで済ませ、画面は返した stages を順に回して見せる。
- * 前の回が最上段まで行ったのにまだ通知していなければ (画面を閉じたなど)、ここで送る
  */
 async function casinoNariagariSpin(uid, rawBet, rawLayout) {
   const bet = Number(rawBet);
@@ -2573,8 +2548,7 @@ async function casinoNariagariSpin(uid, rawBet, rawLayout) {
     const now = new Date().toISOString();
     const play = playNariagari(bet, casinoRandom, layout);
     const id = `${Date.now().toString(36)}${randomInt(36 ** 4).toString(36)}`;
-    const last = { id, bet, ...play, at: now, notified: false };
-    const unsent = isUnsentNariagariTop(session.nrLast) ? session.nrLast : null;
+    const last = { id, bet, ...play, at: now };
     const summary = { bet, returned: play.payout, multiplier: play.multiplier, top: play.top, at: now };
     const next = {
       ...session,
@@ -2587,36 +2561,19 @@ async function casinoNariagariSpin(uid, rawBet, rawLayout) {
       nrLast: last
     };
     transaction.set(sessionRef, next);
-    return { result: last, session: next, unsent };
+    return { result: last, session: next };
   });
 
   if (spun.expired) {
     const settled = await settleCasinoSession(uid, 'casino_auto_settle');
     return { expired: true, settled };
   }
-  if (spun.unsent) await notifyNariagariTop(spun.session.player, spun.unsent);
   // チップが尽きたら続けようがないので、その場で精算する (尽きるのははずれの回だけなので、続きを見せる回は無い)
   if (spun.session.chips <= 0) {
     const settled = await settleCasinoSession(uid, spun.session.player, { reason: 'broke' });
     return { result: spun.result, session: null, settled };
   }
   return { result: spun.result, session: publicCasinoSession(spun.session) };
-}
-
-/** 成り上がりの第5弾の結果を画面が見せ終えたら呼ぶ。その回をまだ知らせていなければ、全員 (本人も含む) に知らせる */
-async function casinoNariagariNotify(uid, rawId) {
-  const id = String(rawId || '');
-  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
-  const unsent = await db.runTransaction(async transaction => {
-    const sessionDoc = await transaction.get(sessionRef);
-    if (!sessionDoc.exists) return null;
-    const session = sessionDoc.data();
-    if (!session.nrLast || session.nrLast.id !== id || !isUnsentNariagariTop(session.nrLast)) return null;
-    transaction.update(sessionRef, { 'nrLast.notified': true });
-    return { player: session.player, last: session.nrLast };
-  });
-  if (unsent) await notifyNariagariTop(unsent.player, unsent.last);
-  return { notified: Boolean(unsent) };
 }
 
 /** 財布を精算したあとの人へ返すぶんを、人ごとにまとめる */
@@ -2800,7 +2757,7 @@ async function gapporiTableAction(uid, username, mutate) {
 //   人ごとの分 (位置・周回・航海した金額) は voyage_players/{uid} (Cloud Functions だけ) に置く。
 //   賭け金は 10 で固定。最終秘宝は周回 (港を通って1周した数) の比で分ける (取り分は画面に出さない)。
 //   チップはほかのゲームと共通の財布 (casino_sessions)。1回ぶん (出目・止まるマス・払い戻し) はここで決めて
-//   払い戻しまで済ませ、画面はそれを順に見せる。JP が当たったら全員 (本人も含む) に通知する。
+//   払い戻しまで済ませ、画面はそれを順に見せる。航海の通知 (JP・章の始まり・山分け) は送らない。
 //   最終秘宝は 12/22 0:10 (JST) のスケジュール (finalizeVoyageTreasure) で、周回の数の比でレートへ直接配る。
 // -----------------------------------------------------------------
 const VOYAGE_PUBLIC = 'voyage_public';
@@ -2896,40 +2853,20 @@ async function readVoyageStatus(uid) {
   };
 }
 
-/** JP が当たったことを全員 (本人も含む) に知らせる。失敗してもログだけ残す */
-async function notifyVoyageJp(player, amount, chapter) {
-  try {
-    const result = await sendPushToEveryone({
-      title: '🏴‍☠️ 航海 船長チャンス JACKPOT！',
-      body: `${player}さんが第${chapter}章の船長チャンスでジャックポット ${normalizeRate(amount).toLocaleString('ja-JP')} を総取りしました`,
-      tag: `voyage-jp-${Date.now()}`,
-      link: `${APP_URL}game.html#voyage`
-    });
-    console.log('voyage jp notice:', JSON.stringify({ player, amount, ...result }));
-  } catch (error) {
-    console.error('航海の JP の通知に失敗しました:', error);
-  }
-}
-
 /**
- * 航海を1回振る。bet は VOYAGE_BET (10) で固定。管理者は chapter で章を指定して (始まる前でも) 試せる。
+ * 航海を1回振る。bet は VOYAGE_BET (10) で固定。章は日付どおり。
  * 出目・止まるマス・払い戻し・JP はここで決め、ジャックポットと最終秘宝に賭け金の一部を貯め、
  * 港を通って1周したら周回を数える。罰のマス (loss) で払い戻しがマイナスなら、手元から引く (0 より下にはしない)
  */
-async function casinoVoyageRoll(uid, username, rawBet, rawChapter, admin = false) {
+async function casinoVoyageRoll(uid, username, rawBet) {
   const bet = Number(rawBet);
   if (!VOYAGE_BETS.includes(bet)) {
     throw new CasinoError(400, `航海の賭け金は ${VOYAGE_BET} で固定です。`);
   }
   const now = Date.now();
-  let chapter = voyageChapterAt(now);
-  if (admin && rawChapter != null) {
-    chapter = voyageChapterByNo(rawChapter);
-    if (!chapter) throw new CasinoError(400, '章の番号が正しくありません。');
-  } else {
-    if (!isVoyageStarted(now)) throw new CasinoError(400, '航海は 10/5 (月) 0:00 に始まります。');
-    if (isVoyageOver(now)) throw new CasinoError(400, '航海は 12/21 で終わりました。最終秘宝の山分けをお待ちください。');
-  }
+  if (!isVoyageStarted(now)) throw new CasinoError(400, '航海は 10/5 (月) 0:00 に始まります。');
+  if (isVoyageOver(now)) throw new CasinoError(400, '航海は 12/21 で終わりました。最終秘宝の山分けをお待ちください。');
+  const chapter = voyageChapterAt(now);
   const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
   const { publicRef, playerRef } = voyageRefs(uid);
 
@@ -2952,7 +2889,7 @@ async function casinoVoyageRoll(uid, username, rawBet, rawChapter, admin = false
     const play = playVoyage({ chapter, bet, pos: player.pos || 0, jp: voyageJpAmount(state.jpCents), lapDebt: player.lapDebt || 0, randomInt: casinoRandom });
     const id = `${Date.now().toString(36)}${randomInt(36 ** 4).toString(36)}`;
 
-    // 貯める分と JP の払い出し (当たったら貯まった分を払い、土台 VOYAGE_JP_BASE から貯め直す)
+    // 貯める分と JP の払い出し (当たったら貯まった分を払い、0 から貯め直す)
     state.jpCents = (state.jpCents || 0) + bet * VOYAGE_JP_RATE;
     state.treasureCents = (state.treasureCents || 0) + bet * VOYAGE_TREASURE_RATE;
     if (play.jpHit) state.jpCents = voyageJpCentsAfterWin(state.jpCents, play.jpWon);
@@ -3012,7 +2949,6 @@ async function casinoVoyageRoll(uid, username, rawBet, rawChapter, admin = false
     const settled = await settleCasinoSession(uid, 'casino_auto_settle');
     return { expired: true, settled };
   }
-  if (rolled.result.jpHit) await notifyVoyageJp(username, rolled.result.jpWon, rolled.result.chapter);
   const voyage = { ...voyageTimeInfo(), state: publicVoyageState(rolled.state), me: publicVoyagePlayer(rolled.player) };
   // チップが尽きたら続けようがないので、その場で精算する
   if (rolled.session.chips <= 0) {
@@ -3022,28 +2958,14 @@ async function casinoVoyageRoll(uid, username, rawBet, rawChapter, admin = false
   return { result: rolled.result, session: publicCasinoSession(rolled.session), voyage };
 }
 
-/** 管理者だけ: 航海の共有の分と全員の分を消す (10/5 の本番の前に、試した分を片付けるため) */
-async function casinoVoyageReset(admin) {
-  if (!admin) throw new CasinoError(403, '管理者だけが使えます。');
-  const { publicRef } = voyageRefs();
-  const snapshot = await db.collection(VOYAGE_PLAYERS).get();
-  const docs = [...snapshot.docs.map(doc => doc.ref), publicRef];
-  for (let i = 0; i < docs.length; i += 400) {
-    const batch = db.batch();
-    docs.slice(i, i + 400).forEach(ref => batch.delete(ref));
-    await batch.commit();
-  }
-  return { reset: true, players: snapshot.size };
-}
-
 /**
- * 最終秘宝を取り分の比で全員に配る (12/22 0:10 のスケジュールと、管理者の vgFinalize)。
- * 期間が終わる前は管理者が force を付けたときだけ。配った分はレートへ直接足し、増減ログに残す。
+ * 最終秘宝を取り分の比で全員に配る (12/22 0:10 のスケジュール finalizeVoyageTreasure)。
+ * 期間が終わる前は配らない。配った分はレートへ直接足し、増減ログに残す。
  * 済んでいれば (final があれば) 何もしない
  */
-async function finalizeVoyage({ force = false } = {}) {
+async function finalizeVoyage() {
   const now = Date.now();
-  if (!isVoyageOver(now) && !force) throw new CasinoError(400, '航海はまだ終わっていません (12/22 0:00 以降に配れます)。');
+  if (!isVoyageOver(now)) throw new CasinoError(400, '航海はまだ終わっていません (12/22 0:00 以降に配れます)。');
   const { publicRef } = voyageRefs();
   const publicDoc = await publicRef.get();
   if (!publicDoc.exists) return { final: null, skipped: 'no-state' };
@@ -3091,20 +3013,7 @@ async function finalizeVoyage({ force = false } = {}) {
     updatedAt: at
   }, { merge: true });
 
-  if (paid.length) {
-    await rebuildRateChartQuietly('voyage_final');
-    try {
-      const top = paid[0];
-      await sendPushToEveryone({
-        title: '🏴‍☠️ 大海賊の秘宝が開かれた！',
-        body: `冬至の夜、秘宝 ${treasure.toLocaleString('ja-JP')} を ${paid.length}人で山分けしました。いちばん多かったのは ${top.player}さんの ${top.amount.toLocaleString('ja-JP')}`,
-        tag: 'voyage-final',
-        link: `${APP_URL}game.html#voyage`
-      });
-    } catch (error) {
-      console.error('航海の最終秘宝の通知に失敗しました:', error);
-    }
-  }
+  if (paid.length) await rebuildRateChartQuietly('voyage_final');
   console.log('voyage final:', JSON.stringify({ treasure, total: split.total, count: paid.length, paid: final.paid }));
   return { final };
 }
@@ -3119,14 +3028,8 @@ const CASINO_ACTIONS = {
   },
   slotSpin: ({ uid, body }) => casinoSlotSpin(uid, body.bet),
   nrSpin: ({ uid, body }) => casinoNariagariSpin(uid, body.bet, body.layout),
-  nrNotify: ({ uid, body }) => casinoNariagariNotify(uid, body.id),
   vgStatus: ({ uid }) => readVoyageStatus(uid).then(voyage => ({ voyage })),
-  vgRoll: ({ uid, username, body, admin }) => casinoVoyageRoll(uid, username, body.bet, body.chapter, admin),
-  vgReset: ({ admin }) => casinoVoyageReset(admin),
-  vgFinalize: async ({ admin, body }) => {
-    if (!admin) throw new CasinoError(403, '管理者だけが使えます。');
-    return finalizeVoyage({ force: Boolean(body.force) });
-  },
+  vgRoll: ({ uid, username, body }) => casinoVoyageRoll(uid, username, body.bet),
   bjJoin: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => joinSeat(ctx, uid, username, body.seat)),
   bjLeave: ({ uid, username }) => blackjackTableAction(uid, username, ctx => leaveSeat(ctx, uid)),
   bjBet: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => placeBet(ctx, uid, body.amount, body.squeeze)),
@@ -3223,7 +3126,6 @@ export const settleIdleCasinoSessions = onSchedule({
 });
 
 // 航海の最終秘宝を 12/22 0:10 (JST) に山分けする (期間 2026/10/5〜12/21)。済んでいれば何もしない。
-// 動かなかったときは管理者が casino の vgFinalize で配れる
 export const finalizeVoyageTreasure = onSchedule({
   region: 'asia-northeast1',
   schedule: '10 0 22 12 *',
@@ -3234,56 +3136,6 @@ export const finalizeVoyageTreasure = onSchedule({
     console.log('finalizeVoyageTreasure:', JSON.stringify({ skipped: result.skipped || null, count: result.final?.count ?? null }));
   } catch (error) {
     console.error('航海の最終秘宝の山分けに失敗しました:', error);
-  }
-});
-
-// 航海の新しい章が始まったら (毎週月曜 0:00 JST)、全員に通知する。同じ章は二度知らせない (voyage_notices/chapter-N)。
-//   文面は各章の次回予告をもとに、その週のマスの特徴を添える (物語を見ていない人にも届くので、大きなネタバレは書かない)
-const VOYAGE_NOTICES = 'voyage_notices';
-const VOYAGE_CHAPTER_NOTICES = {
-  1: 'SILI港から、死んだはずの船長を追う航海が始まる。物語を見て、サイコロを振ろう',
-  2: '霧の向こうの旗艦に、見覚えのある赤ひげが。今週は霧で出目が止まるまで見えない',
-  3: '拿捕した商船の書類。署名は「提督 チュン」。今週は拿捕 ×6 のマスがある',
-  4: '流れ着いた船の名は、チュンの旧船。今週は呪いの金貨 (半々で ×10) のマスが2つ',
-  5: '金貨の骸骨の目に光を通すと、島影が浮かぶ。今週は掘る (×1〜20) のマスがある',
-  6: '水平線いっぱいの艦隊と正面衝突。今週は砲撃 (1マス戻る) と逃げ切り (6マス進む) のマスがある',
-  7: '敵のはずのハツが語る、もうひとつの真実。今週は「もう1回」のマスが4つ',
-  8: '北の氷の海へ。ポンが新しい言葉を喋る。今週は流氷で出目が 1〜3',
-  9: '再び艦隊に囲まれる、決戦の海。今週は一騎打ち (半々で ×3) のマスが3つ',
-  10: '金貨の縁の刻み目が示すもの。今週は盤が逆回り',
-  11: '宝島は、どこにあったのか。今週は船長チャンスが当たりやすい',
-  12: '一年でいちばん長い夜、扉が開く。今日は船長チャンスが当たりやすい。最終秘宝は 12/22 0:10 に山分け'
-};
-
-function voyageChapterNotice(chapter) {
-  return {
-    title: `🏴‍☠️ 航海 ${chapter.no >= 12 ? '最終日' : `第${chapter.no}章`}「${chapter.title}」が始まりました`,
-    body: VOYAGE_CHAPTER_NOTICES[chapter.no] || '新しい海へ。物語を見て、サイコロを振ろう'
-  };
-}
-
-export const notifyVoyageChapter = onSchedule({
-  region: 'asia-northeast1',
-  schedule: '0 0 * * 1',
-  timeZone: 'Asia/Tokyo'
-}, async () => {
-  const now = Date.now();
-  const chapter = voyageChapterAt(now);
-  if (!chapter || isVoyageOver(now)) return;
-  // 始まって半日を過ぎた章は知らせない (動かなかった週の分を、あとから送らない)
-  if (now - Date.parse(chapter.from) > 12 * 60 * 60 * 1000) return;
-  try {
-    await db.collection(VOYAGE_NOTICES).doc(`chapter-${chapter.no}`).create({ chapter: chapter.no, at: new Date(now).toISOString() });
-  } catch (error) {
-    if (error.code === 6) return;   // ALREADY_EXISTS: 知らせ済み
-    throw error;
-  }
-  const notice = voyageChapterNotice(chapter);
-  try {
-    const result = await sendPushToEveryone({ ...notice, tag: `voyage-chapter-${chapter.no}`, link: `${APP_URL}game.html#voyage` });
-    console.log('voyage chapter notice:', JSON.stringify({ chapter: chapter.no, ...result }));
-  } catch (error) {
-    console.error(`航海の第${chapter.no}章の通知に失敗しました:`, error);
   }
 });
 

@@ -2,7 +2,7 @@
 //   node tools/voyage-sim.mjs [回数]
 //   即時の配当 (賭け金に対する払い戻し)、1回の結果の割合 (何も起きない・減る・増える)、1周するまでの平均の回数を出す。
 //   JP (賭け金の 6%) と最終秘宝 (8%) は全部プレイヤーに戻るので、全体の還元率は 即時 + 14% になる
-//   (JP の土台 1000・最終秘宝の土台 5000 は運営が出す分で、ここには入れない。人数と回数で見るなら tools/voyage-players-sim.mjs)
+//   (JP・最終秘宝の土台は 0。人数と回数で見るなら tools/voyage-players-sim.mjs)
 import { randomInt } from 'node:crypto';
 import { VOYAGE_BET, VOYAGE_CHAPTERS, VOYAGE_JP_RATE, VOYAGE_TREASURE_RATE, playVoyage } from '../functions/voyage.js';
 

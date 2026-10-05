@@ -6254,9 +6254,6 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 .vg-jp-amount { color: var(--ok); }
 .vg-empty { opacity: 0.6; border-style: dashed !important; }
 
-.vg-admin { margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--parchment-edge); }
-.vg-admin-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.9em; }
-.vg-admin-row select { flex: 1; min-width: 180px; }
 
 /* スマホ: 見出しを消して台を上に */
 @media (max-width: 719px) {

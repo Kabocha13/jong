@@ -104,21 +104,12 @@ const vg = {
     cells: [],            // 30マスの要素
     layout: null,         // { cols, rows }
     pos: 0,               // コマの位置 (見せている途中は動く)
-    adminChapter: '',     // 管理者が指定した章 ('' は日付どおり)
     pollTimer: null,
     polling: false
 };
 
 function vgChips() {
     return casino.session ? casino.session.chips : 0;
-}
-
-function vgIsMaster() {
-    try {
-        return typeof MASTER_USERNAME !== 'undefined' && localStorage.getItem('authUsername') === MASTER_USERNAME;
-    } catch (error) {
-        return false;
-    }
 }
 
 function vgFormat(value) {
@@ -739,7 +730,6 @@ function vgCanRoll() {
     const info = vg.info;
     if (!info) return false;
     if (info.state?.final) return false;
-    if (vgIsMaster() && vg.adminChapter) return true;
     return info.started && !info.over;
 }
 
@@ -790,9 +780,7 @@ async function rollVoyage() {
     setVoyageStatus('サイコロを振る…');
     let wait = VG_AUTO_GAP_MS;
     try {
-        const payload = { bet };
-        if (vgIsMaster() && vg.adminChapter) payload.chapter = Number(vg.adminChapter);
-        const data = await callCasino('vgRoll', payload);
+        const data = await callCasino('vgRoll', { bet });
         if (data.expired) {
             stopVoyageAuto();
             el('vg-dice').classList.remove('is-rolling');
@@ -847,11 +835,10 @@ function vgChapterByNo(no, info = vg.info) {
     return (info?.chapters || []).find(chapter => chapter.no === Number(no)) || null;
 }
 
-/** いま出す章: 管理者の指定 > 日付どおり > (始まる前は) 第1章 */
+/** いま出す章: 日付どおり (始まる前は第1章) */
 function vgCurrentChapter() {
     const info = vg.info;
     if (!info) return null;
-    if (vgIsMaster() && vg.adminChapter) return vgChapterByNo(vg.adminChapter) || info.chapter;
     return info.chapter || vgChapterByNo(1);
 }
 
@@ -884,7 +871,7 @@ function renderVoyageChapterHead() {
     if (!chapter || !el('vg-chapter-no')) return;
     el('vg-chapter-no').textContent = chapter.no >= 12 ? '最終日' : `第${chapter.no}章`;
     el('vg-chapter-title').textContent = chapter.title;
-    const episodeReady = typeof hasVoyageEpisode === 'function' && hasVoyageEpisode(chapter.no);
+    const episodeReady = chapter.no <= vgUnlockedEpisodeNo(info) && typeof hasVoyageEpisode === 'function' && hasVoyageEpisode(chapter.no);
     el('vg-story-button').classList.toggle('hidden', !episodeReady);
     const notice = el('vg-notice');
     let text = '';
@@ -895,7 +882,6 @@ function renderVoyageChapterHead() {
     else if (chapter.fog) text = '第2章: 霧で出目が見えません。止まってから分かります。';
     else if (chapter.dice && chapter.dice < 6) text = `第${chapter.no}章: 流氷で出目は 1〜${chapter.dice}。進みは遅いが、港を踏む回数も変わります。`;
     else if (chapter.jpOdds && chapter.jpOdds <= 1) text = `第${chapter.no}章: 船長チャンスは必ず当たります (ジャックポット総取り)。`;
-    if (vgIsMaster() && vg.adminChapter) text = `管理者の試し: 第${chapter.no}章の盤面で振ります。${text}`;
     notice.textContent = text;
     notice.classList.toggle('hidden', !text);
     el('vg-cabinet').dataset.chapter = String(chapter.no);
@@ -923,7 +909,7 @@ function renderVoyageLog() {
     // 物語の一覧
     const episodes = el('vg-episodes');
     episodes.innerHTML = '';
-    const unlockedNo = vgIsMaster() ? 99 : (info.chapter?.no || 0);
+    const unlockedNo = vgUnlockedEpisodeNo(info);
     let seen = [];
     try { seen = JSON.parse(localStorage.getItem(VG_SEEN_STORAGE_KEY) || '[]'); } catch (error) { seen = []; }
     (info.chapters || []).forEach(chapter => {
@@ -972,20 +958,6 @@ function renderVoyageLog() {
         history.appendChild(row);
     });
     if (!history.children.length) history.appendChild(modeText('li', 'vg-empty', 'まだ誰も当てていません'));
-
-    // 管理者の欄
-    const adminBox = el('vg-admin');
-    adminBox.classList.toggle('hidden', !vgIsMaster());
-    const select = el('vg-admin-chapter');
-    if (vgIsMaster() && select.options.length <= 1) {
-        (info.chapters || []).forEach(chapter => {
-            const option = document.createElement('option');
-            option.value = String(chapter.no);
-            option.textContent = `第${chapter.no}章 ${chapter.title}`;
-            select.appendChild(option);
-        });
-        select.value = vg.adminChapter;
-    }
 }
 
 function renderVoyageRecent() {
@@ -1071,12 +1043,17 @@ async function openVoyageEpisode(no) {
     }
 }
 
+/** 物語を見られる最後の章の番号 (日付どおりのいまの章まで。管理者も同じ。始まる前は 0) */
+function vgUnlockedEpisodeNo(info) {
+    return info?.started && info.chapter ? info.chapter.no : 0;
+}
+
 /** この章の物語をまだ見ていなければ見せる (開いたとき) */
 function maybeOpenVoyageEpisode() {
     const chapter = vg.chapter;
     const info = vg.info;
     if (!chapter || !info || vg.playing || vg.storyOpen) return;
-    const unlocked = vgIsMaster() || (info.started && info.chapter && chapter.no <= info.chapter.no);
+    const unlocked = chapter.no <= vgUnlockedEpisodeNo(info);
     if (!unlocked || vgHasSeen(chapter.no) || typeof hasVoyageEpisode !== 'function' || !hasVoyageEpisode(chapter.no)) return;
     setTimeout(() => { if (vg.open && !vg.playing) openVoyageEpisode(chapter.no); }, 500);
 }
@@ -1105,22 +1082,6 @@ function closeVoyageTable() {
     if (vg.auto) stopVoyageAuto();
     clearInterval(vg.pollTimer);
     vg.pollTimer = null;
-}
-
-async function vgAdminAction(action, payload, confirmText) {
-    if (!confirm(confirmText)) return;
-    setCasinoBusy(true);
-    try {
-        const data = await callCasino(action, payload);
-        showMessage(el('vg-message'), action === 'vgReset' ? `消しました (${data.players}人ぶん)。` : data.final ? `配りました: ${data.final.count}人に ${vgFormat(data.final.paid)}` : '配る分がありませんでした。', 'success');
-        vg.pos = 0;
-        const status = await callCasino('vgStatus');
-        receiveVoyage(status.voyage);
-    } catch (error) {
-        showMessage(el('vg-message'), error.message, 'error');
-    } finally {
-        setCasinoBusy(false);
-    }
 }
 
 /** ゲーム一覧: 公式キャラ (船長ハク) を出し始める日 (common.js の CAPTAIN_REVEAL_AT) からは、Coming soon の代わりに航海のカードを出す */
@@ -1153,16 +1114,6 @@ function initVoyage() {
         if (!casino.busy && !vg.playing) rollVoyage();
     });
     el('vg-story-button').addEventListener('click', () => { if (vg.chapter) openVoyageEpisode(vg.chapter.no); });
-    el('vg-admin-chapter').addEventListener('change', event => {
-        vg.adminChapter = event.target.value;
-        vg.chapter = vgCurrentChapter();
-        renderVoyageChapterHead();
-        renderVoyageBoard();
-        renderVoyageLog();
-        renderVoyageControls();
-    });
-    el('vg-admin-reset').addEventListener('click', () => vgAdminAction('vgReset', {}, '航海の共有の分 (JP・最終秘宝) と全員の分 (位置・周回) を全部消します。本番の前の片付け用です。よろしいですか？'));
-    el('vg-admin-final').addEventListener('click', () => vgAdminAction('vgFinalize', { force: true }, '最終秘宝をいま、取り分の比で全員のレートへ配ります (取り消せません)。よろしいですか？'));
     window.addEventListener('resize', () => { if (vg.open) renderVoyageBoard(); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden && vg.open) pollVoyagePublic(); });
 }

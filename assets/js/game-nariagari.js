@@ -3,7 +3,6 @@
 //   1回ぶんの結果 (各弾の並び・止まるマス・×? の倍率・払い戻し) は Cloud Function (casino の nrSpin) が最初にすべて決め、
 //   画面はそれを順に回して見せる。第2弾・第3弾は UP の2秒後に自動で、第4弾・第5弾は画面の真ん中の大きなボタンで回す。
 //   第1弾の並びは画面で作って nrSpin に送る (止まるマスはサーバーが等確率に決めるので、並びで有利にはならない)。
-//   第5弾の結果を見せたら nrNotify を送り、全員 (本人も含む) に通知してもらう (送れなかったぶんはサーバーが次の回や精算で送る)。
 //   途中で閉じても払い戻しは入っている。第4弾以上まで行った回は、次に開いたときに第4弾のボタンから続きを見せる。
 //   オートは結果が出たら少し間を置いて次を回す。第4弾・第5弾のボタンはオートでも押さず、押してもらうまで待つ。
 //   閃光・金貨・震え・画面いっぱいの演出は game-slot.js のものを使う。入場・手元チップ・精算は game.js。
@@ -423,9 +422,8 @@ async function presentNariagariPlay(play, from = 0) {
     }
 }
 
-/** 見せ終えたあと: 最上段なら全員への通知を頼み、最後まで見せた回として覚える */
+/** 見せ終えたあと: 最後まで見せた回として覚える */
 function doneNariagariPlay(play) {
-    if (play.top >= 5) callCasino('nrNotify', { id: play.id }).catch(error => console.warn('成り上がりの通知に失敗:', error));
     try { localStorage.setItem(NR_SHOWN_STORAGE_KEY, play.id); } catch (error) { /* 無視 */ }
 }
 

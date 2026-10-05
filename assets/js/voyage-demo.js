@@ -48,7 +48,7 @@ function resetDemoState() {
         wagered: 0,
         jpWon: 0,
         bestWin: 0,
-        jpCents: 0,                      // 貯まった分。額は本番と同じく土台 (VOYAGE_JP_BASE) を足した voyageJpAmount
+        jpCents: 0,                      // 貯まった分。額は本番と同じく voyageJpAmount
         treasureCents: 0,
         jpHistory: [],
         recent: [],
@@ -173,8 +173,7 @@ function setCasinoBusy(busy) {
     renderVoyageControls();
 }
 
-// 本番だけのふるまいを止める: 管理者の欄・「見た章」の記録・共有の分 (Firestore) の読み直し
-vgIsMaster = () => false;
+// 本番だけのふるまいを止める: 「見た章」の記録・共有の分 (Firestore) の読み直し
 vgHasSeen = () => false;
 vgMarkSeen = () => {};
 pollVoyagePublic = async () => {};
@@ -205,7 +204,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     demoChapters = rules.VOYAGE_CHAPTERS.map(rules.publicVoyageChapter);
     resetDemoState();
     casino.session = demoSession();
-    el('vg-demo-jp-seed').textContent = rules.VOYAGE_JP_BASE.toLocaleString('ja-JP');
     el('vg-demo-reset').addEventListener('click', resetDemo);
     initVoyage();
     receiveVoyage(demoVoyageInfo());

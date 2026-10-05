@@ -20,7 +20,7 @@ export const NARIAGARI_STAGES = [
 ];
 
 export const NARIAGARI_JP_STAGE = 4;    // ここまで来たら JP
-export const NARIAGARI_SJP_STAGE = 5;   // ここまで来たら SJP (最上段。本人も含めて全員に知らせる)
+export const NARIAGARI_SJP_STAGE = 5;   // ここまで来たら SJP (最上段)
 
 function countPockets(list) {
   const counts = new Map();
