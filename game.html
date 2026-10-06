@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="assets/js/no-zoom.js?v=54.2"></script>
+    <script src="assets/js/no-zoom.js?v=54.6"></script>
     <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,8 +12,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=54.2">
-    <script src="assets/js/treasure-rain.js?v=54.2" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=54.6">
+    <script src="assets/js/treasure-rain.js?v=54.6" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -36,13 +36,13 @@
             <a href="mypage.html" class="action-button">マイページでログイン</a>
         </section>
 
-        <nav class="casino-back hidden" data-view="lobby blackjack slot gappori nariagari voyage underground" aria-label="ゲームの切り替え">
+        <nav class="casino-back hidden" data-view="lobby blackjack slot gappori nariagari voyage underground wanted" aria-label="ゲームの切り替え">
             <a href="#">ゲーム一覧へ</a>
         </nav>
 
         <p id="casino-message" class="hidden" aria-live="polite"></p>
 
-        <!-- ゲームの選択。タイルはそのまま #blackjack / #slot / #gappori / #underground へのリンク -->
+        <!-- ゲームの選択。タイルはそのまま #blackjack / #slot / #gappori / #underground / #wanted へのリンク -->
         <section id="casino-menu" class="casino-menu hidden" data-view="menu" aria-labelledby="casino-menu-title">
             <h2 id="casino-menu-title">ゲームを選ぶ</h2>
             <p class="casino-menu-rate" id="casino-menu-rate">現在のレート <strong id="casino-menu-score"></strong></p>
@@ -147,6 +147,21 @@
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
+                <a class="game-tile" href="#wanted" data-game="wanted">
+                    <!-- 手配書。賞金首の名前は game-wanted.js が入れる -->
+                    <span class="game-tile-art is-wanted" aria-hidden="true">
+                        <span class="wd-tile-poster">
+                            <span class="wd-tile-head">WANTED</span>
+                            <span class="wd-tile-name" id="wd-tile-name">?</span>
+                        </span>
+                    </span>
+                    <span class="game-tile-body">
+                        <span class="game-tile-name">指名手配</span>
+                        <span class="game-tile-sub">Wanted</span>
+                        <span class="game-tile-desc" id="wd-tile-desc">レートが10,000を超えた人を賞金首にする神経衰弱</span>
+                    </span>
+                    <span class="game-tile-badge hidden"></span>
+                </a>
             </div>
         </section>
 
@@ -168,7 +183,7 @@
                 <li data-rules="gappori">予想したお宝ごとに、選んだ数だけ球が入れば当たり。倍率はその回の盤面で決まり、個数が多いほど大きい。</li>
                 <li data-rules="gappori">3球目のあと、券ごとに「お宝ゲット」が来ることがある (2個 2.5%・3個 5%・4個 7.5%・5個 15%)。その券でまだ足りないお宝を1つ選ぶと「1球入ったこと」になる (その券だけ)。</li>
                 <li data-rules="gappori">券を買ったら「すぐ始める」で受付の30秒を飛ばせる (その回に券を買った人が全員押したら始まる)。</li>
-                <li data-rules="gappori">船長マスに球が入ると「船長チャンス」。20回に1回ジャックポット (外れた券の代金の1割を貯めたもの) が当たり、その回に券を買った人みんなで、買った額に応じて山分けする。</li>
+                <li data-rules="gappori">船長マスに球が入ると「船長チャンス」。ジャックポット (外れた券の代金の1割を貯めたもの) が当たると、その回に券を買った人みんなで均等に山分けする。当たる確率は最初 5% で、船長チャンスで外れるたびに上がり、100回外れると 50% になる (当たったら 5% に戻る)。</li>
                 <li data-rules="nariagari">賭け金を決めて「回す」を押すと、第1弾のルーレットが回る。UP に止まると次の弾へ進み、終了で終わり。×N に止まったら賭け金 × N が戻る (賭け金込み)。</li>
                 <li data-rules="nariagari">第2弾・第3弾は UP の2秒後に自動で回る。第4弾 (JP)・第5弾 (SJP) は、画面の真ん中に出る大きなボタンを押して回す。</li>
                 <li data-rules="voyage">2026/10/5〜12/21 の期間限定。30マスの海をぐるぐる回るエンドレス双六。毎週月曜に物語と海 (マスの中身) が進む。</li>
@@ -184,10 +199,13 @@
                 </div>
                 <div class="casino-presets" role="group" aria-label="持ち込み額の候補">
                     <button type="button" data-buyin="10">10</button>
-                    <button type="button" data-buyin="30">30</button>
-                    <button type="button" data-buyin="50">50</button>
                     <button type="button" data-buyin="100">100</button>
-                    <button type="button" data-buyin="other">その他</button>
+                    <button type="button" data-buyin="500">500</button>
+                    <button type="button" data-buyin="1000">1,000</button>
+                    <button type="button" data-buyin="5000">5,000</button>
+                    <button type="button" data-buyin="10000">10,000</button>
+                    <button type="button" data-buyin="30000">30,000</button>
+                    <button type="button" data-buyin="50000">50,000</button>
                 </div>
                 <button type="submit" id="casino-enter-button">入場する</button>
             </form>
@@ -311,7 +329,7 @@
 
             <div class="gp-machine">
                 <div class="gp-top">
-                    <p class="gp-jackpot"><span>JACKPOT</span><strong id="gp-jackpot">0</strong></p>
+                    <p class="gp-jackpot"><span>JACKPOT</span><strong id="gp-jackpot">0</strong><small class="gp-jackpot-rate" id="gp-jackpot-rate"></small></p>
                     <p class="gp-status" id="gp-status" aria-live="polite"></p>
                 </div>
                 <!-- 16マスは game-gappori.js が回ごとに並べる。球を入れるたびに盤面が回り、球の入ったマスが上の針で止まる -->
@@ -320,6 +338,12 @@
                     <span class="gp-hub" aria-hidden="true">Treasure<br>Balls</span>
                     <span class="gp-pointer" aria-hidden="true"></span>
                     <span class="gp-drop-ball" aria-hidden="true"></span>
+                    <!-- 結果のあとに出す「理想の賭け方」(この回に当たっていた予想を倍率の高い順に3つ)。タップで閉じる -->
+                    <div class="gp-ranking hidden" id="gp-ranking" role="status">
+                        <p class="gp-ranking-title">理想の賭け方</p>
+                        <ol class="gp-ranking-list" id="gp-ranking-list"></ol>
+                        <p class="gp-ranking-note">タップで閉じる</p>
+                    </div>
                 </div>
                 <ol class="gp-drawn" id="gp-drawn" aria-label="入ったお宝 (5球)"></ol>
                 <!-- ルーレットの画面で見せる自分の券 (スマホだけ。PC は右の「この回の券」) -->
@@ -518,6 +542,38 @@
                 <ol class="ug-recent" id="ug-recent"></ol>
             </div>
         </section>
+
+        <!-- 指名手配 (レートが1万を超えた人を賞金首にする神経衰弱)。中身は game-wanted.js が作る
+             (盤面・絵柄・レートの増減はすべて Cloud Function wanted が決める) -->
+        <section id="wanted-view" class="hidden" data-view="wanted" aria-label="指名手配">
+            <div class="wd-poster" id="wd-poster">
+                <p class="wd-poster-head">WANTED</p>
+                <p class="wd-poster-sub">DEAD OR ALIVE</p>
+                <p class="wd-poster-name" id="wd-target-name">—</p>
+                <p class="wd-poster-bounty"><span>懸賞金</span><strong id="wd-target-bounty">—</strong></p>
+                <p class="wd-poster-paid" id="wd-target-paid"></p>
+            </div>
+
+            <div class="info-box wd-status">
+                <dl class="casino-stats wd-stats">
+                    <div><dt>レート</dt><dd id="wd-score">—</dd></div>
+                    <div><dt>そろえた組</dt><dd id="wd-pairs">—</dd></div>
+                    <div><dt>今回</dt><dd id="wd-session">—</dd></div>
+                </dl>
+                <p id="wd-notice" class="info-text wd-notice"></p>
+                <p id="wd-message" class="hidden" aria-live="polite"></p>
+            </div>
+
+            <div class="wd-table" id="wd-table">
+                <div class="wd-board" id="wd-board" role="group" aria-label="カード (10×10)"></div>
+            </div>
+
+            <div class="info-box wd-info">
+                <h3 class="icon-title">ルール</h3>
+                <ul class="casino-rules" id="wd-rules"></ul>
+                <p class="info-text wd-total" id="wd-total"></p>
+            </div>
+        </section>
     </main>
 
     <!-- 自分に配られたカードを絞る画面。中身は game-blackjack.js が作る -->
@@ -546,15 +602,16 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=54.2"></script>
-    <script src="assets/js/game-sound.js?v=54.2"></script>
-    <script src="assets/js/game-blackjack.js?v=54.2"></script>
-    <script src="assets/js/game-slot.js?v=54.2"></script>
-    <script src="assets/js/game-gappori.js?v=54.2"></script>
-    <script src="assets/js/game-nariagari.js?v=54.2"></script>
-    <script src="assets/js/voyage-story.js?v=54.2"></script>
-    <script src="assets/js/game-voyage.js?v=54.2"></script>
-    <script src="assets/js/game-underground.js?v=54.2"></script>
-    <script src="assets/js/game.js?v=54.2"></script>
+    <script src="assets/js/common.js?v=54.6"></script>
+    <script src="assets/js/game-sound.js?v=54.6"></script>
+    <script src="assets/js/game-blackjack.js?v=54.6"></script>
+    <script src="assets/js/game-slot.js?v=54.6"></script>
+    <script src="assets/js/game-gappori.js?v=54.6"></script>
+    <script src="assets/js/game-nariagari.js?v=54.6"></script>
+    <script src="assets/js/voyage-story.js?v=54.6"></script>
+    <script src="assets/js/game-voyage.js?v=54.6"></script>
+    <script src="assets/js/game-underground.js?v=54.6"></script>
+    <script src="assets/js/game-wanted.js?v=54.6"></script>
+    <script src="assets/js/game.js?v=54.6"></script>
 </body>
 </html>

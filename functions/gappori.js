@@ -10,8 +10,9 @@
 //   予想した絵柄ごとに、選んだ数だけ球が入れば当たり。配当の倍率は、その盤面での当たる確率から決める。
 //   チャンス: 券ごとに、予想の個数で決まる確率 (GAPPORI_CHANCE_RATES) で、3球の時点でその券のまだ足りない絵柄を
 //   1つ選び、「1球入ったこと」にできる (その券だけ。盤面は変わらない)。
-//   船長マスに球が入るとチャンスタイム。1/GAPPORI_JACKPOT_ODDS でジャックポットが当たり、
-//   その回に賭けた人で賭けた額に応じて分ける。ジャックポットは外れた券の代金の GAPPORI_JACKPOT_LOST_RATE を
+//   船長マスに球が入るとチャンスタイム。gapporiJackpotRate の確率でジャックポットが当たり、
+//   その回に賭けた人で均等に分ける (54.5 まで賭けた額に応じて分けていた)。確率は最初 5% で、
+//   船長マスで外れるたびに上がり、100回外れたあとで 50% になる (それより上がらない。当たったら 5% に戻る)。ジャックポットは外れた券の代金の GAPPORI_JACKPOT_LOST_RATE を
 //   0 から貯めたもの (外れた券は賭けの約91% なので、賭けの約9% がジャックポットで戻る)。
 //   還元率は 配当 GAPPORI_BASE_RETURN (チャンスも含めて) + ジャックポット 約9% = 約99%
 
@@ -32,7 +33,12 @@ export const GAPPORI_MAX_UNITS = 50;         // 1枚の券で買える口数
 export const GAPPORI_MAX_TICKETS = 20;       // 1回に1人が買える券 (セット) の数
 export const GAPPORI_BASE_RETURN = 0.90;
 export const GAPPORI_JACKPOT_LOST_RATE = 0.1;  // 外れた券の代金のうち、ジャックポットに貯める割合
-export const GAPPORI_JACKPOT_ODDS = 20;      // 船長マスに入ったとき、この中の1で当たる (約64回に1回)
+// 船長マスに入ったときにジャックポットが当たる確率。続けて外れた回数 (misses) で上がる。
+// 0回 5% → 100回 50% まで直線で上げる (平均で船長マス 約11.6回 = 約37回に1回当たる)
+export const GAPPORI_JACKPOT_BASE_RATE = 0.05;
+export const GAPPORI_JACKPOT_MAX_RATE = 0.5;
+export const GAPPORI_JACKPOT_RAMP_MISSES = 100;
+export const GAPPORI_JACKPOT_SCALE = 10000;   // 確率を整数の乱数で引くときの目の細かさ
 // チャンスの確率 (券ごと。予想の個数で決まる)。倍率はこの確率も含めて計算する
 export const GAPPORI_CHANCE_RATES = { 2: 0.025, 3: 0.05, 4: 0.075, 5: 0.15 };
 
@@ -78,6 +84,13 @@ export function generateGapporiBoard(randomInt) {
   const offset = randomInt(ring.length);
   const pockets = [...ring.slice(offset), ...ring.slice(0, offset)];
   return { kinds, counts, pockets };
+}
+
+/** ジャックポットの当たる確率 (0〜1)。misses は船長マスで続けて外れた回数 */
+export function gapporiJackpotRate(misses) {
+  const n = Math.max(0, Math.floor(Number(misses) || 0));
+  const step = (GAPPORI_JACKPOT_MAX_RATE - GAPPORI_JACKPOT_BASE_RATE) / GAPPORI_JACKPOT_RAMP_MISSES;
+  return Math.min(GAPPORI_JACKPOT_MAX_RATE, GAPPORI_JACKPOT_BASE_RATE + step * n);
 }
 
 /** 1口の値段 */

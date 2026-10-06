@@ -11,7 +11,8 @@
 //     (その券だけに効く。選ばなければ当たりやすくなるものを自動で選ぶ)。チャンスの券がなければ飛ばす。
 //   受付は、券を買った人が全員「すぐ始める」を押したら、締め切りを待たずに始める。
 //   残り2球を入れて結果 (result): 払い戻しを財布に足し、外れた券の代金の1割をジャックポットに貯め、
-//   船長マスに入っていればジャックポットの抽選。
+//   船長マスに入っていればジャックポットの抽選 (確率は外れが続くほど上がる。gappori.js の gapporiJackpotRate)。
+//   当たったら、その回に券を買った人で均等に分ける。
 //     GAPPORI_RESULT_MS (船長のときは + GAPPORI_CAPTAIN_MS) 見せてから、次の盤面で受付に戻る。
 //   券を買った人が途中で財布を精算しても券は残り、払い戻しはレートへ直接返す。
 //   サーバーは常駐しないので、締め切りの判定は画面を開いている誰かの gpTick と定期処理で行う。
@@ -23,13 +24,14 @@ import {
   GAPPORI_CHANCE_RATES,
   GAPPORI_FIRST_BALLS,
   GAPPORI_JACKPOT_LOST_RATE,
-  GAPPORI_JACKPOT_ODDS,
+  GAPPORI_JACKPOT_SCALE,
   GAPPORI_MAX_TICKETS,
   GAPPORI_MAX_UNITS,
   GAPPORI_UNIT_PRICES,
   drawGapporiBall,
   gapporiAutoChance,
   gapporiHitList,
+  gapporiJackpotRate,
   gapporiOdds,
   gapporiPickKey,
   gapporiShortfall,
@@ -281,7 +283,8 @@ function finishGapporiRound(ctx, start) {
   const lost = table.tickets.filter(ticket => !ticket.win).reduce((sum, ticket) => sum + ticket.cost, 0);
   table.jackpot = (table.jackpot || 0) + lost * GAPPORI_JACKPOT_LOST_RATE;
 
-  // 船長マスに入ったらチャンスタイム。ジャックポットはその回に賭けた人で、賭けた額に応じて分ける
+  // 船長マスに入ったらチャンスタイム。ジャックポットはその回に賭けた人で均等に分ける。
+  // 当たる確率は船長マスで続けて外れた回数 (jackpotMisses) で上がり、当たったら 0 に戻す
   const captain = table.balls.some(index => table.board.pockets[index] === GAPPORI_CAPTAIN);
   const jackpot = { captain, won: false, amount: 0, shares: [] };
   const costBy = new Map();
@@ -290,13 +293,24 @@ function finishGapporiRound(ctx, start) {
     current.cost += ticket.cost;
     costBy.set(ticket.uid, current);
   });
-  if (captain && costBy.size && ctx.randomInt(GAPPORI_JACKPOT_ODDS) === 0) {
+  const misses = Math.max(0, Math.floor(Number(table.jackpotMisses) || 0));
+  jackpot.rate = gapporiJackpotRate(misses);
+  const hit = captain && costBy.size
+    && ctx.randomInt(GAPPORI_JACKPOT_SCALE) < Math.round(jackpot.rate * GAPPORI_JACKPOT_SCALE);
+  if (captain && costBy.size) table.jackpotMisses = hit ? 0 : misses + 1;
+  if (hit) {
     const amount = Math.floor(table.jackpot);
-    const totalCost = [...costBy.values()].reduce((sum, item) => sum + item.cost, 0);
-    const shares = [...costBy.entries()]
-      .map(([uid, item]) => ({ uid, name: item.name, cost: item.cost, amount: Math.floor((amount * item.cost) / totalCost) }))
-      .sort((a, b) => b.cost - a.cost);
-    shares[0].amount += amount - shares.reduce((sum, share) => sum + share.amount, 0);
+    // 均等に割り、割り切れない端数は1ずつ、くじで選んだ人に足す
+    const people = [...costBy.entries()];
+    for (let i = people.length - 1; i > 0; i--) {
+      const j = ctx.randomInt(i + 1);
+      [people[i], people[j]] = [people[j], people[i]];
+    }
+    const each = Math.floor(amount / people.length);
+    const extra = amount - each * people.length;
+    const shares = people
+      .map(([uid, item], index) => ({ uid, name: item.name, cost: item.cost, amount: each + (index < extra ? 1 : 0) }))
+      .sort((a, b) => b.amount - a.amount || b.cost - a.cost);
     jackpot.won = true;
     jackpot.amount = amount;
     jackpot.shares = shares.map(({ uid, name, amount: share }) => ({ uid, name, amount: share }));
@@ -376,6 +390,9 @@ export function publicGapporiTable(table) {
     odds: table.odds,
     prices: GAPPORI_UNIT_PRICES,
     jackpot: Math.floor(table.jackpot || 0),
+    // いまの船長チャンスで当たる確率と、続けて外れた回数
+    jackpotRate: gapporiJackpotRate(table.jackpotMisses),
+    jackpotMisses: Math.max(0, Math.floor(Number(table.jackpotMisses) || 0)),
     ready: (table.ready || []).map(id => table.tickets.find(ticket => ticket.uid === id)?.name).filter(Boolean),
     bettingEndsAt: table.bettingEndsAt || null,
     balls: table.balls || [],

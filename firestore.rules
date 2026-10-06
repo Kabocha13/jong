@@ -126,6 +126,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // 指名手配の盤面 (伏せたカードの絵柄を含む) と賞金首の記録。読めると盤面が丸見えになり、
+    // 書き換えられるとレートを偽れるので、読み書きとも Cloud Functions (wanted) だけに限る。
+    match /wanted_boards/{userId} {
+      allow read, write: if false;
+    }
+
+    match /wanted_bounties/{playerId} {
+      allow read, write: if false;
+    }
+
     // スロットのジャックポットタイムの状態 (残りの回数・天井までの回数・固定の賭け金)。
     // 書き換えられるとジャックポットタイムを偽れるので、読み書きとも Cloud Functions (casino) だけに限る。
     match /slot_states/{userId} {

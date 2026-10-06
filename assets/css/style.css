@@ -1952,14 +1952,13 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 .casino-rules li + li { margin-top: 4px; }
 
 .casino-presets {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
 }
 
 /* 共通の button は幅いっぱい・板目の面なので、小さな札として上書きする */
 .casino-presets button {
-    flex: 1 1 0;
     width: auto;
     min-width: 0;
     min-height: 38px;
@@ -4083,6 +4082,15 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     animation: slot-shine 2.4s linear infinite;
 }
 
+.gp-jackpot-rate {
+    font-size: 0.7em;
+    letter-spacing: 0.06em;
+    color: var(--brass-pale);
+    font-variant-numeric: tabular-nums;
+}
+
+.gp-jackpot-rate:empty { display: none; }
+
 .gp-status {
     min-height: 1.4em;
     margin: 8px 0 0;
@@ -4240,6 +4248,95 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 }
 
 .gp-wheel-wrap.is-shake { animation: slot-shake 0.5s ease-out; }
+
+/* 結果のあとの「理想の賭け方」。ルーレットの上に重ねる (盤面が小さいときは盤面より横に広げる) */
+.gp-ranking {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 5;
+    width: max(100%, 270px);
+    max-width: calc(100vw - 24px);
+    padding: 10px 10px 8px;
+    color: var(--brass-pale);
+    background: linear-gradient(180deg, rgba(20, 16, 12, 0.94), rgba(6, 13, 17, 0.94));
+    border: 2px solid var(--brass);
+    border-radius: 12px;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35), 0 12px 28px rgba(0, 0, 0, 0.6);
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+}
+
+.gp-ranking.is-in { animation: gp-ranking-in 0.35s ease-out; }
+
+@keyframes gp-ranking-in {
+    from { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.gp-ranking-title {
+    margin: 0 0 8px;
+    text-align: center;
+    font-family: var(--font-title);
+    font-size: 1.02em;
+    letter-spacing: 0.14em;
+    color: var(--brass-light);
+}
+
+.gp-ranking-list {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.gp-rank-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(201, 146, 47, 0.45);
+    border-radius: 8px;
+}
+
+.gp-rank-row.is-rank-1 {
+    background: linear-gradient(90deg, rgba(255, 182, 72, 0.28), rgba(255, 182, 72, 0.08));
+    border-color: var(--lantern);
+}
+
+.gp-rank-no {
+    font-weight: 700;
+    font-size: 0.86em;
+    color: var(--brass-light);
+}
+
+.gp-rank-row.is-rank-1 .gp-rank-no { color: var(--lantern); }
+
+.gp-rank-row .gp-pick-icons { font-size: 28px; flex-wrap: nowrap; }
+
+.gp-rank-odds {
+    display: grid;
+    justify-items: end;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+}
+
+.gp-rank-odds strong { font-size: 1.05em; color: var(--lantern); }
+.gp-rank-odds small { font-size: 0.68em; color: var(--brass-pale); opacity: 0.85; white-space: nowrap; }
+
+.gp-ranking-note {
+    margin: 6px 0 0;
+    text-align: center;
+    font-size: 0.68em;
+    opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gp-ranking.is-in { animation: none; }
+}
 
 /* 入ったお宝 (5球ぶん) */
 .gp-drawn {
@@ -4997,6 +5094,225 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 }
 
 .ug-recent-time { flex: none; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+/* ------------------------------------------------------------
+   19g2. ゲーム — 指名手配 (賞金首の神経衰弱)
+   ------------------------------------------------------------ */
+/* ゲーム一覧のタイル: 板に貼った小さな手配書 */
+.game-tile-art.is-wanted {
+    background:
+        radial-gradient(ellipse 70% 60% at 50% 45%, rgba(255, 182, 72, 0.18), transparent 70%),
+        var(--img-wood),
+        linear-gradient(180deg, var(--timber), var(--pitch));
+    background-size: auto, 220px, auto;
+    background-blend-mode: normal, multiply, normal;
+}
+
+.wd-tile-poster {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    width: clamp(78px, 22vw, 110px);
+    padding: 8px 6px 10px;
+    color: var(--ink);
+    background: var(--img-parchment), var(--parchment);
+    background-size: cover;
+    background-blend-mode: multiply;
+    border: 1px solid var(--parchment-edge);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.55);
+    transform: rotate(-4deg);
+    transition: transform 0.25s ease;
+}
+
+.game-tile:hover .wd-tile-poster { transform: rotate(0deg) scale(1.04); }
+
+.wd-tile-head {
+    font-family: var(--font-display);
+    font-size: clamp(1.1em, 4.4vw, 1.5em);
+    line-height: 1;
+    letter-spacing: 0.04em;
+    color: var(--rum-dark);
+}
+
+.wd-tile-name {
+    max-width: 100%;
+    overflow: hidden;
+    font-weight: 700;
+    font-size: 0.86em;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* 手配書 (賞金首の名前と懸賞金) */
+.wd-poster {
+    max-width: 360px;
+    margin: 0 auto clamp(14px, 2.4vw, 22px);
+    padding: 14px 18px 16px;
+    text-align: center;
+    color: var(--ink);
+    background: var(--img-parchment), var(--parchment);
+    background-size: cover;
+    background-blend-mode: multiply;
+    border: 1px solid var(--parchment-edge);
+    border-radius: 3px;
+    box-shadow: inset 0 0 26px rgba(93, 74, 50, 0.45), var(--shadow-deep);
+}
+
+.wd-poster p { margin: 0; }
+
+.wd-poster-head {
+    font-family: var(--font-display);
+    font-size: clamp(2.4em, 11vw, 3.2em);
+    line-height: 1;
+    letter-spacing: 0.06em;
+    color: var(--rum-dark);
+}
+
+.wd-poster-sub {
+    margin-top: 2px !important;
+    font-family: var(--font-title);
+    font-size: 0.78em;
+    letter-spacing: 0.3em;
+    color: var(--ink-soft);
+}
+
+.wd-poster-name {
+    margin: 10px 0 6px !important;
+    padding: 6px 4px;
+    font-size: clamp(1.3em, 6vw, 1.7em);
+    font-weight: 700;
+    overflow-wrap: anywhere;
+    border-top: 2px solid var(--ink);
+    border-bottom: 2px solid var(--ink);
+}
+
+.wd-poster-bounty {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+}
+
+.wd-poster-bounty span { font-size: 0.86em; letter-spacing: 0.2em; color: var(--ink-soft); }
+
+.wd-poster-bounty strong {
+    font-family: var(--font-title);
+    font-size: clamp(1.6em, 7vw, 2.1em);
+    font-variant-numeric: tabular-nums;
+    color: var(--rum-dark);
+}
+
+.wd-poster-paid { margin-top: 4px !important; font-size: 0.8em; color: var(--ink-soft); }
+
+.wd-poster.is-empty { filter: grayscale(0.8); opacity: 0.85; }
+.wd-poster.is-empty .wd-poster-name { color: var(--ink-soft); }
+
+.wd-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.wd-notice { margin: 10px 0 0; font-size: 0.86em; }
+#wd-message { margin: 10px 0 0; }
+#wd-session[data-sign="plus"]  { color: var(--ok); }
+#wd-session[data-sign="minus"] { color: var(--ng); }
+
+/* 盤面: 船底と同じ木の箱に 10×10 のカード */
+.wd-table {
+    margin: 0 auto clamp(14px, 2.4vw, 24px);
+    padding: clamp(6px, 1.6vw, 12px);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 30%),
+        var(--img-wood),
+        linear-gradient(180deg, var(--timber), var(--pitch-light) 55%, var(--pitch));
+    background-size: auto, 260px, auto;
+    background-blend-mode: normal, multiply, normal;
+    border: 2px solid var(--brass);
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.3), var(--shadow-deep);
+}
+
+.wd-table.is-locked { filter: grayscale(0.7) brightness(0.75); }
+
+.wd-board {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: clamp(2px, 0.8vw, 6px);
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.wd-card {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+    font-size: clamp(15px, 4.6vw, 30px);
+    line-height: 1;
+    color: var(--brass-light);
+    background:
+        radial-gradient(circle at 50% 50%, rgba(236, 194, 100, 0.28) 0 22%, transparent 24%),
+        repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.18) 0 3px, transparent 3px 6px),
+        linear-gradient(180deg, var(--rum), var(--rum-dark));
+    border: 1px solid var(--brass);
+    border-radius: clamp(3px, 0.8vw, 6px);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.2s ease;
+}
+
+.wd-card:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5), 0 0 0 1px var(--brass-light); }
+.wd-card:disabled { cursor: default; }
+.wd-table.is-locked .wd-card { cursor: not-allowed; }
+
+.wd-card.is-up {
+    background: var(--parchment-warm);
+    border-color: var(--brass-light);
+    animation: wd-flip 0.22s ease-out;
+}
+
+.wd-face {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+}
+
+.wd-face img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+    user-select: none;
+}
+
+.wd-card.is-open { box-shadow: 0 0 0 2px var(--lantern), 0 0 10px var(--lantern-glow); }
+.wd-card.is-miss { box-shadow: 0 0 0 2px var(--ng); }
+.wd-card.is-matched { opacity: 0.55; border-color: var(--brass); box-shadow: none; animation: none; }
+.wd-card.is-matched.is-flash { opacity: 1; animation: wd-pair 0.7s ease-out; }
+.wd-card.is-pending { animation: wd-pending 0.6s ease-in-out infinite alternate; }
+
+@keyframes wd-flip {
+    from { transform: scaleX(0.1); }
+    to   { transform: scaleX(1); }
+}
+
+@keyframes wd-pair {
+    0%   { transform: scale(1.25); box-shadow: 0 0 0 3px var(--lantern), 0 0 18px var(--lantern); }
+    100% { transform: scale(1); box-shadow: none; }
+}
+
+@keyframes wd-pending {
+    from { filter: brightness(1); }
+    to   { filter: brightness(1.6); }
+}
+
+.wd-total { margin: 10px 0 0; font-size: 0.84em; }
+
+@media (prefers-reduced-motion: reduce) {
+    .wd-card.is-up, .wd-card.is-matched.is-flash, .wd-card.is-pending { animation: none; }
+}
+
 /* ------------------------------------------------------------
    19h. ゲーム — 成り上がり (5段のルーレット)
    ------------------------------------------------------------ */

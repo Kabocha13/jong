@@ -82,6 +82,26 @@ import {
   workReason
 } from './underground.js';
 import {
+  WANTED_BOUNTY_SOURCE,
+  WANTED_FLIP_COST,
+  WANTED_PAIR_REWARD,
+  WANTED_PAIRS,
+  WANTED_SOURCE,
+  WANTED_THRESHOLD,
+  WantedError,
+  bountyReason,
+  canHuntWanted,
+  flipWantedCard,
+  newWantedBoard,
+  normalizeBountyRecord,
+  normalizeWantedRecord,
+  pickWantedTarget,
+  publicWantedBoard,
+  wantedFlipDelta,
+  wantedLogStep,
+  wantedReason
+} from './wanted.js';
+import {
   TableError,
   createTableContext,
   emptyTable,
@@ -1888,6 +1908,235 @@ export const underground = onRequest({ region: 'asia-northeast1' }, async (req, 
 });
 
 // -----------------------------------------------------------------
+// 指名手配 (レートが1万を超えた人を賞金首にする神経衰弱)
+//   ルールは wanted.js。1枚めくるたびに遊んだ人から賞金首へ 1、1組そろえたら賞金首から遊んだ人へ 50 を
+//   その場でレートに反映する。賞金首はめくるたびに、その時点でレートがいちばん高い人 (1万を超えている人) に決め直す。
+//   増減ログは1枚ごとには残さず、人ごとに1件へ書き足す (間が30分空いた・日付が変わった・ほかでレートが動いたら次の1件)。
+//   盤面 wanted_boards/{uid} と賞金首の記録 wanted_bounties/{player} は Cloud Functions だけが読み書きする (rules で禁止)。
+//   レート推移グラフは、めくるたびには作り直さず settleIdleCasinoSessions (10分ごと) が作り直す。
+// -----------------------------------------------------------------
+const WANTED_BOARDS = 'wanted_boards';
+const WANTED_BOUNTIES = 'wanted_bounties';
+
+function wantedBountyRef(name) {
+  return db.collection(WANTED_BOUNTIES).doc(toDocId(name));
+}
+
+/** レートの対象になっている人 (除外アカウントを除く) の { name, score, doc } */
+function wantedPlayersFrom(snapshot) {
+  return snapshot.docs
+    .map(doc => ({ name: String(doc.data().name || ''), score: normalizeRate(doc.data().score), doc }))
+    .filter(player => player.name && !RATE_EXCLUDED_PLAYERS.has(player.name));
+}
+
+function publicWantedTarget(target, bounty) {
+  if (!target) return null;
+  return { name: target.name, score: target.score, paid: bounty ? -bounty.stats.net : 0 };
+}
+
+/** 画面に返す共通の形 */
+function wantedPayload({ username, score, record, target, bounty }) {
+  return {
+    me: username,
+    score,
+    canHunt: Boolean(target) && canHuntWanted(score) && score >= WANTED_FLIP_COST,
+    eligible: canHuntWanted(score),
+    target: publicWantedTarget(target, bounty),
+    board: publicWantedBoard(record.board),
+    stats: record.stats,
+    rules: { threshold: WANTED_THRESHOLD, flipCost: WANTED_FLIP_COST, pairReward: WANTED_PAIR_REWARD, pairs: WANTED_PAIRS },
+    now: new Date().toISOString()
+  };
+}
+
+async function wantedStatus(uid, username) {
+  const [boardDoc, playersSnapshot] = await Promise.all([
+    db.collection(WANTED_BOARDS).doc(uid).get(),
+    db.collection('players').get()
+  ]);
+  const players = wantedPlayersFrom(playersSnapshot);
+  const me = players.find(player => player.name === username);
+  const target = pickWantedTarget(players);
+  const bountyDoc = target ? await wantedBountyRef(target.name).get() : null;
+  return wantedPayload({
+    username,
+    score: me ? me.score : 0,
+    record: normalizeWantedRecord(boardDoc.exists ? boardDoc.data() : null, username, randomInt),
+    target,
+    bounty: bountyDoc && bountyDoc.exists ? normalizeBountyRecord(bountyDoc.data(), target.name) : null
+  });
+}
+
+/** 1枚めくる。代金と懸賞金をその場で本人と賞金首のレートに反映する */
+async function wantedFlip(uid, username, rawIndex) {
+  const boardRef = db.collection(WANTED_BOARDS).doc(uid);
+  return db.runTransaction(async transaction => {
+    const [boardDoc, playersSnapshot] = await Promise.all([
+      transaction.get(boardRef),
+      transaction.get(db.collection('players'))
+    ]);
+    const players = wantedPlayersFrom(playersSnapshot);
+    const me = players.find(player => player.name === username);
+    if (!me) throw new WantedError(404, 'プレイヤーが見つかりません。');
+    const target = pickWantedTarget(players);
+    if (!target) throw new WantedError(409, `いまはレートが${WANTED_THRESHOLD.toLocaleString('ja-JP')}を超えている人がいないので、指名手配は遊べません。`);
+    if (!canHuntWanted(me.score)) {
+      throw new WantedError(403, `レートが${WANTED_THRESHOLD.toLocaleString('ja-JP')}を超えている人は指名手配を遊べません。`);
+    }
+    if (me.score < WANTED_FLIP_COST) {
+      throw new WantedError(400, `1枚めくるにはレートが${WANTED_FLIP_COST}以上必要です (いま ${me.score})。`);
+    }
+    const bountyRef = wantedBountyRef(target.name);
+    const bountyDoc = await transaction.get(bountyRef);
+
+    const at = new Date().toISOString();
+    const date = getJstDateKey(new Date(at));
+    const record = normalizeWantedRecord(boardDoc.exists ? boardDoc.data() : null, username, randomInt);
+    const bounty = normalizeBountyRecord(bountyDoc.exists ? bountyDoc.data() : null, target.name);
+    const flip = flipWantedCard(record.board, rawIndex);
+    const delta = wantedFlipDelta(flip);
+
+    // レート (players は2人とも同じ一覧から読んだ値に足す)
+    const hunterAfter = me.score + delta.hunter;
+    const targetAfter = target.score + delta.bounty;
+    const targetDoc = players.find(player => player.name === target.name).doc;
+    transaction.update(me.doc.ref, { score: hunterAfter });
+    transaction.update(targetDoc.ref, { score: targetAfter });
+
+    // 増減ログ (人ごとに1件へ書き足す)
+    const hunterLog = wantedLogStep(record.log, {
+      at, date, beforeScore: me.score, afterScore: hunterAfter, pair: flip.pair, with: target.name
+    }, () => rateHistoryDocId(username, at));
+    const bountyLog = wantedLogStep(bounty.log, {
+      at, date, beforeScore: target.score, afterScore: targetAfter, pair: flip.pair, hunter: username
+    }, () => rateHistoryDocId(target.name, at));
+    const historyEntry = (player, log, source, reason) => ({
+      id: log.historyId,
+      player,
+      beforeScore: log.beforeScore,
+      afterScore: log.afterScore,
+      delta: log.afterScore - log.beforeScore,
+      source,
+      reason,
+      actor: username,
+      createdAt: log.createdAt,
+      updatedAt: at
+    });
+    transaction.set(db.collection('point_history').doc(hunterLog.historyId),
+      historyEntry(username, hunterLog, WANTED_SOURCE, wantedReason(hunterLog)));
+    transaction.set(db.collection('point_history').doc(bountyLog.historyId),
+      historyEntry(target.name, bountyLog, WANTED_BOUNTY_SOURCE, bountyReason(bountyLog)));
+
+    // 盤面 (全部そろったら新しい盤面を配る) と合計
+    const nextRecord = {
+      ...record,
+      board: flip.cleared ? newWantedBoard(randomInt) : flip.board,
+      stats: {
+        flips: record.stats.flips + 1,
+        pairs: record.stats.pairs + (flip.pair ? 1 : 0),
+        boards: record.stats.boards + (flip.cleared ? 1 : 0),
+        net: record.stats.net + delta.hunter
+      },
+      log: hunterLog,
+      updatedAt: at
+    };
+    const nextBounty = {
+      ...bounty,
+      stats: {
+        flips: bounty.stats.flips + 1,
+        pairs: bounty.stats.pairs + (flip.pair ? 1 : 0),
+        net: bounty.stats.net + delta.bounty
+      },
+      log: bountyLog,
+      updatedAt: at
+    };
+    transaction.set(boardRef, nextRecord);
+    transaction.set(bountyRef, nextBounty);
+
+    // 返す賞金首は、払ったあとの値で決め直す (1万を下回ったら null)
+    const afterPlayers = players.map(player => (
+      player.name === username ? { ...player, score: hunterAfter }
+        : player.name === target.name ? { ...player, score: targetAfter } : player
+    ));
+    const nextTarget = pickWantedTarget(afterPlayers);
+    return {
+      ...wantedPayload({
+        username,
+        score: hunterAfter,
+        record: nextRecord,
+        target: nextTarget,
+        bounty: nextTarget && nextTarget.name === target.name ? nextBounty : null
+      }),
+      flip: {
+        index: flip.index,
+        face: flip.face,
+        first: flip.first,
+        firstIndex: flip.first ? null : flip.firstIndex,
+        firstFace: flip.first ? null : flip.firstFace,
+        pair: flip.pair,
+        cleared: flip.cleared,
+        delta: delta.hunter,
+        target: target.name
+      }
+    };
+  });
+}
+
+/** 最近めくられた賞金首がいれば、レート推移グラフを作り直す (settleIdleCasinoSessions から呼ぶ) */
+async function rebuildRateChartAfterWanted(sinceMs) {
+  const snapshot = await db.collection(WANTED_BOUNTIES)
+    .where('updatedAt', '>=', new Date(Date.now() - sinceMs).toISOString())
+    .limit(1)
+    .get();
+  if (!snapshot.empty) await rebuildRateChartQuietly(WANTED_SOURCE);
+}
+
+const WANTED_ACTIONS = {
+  status: ({ uid, username }) => wantedStatus(uid, username),
+  flip: ({ uid, username, body }) => wantedFlip(uid, username, body.index)
+};
+
+export const wanted = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const decoded = await getVerifiedAuthToken(req);
+    const username = decoded && decoded.username;
+    if (!username) {
+      res.status(401).json({ status: 'error', message: 'ログインが必要です。マイページでログインし直してください。' });
+      return;
+    }
+    if (RATE_EXCLUDED_PLAYERS.has(username)) {
+      res.status(403).json({ status: 'error', message: 'このアカウントは指名手配を利用できません。' });
+      return;
+    }
+
+    const body = req.body || {};
+    const action = String(body.action || 'status');
+    if (!Object.hasOwn(WANTED_ACTIONS, action)) {
+      throw new WantedError(400, '不明な操作です。');
+    }
+    const payload = await WANTED_ACTIONS[action]({ uid: decoded.uid, username, body });
+    res.status(200).json({ status: 'success', ...payload });
+  } catch (error) {
+    if (error instanceof WantedError) {
+      res.status(error.status).json({ status: 'error', message: error.message });
+      return;
+    }
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `指名手配の処理に失敗しました: ${error.message}` });
+  }
+});
+
+// -----------------------------------------------------------------
 // レートの貸し出し (借金)
 //   ルールは loan.js。誰でも借りられ、上限 (信用枠) は「日付をまたいでから返した元本」「付いた利息」「レートの変動の大きさ」で決まる。
 //   借りた額はそのままレートに足し (以後は通常のレートと同じ扱い)、同じ額を借金として記録する。
@@ -3097,6 +3346,7 @@ export const casinoRoulette = onRequest({ region: 'asia-northeast1' }, handleCas
 
 // 精算せずに離れたテーブルを片付ける。期限は最後の操作から30分 / 入場から3時間。
 // ブラックジャックと宝探しの卓も、誰も画面を開いていないまま時間切れで止まっていれば先へ進める
+// 指名手配でこの10分にめくられた賞金首がいれば、レート推移グラフもここで作り直す
 export const settleIdleCasinoSessions = onSchedule({
   region: 'asia-northeast1',
   schedule: 'every 10 minutes',
@@ -3111,6 +3361,11 @@ export const settleIdleCasinoSessions = onSchedule({
     await runGapporiTable(null, () => {});
   } catch (error) {
     console.error('宝探しの卓の時間切れ処理に失敗しました:', error);
+  }
+  try {
+    await rebuildRateChartAfterWanted(10 * 60 * 1000);
+  } catch (error) {
+    console.error('指名手配のあとのレート推移グラフの作り直しに失敗しました:', error);
   }
   const snapshot = await db.collection(CASINO_SESSIONS)
     .where('expiresAt', '<=', new Date().toISOString())

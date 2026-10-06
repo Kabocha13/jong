@@ -2,7 +2,7 @@
 //   ログイン、ゲームの選択 (ブロックのタイル)、入場 (持ち込み)、手元チップと精算、画面の切り替え。
 //   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js / game-voyage.js
 //   (ルーレットとテキサスホールデムは 52.0 で廃止)。
-//   船底 (#underground) はチップを使わない別の遊び場で、中身は game-underground.js。
+//   船底 (#underground) と指名手配 (#wanted) はチップを使わない別の遊び場で、中身は game-underground.js と game-wanted.js。
 //   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
 //   画面は #blackjack / #slot / #gappori / #nariagari のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
 
@@ -107,6 +107,10 @@ function isUndergroundRoute() {
     return location.hash.slice(1) === 'underground';
 }
 
+function isWantedRoute() {
+    return location.hash.slice(1) === 'wanted';
+}
+
 function renderRoute() {
     if (!casino.ready) return;
     const game = routeGame();
@@ -115,6 +119,10 @@ function renderRoute() {
         // 船底はチップを持ち込まずに入る
         view = 'underground';
         openUnderground();
+    } else if (isWantedRoute()) {
+        // 指名手配もチップを持ち込まずに入る (レートがその場で動く)
+        view = 'wanted';
+        openWanted();
     } else if (!game) {
         renderMenu();
     } else if (!casino.session) {
@@ -134,11 +142,12 @@ function renderRoute() {
     if (view !== 'nariagari') closeNariagariTable();
     if (view !== 'voyage') closeVoyageTable();
     if (view !== 'underground') closeUnderground();
+    if (view !== 'wanted') closeWanted();
     showView(view);
     // 画面ごとの見た目の切り替えに使う (宝探しと成り上がりはスマホで見出しを消し、1画面に収める)
     document.body.dataset.casinoView = view;
-    // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す (船底はチップを使わないので出さない)
-    el('casino-wallet').classList.toggle('hidden', !casino.session || view === 'lobby' || view === 'underground');
+    // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す (船底と指名手配はチップを使わないので出さない)
+    el('casino-wallet').classList.toggle('hidden', !casino.session || view === 'lobby' || view === 'underground' || view === 'wanted');
     renderWallet();
 }
 
@@ -155,6 +164,7 @@ function renderMenu() {
                 : tile.dataset.game === 'nariagari' ? nariagariTileBadge() : '';
         // 船底はレートが上限 (既定1000) 未満のときだけ仕分けできる
         if (tile.dataset.game === 'underground' && casino.score < undergroundMaxRate()) text = '入れます';
+        if (tile.dataset.game === 'wanted') text = wantedTileBadge();
         badge.textContent = text;
         badge.classList.toggle('hidden', !text);
     });
@@ -293,13 +303,8 @@ function bindCasinoEvents() {
     el('casino-enter-form').addEventListener('submit', enterTable);
     document.querySelectorAll('.casino-presets [data-buyin]').forEach(button => {
         button.addEventListener('click', () => {
+            // 候補にない額は入力欄に直接打ってもらう
             const input = el('casino-buyin');
-            if (button.dataset.buyin === 'other') {
-                // 任意の額は入力欄に直接打ってもらう
-                input.value = '';
-                input.focus();
-                return;
-            }
             input.value = String(Math.min(Number(button.dataset.buyin), casino.score));
         });
     });
@@ -317,6 +322,7 @@ async function initCasino() {
     initNariagari();
     initVoyage();
     initUnderground();
+    initWanted();
     bindCasinoEvents();
     showView('loading');
 
