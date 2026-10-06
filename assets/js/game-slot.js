@@ -20,11 +20,12 @@ const SLOT_SYMBOLS = {
     // 公式キャラの顔は出し始める日 (common.js の CAPTAIN_REVEAL_AT) から。それまでは帽子の絵
     captain: { name: '船長', emoji: '🎩', src: [...(isCaptainRevealed() ? ['assets/img/captain/face.jpeg'] : []), 'assets/img/slot/captain.jpeg'] },
     // 宝探しだけのお宝 (54.19。スロットには出ない)。絵はスロットのジャックポットの立体物とドクロ旗を使う。
+    // flag (ドクロ旗) は 55.5 から盤面に出さず、単品で賭けて JP ルーレットのドクロ旗のマスで当たる
     // 立体物は1枚が大きいので、ゲームを開いたときには読まず、宝探しの盤面に出たときに読む (lazy)
     helm:      { name: '舵輪', emoji: '☸️', src: ['assets/img/slot/props/left-3.png'], lazy: true },
     telescope: { name: '望遠鏡', emoji: '🔭', src: ['assets/img/slot/props/right-3.png'], lazy: true },
     cannon:    { name: '大砲', emoji: '💣', src: ['assets/img/slot/props/left-2.png'], lazy: true },
-    flag:      { name: '海賊旗', emoji: '🏴‍☠️', src: ['assets/img/slot/wild.jpeg'] }
+    flag:      { name: 'ドクロ旗', emoji: '🏴‍☠️', src: ['assets/img/slot/wild.jpeg'] }
 };
 const SLOT_PAYS = { chest: 100, coin: 30, compass: 15, map: 12, rum: 5, parrot: 3, anchor: 2 };
 const SLOT_LINES = [[1, 1, 1], [0, 0, 0], [2, 2, 2], [0, 1, 2], [2, 1, 0]];

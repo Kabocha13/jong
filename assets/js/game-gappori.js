@@ -5,6 +5,7 @@
 //   (ルールは functions/gappori.js、卓の進め方は functions/gappori-table.js)。
 //   ほかの人の券や進み具合は、誰でも読める卓の写し (gappori_public/main) を読み直して反映する
 //   (ルーレットの下に、この回の全員の券を人ごとに出す)。
+//   ドクロ旗 (55.5〜) は盤面に無い単品の賭けで、船長チャンスの JP ルーレットのドクロ旗のマスで当たる (倍率は当たったときに ×1〜×99)。
 //   券を買う欄の上に「本日のおすすめ」(回ごとに 5・4・3・2個の予想を1つずつ。サーバーが倍率を上げてある) を出す。
 //   球は ballsAt の時刻に合わせて1つずつ入れて見せる。締め切りを過ぎたら、画面を開いている人が gpTick を送って先へ進める。
 //   船長マスに球が入った回は、5球のあとにカットイン (船長チャンス) → 盤面が JP ルーレット (JP 1・お宝ゲット 1・ハズレ 14) に
@@ -13,7 +14,9 @@
 //   財布 (使えるレート) の表示と画面の切り替えは game.js。
 
 // レア度の順 (functions/gappori.js と同じ)。11種類から毎回6種類が盤面に並ぶ。名前と絵は game-slot.js の SLOT_SYMBOLS
-const GAPPORI_ORDER = ['anchor', 'parrot', 'helm', 'rum', 'telescope', 'map', 'compass', 'cannon', 'coin', 'flag', 'chest'];
+const GAPPORI_ORDER = ['anchor', 'parrot', 'helm', 'rum', 'telescope', 'map', 'compass', 'cannon', 'coin', 'chest'];
+// ドクロ旗 (55.5〜): 盤面には出さず、単品でだけ賭ける。JP ルーレットのドクロ旗のマスで当たり、倍率は当たったときに ×1〜×99 を引く
+const GAPPORI_FLAG = 'flag';
 const GAPPORI_PICKS_MIN = 2;
 const GAPPORI_PICKS_MAX = 5;
 const GAPPORI_UNIT_STEPS = [1, 2, 3, 5, 10, 20, 30, 50];   // 口数の選び方 (上限はサーバーの GAPPORI_MAX_UNITS と同じ)
@@ -28,7 +31,7 @@ const GAPPORI_RANKING_SIZE = 3;    // 結果のあとに見せる「理想の賭
 const GAPPORI_RANKING_DELAY_MS = 1200;   // 結果の演出のあと、ランキングを出すまでの間 (当たりの金貨を見せてから)
 const GAPPORI_JP_SPIN_MS = 4200;         // JP ルーレットを回す長さ
 const GAPPORI_JP_HOLD_MS = 1400;         // JP ルーレットが止まってから、結果 (JP・お宝ゲット・ハズレ) を見せておく間
-const GAPPORI_JP_LABELS = { jackpot: 'JP', treasure: 'お宝', miss: 'ハズレ' };   // マスの字 (お宝ゲットは「お宝」)
+const GAPPORI_JP_LABELS = { jackpot: 'JP', treasure: 'お宝', miss: 'ハズレ' };   // マスの字 (お宝ゲットは「お宝」。ドクロ旗は絵)
 
 const gp = {
     table: null,        // 最後に受け取った卓 (公開の形)
@@ -67,11 +70,6 @@ function gapporiNow() {
 function gapporiSecondsLeft(iso) {
     if (!iso) return null;
     return Math.max(0, Math.ceil((Date.parse(iso) - gapporiNow()) / 1000));
-}
-
-/** ジャックポットの当選率 (0〜1) を「9.5%」の形に */
-function formatGapporiRate(rate) {
-    return `${Math.round(rate * 10000) / 100}%`;
 }
 
 function gapporiKindName(kind) {
@@ -194,7 +192,8 @@ function buildGapporiJpWheel(pockets) {
         pocket.dataset.index = String(index);
         const face = document.createElement('span');
         face.className = `gp-jp-pocket is-${kind}`;
-        face.textContent = GAPPORI_JP_LABELS[kind] || kind;
+        if (kind === GAPPORI_FLAG) face.appendChild(gapporiSymbol(GAPPORI_FLAG));
+        else face.textContent = GAPPORI_JP_LABELS[kind] || kind;
         pocket.appendChild(face);
         wheel.appendChild(pocket);
     });
@@ -319,8 +318,6 @@ function renderGapporiStatus() {
     const table = gp.table;
     if (!table || !el('gp-status')) return;
     el('gp-jackpot').textContent = table.jackpot.toLocaleString('ja-JP');
-    // JP ルーレット (船長マスの回) で JP が出る確率 (1/16)
-    el('gp-jackpot-rate').textContent = Number.isFinite(table.jackpotRate) ? `JPルーレット ${formatGapporiRate(table.jackpotRate)}` : '';
     let text = '';
     if (table.phase === 'betting') {
         const left = gapporiSecondsLeft(table.bettingEndsAt);
@@ -381,13 +378,49 @@ function renderGapporiKinds() {
         }
         container.appendChild(cell);
     });
+    // ドクロ旗 (単品。盤面には無く、JP ルーレットのドクロ旗のマスで当たり)。いつでも選べる
+    const flagOn = isGapporiFlag(gp.picks);
+    const info = gapporiFlagInfo(table);
+    const cell = document.createElement('div');
+    cell.className = 'gp-kind-cell';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'gp-kind is-flag';
+    button.setAttribute('aria-pressed', String(flagOn));
+    button.setAttribute('aria-label', `ドクロ旗を単品で選ぶ (1口 ${info.price.toLocaleString('ja-JP')})`);
+    button.disabled = !open;
+    button.append(gapporiSymbol(GAPPORI_FLAG));
+    const name = document.createElement('span');
+    name.className = 'gp-kind-name';
+    name.textContent = 'ドクロ旗';
+    const note = document.createElement('span');
+    note.className = 'gp-kind-count';
+    note.textContent = '単品';
+    button.append(name, note);
+    if (flagOn) {
+        const badge = document.createElement('span');
+        badge.className = 'gp-kind-badge';
+        badge.textContent = '✓';
+        button.appendChild(badge);
+    }
+    button.addEventListener('click', toggleGapporiFlag);
+    cell.appendChild(button);
+    container.appendChild(cell);
 }
 
 function addGapporiPick(kind) {
     const table = gp.table;
+    if (isGapporiFlag(gp.picks)) gp.picks = [];
     const count = gp.picks.filter(item => item === kind).length;
     if (!table || gp.picks.length >= GAPPORI_PICKS_MAX || count >= table.board.counts[kind]) return;
     gp.picks = [...gp.picks, kind];
+    renderGapporiKinds();
+    renderGapporiControls();
+}
+
+/** ドクロ旗 (単品) を選ぶ。もう選んでいたら外す */
+function toggleGapporiFlag() {
+    gp.picks = isGapporiFlag(gp.picks) ? [] : [GAPPORI_FLAG];
     renderGapporiKinds();
     renderGapporiControls();
 }
@@ -400,8 +433,26 @@ function removeGapporiPick(kind) {
     renderGapporiControls();
 }
 
-/** 1口の値段 (予想の個数で決まる)。個数が足りないあいだは null */
+/** ドクロ旗の券 (単品) か */
+function isGapporiFlag(picks) {
+    return picks.length === 1 && picks[0] === GAPPORI_FLAG;
+}
+
+/** ドクロ旗の値段と倍率の範囲 (公開の写しの flag。無ければ既定) */
+function gapporiFlagInfo(table = gp.table) {
+    return table?.flag || { price: 1000, oddsMin: 1, oddsMax: 99 };
+}
+
+/** 券の倍率の表示。ドクロ旗は当たって JP ルーレットを見せるまで「×1〜99」 */
+function gapporiOddsLabel(table, ticket) {
+    if (!isGapporiFlag(ticket.picks)) return `×${ticket.odds}`;
+    const info = gapporiFlagInfo(table);
+    return ticket.odds && isGapporiJpRevealed(table) ? `×${ticket.odds}` : `×${info.oddsMin}〜${info.oddsMax}`;
+}
+
+/** 1口の値段 (予想の個数で決まる。ドクロ旗は単品の値段)。個数が足りないあいだは null */
 function gapporiPrice(count = gp.picks.length) {
+    if (isGapporiFlag(gp.picks)) return gapporiFlagInfo().price;
     return gp.table?.prices?.[count] ?? null;
 }
 
@@ -413,13 +464,17 @@ function renderGapporiControls() {
     if (!el('gp-buy-button')) return;
     const table = gp.table;
     const picks = gp.picks.length;
-    const odds = table && picks >= GAPPORI_PICKS_MIN ? table.odds[gapporiKey(gp.picks)] ?? null : null;
+    const flag = isGapporiFlag(gp.picks);
+    const odds = !table ? null : flag ? GAPPORI_FLAG : picks >= GAPPORI_PICKS_MIN ? table.odds[gapporiKey(gp.picks)] ?? null : null;
     const cost = gapporiCost();
     // 打っている途中は書き換えない (空にしたときなど)。離れたときに change で直す
     if (document.activeElement !== el('gp-units')) el('gp-units').value = String(gp.units);
     el('gp-cost').textContent = `${cost.toLocaleString('ja-JP')}`;
     const chosen = sortGapporiPicks(gp.picks).map(gapporiKindName).join('・');
-    el('gp-pick-info').textContent = picks < GAPPORI_PICKS_MIN
+    const flagInfo = gapporiFlagInfo(table);
+    el('gp-pick-info').textContent = flag
+        ? `ドクロ旗 (単品・1口 ${flagInfo.price.toLocaleString('ja-JP')}) ・ 船長チャンスの JP ルーレットでドクロ旗に止まったら当たり。倍率はそのとき ×${flagInfo.oddsMin}〜×${flagInfo.oddsMax} を抽選`
+        : picks < GAPPORI_PICKS_MIN
         ? `お宝をあと${GAPPORI_PICKS_MIN - picks}個選んでください (${GAPPORI_PICKS_MIN}〜${GAPPORI_PICKS_MAX}個。同じお宝を重ねてもよい)`
         : !odds || !gapporiPrice()
             ? 'この予想は次の回から買えます。'
@@ -487,7 +542,7 @@ function isGapporiJpRevealed(table) {
 
 /** この券の当たり・はずれを出してよいか (結果が出ていて、JP ルーレットのお宝ゲットの券なら回し終わっている) */
 function isGapporiTicketSettled(table, ticket, finished) {
-    return finished && (!ticket.granted || isGapporiJpRevealed(table));
+    return finished && ((!ticket.granted && !isGapporiFlag(ticket.picks)) || isGapporiJpRevealed(table));
 }
 
 /**
@@ -531,7 +586,7 @@ function renderGapporiTickets() {
         const item = document.createElement('li');
         const info = document.createElement('span');
         info.className = 'gp-ticket-info';
-        info.textContent = `${ticket.units}口 ×${ticket.odds}${ticket.featured ? ' ★' : ''}`;
+        info.textContent = `${ticket.units}口 ${gapporiOddsLabel(table, ticket)}${ticket.featured ? ' ★' : ''}`;
         if (ticket.featured) info.title = '本日のおすすめ (倍率アップ)';
         const state = document.createElement('strong');
         state.className = 'gp-ticket-state';
@@ -580,7 +635,7 @@ function renderGapporiCrowd(table, hits, finished) {
                 const settled = isGapporiTicketSettled(table, ticket, finished);
                 if (settled) chip.classList.add(ticket.win ? 'is-win' : 'is-lose');
                 chip.classList.toggle('is-featured', Boolean(ticket.featured));
-                chip.title = `${ticket.picks.map(gapporiKindName).join('・')} ${ticket.units}口 ×${ticket.odds}`;
+                chip.title = `${ticket.picks.map(gapporiKindName).join('・')} ${ticket.units}口 ${gapporiOddsLabel(table, ticket)}`;
                 const state = document.createElement('span');
                 state.className = 'gp-crowd-state';
                 state.textContent = settled
@@ -808,8 +863,7 @@ async function celebrateGapporiResult() {
             body.append(
                 modeText('p', 'slot-overlay-title', 'Captain'),
                 modeText('p', 'slot-overlay-sub', '船長チャンス!! JPルーレット'),
-                modeText('p', 'slot-overlay-count', `ジャックポット ${(jackpot.won ? jackpot.amount : table.jackpot).toLocaleString('ja-JP')}`
-                    + (Number.isFinite(jackpot.rate) ? ` (JP ${formatGapporiRate(jackpot.rate)})` : ''))
+                modeText('p', 'slot-overlay-count', `ジャックポット ${(jackpot.won ? jackpot.amount : table.jackpot).toLocaleString('ja-JP')}`)
             );
         }, { captain: 'stand' });
         // 盤面が JP ルーレットに変わって1回回る (同じ回のまま画面を開いていれば。卓は読み直すたびに別の物になるので回で見る)
@@ -821,6 +875,10 @@ async function celebrateGapporiResult() {
             if (jackpot.kind === 'jackpot') {
                 flashScreen('gold');
                 buzz([120, 60, 120]);
+            } else if (jackpot.kind === GAPPORI_FLAG) {
+                flashScreen('red');
+                buzz([120, 60, 120, 60, 300]);
+                showMessage(el('gp-message'), `☠️ ドクロ旗！ ドクロ旗の券が ×${jackpot.flagOdds} で当たり${jackpot.flagWinners?.length ? ` (${jackpot.flagWinners.length}枚)` : ' (この回はドクロ旗の券がありませんでした)'}。`, 'success');
             } else if (jackpot.kind === 'treasure') {
                 flashScreen('gold');
                 buzz([80, 40, 80, 40, 200]);
@@ -838,6 +896,21 @@ async function celebrateGapporiResult() {
             }
         } else {
             gp.jpShown = table.roundNo;
+        }
+        if (jackpot.kind === GAPPORI_FLAG && jackpot.flagWinners?.length) {
+            // 2つ目のカットイン: ドクロ旗 (当たったときに引いた倍率)
+            const myFlag = jackpot.flagWinners.filter(item => item.name === myName()).reduce((sum, item) => sum + item.payout, 0);
+            window.playGameSound?.('gpJackpotWin');
+            strobeScreen(['red', 'white', 'red']);
+            await showSlotOverlay('is-result', body => {
+                const total = modeText('p', 'slot-overlay-total', myFlag ? '獲得 ' : '倍率 ');
+                total.appendChild(modeText('strong', 'slot-overlay-won', myFlag ? myFlag.toLocaleString('ja-JP') : `×${jackpot.flagOdds}`));
+                body.append(
+                    modeText('p', 'slot-overlay-sub', `ドクロ旗!! ×${jackpot.flagOdds}`),
+                    modeText('p', 'slot-overlay-title', 'Skull'),
+                    total
+                );
+            }, { captain: 'laugh' });
         }
         if (jackpot.won) {
             // 2つ目のカットイン: ジャックポット
@@ -1031,7 +1104,7 @@ async function startGapporiNow() {
 /** いま選んでいる予想と口数で、券を1枚買う */
 async function buyGapporiTicket() {
     const picks = sortGapporiPicks(gp.picks);
-    if (casino.busy || !casino.session || !gp.table?.odds[gapporiKey(picks)]) return;
+    if (casino.busy || !casino.session || !(isGapporiFlag(picks) || gp.table?.odds[gapporiKey(picks)])) return;
     const units = gp.units;
     const cost = gapporiCost();
     setCasinoBusy(true);

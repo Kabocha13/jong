@@ -1,10 +1,10 @@
 // 宝探しの還元率を測る (Firestore には触らない)。
-//   node tools/gappori-sim.mjs [回数=20000]
+//   node tools/gappori-sim.mjs [回数=20000] [--featured]  (--featured で本日のおすすめの倍率アップも入れる。ふだんは入れない)
 //   回ごとに盤面と配当 (本日のおすすめの倍率アップを含む) を作り、買える予想を全部1口ずつ買ったことにして5球を入れる。
 //   3球目のあとのお宝ゲット (券ごとに GAPPORI_CHANCE_RATES。選ぶのは自動) と、船長マスの回の JP ルーレット
 //   (JP 1/16・お宝ゲット 1/16) も本番と同じ流れ (functions/gappori.js) で引く。
 //   出すのは予想の個数 (2〜5) ごとの、賭けた額に対する
-//     配当        = 当たりの払い戻し (3球目のあとのお宝ゲットを含む。設計値は GAPPORI_BASE_RETURN、おすすめは ×1.1)
+//     配当        = 当たりの払い戻し (3球目のあとのお宝ゲットを含む。設計値は GAPPORI_BASE_RETURNS、--featured のときはおすすめの ×1.1 も)
 //     お宝ゲット  = JP ルーレットのお宝ゲットで当たりになった分
 //     JP          = 外れた券の代金のうちジャックポットに貯める分 (貯まった分は全部 JP で戻るので、長い目で見た戻り)
 //   と、その合計。全体は買える予想を全部1口ずつ買ったときの額の比 (5個の券が高いので 5個に寄る)。
@@ -16,7 +16,7 @@ import {
   gapporiShortfall, generateGapporiBoard, generateGapporiJpWheel, isGapporiWin
 } from '../functions/gappori.js';
 
-const rounds = Number(process.argv[2]) || 20000;
+const rounds = Number(process.argv.find(arg => /^\d+$/.test(arg))) || 20000;
 const CHANCE_SCALE = 1000;
 const sizes = [2, 3, 4, 5];
 const sum = Object.fromEntries(sizes.map(size => [size, { bet: 0, payout: 0, treasure: 0, lost: 0, tickets: 0, wins: 0, treasureWins: 0 }]));
@@ -26,7 +26,7 @@ let treasureRounds = 0;
 
 for (let r = 0; r < rounds; r++) {
   const board = generateGapporiBoard(randomInt);
-  const odds = gapporiFeatured(board, gapporiOdds(board), randomInt).odds;
+  const odds = process.argv.includes('--featured') ? gapporiFeatured(board, gapporiOdds(board), randomInt).odds : gapporiOdds(board);
   const tickets = gapporiPickSets(board).map(picks => {
     const key = gapporiPickKey(picks);
     const cost = GAPPORI_UNIT_PRICES[picks.length];

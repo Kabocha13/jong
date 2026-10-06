@@ -27,6 +27,10 @@ import {
   GAPPORI_FIRST_BALLS,
   GAPPORI_JACKPOT_LOST_RATE,
   GAPPORI_JACKPOT_RATE,
+  GAPPORI_FLAG_ODDS_MAX,
+  GAPPORI_FLAG_ODDS_MIN,
+  GAPPORI_FLAG_PRICE,
+  GAPPORI_JP_FLAG,
   GAPPORI_JP_JACKPOT,
   GAPPORI_JP_TREASURE,
   GAPPORI_MAX_TICKETS,
@@ -36,7 +40,9 @@ import {
   gapporiAutoChance,
   gapporiFeatured,
   gapporiHitList,
+  drawGapporiFlagOdds,
   gapporiJpTreasureChoice,
+  isGapporiFlagPicks,
   gapporiOdds,
   gapporiPickKey,
   gapporiShortfall,
@@ -63,8 +69,10 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  6: 52.6 の チャンスの確率を半分に /
 //  7: 54.17 の 本日のおすすめ (5・4・3・2個の予想を1つずつ、倍率 ×1.1) /
 //  8: 54.19 の お宝を 7種類 → 11種類に (舵輪・望遠鏡・大砲・海賊旗。1回に並べるのは今までどおり6種類) /
-//  9: 55.2 の 船長チャンスを JP ルーレット (JP 1/16・お宝ゲット 1/16) に)
-export const GAPPORI_RULES_VERSION = 9;
+//  9: 55.2 の 船長チャンスを JP ルーレット (JP 1/16・お宝ゲット 1/16) に /
+//  10: 55.4 の 配当の設計値を予想の個数ごとにして、どの個数でも還元率 105% (本日のおすすめを除く) /
+//  11: 55.5 の ドクロ旗 (盤面のお宝から外し、単品で賭けて JP ルーレットのドクロ旗のマスで当たり。倍率 ×1〜×99 を当たったときに引く))
+export const GAPPORI_RULES_VERSION = 11;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -171,10 +179,12 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
       throw new GapporiTableError(400, `口数は1〜${GAPPORI_MAX_UNITS}で指定してください。`);
     }
     const key = gapporiPickKey(picks);
-    if (!table.odds[key]) throw new GapporiTableError(409, 'この予想は次の回から買えます。');
+    const flag = isGapporiFlagPicks(picks);
+    // ドクロ旗 (単品) は倍率を当たったときに引くので、配当表には無い
+    if (!flag && !table.odds[key]) throw new GapporiTableError(409, 'この予想は次の回から買えます。');
     const price = gapporiUnitPrice(picks);
-    const featured = (table.featured || []).some(item => item.key === key);
-    return { uid, name, picks, key, units, price, cost: units * price, odds: table.odds[key], featured, at: ctx.nowIso };
+    const featured = !flag && (table.featured || []).some(item => item.key === key);
+    return { uid, name, picks, key, units, price, cost: units * price, odds: flag ? null : table.odds[key], featured, at: ctx.nowIso };
   });
   const total = tickets.reduce((sum, ticket) => sum + ticket.cost, 0);
   if (total > wallet.chips) {
@@ -248,7 +258,7 @@ function startChance(ctx, start) {
   const { table } = ctx;
   table.chances = table.tickets
     .map((ticket, index) => ({ ticket, index }))
-    .filter(({ ticket }) => shortOf(table, ticket).length > 0
+    .filter(({ ticket }) => !isGapporiFlagPicks(ticket.picks) && shortOf(table, ticket).length > 0
       && ctx.randomInt(GAPPORI_CHANCE_SCALE) < Math.round(GAPPORI_CHANCE_RATES[ticket.picks.length] * GAPPORI_CHANCE_SCALE))
     .map(({ ticket, index }) => ({ ticket: index, uid: ticket.uid, name: ticket.name, choice: null, auto: false }));
   if (table.chances.length) {
@@ -288,7 +298,7 @@ function finishGapporiRound(ctx, start) {
   const { table } = ctx;
   const grantedBy = new Map(table.chances.map(chance => [chance.ticket, chance.choice]));
   const settle = (ticket, index, extra = null) => {
-    ticket.win = isGapporiWin(table.board, table.balls, ticket.picks, [grantedBy.get(index) || null, extra]);
+    ticket.win = !isGapporiFlagPicks(ticket.picks) && isGapporiWin(table.board, table.balls, ticket.picks, [grantedBy.get(index) || null, extra]);
     ticket.payout = ticket.win ? Math.round(ticket.cost * ticket.odds) : 0;
   };
   table.tickets.forEach((ticket, index) => settle(ticket, index));
@@ -302,12 +312,24 @@ function finishGapporiRound(ctx, start) {
 
   // 船長マスに球が入ったらチャンスタイム: JP ルーレットを1回回す (券を買った人がいる回だけ)
   const captain = table.balls.some(index => table.board.pockets[index] === GAPPORI_CAPTAIN);
-  const jackpot = { captain, rate: GAPPORI_JACKPOT_RATE, wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [] };
+  const jackpot = { captain, rate: GAPPORI_JACKPOT_RATE, wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [], flagOdds: null, flagWinners: [] };
   if (captain && costBy.size) {
     const wheel = generateGapporiJpWheel(ctx.randomInt);
     jackpot.wheel = wheel.pockets;
     jackpot.index = wheel.index;
     jackpot.kind = wheel.kind;
+  }
+
+  // ドクロ旗: ドクロ旗の券 (単品) が全部当たり。倍率はここで ×1〜×99 から1つ引く (この回の券はみな同じ倍率)
+  if (jackpot.kind === GAPPORI_JP_FLAG) {
+    jackpot.flagOdds = drawGapporiFlagOdds(ctx.randomInt);
+    table.tickets.forEach(ticket => {
+      if (!isGapporiFlagPicks(ticket.picks)) return;
+      ticket.odds = jackpot.flagOdds;
+      ticket.win = true;
+      ticket.payout = ticket.cost * jackpot.flagOdds;
+      jackpot.flagWinners.push({ uid: ticket.uid, name: ticket.name, payout: ticket.payout });
+    });
   }
 
   // お宝ゲット: 全員の券ごとに、足りないお宝を1つ「1球入ったこと」にする (あと1球で当たりだった券が当たりになる)
@@ -374,7 +396,7 @@ function finishGapporiRound(ctx, start) {
     jackpot
   };
   table.phase = 'result';
-  table.nextRoundAt = iso(start + GAPPORI_RESULT_MS + (jackpot.kind ? GAPPORI_CAPTAIN_MS : 0) + (jackpot.won ? GAPPORI_JACKPOT_MS : 0));
+  table.nextRoundAt = iso(start + GAPPORI_RESULT_MS + (jackpot.kind ? GAPPORI_CAPTAIN_MS : 0) + (jackpot.won || jackpot.flagWinners.length ? GAPPORI_JACKPOT_MS : 0));
 }
 
 /**
@@ -420,6 +442,7 @@ export function publicGapporiTable(table) {
     odds: table.odds,
     featured: table.featured || [],
     prices: GAPPORI_UNIT_PRICES,
+    flag: { price: GAPPORI_FLAG_PRICE, oddsMin: GAPPORI_FLAG_ODDS_MIN, oddsMax: GAPPORI_FLAG_ODDS_MAX },
     jackpot: Math.floor(table.jackpot || 0),
     jackpotRate: GAPPORI_JACKPOT_RATE,   // JP ルーレットで JP が出る確率 (1/16)
     ready: (table.ready || []).map(id => table.tickets.find(ticket => ticket.uid === id)?.name).filter(Boolean),
@@ -440,7 +463,8 @@ export function publicGapporiTable(table) {
         jackpot: {
           ...table.result.jackpot,
           shares: table.result.jackpot.shares.map(({ name, amount }) => ({ name, amount })),
-          granted: (table.result.jackpot.granted || []).map(({ ticket, name, kind }) => ({ ticket, name, kind }))
+          granted: (table.result.jackpot.granted || []).map(({ ticket, name, kind }) => ({ ticket, name, kind })),
+          flagWinners: (table.result.jackpot.flagWinners || []).map(({ name, payout }) => ({ name, payout }))
         }
       }
       : null,

@@ -4218,15 +4218,6 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     animation: slot-shine 2.4s linear infinite;
 }
 
-.gp-jackpot-rate {
-    font-size: 0.7em;
-    letter-spacing: 0.06em;
-    color: var(--brass-pale);
-    font-variant-numeric: tabular-nums;
-}
-
-.gp-jackpot-rate:empty { display: none; }
-
 .gp-status {
     min-height: 1.4em;
     margin: 8px 0 0;
@@ -4359,6 +4350,12 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 .gp-pocket .gp-jp-pocket.is-miss { width: 4em; height: 4em; }
 .gp-pocket .gp-jp-pocket.is-treasure { width: calc(0.88em / 0.3); height: calc(0.88em / 0.3); }
 .gp-pocket .gp-jp-pocket.is-jackpot { width: calc(0.88em / 0.42); height: calc(0.88em / 0.42); }
+.gp-jp-pocket.is-flag { overflow: hidden; background: #0b0b0b; }
+.gp-jp-pocket.is-flag .slot-symbol { width: 100%; height: 100%; box-shadow: none; }
+.gp-pocket.is-stopped .gp-jp-pocket.is-flag { box-shadow: 0 0 0 3px #ff5a4a, 0 0 24px #ff5a4a; }
+
+/* 券を買う欄のドクロ旗 (単品)。盤面のお宝と見分けられるよう、縁を赤くする */
+.gp-kinds button.gp-kind.is-flag { border-color: var(--rum-light); }
 
 @keyframes gp-jp-glow {
     from { box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.35), 0 0 6px rgba(255, 90, 74, 0.5); }
