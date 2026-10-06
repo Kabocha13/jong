@@ -4,7 +4,7 @@
 //   画面はそれを順に見せる (サイコロ → コマの移動 → マスの効果)。途中で閉じても払い戻しは入っている。
 //   章 (毎週月曜に進む) と盤面はサーバーから受け取る (voyage.chapter / voyage.chapters)。章ごとの物語 (アニメ) は voyage-story.js。
 //   ジャックポットと最終秘宝は voyage_public/main を読んで出す (20秒ごとに読み直す)。
-//   閃光・金貨・画面いっぱいの演出は game-slot.js のものを使う。入場・手元チップ・精算は game.js。
+//   閃光・金貨・画面いっぱいの演出は game-slot.js のものを使う。財布 (使えるレート) の表示は game.js。
 //   ゲーム一覧のカードは、公式キャラ (船長ハク) を出し始める 10/4 0:00 に Coming soon から航海に切り替わる (initVoyage)。
 
 const VG_BET = 10;                // 賭け金は 10 で固定 (サーバーの VOYAGE_BET と同じ)
@@ -759,7 +759,7 @@ function queueVoyageAuto(wait) {
         if (!vg.auto || !vg.open) return;
         if (vg.bet > vgChips() || !vgCanRoll()) {
             stopVoyageAuto();
-            showMessage(el('vg-message'), '手元のチップが賭け金に足りないので、オートを止めました。', 'info');
+            showMessage(el('vg-message'), '使えるレートが賭け金に足りないので、オートを止めました。', 'info');
             return;
         }
         rollVoyage();

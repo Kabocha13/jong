@@ -32,6 +32,7 @@ const RATE_BONUS_SPECIAL = 30;               // 特別ボーナスの加算量
 const RATE_BONUS_SPECIAL_PERCENT = 1;        // 特別ボーナスの発生確率 (%)
 const RATE_CHART_COLLECTION = 'rate_chart';  // レート推移グラフ用 (日別の終値)
 const RATE_CHART_DOC = 'daily';
+const RATE_CHART_TODAY_DOC = 'today';   // 今日の分だけ (カジノは1回ごとにここを動かす。daily の最後の日をこれで置き換える)
 const RATE_CHART_DAYS = 30;                 // グラフに出す日数
 // レートの貸し出し (借金)。ルールと計算は functions/loan.js にあり、画面はサーバーの返事を表示するだけ。
 // 記録 (loans/{player}) は誰でも読めるが、書くのは Cloud Functions だけ
@@ -981,15 +982,42 @@ async function updateAllDataInFirebase(newData) {
 async function fetchRateChart() {
     const db = getFirestoreDb();
     if (!db) return null;
-    const doc = await db.collection(RATE_CHART_COLLECTION).doc(RATE_CHART_DOC).get();
+    const [doc, todayDoc] = await Promise.all([
+        db.collection(RATE_CHART_COLLECTION).doc(RATE_CHART_DOC).get(),
+        db.collection(RATE_CHART_COLLECTION).doc(RATE_CHART_TODAY_DOC).get().catch(() => null)
+    ]);
     if (!doc.exists) return null;
     const data = doc.data() || {};
     const days = Array.isArray(data.days) ? data.days : [];
     return {
-        days: days.filter(day => day && typeof day.date === 'string' && day.rates),
+        days: mergeRateChartToday(days.filter(day => day && typeof day.date === 'string' && day.rates),
+            todayDoc && todayDoc.exists ? todayDoc.data() : null),
         players: Array.isArray(data.players) ? data.players : [],
         updatedAt: String(data.updatedAt || '')
     };
+}
+
+/**
+ * 日別データの最後の日を、今日の分 (rate_chart/today。カジノは1回ごとにこちらだけを動かす) で置き換える。
+ * 今日の分の日付が最後の日より新しければ (日付が変わってまだ daily が作り直されていないとき) 足す
+ */
+function mergeRateChartToday(days, today) {
+    if (!today || typeof today.date !== 'string' || !today.rates) return days;
+    const day = { date: today.date, rates: today.rates, debts: today.debts || {}, events: Array.isArray(today.events) ? today.events : [] };
+    const last = days[days.length - 1];
+    if (last && last.date === today.date) return [...days.slice(0, -1), { ...last, ...day }];
+    if (!last || last.date < today.date) return [...days, day];
+    return days;
+}
+
+/** 今日の分 (rate_chart/today) が変わるたびに onChange(today) を呼ぶ。止める関数を返す */
+function watchRateChartToday(onChange) {
+    const db = getFirestoreDb();
+    if (!db) return () => {};
+    return db.collection(RATE_CHART_COLLECTION).doc(RATE_CHART_TODAY_DOC).onSnapshot(
+        doc => { if (doc.exists) onChange(doc.data()); },
+        error => console.warn('レート推移 (今日の分) の監視に失敗:', error)
+    );
 }
 
 /**

@@ -7,6 +7,7 @@
 
 「出てくる向き-番号.png」で置きます。向きごとに3枚まで (番号は 1〜3)。
 いまは左右の6枚 (left-1 宝箱・left-2 大砲・left-3 舵輪・right-1 ラム酒の樽・right-2 大きな金貨・right-3 望遠鏡) だけを使う。
+left-2 (大砲)・left-3 (舵輪)・right-3 (望遠鏡) は宝探しのお宝の絵にも使っている (game-slot.js の SLOT_SYMBOLS の cannon・helm・telescope)。差し替えると宝探しの絵も変わる。
 上・下からも出せる作りだが、絵を置かないことにしたので探さない (使うなら game-slot.js の SLOT_PROP_SIDES に 'top'・'bottom' を足す)。
 
 | 向き | ファイル名 | 止まる位置 |

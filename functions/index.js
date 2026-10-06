@@ -102,32 +102,13 @@ import {
   wantedReason
 } from './wanted.js';
 import {
-  AIKANKAKU_CLOSE_HOUR,
-  AIKANKAKU_MAX_BET,
-  AIKANKAKU_MIN_BET,
-  AIKANKAKU_MULTIPLIER,
-  AIKANKAKU_REVEAL_HOUR,
-  AIKANKAKU_SOURCE,
-  AIKANKAKU_START_DATE,
-  AIKANKAKU_TOTAL,
-  AikankakuError,
-  addAikankakuBets,
-  addDays,
-  aikankakuPayout,
-  aikankakuRound,
-  aikankakuTimes,
-  aikankakuTopicOn,
-  betReason,
-  cancelAikankakuBet,
-  cancelReason,
-  isAikankakuRevealed,
-  latestRevealedAikankakuDate,
-  normalizeAikankakuStats,
-  normalizeDayBets,
-  payoutReason,
-  picksTotal,
-  summarizeAikankakuDay
-} from './aikankaku.js';
+  CASINO_LOG_GAMES,
+  casinoChartKey,
+  casinoHeld,
+  casinoLogReason,
+  casinoLogStep,
+  tableHeld
+} from './casino-wallet.js';
 import {
   SinkTableError,
   advanceSinkTable,
@@ -296,6 +277,9 @@ const RATE_CHART_START_DATE = '2026-09-22';  // これより前の日はグラ�
 const RATE_CHART_START_RATE = 5000;          // 初日は全員この値から始める (実際のログは見ない)
 const RATE_CHART_COLLECTION = 'rate_chart';
 const RATE_CHART_DOC = 'daily';
+// 今日の分だけを持つドキュメント (daily の最後の日と同じ形)。カジノは1回ごとにここだけを動かす (applyRateChartLive)。
+// 画面は daily を読んでから、日付が同じなら最後の日をこれで置き換え、変わるたびに描き直す
+const RATE_CHART_TODAY_DOC = 'today';
 
 /** 今日を含む直近 days 日ぶん (RATE_CHART_START_DATE 以降) の JST 日付キーを古い順で返す */
 function recentJstDateKeys(days = RATE_CHART_DAYS) {
@@ -361,6 +345,13 @@ const RATE_CHART_MERGED_SOURCES = new Map([
   ['underground_chinchiro', (count, delta) => `船底チンチロ ${count}勝 (${signed(delta)})`]
 ]);
 
+/** カジノの同じ回の出来事の理由。1人ならその人の増減ログの理由、2人以上なら「ブラックジャック (3人)」 */
+function rateChartGroupReason(source, changes, firstReason) {
+  if (changes.length <= 1) return firstReason;
+  const game = Object.values(CASINO_LOG_GAMES).find(item => item.source === source);
+  return `${game ? game.name : 'カジノ'} (${changes.length}人)`;
+}
+
 /**
  * 全員の増減ログを時刻順に並べ、同時に保存されたもの (1局ぶん・1回の補正) を1件にまとめる。
  * RATE_CHART_MERGED_SOURCES (船底の仕分けなど) は、同じ人が続けた分も1件にまとめる (「船底の仕分け (+120)」)。
@@ -374,10 +365,30 @@ function groupRateChartEvents(entriesByPlayer) {
   all.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   const eventsByDate = new Map();
+  const keyed = new Map();   // chartKey → 出来事 (カジノの同じ回・同じ時に始めた人は1つにまとめる)
   let current = null;
   all.forEach(entry => {
     const time = Date.parse(entry.createdAt);
     const delta = entry.afterScore - entry.beforeScore;
+    if (entry.chartKey) {
+      const change = { player: entry.player, afterScore: entry.afterScore, debtAfter: entry.debtAfter };
+      const existing = keyed.get(entry.chartKey);
+      if (existing && existing.date === entry.date) {
+        if (!existing.changes.some(item => item.player === entry.player)) existing.changes.push(change);
+        existing.reason = rateChartGroupReason(existing.source, existing.changes, existing.firstReason);
+        current = null;
+        return;
+      }
+      const event = {
+        at: entry.createdAt, date: entry.date, source: entry.source, reason: entry.reason, firstReason: entry.reason,
+        key: entry.chartKey, lastTime: time, count: 1, delta, changes: [change]
+      };
+      keyed.set(entry.chartKey, event);
+      if (!eventsByDate.has(entry.date)) eventsByDate.set(entry.date, []);
+      eventsByDate.get(entry.date).push(event);
+      current = null;
+      return;
+    }
     const continued = current
       && RATE_CHART_MERGED_SOURCES.has(entry.source)
       && current.source === entry.source
@@ -464,7 +475,8 @@ async function rebuildRateChartFromHistory() {
       debtBefore: isLoan ? Math.max(0, normalizeRate(entry.debtBefore)) : null,
       debtAfter: isLoan ? Math.max(0, normalizeRate(entry.debtAfter)) : null,
       source,
-      reason: String(entry.reason || '')
+      reason: String(entry.reason || ''),
+      chartKey: String(entry.chartKey || '')
     });
   });
   entriesByPlayer.forEach(entries => entries.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
@@ -517,7 +529,15 @@ async function rebuildRateChartFromHistory() {
         state[change.player] = change.afterScore;
         if (change.debtAfter !== null && change.debtAfter !== undefined) debtState[change.player] = change.debtAfter;
       });
-      return { at: event.at, source: event.source, reason: event.reason, rates: { ...state }, debts: { ...debtState } };
+      return {
+        at: event.at,
+        source: event.source,
+        reason: event.reason,
+        key: event.key || null,
+        members: event.changes.map(change => change.player),
+        rates: { ...state },
+        debts: { ...debtState }
+      };
     });
   });
 
@@ -527,7 +547,73 @@ async function rebuildRateChartFromHistory() {
     updatedAt: new Date().toISOString()
   };
   await db.collection(RATE_CHART_COLLECTION).doc(RATE_CHART_DOC).set(payload);
+  // 今日の分 (カジノが1回ごとに動かすほう) も同じ中身で書き直す
+  const today = days[days.length - 1];
+  const yesterday = days.length > 1 ? days[days.length - 2] : null;
+  await db.collection(RATE_CHART_COLLECTION).doc(RATE_CHART_TODAY_DOC).set({
+    ...today,
+    open: today.open || (yesterday ? yesterday.rates : today.rates),
+    openDebts: today.openDebts || (yesterday ? yesterday.debts : today.debts),
+    players: payload.players,
+    updatedAt: payload.updatedAt
+  });
   return payload;
+}
+
+/**
+ * カジノの1回ぶんの変化 (items: [{ key, at, date, source, game, reason, player, afterScore }]) を、
+ * 今日のグラフ (rate_chart/today) のその点へ入れる。同じ key の点があればその点 (とそれより後の点) の本人の値を
+ * 書き換え、無ければ今日の最後に点を足す。同じ key の点に2人以上いれば、全員がその点で動く。
+ * 今日の分がまだ無い・日付が違う・グラフに居ない人がいる・書き込みに失敗したときは、全部を作り直す
+ * (それより後の点で本人の値が変わることは無い。ほかでレートが動くと増減ログは次の1件 = 次の点になるため)
+ */
+async function applyRateChartLive(items) {
+  if (!items || !items.length) return;
+  let rebuild = false;
+  try {
+    rebuild = await db.runTransaction(async transaction => {
+      const ref = db.collection(RATE_CHART_COLLECTION).doc(RATE_CHART_TODAY_DOC);
+      const doc = await transaction.get(ref);
+      const todayKey = getJstDateKey();
+      if (!doc.exists) return true;
+      const day = doc.data();
+      if (day.date !== todayKey || items.some(item => item.date !== todayKey)) return true;
+      const players = new Set(day.players || []);
+      if (items.some(item => !players.has(item.player))) return true;
+      const events = Array.isArray(day.events) ? day.events.map(event => ({ ...event })) : [];
+      const rates = { ...(day.rates || {}) };
+      const groups = new Map();
+      items.forEach(item => {
+        if (!groups.has(item.key)) groups.set(item.key, []);
+        groups.get(item.key).push(item);
+      });
+      groups.forEach((group, key) => {
+        let index = events.findIndex(event => event.key === key);
+        if (index < 0) {
+          const last = events.length ? events[events.length - 1] : { rates: day.open || {}, debts: day.openDebts || {} };
+          events.push({
+            key, at: group[0].at, source: group[0].source, reason: group[0].reason, members: [],
+            rates: { ...last.rates }, debts: { ...(last.debts || {}) }
+          });
+          index = events.length - 1;
+        }
+        const members = new Set(events[index].members || []);
+        group.forEach(item => {
+          members.add(item.player);
+          for (let i = index; i < events.length; i++) events[i].rates = { ...events[i].rates, [item.player]: item.afterScore };
+          rates[item.player] = item.afterScore;
+        });
+        events[index].members = [...members];
+        events[index].reason = rateChartGroupReason(group[0].source, events[index].members, group[group.length - 1].reason);
+      });
+      transaction.set(ref, { ...day, events, rates, updatedAt: new Date().toISOString() });
+      return false;
+    });
+  } catch (error) {
+    console.error('レート推移グラフの今日の分の更新に失敗しました:', error);
+    rebuild = true;
+  }
+  if (rebuild) await rebuildRateChartQuietly('casino_live');
 }
 
 /** グラフ更新は本体の処理を巻き込んで失敗させない */
@@ -2179,342 +2265,75 @@ export const wanted = onRequest({ region: 'asia-northeast1' }, async (req, res) 
 });
 
 // -----------------------------------------------------------------
-// AIカンカク (1日1問。AI が数字を出さずに表したお題の数 (1〜100) を当てる)
-//   ルールは aikankaku.js、お題は aikankaku-topics.js (答えが入っているので画面には渡さない)。
-//   第N問は前の日の 14:00 から当日 13:00 まで BET を受け付け、14:00 に発表する。BET はその場でレートから引き、
-//   発表のときの精算 (毎日 14:01 の settleAikankakuDays。画面を開いたときも、発表の時刻を過ぎた分を確かめる) で
-//   答えの数に BET した額の10倍をレートに入れる。
-//   問題ごとの BET aikankaku_days/{日付} と人ごとの合計 aikankaku_players/{uid} は Cloud Functions だけが読み書きする (rules で禁止)。
-//   レート推移グラフは、BET のたびには作り直さず settleIdleCasinoSessions (10分ごと) と精算のときに作り直す。
+// AIカンカク (54.16 で入れ、55.1 で削除)。精算していない問題 (aikankaku_days の settled が false) に BET していた人へ、
+// その BET を全額レートへ返す。カジノの操作の前 (このインスタンスで1回) と10分ごとの定期処理で呼ぶ。
+// 返したら settled: true・refunded: true にするので、2回呼ばれても二重には返さない。
+// aikankaku_days・aikankaku_players は残す (rules で読み書きとも禁止のまま)
 // -----------------------------------------------------------------
 const AIKANKAKU_DAYS = 'aikankaku_days';
-const AIKANKAKU_PLAYERS = 'aikankaku_players';
-const AIKANKAKU_HISTORY_LIMIT = 7;   // 画面に返す、発表済みの問題の数 (新しい順)
+let aikankakuRefundChecked = false;
 
-function aikankakuDayRef(dateKey) {
-  return db.collection(AIKANKAKU_DAYS).doc(dateKey);
-}
-
-function aikankakuStatsRef(uid) {
-  return db.collection(AIKANKAKU_PLAYERS).doc(uid);
-}
-
-/** 受付中・集計中の問題 (答えは入れない) */
-function publicAikankakuRound(round, dayData, uid) {
-  if (!round.topic) return null;
-  const bets = normalizeDayBets(dayData?.bets);
-  const mine = bets[uid];
-  return {
-    date: round.date,
-    no: round.topic.no,
-    hint: round.topic.hint,
-    ...aikankakuTimes(round.date),
-    mine: mine ? { picks: mine.picks, total: mine.total } : { picks: {}, total: 0 },
-    players: Object.keys(bets).length,
-    amount: Object.values(bets).reduce((sum, entry) => sum + entry.total, 0)
-  };
-}
-
-/** 発表した問題の結果 */
-function publicAikankakuResult(dateKey, dayData, uid) {
-  const topic = aikankakuTopicOn(dateKey);
-  const bets = normalizeDayBets(dayData?.bets);
-  const summary = summarizeAikankakuDay(bets, topic.answer);
-  const mine = bets[uid];
-  return {
-    date: dateKey,
-    no: topic.no,
-    hint: topic.hint,
-    answer: topic.answer,
-    revealsAt: aikankakuTimes(dateKey).revealsAt,
-    // BET が無かった日は精算するものが無い
-    settled: !dayData || Boolean(dayData.settled) || summary.players === 0,
-    mine: mine ? { picks: mine.picks, total: mine.total, payout: aikankakuPayout(mine.picks, topic.answer) } : null,
-    players: summary.players,
-    amount: summary.amount,
-    winners: summary.winners,
-    popular: summary.popular
-  };
-}
-
-function publicAikankakuRules() {
-  return {
-    total: AIKANKAKU_TOTAL,
-    startDate: AIKANKAKU_START_DATE,
-    minBet: AIKANKAKU_MIN_BET,
-    maxBet: AIKANKAKU_MAX_BET,
-    multiplier: AIKANKAKU_MULTIPLIER,
-    closeHour: AIKANKAKU_CLOSE_HOUR,
-    revealHour: AIKANKAKU_REVEAL_HOUR
-  };
-}
-
-/**
- * 発表の時刻を過ぎた問題を精算する。答えの数に BET した人へ BET の10倍を入れ、増減ログを残す。
- * 済んでいれば何もしない (2回呼ばれても二重には払わない)。返り値は払った人の一覧 (精算しなかったら null)
- */
-async function settleAikankakuDay(dateKey) {
-  const topic = aikankakuTopicOn(dateKey);
-  if (!isAikankakuRevealed(dateKey, Date.now())) return null;
-  const ref = aikankakuDayRef(dateKey);
-  const at = new Date().toISOString();
-  const paid = await db.runTransaction(async transaction => {
-    const dayDoc = await transaction.get(ref);
-    if (!dayDoc.exists || dayDoc.data().settled) return null;
-    if (!topic) {
-      transaction.update(ref, { settled: true, settledAt: at });
-      return null;
-    }
-    const bets = normalizeDayBets(dayDoc.data().bets);
-    const winnerUids = Object.keys(bets).filter(uid => aikankakuPayout(bets[uid].picks, topic.answer) > 0);
-    const [playerSnapshots, statsDocs] = await Promise.all([
-      Promise.all(winnerUids.map(uid => transaction.get(playerQuery(bets[uid].player)))),
-      Promise.all(winnerUids.map(uid => transaction.get(aikankakuStatsRef(uid))))
-    ]);
-    const winners = [];
-    winnerUids.forEach((uid, i) => {
-      const entry = bets[uid];
-      const bet = entry.picks[String(topic.answer)];
-      const payout = aikankakuPayout(entry.picks, topic.answer);
-      const playerSnapshot = playerSnapshots[i];
-      if (playerSnapshot.empty) {
-        console.warn(`AIカンカク ${dateKey}: ${entry.player} が見つからないので払い戻し ${payout} を渡せませんでした`);
-        return;
-      }
-      const playerDoc = playerSnapshot.docs[0];
-      const beforeScore = normalizeRate(playerDoc.data().score);
-      const afterScore = beforeScore + payout;
-      transaction.update(playerDoc.ref, { score: afterScore });
-      const historyId = rateHistoryDocId(entry.player, at);
-      transaction.set(db.collection('point_history').doc(historyId), {
-        id: historyId,
-        player: entry.player,
-        beforeScore,
-        afterScore,
-        delta: payout,
-        source: AIKANKAKU_SOURCE,
-        reason: payoutReason(topic.no, topic.answer, bet),
-        actor: 'aikankaku',
-        createdAt: at
-      });
-      const stats = normalizeAikankakuStats(statsDocs[i].exists ? statsDocs[i].data() : null);
-      transaction.set(aikankakuStatsRef(uid), {
-        player: entry.player,
-        ...stats,
-        hits: stats.hits + 1,
-        payout: stats.payout + payout,
-        updatedAt: at
-      });
-      winners.push({ player: entry.player, payout });
-    });
-    transaction.update(ref, { settled: true, settledAt: at, answer: topic.answer });
-    return winners;
-  });
-  if (paid && paid.length) await rebuildRateChartQuietly(AIKANKAKU_SOURCE);
-  return paid;
-}
-
-/** まだ精算していない問題のうち、発表の時刻を過ぎたものを全部精算する */
-async function settlePendingAikankakuDays() {
+async function refundAikankakuBets() {
+  if (aikankakuRefundChecked) return;
   const snapshot = await db.collection(AIKANKAKU_DAYS).where('settled', '==', false).get();
-  const results = [];
+  if (snapshot.empty) {
+    aikankakuRefundChecked = true;
+    return;
+  }
+  let refunded = 0;
   for (const doc of snapshot.docs) {
-    if (!isAikankakuRevealed(doc.id, Date.now())) continue;
-    results.push({ date: doc.id, paid: await settleAikankakuDay(doc.id) });
-  }
-  return results;
-}
-
-async function aikankakuStatus(uid, username) {
-  await settlePendingAikankakuDays();
-  const nowMs = Date.now();
-  const round = aikankakuRound(nowMs);
-  const latest = latestRevealedAikankakuDate(nowMs);
-  const pastDates = [];
-  for (let i = 0; latest && i < AIKANKAKU_HISTORY_LIMIT; i++) {
-    const date = addDays(latest, -i);
-    if (!aikankakuTopicOn(date)) break;
-    pastDates.push(date);
-  }
-  const roundRefs = round.topic ? [aikankakuDayRef(round.date)] : [];
-  const [playerSnapshot, statsDoc, ...dayDocs] = await Promise.all([
-    playerQuery(username).get(),
-    aikankakuStatsRef(uid).get(),
-    ...[...roundRefs, ...pastDates.map(aikankakuDayRef)].map(ref => ref.get())
-  ]);
-  const roundDoc = round.topic ? dayDocs.shift() : null;
-  return {
-    me: username,
-    score: playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score),
-    phase: round.phase,
-    firstOpensAt: aikankakuTimes(AIKANKAKU_START_DATE).opensAt,
-    round: publicAikankakuRound(round, roundDoc && roundDoc.exists ? roundDoc.data() : null, uid),
-    results: pastDates.map((date, i) => publicAikankakuResult(date, dayDocs[i].exists ? dayDocs[i].data() : null, uid)),
-    stats: normalizeAikankakuStats(statsDoc.exists ? statsDoc.data() : null),
-    rules: publicAikankakuRules(),
-    now: new Date(nowMs).toISOString()
-  };
-}
-
-/** 受付中の問題か確かめる (画面が見ている問題 rawDate と、いまの問題が同じか) */
-function requireOpenAikankakuRound(rawDate) {
-  const round = aikankakuRound(Date.now());
-  if (round.phase === 'before') throw new AikankakuError(409, 'AIカンカクはまだ始まっていません。');
-  if (round.phase === 'ended') throw new AikankakuError(409, 'AIカンカクは全問終わりました。');
-  if (round.phase === 'closed' || String(rawDate || '') !== round.date) {
-    throw new AikankakuError(409, `この問題の受付は締め切りました (毎日 ${AIKANKAKU_CLOSE_HOUR}:00 締め切り)。`);
-  }
-  return round;
-}
-
-/**
- * BET を足す (body.picks: { '37': 100, ... })。または1つの数の BET を取り消す (body.cancel: 37)。
- * どちらもその場でレートを動かし、増減ログを1件残す
- */
-async function aikankakuChangeBets(uid, username, body, cancel) {
-  const round = requireOpenAikankakuRound(body.date);
-  const ref = aikankakuDayRef(round.date);
-  const statsRef = aikankakuStatsRef(uid);
-  const change = await db.runTransaction(async transaction => {
-    const [dayDoc, playerSnapshot, statsDoc] = await Promise.all([
-      transaction.get(ref),
-      transaction.get(playerQuery(username)),
-      transaction.get(statsRef)
-    ]);
-    // トランザクションのやり直しのあいだに締め切りを過ぎていないか
-    requireOpenAikankakuRound(round.date);
-    if (playerSnapshot.empty) throw new AikankakuError(404, 'プレイヤーが見つかりません。');
-    const dayData = dayDoc.exists ? dayDoc.data() : {};
-    if (dayData.settled) throw new AikankakuError(409, 'この問題はもう精算しました。');
-    const playerDoc = playerSnapshot.docs[0];
-    const beforeScore = normalizeRate(playerDoc.data().score);
-    const bets = normalizeDayBets(dayData.bets);
-    const current = bets[uid];
-    const at = new Date().toISOString();
-
-    let delta;
-    let reason;
-    let picks;
-    if (cancel) {
-      const canceled = cancelAikankakuBet(current?.picks, body.number);
-      delta = canceled.refund;
-      reason = cancelReason(round.topic.no, canceled.number);
-      picks = canceled.picks;
-    } else {
-      const added = addAikankakuBets(current?.picks, body.picks);
-      if (beforeScore < added.cost) {
-        throw new AikankakuError(400, `レートが足りません (いま ${beforeScore.toLocaleString('ja-JP')}、BET の合計 ${added.cost.toLocaleString('ja-JP')})。`);
-      }
-      delta = -added.cost;
-      reason = betReason(round.topic.no, added.added);
-      picks = added.picks;
+    try {
+      refunded += await db.runTransaction(async transaction => {
+        const dayDoc = await transaction.get(doc.ref);
+        if (!dayDoc.exists || dayDoc.data().settled) return 0;
+        const day = dayDoc.data();
+        const entries = Object.values(day.bets || {})
+          .filter(entry => entry && entry.player)
+          .map(entry => {
+            const picks = Object.entries(entry.picks || {})
+              .map(([number, amount]) => [Number(number), Math.max(0, normalizeRate(amount))])
+              .filter(([, amount]) => amount > 0)
+              .sort((a, b) => a[0] - b[0]);
+            return { player: String(entry.player), picks, total: picks.reduce((sum, [, amount]) => sum + amount, 0) };
+          })
+          .filter(entry => entry.total > 0);
+        const snapshots = await Promise.all(entries.map(entry => transaction.get(playerQuery(entry.player))));
+        const at = new Date().toISOString();
+        let count = 0;
+        entries.forEach((entry, index) => {
+          if (snapshots[index].empty) {
+            console.warn(`AIカンカク ${doc.id}: ${entry.player} が見つからないので BET ${entry.total} を返せませんでした`);
+            return;
+          }
+          const playerDoc = snapshots[index].docs[0];
+          const beforeScore = normalizeRate(playerDoc.data().score);
+          const afterScore = beforeScore + entry.total;
+          transaction.update(playerDoc.ref, { score: afterScore });
+          const historyId = rateHistoryDocId(entry.player, at);
+          const numbers = entry.picks.map(([number]) => number);
+          transaction.set(db.collection('point_history').doc(historyId), {
+            id: historyId,
+            player: entry.player,
+            beforeScore,
+            afterScore,
+            delta: entry.total,
+            source: 'aikankaku',
+            reason: `AIカンカク 終了のため第${day.no || '?'}問の BET を返却 (${numbers.length <= 6 ? numbers.join('・') : `${numbers.slice(0, 5).join('・')} ほか${numbers.length - 5}個`})`,
+            actor: 'aikankaku_refund',
+            createdAt: at
+          });
+          count += 1;
+        });
+        transaction.update(doc.ref, { settled: true, refunded: true, settledAt: at });
+        return count;
+      });
+    } catch (error) {
+      console.error(`aikankaku_days/${doc.id} の返却に失敗しました:`, error);
     }
-    const afterScore = beforeScore + delta;
-    transaction.update(playerDoc.ref, { score: afterScore });
-    const historyId = rateHistoryDocId(username, at);
-    transaction.set(db.collection('point_history').doc(historyId), {
-      id: historyId,
-      player: username,
-      beforeScore,
-      afterScore,
-      delta,
-      source: AIKANKAKU_SOURCE,
-      reason,
-      actor: username,
-      createdAt: at
-    });
-
-    // その問題の BET (取り消しで消えた数を残さないよう、bets はまるごと書き直す)
-    const nextBets = { ...bets };
-    if (Object.keys(picks).length) nextBets[uid] = { player: username, picks, total: picksTotal(picks), updatedAt: at };
-    else delete nextBets[uid];
-    transaction.set(ref, { date: round.date, no: round.topic.no, bets: nextBets, settled: false, updatedAt: at });
-
-    // 人ごとの合計 (BET した問題の数は、その問題で最初に BET したとき / 全部取り消したときに増減)
-    const stats = normalizeAikankakuStats(statsDoc.exists ? statsDoc.data() : null);
-    const hadBets = Boolean(current);
-    const hasBets = Object.keys(picks).length > 0;
-    transaction.set(statsRef, {
-      player: username,
-      ...stats,
-      plays: Math.max(0, stats.plays + (hasBets && !hadBets ? 1 : 0) - (hadBets && !hasBets ? 1 : 0)),
-      bet: Math.max(0, stats.bet - delta),
-      updatedAt: at
-    });
-    return { delta, beforeScore, afterScore };
-  });
-  return { ...await aikankakuStatus(uid, username), change };
+  }
+  console.log('AIカンカクの BET の返却:', refunded, '人');
+  if (refunded) await rebuildRateChartQuietly('aikankaku_refund');
 }
-
-/** この時間内に BET・取り消しがあれば、レート推移グラフを作り直す (settleIdleCasinoSessions から呼ぶ) */
-async function rebuildRateChartAfterAikankaku(sinceMs) {
-  const round = aikankakuRound(Date.now());
-  // 締め切った直後にも、締め切り前の BET の分を作り直せるよう、いまの問題を見る (集計中も同じ日)
-  if (!round.date) return;
-  const dayDoc = await aikankakuDayRef(round.date).get();
-  const updatedAt = dayDoc.exists ? Date.parse(dayDoc.data().updatedAt || '') : NaN;
-  if (Number.isFinite(updatedAt) && updatedAt >= Date.now() - sinceMs) await rebuildRateChartQuietly(AIKANKAKU_SOURCE);
-}
-
-const AIKANKAKU_ACTIONS = {
-  status: ({ uid, username }) => aikankakuStatus(uid, username),
-  bet: ({ uid, username, body }) => aikankakuChangeBets(uid, username, body, false),
-  cancel: ({ uid, username, body }) => aikankakuChangeBets(uid, username, body, true)
-};
-
-export const aikankaku = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
-  setCors(req, res);
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
-  if (req.method !== 'POST') {
-    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
-    return;
-  }
-
-  try {
-    const decoded = await getVerifiedAuthToken(req);
-    const username = decoded && decoded.username;
-    if (!username) {
-      res.status(401).json({ status: 'error', message: 'ログインが必要です。マイページでログインし直してください。' });
-      return;
-    }
-    if (RATE_EXCLUDED_PLAYERS.has(username)) {
-      res.status(403).json({ status: 'error', message: 'このアカウントはAIカンカクを利用できません。' });
-      return;
-    }
-
-    const body = req.body || {};
-    const action = String(body.action || 'status');
-    if (!Object.hasOwn(AIKANKAKU_ACTIONS, action)) {
-      throw new AikankakuError(400, '不明な操作です。');
-    }
-    const payload = await AIKANKAKU_ACTIONS[action]({ uid: decoded.uid, username, body });
-    res.status(200).json({ status: 'success', ...payload });
-  } catch (error) {
-    if (error instanceof AikankakuError) {
-      res.status(error.status).json({ status: 'error', message: error.message });
-      return;
-    }
-    console.error(error);
-    res.status(500).json({ status: 'error', message: `AIカンカクの処理に失敗しました: ${error.message}` });
-  }
-});
-
-// 毎日 14:01 (JST) に、14:00 に発表した問題を精算する (画面を開いた人がいれば、その時点で先に済んでいることもある)
-export const settleAikankakuDays = onSchedule({
-  region: 'asia-northeast1',
-  schedule: `1 ${AIKANKAKU_REVEAL_HOUR} * * *`,
-  timeZone: 'Asia/Tokyo'
-}, async () => {
-  try {
-    const results = await settlePendingAikankakuDays();
-    console.log('settleAikankakuDays:', JSON.stringify(results));
-  } catch (error) {
-    console.error('AIカンカクの精算に失敗しました:', error);
-  }
-});
 
 // -----------------------------------------------------------------
 // レートの貸し出し (借金)
@@ -2739,15 +2558,16 @@ export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) =>
 });
 
 // -----------------------------------------------------------------
-// カジノ (ブラックジャック・スロット・宝探し・成り上がり。ルーレットとテキサスホールデムは 52.0 で廃止)
-//   入場時に持ち込むレートを決め、以降の勝ち負けは casino_sessions のチップだけで動かす。
-//   チップは1人1つで、どのゲームでも使える
-//   (持ち込みは1回ぶんしか持てないので、同じレートを二重に持ち込めない)。
-//   players のレートに反映するのは精算の1回だけなので、レート推移グラフには
-//   スピンや勝負ごとではなく「精算1回 = 1変動」として出る。
-//   負けたまま精算せずに離れても、最後の操作から CASINO_IDLE_SETTLE_MS か
-//   入場から CASINO_MAX_SESSION_MS を過ぎたセッションは settleIdleCasinoSessions が
-//   自動で精算する。チップが 0 になったときもその場で精算する。
+// カジノ (ブラックジャック・スロット・宝探し・成り上がり・航海・沈没。ルーレットとテキサスホールデムは 52.0 で廃止)
+//   55.0 で持ち込み・精算を無くした。賭けはレートから直接で、賭けられるのは
+//   「使えるレート = レート − 結果待ちの賭け (押さえている額)」まで (計算は casino-wallet.js)。
+//   スロット・成り上がり・航海は1回ごとに、ブラックジャック・宝探し・沈没は結果が出たときに、
+//   差し引き (払い戻し − 賭け) だけをレートに反映する (賭けたときはレートを動かさず、押さえておく)。
+//   増減ログは同じゲームを続けているあいだ1件に書き足し (casinoLogStep)、レート推移グラフは1回ごとに
+//   今日の分 (rate_chart/today) のその点だけを動かす (applyRateChartLive)。同じ回の卓の人は同じ点で動く。
+//   遊んだ回数・直近の結果・まとめている途中の増減ログは casino_accounts/{uid} (Cloud Functions だけ) に置く。
+//   54.x までの持ち込みの財布 (casino_sessions) が残っていたら、最初の操作で精算して消す
+//   (migrateLegacyCasinoSessions。卓に置いたままの賭けは押さえている額として引き継ぐ)。
 //   乱数・配当・残高はすべてここで決め、ブラウザからは賭け方と操作しか受け取らない。
 //
 //   ブラックジャックは全員共通の1卓 (最大4席)。ルールは blackjack.js、卓の進め方は
@@ -2757,24 +2577,24 @@ export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) =>
 //
 //   スロットのルール (リールの並び・ライン・配当) は slot.js にある。
 //   成り上がり (5段のルーレット) のルールは nariagari.js にある。1回ぶんを最初に最後の弾まで決めて払い戻し、
-//   画面は順に回して見せる。第5弾 (SJP) まで行ったら全員 (本人も含む) に通知する。
+//   画面は順に回して見せる。
 //
 //   宝探しも全員共通の1卓。ルールは gappori.js、卓の進め方は gappori-table.js。
 //   沈没も全員共通の1卓 (2人以上で出港するチキンレース)。ルールと進め方は sink-table.js。
 //   卓の中身は gappori_tables/main、誰でも読める形は gappori_public/main に置く。
-//   ルーレットとテキサスホールデムは 52.0 で廃止した (コードは 52.0 より前の git の履歴にある)。
 // -----------------------------------------------------------------
-const CASINO_SESSIONS = 'casino_sessions';
-// スロットのジャックポットタイムの状態 (人ごと。カジノを精算しても引き継ぐ。Cloud Functions だけが読み書きする)
+const CASINO_SESSIONS = 'casino_sessions';   // 54.x までの持ち込みの財布。55.0 で廃止 (残っていたら精算して消す)
+const CASINO_ACCOUNTS = 'casino_accounts';   // 人ごとの遊んだ回数・直近の結果・まとめている途中の増減ログ
+// スロットのジャックポットタイムの状態 (人ごと。Cloud Functions だけが読み書きする)
 const SLOT_STATES = 'slot_states';
-const CASINO_GAMES = new Set(['blackjack', 'slot', 'gappori', 'nariagari', 'voyage', 'sink']);
-const CASINO_IDLE_SETTLE_MS = 30 * 60 * 1000;
-const CASINO_MAX_SESSION_MS = 3 * 60 * 60 * 1000;
 const CASINO_RECENT_LIMIT = 12;
-const CASINO_NOTICES = 'casino_notices';     // 自動精算の結果を、本人の次の画面で1回だけ見せる
+const CASINO_NOTICES = 'casino_notices';     // 持ち込みの財布を精算した結果を、本人の次の画面で1回だけ見せる
 const BJ_TABLE_ID = 'main';                  // ブラックジャックの卓は1つだけ
 const GAPPORI_TABLE_ID = 'main';             // 宝探しの卓も1つだけ
 const SINK_TABLE_ID = 'main';                // 沈没の船も1つだけ
+// 口座に持つ、遊んだ回数と直近の結果の項目
+const CASINO_ACCOUNT_COUNTS = ['bjHands', 'slotSpins', 'gpRounds', 'nrSpins', 'vgRolls', 'skRounds', 'wagered'];
+const CASINO_ACCOUNT_RECENTS = ['bjRecent', 'slotRecent', 'gpRecent', 'nrRecent', 'vgRecent', 'skRecent'];
 
 class CasinoError extends Error {
   constructor(status, message) {
@@ -2788,61 +2608,61 @@ function casinoRandom(n) {
   return randomInt(n);
 }
 
-function casinoSessionExpiresAt(startedAt, lastActionAt) {
-  return new Date(Math.min(
-    Date.parse(lastActionAt) + CASINO_IDLE_SETTLE_MS,
-    Date.parse(startedAt) + CASINO_MAX_SESSION_MS
-  )).toISOString();
-}
-
-function isCasinoSessionExpired(session, now = Date.now()) {
-  return Date.parse(session.expiresAt) <= now;
-}
-
-function publicCasinoSession(session) {
-  return {
-    game: session.game,
-    buyIn: session.buyIn,
-    chips: session.chips,
-    bjHands: session.bjHands || 0,
-    slotSpins: session.slotSpins || 0,
-    gpRounds: session.gpRounds || 0,
-    nrSpins: session.nrSpins || 0,
-    vgRolls: session.vgRolls || 0,
-    skRounds: session.skRounds || 0,
-    startedAt: session.startedAt,
-    lastActionAt: session.lastActionAt,
-    expiresAt: session.expiresAt,
-    blackjack: {
-      recent: session.bjRecent || []
-    },
-    slot: {
-      recent: session.slotRecent || []
-    },
-    gappori: {
-      recent: session.gpRecent || []
-    },
-    nariagari: {
-      recent: session.nrRecent || [],
-      // 最後の1回 (第4弾以上まで行った回を、画面を開き直したときに続きから見せるため)
-      last: session.nrLast || null
-    },
-    voyage: {
-      recent: session.vgRecent || []
-    },
-    sink: {
-      recent: session.skRecent || []
-    }
-  };
-}
-
 function playerQuery(name) {
   return db.collection('players').where('name', '==', name).limit(1);
 }
 
+function casinoAccountRef(uid) {
+  return db.collection(CASINO_ACCOUNTS).doc(uid);
+}
+
+/** 口座の中身を、欠けている項目を埋めた形にする */
+function normalizeCasinoAccount(value, player) {
+  const source = value && typeof value === 'object' ? value : {};
+  const account = { player: String(source.player || player || '') };
+  CASINO_ACCOUNT_COUNTS.forEach(key => { account[key] = Math.max(0, normalizeRate(source[key])); });
+  CASINO_ACCOUNT_RECENTS.forEach(key => { account[key] = Array.isArray(source[key]) ? source[key] : []; });
+  account.nrLast = source.nrLast || null;
+  account.logs = source.logs && typeof source.logs === 'object' ? source.logs : {};
+  account.updatedAt = source.updatedAt ? String(source.updatedAt) : null;
+  return account;
+}
+
 /**
- * 増減ログに残す遊んだ内容。1種類だけならそのゲームの名前で、2種類以上なら「カジノ」でまとめる。
- * 何も遊んでいないときは「カジノ 0回」 (52.0 より前は「ルーレット 0回」)
+ * 画面に返す財布。chips は使えるレート (レート − 押さえている額)、held は押さえている額。
+ * 形は 54.x の持ち込みの財布に合わせてある (buyIn・expiresAt は無い)
+ */
+function publicCasinoSession(wallet, held) {
+  return {
+    chips: wallet.chips,
+    held,
+    score: wallet.chips + held,
+    buyIn: null,
+    bjHands: wallet.bjHands || 0,
+    slotSpins: wallet.slotSpins || 0,
+    gpRounds: wallet.gpRounds || 0,
+    nrSpins: wallet.nrSpins || 0,
+    vgRolls: wallet.vgRolls || 0,
+    skRounds: wallet.skRounds || 0,
+    startedAt: null,
+    lastActionAt: wallet.updatedAt || null,
+    expiresAt: null,
+    blackjack: { recent: wallet.bjRecent || [] },
+    slot: { recent: wallet.slotRecent || [] },
+    gappori: { recent: wallet.gpRecent || [] },
+    nariagari: {
+      recent: wallet.nrRecent || [],
+      // 最後の1回 (第4弾以上まで行った回を、画面を開き直したときに続きから見せるため)
+      last: wallet.nrLast || null
+    },
+    voyage: { recent: wallet.vgRecent || [] },
+    sink: { recent: wallet.skRecent || [] }
+  };
+}
+
+/**
+ * 54.x の精算の増減ログに残していた遊んだ内容。1種類だけならそのゲームの名前で、2種類以上なら「カジノ」でまとめる
+ * (持ち込みの財布を精算するときだけ使う)
  */
 function casinoPlayLog(session) {
   const plays = [
@@ -2851,10 +2671,7 @@ function casinoPlayLog(session) {
     { source: 'casino_gappori', name: '宝探し', count: session.gpRounds || 0 },
     { source: 'casino_nariagari', name: '成り上がり', count: session.nrSpins || 0 },
     { source: VOYAGE_SOURCE, name: '航海', count: session.vgRolls || 0 },
-    { source: 'casino_sink', name: '沈没', count: session.skRounds || 0 },
-    // ルーレットとホールデムは 52.0 で廃止。廃止前に遊んだセッション (最長3時間) の回数も記録に残す
-    { source: 'casino_roulette', name: 'ルーレット', count: session.spins || 0 },
-    { source: 'casino_holdem', name: 'ホールデム', count: session.hdHands || 0 }
+    { source: 'casino_sink', name: '沈没', count: session.skRounds || 0 }
   ].filter(play => play.count > 0);
   if (plays.length === 0) return { source: 'casino', label: 'カジノ 0回' };
   if (plays.length === 1) return { source: plays[0].source, label: `${plays[0].name} ${plays[0].count}回` };
@@ -2882,62 +2699,156 @@ function sinkTableRefs() {
   };
 }
 
-/** 財布の最終操作時刻と自動精算の期限を進める (卓での賭けや払い戻しでも伸びる) */
-function touchCasinoSession(session, nowIso) {
-  session.lastActionAt = nowIso;
-  session.expiresAt = casinoSessionExpiresAt(session.startedAt, nowIso);
+/** 卓の進め方が財布を触ったときに呼ぶ関数。55.0 で期限を無くしたので何もしない */
+function touchCasinoWallet() {}
+
+/**
+ * 3つの卓 (押さえている額を数えるため) をトランザクションの中で読む。
+ * known は読み済みの卓 ({ blackjack: 卓 } など)。無い卓は null
+ */
+async function readCasinoTables(transaction, known = {}) {
+  const refs = {
+    blackjack: blackjackTableRefs().tableRef,
+    gappori: gapporiTableRefs().tableRef,
+    sink: sinkTableRefs().tableRef
+  };
+  const games = Object.keys(refs).filter(game => !Object.hasOwn(known, game));
+  const docs = games.length ? await transaction.getAll(...games.map(game => refs[game])) : [];
+  const tables = { ...known };
+  games.forEach((game, index) => { tables[game] = docs[index].exists ? docs[index].data() : null; });
+  return tables;
+}
+
+/** 卓に関わる人の uid → 名前 (席・勝負・券・船の人と、操作した本人) */
+function casinoTableNames(game, table, actorUid, actorName) {
+  const names = new Map();
+  const add = (uid, name) => { if (uid && name && !names.has(uid)) names.set(uid, String(name)); };
+  if (game === 'blackjack') {
+    (table.seats || []).forEach(seat => seat && add(seat.uid, seat.name));
+    (table.round?.players || []).forEach(player => add(player.uid, player.name));
+  } else if (game === 'gappori') {
+    (table.tickets || []).forEach(ticket => add(ticket.uid, ticket.name));
+  } else if (game === 'sink') {
+    (table.players || []).forEach(player => add(player.uid, player.name));
+  }
+  add(actorUid, actorName);
+  return names;
 }
 
 /**
- * セッションを閉じて、持ち込みとの差を players のレートに1回で反映する。
- * 既に精算済み (ドキュメントが無い) なら null。自動精算と手動精算が重なっても二重には反映しない。
- * ブラックジャックの卓に座っていれば席を空け、置いていた賭け金は戻してから精算する。
- * 勝負の途中なら、手動 (manual) の精算は断り、自動の精算では決着まで席を残す
- * (決着したときの払い戻しは、財布が無いのでレートへ直接返る)。
- * 自動で精算したときは結果を casino_notices に残し、本人が次に画面を開いたときに見せる。
+ * 財布を読む (トランザクションの中)。names は uid → 名前、tables は3つの卓 (操作の前)、game はこの操作のゲーム。
+ * 口座と players のレートを読み、卓に渡す財布 (口座の中身 + chips = 使えるレート) と、書き戻しに使う元の値を返す。
+ * プレイヤーが見つからない人の財布は null (卓の進め方はその人へのお金を orphanPayouts に回すが、渡す先が無いので捨てる)
  */
-async function settleCasinoSession(uid, actor, { manual = false, reason = null } = {}) {
+async function readCasinoWallets(transaction, names, tables, game) {
+  const uids = [...names.keys()];
+  const accountDocs = uids.length ? await transaction.getAll(...uids.map(casinoAccountRef)) : [];
+  const playerSnapshots = await Promise.all(uids.map((uid, index) => {
+    const stored = accountDocs[index].exists ? accountDocs[index].data().player : null;
+    return transaction.get(playerQuery(stored || names.get(uid)));
+  }));
+  const wallets = new Map();
+  const origins = new Map();
+  uids.forEach((uid, index) => {
+    const snapshot = playerSnapshots[index];
+    if (snapshot.empty) {
+      wallets.set(uid, null);
+      return;
+    }
+    const playerDoc = snapshot.docs[0];
+    const name = String(playerDoc.data().name || names.get(uid));
+    const account = normalizeCasinoAccount(accountDocs[index].exists ? accountDocs[index].data() : null, name);
+    const score = normalizeRate(playerDoc.data().score);
+    const held = casinoHeld(tables, uid);
+    wallets.set(uid, { ...JSON.parse(JSON.stringify(account)), chips: score - held });
+    origins.set(uid, { account, score, held, heldHere: tableHeld(game, tables[game], uid), playerRef: playerDoc.ref, name });
+  });
+  return { wallets, origins };
+}
+
+/**
+ * 財布を書き戻す (トランザクションの中。読み込みはすべて済ませてから呼ぶ)。
+ * レートの増減 = chips の増減 + この卓 (game) で押さえている額の増減 (賭けたときは 0、決着で差し引き)。
+ * レートが動いたか遊んだ回数が増えたら、増減ログをまとめて書き足す。
+ * 返り値: { chart (グラフに足す変化 [{ key, at, date, source, reason, player, afterScore }]), held (uid → 操作のあとの押さえている額) }
+ */
+function writeCasinoWallets(transaction, { wallets, origins }, game, tableAfter, nowIso) {
+  const info = CASINO_LOG_GAMES[game];
+  const date = getJstDateKey(new Date(nowIso));
+  const chart = [];
+  const heldAfter = new Map();
+  origins.forEach((origin, uid) => {
+    const wallet = wallets.get(uid);
+    if (!wallet) return;
+    const heldHereAfter = tableHeld(game, tableAfter, uid);
+    const held = origin.held - origin.heldHere + heldHereAfter;
+    heldAfter.set(uid, held);
+    const afterScore = wallet.chips + held;
+    const delta = afterScore - origin.score;
+    const plays = (wallet[info.plays] || 0) - (origin.account[info.plays] || 0);
+    const wagered = (wallet.wagered || 0) - (origin.account.wagered || 0);
+    const { chips, ...next } = wallet;
+    if (delta !== 0) transaction.update(origin.playerRef, { score: afterScore });
+    if (delta !== 0 || plays > 0) {
+      const log = casinoLogStep(origin.account.logs[game], {
+        at: nowIso, date, beforeScore: origin.score, afterScore, plays, wagered
+      }, () => rateHistoryDocId(origin.name, nowIso));
+      const key = casinoChartKey(game, log);
+      const reason = casinoLogReason(game, log);
+      transaction.set(db.collection('point_history').doc(log.historyId), {
+        id: log.historyId,
+        player: origin.name,
+        beforeScore: log.beforeScore,
+        afterScore: log.afterScore,
+        delta: log.afterScore - log.beforeScore,
+        source: info.source,
+        reason,
+        actor: origin.name,
+        chartKey: key,
+        createdAt: log.createdAt,
+        updatedAt: nowIso
+      });
+      next.logs = { ...next.logs, [game]: log };
+      chart.push({ key, at: log.createdAt, date: log.date, source: info.source, game, reason, player: origin.name, afterScore });
+    }
+    if (JSON.stringify(next) !== JSON.stringify(origin.account)) {
+      transaction.set(casinoAccountRef(uid), { ...next, player: origin.name, updatedAt: nowIso });
+    }
+  });
+  return { chart, held: heldAfter };
+}
+
+// -----------------------------------------------------------------
+// 54.x までの持ち込みの財布 (casino_sessions) の後始末
+// -----------------------------------------------------------------
+let legacyCasinoSessionsCleared = false;   // このインスタンスで、もう残っていないと確かめたか (55.0 からは作られない)
+
+/**
+ * 持ち込みの財布を1つ精算して消す。レートの増減 = 手元のチップ + 卓に置いたままの賭け − 持ち込み
+ * (卓に置いたままの賭けは、このあと押さえている額として引き継ぎ、結果が出たときに差し引きをレートへ入れる)。
+ * 遊んだ回数と直近の結果は口座へ引き継ぐ。結果は casino_notices に残し、本人が次に画面を開いたときに見せる
+ */
+async function settleLegacyCasinoSession(uid) {
   const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
-  const { tableRef, publicRef } = blackjackTableRefs();
-  const gapporiRefs = gapporiTableRefs();
-  const sinkRefs = sinkTableRefs();
-  const result = await db.runTransaction(async transaction => {
-    const [sessionDoc, tableDoc, gapporiDoc, sinkDoc] = await transaction.getAll(sessionRef, tableRef, gapporiRefs.tableRef, sinkRefs.tableRef);
+  return db.runTransaction(async transaction => {
+    const sessionDoc = await transaction.get(sessionRef);
     if (!sessionDoc.exists) return null;
     const session = sessionDoc.data();
+    const tables = await readCasinoTables(transaction);
+    const [playerSnapshot, accountDoc] = await Promise.all([
+      transaction.get(playerQuery(session.player)),
+      transaction.get(casinoAccountRef(uid))
+    ]);
     const at = new Date().toISOString();
-    const table = tableDoc.exists ? tableDoc.data() : null;
-    const seatIndex = table ? seatIndexOf(table, uid) : -1;
-    let tableChanged = false;
-    if (table && isInLiveRound(table, uid)) {
-      if (manual) {
-        throw new CasinoError(409, 'ブラックジャックの勝負が途中です。決着してから精算してください。');
-      }
-    } else if (seatIndex >= 0) {
-      session.chips += table.seats[seatIndex].bet || 0;
-      vacateSeat(table, seatIndex);
-      tableChanged = true;
-    }
-    // 宝探しの券があって結果が出ていなければ、手動の精算は断る。
-    // 自動なら精算し、券は残して、結果が出たら払い戻しをレートへ直接返す
-    const gapporiTable = gapporiDoc.exists ? gapporiDoc.data() : null;
-    if (manual && gapporiTable && isInLiveGapporiRound(gapporiTable, uid)) {
-      throw new CasinoError(409, '宝探しの抽選が途中です。結果が出てから精算してください。');
-    }
-    // 沈没の船に乗っていれば、手動の精算は断る (自動なら精算し、賞金・返金はレートへ直接返す)
-    if (manual && sinkDoc.exists && isInLiveSinkRound(sinkDoc.data(), uid)) {
-      throw new CasinoError(409, '沈没の船に乗っています。降りるか、結果が出てから精算してください。');
-    }
-    const playerSnapshot = await transaction.get(playerQuery(session.player));
-
     const buyIn = normalizeRate(session.buyIn);
     const chips = normalizeRate(session.chips);
+    const held = casinoHeld(tables, uid);
     let beforeScore = null;
     let afterScore = null;
     if (!playerSnapshot.empty) {
       const playerDoc = playerSnapshot.docs[0];
       beforeScore = normalizeRate(playerDoc.data().score);
-      afterScore = normalizeRate(beforeScore + chips - buyIn);
+      afterScore = beforeScore + chips + held - buyIn;
       if (afterScore !== beforeScore) {
         transaction.update(playerDoc.ref, { score: afterScore });
         const historyId = rateHistoryDocId(session.player, at);
@@ -2949,61 +2860,80 @@ async function settleCasinoSession(uid, actor, { manual = false, reason = null }
           afterScore,
           delta: afterScore - beforeScore,
           source: play.source,
-          reason: `${play.label} (持込${buyIn} → ${chips})`,
-          actor,
+          reason: `${play.label} (持込${buyIn} → ${chips}${held ? `・卓の賭け ${held} は引き継ぎ` : ''}。55.0 で持ち込みを無くしたので精算)`,
+          actor: 'casino_v55',
           createdAt: at
         });
       }
     }
-    if (tableChanged) {
-      table.seq = (table.seq || 0) + 1;
-      table.updatedAt = at;
-      transaction.set(tableRef, table);
-      transaction.set(publicRef, publicTable(table));
+    if (!accountDoc.exists) {
+      const account = normalizeCasinoAccount(session, session.player);
+      transaction.set(casinoAccountRef(uid), { ...account, logs: {}, updatedAt: at });
     }
     transaction.delete(sessionRef);
     const settled = {
       player: session.player,
       buyIn,
       chips,
-      bjHands: session.bjHands || 0,
-      slotSpins: session.slotSpins || 0,
-      gpRounds: session.gpRounds || 0,
-      nrSpins: session.nrSpins || 0,
-      vgRolls: session.vgRolls || 0,
-      skRounds: session.skRounds || 0,
+      held,
       beforeScore,
       afterScore,
       delta: beforeScore === null ? 0 : afterScore - beforeScore,
-      auto: actor !== session.player,
-      reason
+      auto: true,
+      reason: 'v55'
     };
-    if (settled.auto) {
-      transaction.set(db.collection(CASINO_NOTICES).doc(uid), { settled, createdAt: at });
-    }
+    transaction.set(db.collection(CASINO_NOTICES).doc(uid), { settled, createdAt: at });
     return settled;
   });
+}
 
-  if (result && result.delta !== 0) {
-    await rebuildRateChartQuietly('casino_settle');
+/** 持ち込みの財布が残っていれば、すべて精算して消す (カジノの操作の前と定期処理で呼ぶ) */
+async function migrateLegacyCasinoSessions() {
+  if (legacyCasinoSessionsCleared) return;
+  const snapshot = await db.collection(CASINO_SESSIONS).limit(50).get();
+  if (snapshot.empty) {
+    legacyCasinoSessionsCleared = true;
+    return;
   }
-  return result;
+  let changed = false;
+  for (const doc of snapshot.docs) {
+    try {
+      const settled = await settleLegacyCasinoSession(doc.id);
+      if (settled && settled.delta !== 0) changed = true;
+    } catch (error) {
+      console.error(`casino_sessions/${doc.id} の精算 (55.0 の移行) に失敗しました:`, error);
+    }
+  }
+  if (changed) await rebuildRateChartQuietly('casino_v55_settle');
 }
 
-/** 期限切れのセッションが残っていれば、この場で精算して結果を返す */
-async function settleCasinoSessionIfExpired(uid) {
-  const sessionDoc = await db.collection(CASINO_SESSIONS).doc(uid).get();
-  if (!sessionDoc.exists || !isCasinoSessionExpired(sessionDoc.data())) return null;
-  return settleCasinoSession(uid, 'casino_auto_settle');
-}
-
-/** 自動精算の結果が残っていれば、1回だけ取り出す */
+/** 持ち込みの財布を精算した結果が残っていれば、1回だけ取り出す */
 async function takeCasinoNotice(uid) {
   const noticeRef = db.collection(CASINO_NOTICES).doc(uid);
   const noticeDoc = await noticeRef.get();
   if (!noticeDoc.exists) return null;
   await noticeRef.delete();
   return noticeDoc.data().settled || null;
+}
+
+/** いまの財布 (トランザクションの外で読む。画面を開いたとき用) */
+async function readCasinoSession(uid, username) {
+  const [accountDoc, playerSnapshot, bjDoc, gpDoc, skDoc] = await Promise.all([
+    casinoAccountRef(uid).get(),
+    playerQuery(username).get(),
+    blackjackTableRefs().tableRef.get(),
+    gapporiTableRefs().tableRef.get(),
+    sinkTableRefs().tableRef.get()
+  ]);
+  const score = playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score);
+  const tables = {
+    blackjack: bjDoc.exists ? bjDoc.data() : null,
+    gappori: gpDoc.exists ? gpDoc.data() : null,
+    sink: skDoc.exists ? skDoc.data() : null
+  };
+  const held = casinoHeld(tables, uid);
+  const account = normalizeCasinoAccount(accountDoc.exists ? accountDoc.data() : null, username);
+  return { score, session: publicCasinoSession({ ...account, chips: score - held }, held) };
 }
 
 async function readPublicBlackjackTable() {
@@ -3023,10 +2953,8 @@ async function readPublicGapporiTable() {
 }
 
 async function casinoStatus(uid, username) {
-  await settleCasinoSessionIfExpired(uid);
-  const [sessionDoc, playerSnapshot, table, gappori, autoSettled, slotStateDoc, voyage, sink] = await Promise.all([
-    db.collection(CASINO_SESSIONS).doc(uid).get(),
-    playerQuery(username).get(),
+  const [wallet, table, gappori, autoSettled, slotStateDoc, voyage, sink] = await Promise.all([
+    readCasinoSession(uid, username),
     readPublicBlackjackTable(),
     readPublicGapporiTable(),
     takeCasinoNotice(uid),
@@ -3036,8 +2964,8 @@ async function casinoStatus(uid, username) {
   ]);
   return {
     me: username,
-    score: playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score),
-    session: sessionDoc.exists ? publicCasinoSession(sessionDoc.data()) : null,
+    score: wallet.score,
+    session: wallet.session,
     slot: publicSlotState(slotStateDoc.exists ? slotStateDoc.data() : null),
     table,
     gappori,
@@ -3050,131 +2978,70 @@ async function casinoStatus(uid, username) {
   };
 }
 
-async function casinoEnter(uid, username, rawBuyIn, rawGame) {
-  const buyIn = Number(rawBuyIn);
-  if (!Number.isSafeInteger(buyIn) || buyIn < 1) {
-    throw new CasinoError(400, '持ち込むレートは1以上の整数で入力してください。');
-  }
-  // どのテーブルから入場したか (記録用。チップはどのテーブルでも使える)
-  const game = CASINO_GAMES.has(rawGame) ? rawGame : 'slot';
-  await settleCasinoSessionIfExpired(uid);
-  const autoSettled = await takeCasinoNotice(uid);
-  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
-
-  const session = await db.runTransaction(async transaction => {
-    const [sessionDoc, playerSnapshot] = await Promise.all([
-      transaction.get(sessionRef),
-      transaction.get(playerQuery(username))
-    ]);
-    if (sessionDoc.exists) {
-      throw new CasinoError(409, '入場中のテーブルがあります。先に精算してください。');
-    }
-    if (playerSnapshot.empty) {
-      throw new CasinoError(404, 'プレイヤーが見つかりません。');
-    }
-    const score = normalizeRate(playerSnapshot.docs[0].data().score);
-    if (buyIn > score) {
-      throw new CasinoError(400, `持ち込めるのは現在のレート (${score}) までです。`);
-    }
-
-    const now = new Date().toISOString();
-    const next = {
-      game,
-      player: username,
-      buyIn,
-      chips: buyIn,
-      bjHands: 0,
-      slotSpins: 0,
-      gpRounds: 0,
-      nrSpins: 0,
-      vgRolls: 0,
-      skRounds: 0,
-      wagered: 0,
-      startedAt: now,
-      lastActionAt: now,
-      expiresAt: casinoSessionExpiresAt(now, now),
-      bjRecent: [],
-      slotRecent: [],
-      gpRecent: [],
-      nrRecent: [],
-      vgRecent: [],
-      skRecent: []
-    };
-    transaction.set(sessionRef, next);
-    return next;
+/**
+ * 1人で1回ずつ遊ぶゲーム (スロット・成り上がり・航海) の1回。トランザクションの中で
+ * 3つの卓 (押さえている額のため)・財布・extraRefs を読み、play(wallet, extraDocs) で財布を書き換えてから書き戻す。
+ * play は { result, ...そのほか返したいもの } を返し、ほかの書き込みは write(transaction, played) で行う
+ */
+async function runSoloCasinoPlay(game, uid, username, { extraRefs = [], play, write = () => {} }) {
+  const done = await db.runTransaction(async transaction => {
+    const tables = await readCasinoTables(transaction);
+    const extraDocs = extraRefs.length ? await transaction.getAll(...extraRefs) : [];
+    const loaded = await readCasinoWallets(transaction, new Map([[uid, username]]), tables, game);
+    const wallet = loaded.wallets.get(uid);
+    if (!wallet) throw new CasinoError(404, 'プレイヤーが見つかりません。');
+    const nowIso = new Date().toISOString();
+    const played = play(wallet, extraDocs, nowIso);
+    write(transaction, played, nowIso);
+    const written = writeCasinoWallets(transaction, loaded, game, null, nowIso);
+    return { played, wallet, held: written.held.get(uid) || 0, chart: written.chart };
   });
-
-  return { session: publicCasinoSession(session), autoSettled };
+  await applyRateChartLive(done.chart);
+  return { ...done.played, session: publicCasinoSession(done.wallet, done.held) };
 }
 
 /**
  * スロットを1回まわす。bet は5本のラインすべてにかかる賭け金。
  * ジャックポットタイム中は賭け金が固定なので、送られてきた bet は使わない (ルールは slot.js)
  */
-async function casinoSlotSpin(uid, rawBet) {
+async function casinoSlotSpin(uid, username, rawBet) {
   const requestedBet = Number(rawBet);
-  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
   const slotStateRef = db.collection(SLOT_STATES).doc(uid);
-
-  const spun = await db.runTransaction(async transaction => {
-    const [sessionDoc, slotStateDoc] = await Promise.all([
-      transaction.get(sessionRef),
-      transaction.get(slotStateRef)
-    ]);
-    if (!sessionDoc.exists) {
-      throw new CasinoError(409, 'テーブルに入場していません。');
-    }
-    const session = sessionDoc.data();
-    if (isCasinoSessionExpired(session)) return { expired: true };
-    const slotState = normalizeSlotState(slotStateDoc.exists ? slotStateDoc.data() : null);
-    if (slotState.mode === 'normal') {
-      if (!Number.isSafeInteger(requestedBet) || requestedBet < 1) {
-        throw new CasinoError(400, '賭け金は1以上の整数にしてください。');
+  const spun = await runSoloCasinoPlay('slot', uid, username, {
+    extraRefs: [slotStateRef],
+    play: (wallet, [slotStateDoc], now) => {
+      const slotState = normalizeSlotState(slotStateDoc.exists ? slotStateDoc.data() : null);
+      if (slotState.mode === 'normal') {
+        if (!Number.isSafeInteger(requestedBet) || requestedBet < 1) {
+          throw new CasinoError(400, '賭け金は1以上の整数にしてください。');
+        }
+        if (requestedBet > wallet.chips) {
+          throw new CasinoError(400, `使えるレート (${wallet.chips}) を超えて賭けることはできません。`);
+        }
+      } else if (wallet.chips < 1) {
+        throw new CasinoError(400, `使えるレート (${wallet.chips}) が足りません。`);
       }
-      if (requestedBet > session.chips) {
-        throw new CasinoError(400, `手元のチップ (${session.chips}) を超えて賭けることはできません。`);
-      }
-    }
-
-    const now = new Date().toISOString();
-    const round = playSlotRound(slotState, requestedBet, session.chips, casinoRandom);
-    const outcome = round.outcome;
-    const result = { ...outcome, at: now, entered: round.entered, finished: round.finished };
-    // 直近の一覧には、いちばん高い当たりの絵柄だけ残す
-    const best = outcome.lines.reduce((top, line) => (!top || line.multiplier > top.multiplier ? line : top), null);
-    const summary = {
-      bet: round.bet,
-      returned: outcome.returned,
-      multiplier: outcome.multiplier,
-      symbol: best ? best.symbol : null,
-      mode: outcome.mode,
-      at: now
-    };
-    const next = {
-      ...session,
-      chips: session.chips - round.bet + outcome.returned,
-      slotSpins: (session.slotSpins || 0) + 1,
-      wagered: (session.wagered || 0) + round.bet,
-      lastActionAt: now,
-      expiresAt: casinoSessionExpiresAt(session.startedAt, now),
-      slotRecent: [summary, ...(session.slotRecent || [])].slice(0, CASINO_RECENT_LIMIT)
-    };
-    transaction.set(sessionRef, next);
-    transaction.set(slotStateRef, { ...round.state, updatedAt: now });
-    return { result, session: next, slot: round.state };
+      const round = playSlotRound(slotState, requestedBet, wallet.chips, casinoRandom);
+      const outcome = round.outcome;
+      // 直近の一覧には、いちばん高い当たりの絵柄だけ残す
+      const best = outcome.lines.reduce((top, line) => (!top || line.multiplier > top.multiplier ? line : top), null);
+      const summary = {
+        bet: round.bet,
+        returned: outcome.returned,
+        multiplier: outcome.multiplier,
+        symbol: best ? best.symbol : null,
+        mode: outcome.mode,
+        at: now
+      };
+      wallet.chips = wallet.chips - round.bet + outcome.returned;
+      wallet.slotSpins = (wallet.slotSpins || 0) + 1;
+      wallet.wagered = (wallet.wagered || 0) + round.bet;
+      wallet.slotRecent = [summary, ...(wallet.slotRecent || [])].slice(0, CASINO_RECENT_LIMIT);
+      return { result: { ...outcome, at: now, entered: round.entered, finished: round.finished }, state: round.state };
+    },
+    write: (transaction, played, now) => transaction.set(slotStateRef, { ...played.state, updatedAt: now })
   });
-
-  if (spun.expired) {
-    const settled = await settleCasinoSession(uid, 'casino_auto_settle');
-    return { expired: true, settled };
-  }
-  const slot = publicSlotState(spun.slot);
-  // チップが尽きたら続けようがないので、その場で精算する (ブラックジャックの席に置いた賭けがあれば精算で戻る)
-  if (spun.session.chips <= 0) {
-    const settled = await settleCasinoSession(uid, spun.session.player, { reason: 'broke' });
-    return { result: spun.result, session: null, settled, slot };
-  }
-  return { result: spun.result, session: publicCasinoSession(spun.session), slot };
+  return { result: spun.result, session: spun.session, slot: publicSlotState(spun.state) };
 }
 
 /**
@@ -3182,124 +3049,59 @@ async function casinoSlotSpin(uid, rawBet) {
  * (中身と並べ方が正しければそのまま使う。止まるマスはここで等確率に決めるので、並びを選べても有利にはならない)。
  * 最後の弾まで決めて払い戻しまで済ませ、画面は返した stages を順に回して見せる。
  */
-async function casinoNariagariSpin(uid, rawBet, rawLayout) {
+async function casinoNariagariSpin(uid, username, rawBet, rawLayout) {
   const bet = Number(rawBet);
-  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
   if (!NARIAGARI_BETS.includes(bet)) {
     throw new CasinoError(400, `賭け金は ${NARIAGARI_BETS.join('・')} のどれかにしてください。`);
   }
   const layout = Array.isArray(rawLayout) ? rawLayout.map(String) : null;
-
-  const spun = await db.runTransaction(async transaction => {
-    const sessionDoc = await transaction.get(sessionRef);
-    if (!sessionDoc.exists) {
-      throw new CasinoError(409, 'テーブルに入場していません。');
+  const spun = await runSoloCasinoPlay('nariagari', uid, username, {
+    play: (wallet, _docs, now) => {
+      if (bet > wallet.chips) {
+        throw new CasinoError(400, `使えるレート (${wallet.chips}) を超えて賭けることはできません。`);
+      }
+      const play = playNariagari(bet, casinoRandom, layout);
+      const id = `${Date.now().toString(36)}${randomInt(36 ** 4).toString(36)}`;
+      const last = { id, bet, ...play, at: now };
+      const summary = { bet, returned: play.payout, multiplier: play.multiplier, top: play.top, at: now };
+      wallet.chips = wallet.chips - bet + play.payout;
+      wallet.nrSpins = (wallet.nrSpins || 0) + 1;
+      wallet.wagered = (wallet.wagered || 0) + bet;
+      wallet.nrRecent = [summary, ...(wallet.nrRecent || [])].slice(0, CASINO_RECENT_LIMIT);
+      wallet.nrLast = last;
+      return { result: last };
     }
-    const session = sessionDoc.data();
-    if (isCasinoSessionExpired(session)) return { expired: true };
-    if (bet > session.chips) {
-      throw new CasinoError(400, `手元のチップ (${session.chips}) を超えて賭けることはできません。`);
-    }
-    const now = new Date().toISOString();
-    const play = playNariagari(bet, casinoRandom, layout);
-    const id = `${Date.now().toString(36)}${randomInt(36 ** 4).toString(36)}`;
-    const last = { id, bet, ...play, at: now };
-    const summary = { bet, returned: play.payout, multiplier: play.multiplier, top: play.top, at: now };
-    const next = {
-      ...session,
-      chips: session.chips - bet + play.payout,
-      nrSpins: (session.nrSpins || 0) + 1,
-      wagered: (session.wagered || 0) + bet,
-      lastActionAt: now,
-      expiresAt: casinoSessionExpiresAt(session.startedAt, now),
-      nrRecent: [summary, ...(session.nrRecent || [])].slice(0, CASINO_RECENT_LIMIT),
-      nrLast: last
-    };
-    transaction.set(sessionRef, next);
-    return { result: last, session: next };
   });
-
-  if (spun.expired) {
-    const settled = await settleCasinoSession(uid, 'casino_auto_settle');
-    return { expired: true, settled };
-  }
-  // チップが尽きたら続けようがないので、その場で精算する (尽きるのははずれの回だけなので、続きを見せる回は無い)
-  if (spun.session.chips <= 0) {
-    const settled = await settleCasinoSession(uid, spun.session.player, { reason: 'broke' });
-    return { result: spun.result, session: null, settled };
-  }
-  return { result: spun.result, session: publicCasinoSession(spun.session) };
+  return { result: spun.result, session: spun.session };
 }
 
-/** 財布を精算したあとの人へ返すぶんを、人ごとにまとめる */
-function groupOrphanPayouts(payouts) {
-  const byName = new Map();
-  payouts.forEach(payout => {
-    const current = byName.get(payout.name);
-    if (current) current.amount += payout.amount;
-    else byName.set(payout.name, { ...payout });
-  });
-  return Array.from(byName.values());
-}
-
-const CASINO_ORPHAN_GAMES = {
-  blackjack: { label: 'ブラックジャック', source: 'casino_blackjack' },
-  gappori: { label: '宝探し', source: 'casino_gappori' },
-  sink: { label: '沈没', source: 'casino_sink' }
-};
-
-/** 財布を精算済みの人の賭け金の返却・払い戻しは、レートへ直接返す (game は blackjack / gappori / sink) */
-function creditCasinoOrphan(transaction, playerSnapshot, payout, at, game = 'blackjack') {
-  const { label, source } = CASINO_ORPHAN_GAMES[game];
-  if (playerSnapshot.empty) return;
-  const playerDoc = playerSnapshot.docs[0];
-  const beforeScore = normalizeRate(playerDoc.data().score);
-  const afterScore = beforeScore + payout.amount;
-  transaction.update(playerDoc.ref, { score: afterScore });
-  const historyId = rateHistoryDocId(payout.name, at);
-  transaction.set(db.collection('point_history').doc(historyId), {
-    id: historyId,
-    player: payout.name,
-    beforeScore,
-    afterScore,
-    delta: payout.amount,
-    source,
-    reason: payout.reason === 'refund'
-      ? `${label} 精算後の賭け金の返却 (${payout.amount})`
-      : `${label} 精算後の払い戻し (${payout.amount})`,
-    actor: 'casino_auto_settle',
-    createdAt: at
-  });
+/** 卓の進め方がお金を返そうとした相手のプレイヤーが見つからないとき (消されたなど)。渡す先が無いので記録だけ残す */
+function warnCasinoOrphans(game, payouts) {
+  if (payouts.length) console.warn(`${game}: プレイヤーが見つからず渡せなかった払い戻し:`, JSON.stringify(payouts));
 }
 
 /**
- * 卓を1回動かす。卓と、卓に関わる人 (と操作した本人) の財布をトランザクションで読み、
- * mutate(ctx) で書き換えたあと、全員が賭けていれば配ってから書き戻す。
- * 決着してチップが尽きた人は、書き戻したあとで精算する。
+ * 卓を1回動かす。卓・ほかの2つの卓 (押さえている額のため)・卓に関わる人 (と操作した本人) の財布を
+ * トランザクションで読み、mutate(ctx) で書き換えたあと、全員が賭けていれば配ってから書き戻す。
+ * レートは決着した人だけ差し引きで動く (賭けただけでは動かない)
  */
-async function runBlackjackTable(actorUid, mutate) {
+async function runBlackjackTable(actorUid, mutate, actorName = null) {
   const { tableRef, publicRef } = blackjackTableRefs();
-  const ctx = await db.runTransaction(async transaction => {
+  const done = await db.runTransaction(async transaction => {
     const tableDoc = await transaction.get(tableRef);
     const table = tableDoc.exists ? tableDoc.data() : emptyTable();
-    const uids = Array.from(new Set([...tableUids(table), actorUid].filter(Boolean)));
-    const walletRefs = uids.map(uid => db.collection(CASINO_SESSIONS).doc(uid));
-    const walletDocs = walletRefs.length ? await transaction.getAll(...walletRefs) : [];
-    const wallets = new Map(uids.map((uid, index) => [uid, walletDocs[index].exists ? walletDocs[index].data() : null]));
+    const tables = await readCasinoTables(transaction, { blackjack: table });
+    const loaded = await readCasinoWallets(transaction, casinoTableNames('blackjack', table, actorUid, actorName), tables, 'blackjack');
     const context = createTableContext({
       table,
-      wallets,
+      wallets: loaded.wallets,
       now: Date.now(),
       randomInt: casinoRandom,
-      touchWallet: touchCasinoSession
+      touchWallet: touchCasinoWallet
     });
     sweepSeats(context);
     mutate(context);
     maybeStartRound(context);
-
-    // 読み込みは書き込みより前にすべて済ませる
-    const orphans = groupOrphanPayouts(context.orphanPayouts);
-    const orphanSnapshots = await Promise.all(orphans.map(payout => transaction.get(playerQuery(payout.name))));
 
     if (context.changed) {
       context.table.seq = (context.table.seq || 0) + 1;
@@ -3307,67 +3109,49 @@ async function runBlackjackTable(actorUid, mutate) {
       transaction.set(tableRef, context.table);
       transaction.set(publicRef, publicTable(context.table));
     }
-    context.touched.forEach(uid => {
-      transaction.set(db.collection(CASINO_SESSIONS).doc(uid), context.wallets.get(uid));
-    });
-    orphans.forEach((payout, index) => creditCasinoOrphan(transaction, orphanSnapshots[index], payout, context.nowIso, 'blackjack'));
-    return context;
+    const written = writeCasinoWallets(transaction, loaded, 'blackjack', context.table, context.nowIso);
+    return { context, written };
   });
-
-  for (const uid of ctx.broke) {
-    try {
-      await settleCasinoSession(uid, 'casino_auto_settle', { reason: 'broke' });
-    } catch (error) {
-      console.error(`casino_sessions/${uid} の精算 (チップ切れ) に失敗しました:`, error);
-    }
-  }
-  if (ctx.orphanPayouts.length) {
-    await rebuildRateChartQuietly('blackjack_orphan_payout');
-  }
-  return ctx;
+  warnCasinoOrphans('blackjack', done.context.orphanPayouts);
+  await applyRateChartLive(done.written.chart);
+  return { ...done.context, heldAfter: done.written.held };
 }
 
 /** 卓の操作の返事: 卓の様子と本人の財布 */
 async function blackjackTableAction(uid, username, mutate) {
-  const ctx = await runBlackjackTable(uid, mutate);
-  const wallet = ctx.broke.has(uid) ? null : ctx.wallets.get(uid);
+  const ctx = await runBlackjackTable(uid, mutate, username);
+  const wallet = ctx.wallets.get(uid);
   return {
     me: username,
     table: publicTable(ctx.table),
-    session: wallet ? publicCasinoSession(wallet) : null,
+    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0) : null,
     now: new Date().toISOString()
   };
 }
 
 /**
- * 宝探しの卓を1回動かす。ブラックジャックと同じく、卓と券を買った人 (と操作した本人) の財布を
+ * 宝探しの卓を1回動かす。ブラックジャックと同じく、卓・ほかの2つの卓・券を買った人 (と操作した本人) の財布を
  * トランザクションで読み、mutate(ctx) で書き換えたあと、締め切りを過ぎた段階を先へ進めて書き戻す。
- * 結果が出てチップが尽きた人は、書き戻したあとで精算する。
+ * レートは結果が出た回の人だけ差し引きで動く (券を買っただけでは動かない)
  */
-async function runGapporiTable(actorUid, mutate) {
+async function runGapporiTable(actorUid, mutate, actorName = null) {
   const { tableRef, publicRef } = gapporiTableRefs();
-  const ctx = await db.runTransaction(async transaction => {
+  const done = await db.runTransaction(async transaction => {
     const tableDoc = await transaction.get(tableRef);
     const table = tableDoc.exists ? tableDoc.data() : emptyGapporiTable(casinoRandom);
-    const uids = Array.from(new Set([...gapporiTableUids(table), actorUid].filter(Boolean)));
-    const walletRefs = uids.map(uid => db.collection(CASINO_SESSIONS).doc(uid));
-    const walletDocs = walletRefs.length ? await transaction.getAll(...walletRefs) : [];
-    const wallets = new Map(uids.map((uid, index) => [uid, walletDocs[index].exists ? walletDocs[index].data() : null]));
+    const tables = await readCasinoTables(transaction, { gappori: tableDoc.exists ? table : null });
+    const loaded = await readCasinoWallets(transaction, casinoTableNames('gappori', table, actorUid, actorName), tables, 'gappori');
     const context = createGapporiContext({
       table,
-      wallets,
+      wallets: loaded.wallets,
       now: Date.now(),
       randomInt: casinoRandom,
-      touchWallet: touchCasinoSession
+      touchWallet: touchCasinoWallet
     });
     if (!tableDoc.exists) context.changed = true;
     refreshGapporiRules(context);
     mutate(context);
     advanceGapporiTable(context);
-
-    // 読み込みは書き込みより前にすべて済ませる
-    const orphans = groupOrphanPayouts(context.orphanPayouts);
-    const orphanSnapshots = await Promise.all(orphans.map(payout => transaction.get(playerQuery(payout.name))));
 
     if (context.changed) {
       context.table.seq = (context.table.seq || 0) + 1;
@@ -3375,27 +3159,14 @@ async function runGapporiTable(actorUid, mutate) {
       transaction.set(tableRef, context.table);
       transaction.set(publicRef, publicGapporiTable(context.table));
     }
-    context.touched.forEach(uid => {
-      transaction.set(db.collection(CASINO_SESSIONS).doc(uid), context.wallets.get(uid));
-    });
-    orphans.forEach((payout, index) => creditCasinoOrphan(transaction, orphanSnapshots[index], payout, context.nowIso, 'gappori'));
-    return context;
+    const written = writeCasinoWallets(transaction, loaded, 'gappori', context.table, context.nowIso);
+    return { context, written };
   });
-
-  for (const uid of ctx.broke) {
-    try {
-      await settleCasinoSession(uid, 'casino_auto_settle', { reason: 'broke' });
-    } catch (error) {
-      console.error(`casino_sessions/${uid} の精算 (チップ切れ) に失敗しました:`, error);
-    }
-  }
-  if (ctx.orphanPayouts.length) {
-    await rebuildRateChartQuietly('gappori_orphan_payout');
-  }
-  return ctx;
+  warnCasinoOrphans('gappori', done.context.orphanPayouts);
+  await applyRateChartLive(done.written.chart);
+  return { ...done.context, heldAfter: done.written.held };
 }
 
-/** 宝探しの操作の返事: 卓の様子と本人の財布 */
 // -----------------------------------------------------------------
 // 沈没 (全員共通の1卓のチキンレース)。ルールと卓の進め方は sink-table.js。
 //   卓の中身 (沈む時刻・誰が飛び降りたか) は sink_tables/main (Cloud Functions だけ)、
@@ -3403,17 +3174,16 @@ async function runGapporiTable(actorUid, mutate) {
 //   (書き直すと seq の変化で誰かが飛び降りたことがわかってしまうため)。
 //   画面は航海のあいだ skTick を送り続け、沈む時刻を過ぎたらその場で結果を出す。
 //   skTick の返事には、いまの浸水 (水位と、いまの区間の速さ) だけを入れる (sinkSeaState)。
+//   運賃は押さえておき、結果が出たとき (と、降りた・片付けたときに戻すとき) に差し引きでレートを動かす。
 // -----------------------------------------------------------------
-async function runSinkTable(actorUid, mutate) {
+async function runSinkTable(actorUid, mutate, actorName = null) {
   const { tableRef, publicRef } = sinkTableRefs();
-  const ctx = await db.runTransaction(async transaction => {
+  const done = await db.runTransaction(async transaction => {
     const tableDoc = await transaction.get(tableRef);
     const table = tableDoc.exists ? tableDoc.data() : emptySinkTable();
-    const uids = Array.from(new Set([...sinkTableUids(table), actorUid].filter(Boolean)));
-    const walletRefs = uids.map(uid => db.collection(CASINO_SESSIONS).doc(uid));
-    const walletDocs = walletRefs.length ? await transaction.getAll(...walletRefs) : [];
-    const wallets = new Map(uids.map((uid, index) => [uid, walletDocs[index].exists ? walletDocs[index].data() : null]));
-    const context = createSinkContext({ table, wallets, now: Date.now(), randomInt: casinoRandom, touchWallet: touchCasinoSession });
+    const tables = await readCasinoTables(transaction, { sink: tableDoc.exists ? table : null });
+    const loaded = await readCasinoWallets(transaction, casinoTableNames('sink', table, actorUid, actorName), tables, 'sink');
+    const context = createSinkContext({ table, wallets: loaded.wallets, now: Date.now(), randomInt: casinoRandom, touchWallet: touchCasinoWallet });
     if (!tableDoc.exists) {
       context.changed = true;
       context.publicChanged = true;
@@ -3423,46 +3193,30 @@ async function runSinkTable(actorUid, mutate) {
     mutate(context);
     advanceSinkTable(context);
 
-    const orphans = groupOrphanPayouts(context.orphanPayouts);
-    const orphanSnapshots = await Promise.all(orphans.map(payout => transaction.get(playerQuery(payout.name))));
-
     if (context.changed) {
       if (context.publicChanged) context.table.seq = (context.table.seq || 0) + 1;
       context.table.updatedAt = context.nowIso;
       transaction.set(tableRef, context.table);
       if (context.publicChanged) transaction.set(publicRef, publicSinkTable(context.table));
     }
-    context.touched.forEach(uid => {
-      const wallet = context.wallets.get(uid);
-      if (wallet) transaction.set(db.collection(CASINO_SESSIONS).doc(uid), wallet);
-    });
-    orphans.forEach((payout, index) => creditCasinoOrphan(transaction, orphanSnapshots[index], payout, context.nowIso, 'sink'));
-    return context;
+    const written = writeCasinoWallets(transaction, loaded, 'sink', context.table, context.nowIso);
+    return { context, written };
   });
-
-  for (const uid of ctx.broke) {
-    try {
-      await settleCasinoSession(uid, 'casino_auto_settle', { reason: 'broke' });
-    } catch (error) {
-      console.error(`casino_sessions/${uid} の精算 (チップ切れ) に失敗しました:`, error);
-    }
-  }
-  if (ctx.orphanPayouts.length) {
-    await rebuildRateChartQuietly('sink_orphan_payout');
-  }
-  return ctx;
+  warnCasinoOrphans('sink', done.context.orphanPayouts);
+  await applyRateChartLive(done.written.chart);
+  return { ...done.context, heldAfter: done.written.held };
 }
 
 /** 沈没の操作の返事: 船の様子と、本人の分 (乗っているか・飛び降りた時刻) と財布 */
 async function sinkTableAction(uid, username, mutate) {
-  const ctx = await runSinkTable(uid, mutate);
-  const wallet = ctx.broke.has(uid) ? null : ctx.wallets.get(uid);
+  const ctx = await runSinkTable(uid, mutate, username);
+  const wallet = ctx.wallets.get(uid);
   return {
     me: username,
     sink: publicSinkTable(ctx.table),
     sinkMine: sinkMine(ctx.table, uid),
     sinkSea: sinkSeaState(ctx.table, Date.now()),
-    session: wallet ? publicCasinoSession(wallet) : null,
+    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0) : null,
     now: new Date().toISOString()
   };
 }
@@ -3477,13 +3231,14 @@ async function readSinkStatus(uid) {
   return { sink: publicSinkTable(tableDoc.data()), sinkMine: sinkMine(tableDoc.data(), uid), sinkSea: sinkSeaState(tableDoc.data(), Date.now()) };
 }
 
+/** 宝探しの操作の返事: 卓の様子と本人の財布 */
 async function gapporiTableAction(uid, username, mutate) {
-  const ctx = await runGapporiTable(uid, mutate);
-  const wallet = ctx.broke.has(uid) ? null : ctx.wallets.get(uid);
+  const ctx = await runGapporiTable(uid, mutate, username);
+  const wallet = ctx.wallets.get(uid);
   return {
     me: username,
     gappori: publicGapporiTable(ctx.table),
-    session: wallet ? publicCasinoSession(wallet) : null,
+    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0) : null,
     now: new Date().toISOString()
   };
 }
@@ -3686,95 +3441,76 @@ async function casinoVoyageRoll(uid, username, rawBet) {
   if (!isVoyageStarted(now)) throw new CasinoError(400, '航海は 10/5 (月) 0:00 に始まります。');
   if (isVoyageOver(now)) throw new CasinoError(400, '航海は 12/21 で終わりました。最終秘宝の山分けをお待ちください。');
   const chapter = voyageChapterAt(now);
-  const sessionRef = db.collection(CASINO_SESSIONS).doc(uid);
   const { publicRef, playerRef } = voyageRefs(uid);
 
-  const rolled = await db.runTransaction(async transaction => {
-    const [sessionDoc, publicDoc, playerDoc] = await transaction.getAll(sessionRef, publicRef, playerRef);
-    if (!sessionDoc.exists) {
-      throw new CasinoError(409, 'テーブルに入場していません。');
+  const rolled = await runSoloCasinoPlay('voyage', uid, username, {
+    extraRefs: [publicRef, playerRef],
+    play: (wallet, [publicDoc, playerDoc], nowIso) => {
+      if (bet > wallet.chips) {
+        throw new CasinoError(400, `使えるレート (${wallet.chips}) を超えて賭けることはできません。`);
+      }
+      const state = publicDoc.exists ? publicDoc.data() : emptyVoyagePublic(nowIso);
+      if (state.final) throw new CasinoError(400, '航海は終わり、最終秘宝は山分け済みです。');
+      const isNewPlayer = !playerDoc.exists;
+      const player = isNewPlayer ? emptyVoyagePlayer(uid, username, nowIso) : playerDoc.data();
+
+      const play = playVoyage({ chapter, bet, pos: player.pos || 0, jp: voyageJpAmount(state.jpCents), lapDebt: player.lapDebt || 0, randomInt: casinoRandom });
+      const id = `${Date.now().toString(36)}${randomInt(36 ** 4).toString(36)}`;
+
+      // 貯める分と JP の払い出し (当たったら貯まった分を払い、0 から貯め直す)
+      state.jpCents = (state.jpCents || 0) + bet * VOYAGE_JP_RATE;
+      state.treasureCents = (state.treasureCents || 0) + bet * VOYAGE_TREASURE_RATE;
+      if (play.jpHit) state.jpCents = voyageJpCentsAfterWin(state.jpCents, play.jpWon);
+      state.jp = voyageJpAmount(state.jpCents);
+      state.treasure = voyageTreasureAmount(state.treasureCents);
+
+      // 周回 (港を通って1周するたびに1つ)
+      const laps = voyageLapCount(player.laps) + play.laps;
+      const wagered = (player.wagered || 0) + bet;
+
+      const last = { id, bet, chapter: chapter.no, dice: play.dice, from: player.pos || 0, pos: play.pos, newLaps: play.laps, laps, payout: play.payout, multiplier: play.multiplier, jpHit: play.jpHit, jpWon: play.jpWon, at: nowIso };
+      const nextPlayer = {
+        ...player,
+        player: username,
+        pos: play.pos,
+        laps,
+        lapDebt: play.lapDebt,
+        rolls: (player.rolls || 0) + 1,
+        wagered,
+        jpWon: (player.jpWon || 0) + play.jpWon,
+        bestWin: Math.max(player.bestWin || 0, play.payout),
+        last,
+        updatedAt: nowIso
+      };
+      state.rolls = (state.rolls || 0) + 1;
+      state.wagered = (state.wagered || 0) + bet;
+      if (isNewPlayer) state.players = (state.players || 0) + 1;
+      if (play.jpHit) {
+        state.lastJp = { player: username, amount: play.jpWon, chapter: chapter.no, at: nowIso };
+        state.jpHistory = [state.lastJp, ...(state.jpHistory || [])].slice(0, VOYAGE_JP_HISTORY_LIMIT);
+      }
+      state.seq = (state.seq || 0) + 1;
+      state.updatedAt = nowIso;
+
+      const summary = { bet, returned: play.payout, multiplier: play.multiplier, dice: play.dice, square: play.moves[play.moves.length - 1].square, jp: play.jpHit, at: nowIso };
+      wallet.chips = wallet.chips - bet + play.payout;
+      wallet.vgRolls = (wallet.vgRolls || 0) + 1;
+      wallet.wagered = (wallet.wagered || 0) + bet;
+      wallet.vgRecent = [summary, ...(wallet.vgRecent || [])].slice(0, CASINO_RECENT_LIMIT);
+      return {
+        result: { id, bet, chapter: chapter.no, ...play, lapsTotal: laps, at: nowIso },
+        state,
+        player: nextPlayer
+      };
+    },
+    write: (transaction, played) => {
+      transaction.set(publicRef, played.state);
+      transaction.set(playerRef, played.player);
     }
-    const session = sessionDoc.data();
-    if (isCasinoSessionExpired(session)) return { expired: true };
-    if (bet > session.chips) {
-      throw new CasinoError(400, `手元のチップ (${session.chips}) を超えて賭けることはできません。`);
-    }
-    const nowIso = new Date().toISOString();
-    const state = publicDoc.exists ? publicDoc.data() : emptyVoyagePublic(nowIso);
-    if (state.final) throw new CasinoError(400, '航海は終わり、最終秘宝は山分け済みです。');
-    const isNewPlayer = !playerDoc.exists;
-    const player = isNewPlayer ? emptyVoyagePlayer(uid, username, nowIso) : playerDoc.data();
-
-    const play = playVoyage({ chapter, bet, pos: player.pos || 0, jp: voyageJpAmount(state.jpCents), lapDebt: player.lapDebt || 0, randomInt: casinoRandom });
-    const id = `${Date.now().toString(36)}${randomInt(36 ** 4).toString(36)}`;
-
-    // 貯める分と JP の払い出し (当たったら貯まった分を払い、0 から貯め直す)
-    state.jpCents = (state.jpCents || 0) + bet * VOYAGE_JP_RATE;
-    state.treasureCents = (state.treasureCents || 0) + bet * VOYAGE_TREASURE_RATE;
-    if (play.jpHit) state.jpCents = voyageJpCentsAfterWin(state.jpCents, play.jpWon);
-    state.jp = voyageJpAmount(state.jpCents);
-    state.treasure = voyageTreasureAmount(state.treasureCents);
-
-    // 周回 (港を通って1周するたびに1つ)
-    const laps = voyageLapCount(player.laps) + play.laps;
-    const wagered = (player.wagered || 0) + bet;
-
-    const last = { id, bet, chapter: chapter.no, dice: play.dice, from: player.pos || 0, pos: play.pos, newLaps: play.laps, laps, payout: play.payout, multiplier: play.multiplier, jpHit: play.jpHit, jpWon: play.jpWon, at: nowIso };
-    const nextPlayer = {
-      ...player,
-      player: username,
-      pos: play.pos,
-      laps,
-      lapDebt: play.lapDebt,
-      rolls: (player.rolls || 0) + 1,
-      wagered,
-      jpWon: (player.jpWon || 0) + play.jpWon,
-      bestWin: Math.max(player.bestWin || 0, play.payout),
-      last,
-      updatedAt: nowIso
-    };
-    state.rolls = (state.rolls || 0) + 1;
-    state.wagered = (state.wagered || 0) + bet;
-    if (isNewPlayer) state.players = (state.players || 0) + 1;
-    if (play.jpHit) {
-      state.lastJp = { player: username, amount: play.jpWon, chapter: chapter.no, at: nowIso };
-      state.jpHistory = [state.lastJp, ...(state.jpHistory || [])].slice(0, VOYAGE_JP_HISTORY_LIMIT);
-    }
-    state.seq = (state.seq || 0) + 1;
-    state.updatedAt = nowIso;
-
-    const summary = { bet, returned: play.payout, multiplier: play.multiplier, dice: play.dice, square: play.moves[play.moves.length - 1].square, jp: play.jpHit, at: nowIso };
-    const nextSession = {
-      ...session,
-      chips: Math.max(0, session.chips - bet + play.payout),
-      vgRolls: (session.vgRolls || 0) + 1,
-      wagered: (session.wagered || 0) + bet,
-      lastActionAt: nowIso,
-      expiresAt: casinoSessionExpiresAt(session.startedAt, nowIso),
-      vgRecent: [summary, ...(session.vgRecent || [])].slice(0, CASINO_RECENT_LIMIT)
-    };
-    transaction.set(sessionRef, nextSession);
-    transaction.set(publicRef, state);
-    transaction.set(playerRef, nextPlayer);
-    return {
-      result: { id, bet, chapter: chapter.no, ...play, lapsTotal: laps, at: nowIso },
-      session: nextSession,
-      state,
-      player: nextPlayer
-    };
   });
 
-  if (rolled.expired) {
-    const settled = await settleCasinoSession(uid, 'casino_auto_settle');
-    return { expired: true, settled };
-  }
   const voyage = { ...voyageTimeInfo(), state: publicVoyageState(rolled.state), me: publicVoyagePlayer(rolled.player) };
-  // チップが尽きたら続けようがないので、その場で精算する
-  if (rolled.session.chips <= 0) {
-    const settled = await settleCasinoSession(uid, rolled.session.player, { reason: 'broke' });
-    return { result: rolled.result, session: null, settled, voyage };
-  }
-  return { result: rolled.result, session: publicCasinoSession(rolled.session), voyage };
+  return { result: rolled.result, session: rolled.session, voyage };
 }
 
 /**
@@ -3839,14 +3575,11 @@ async function finalizeVoyage() {
 
 const CASINO_ACTIONS = {
   status: ({ uid, username }) => casinoStatus(uid, username),
-  enter: ({ uid, username, body }) => casinoEnter(uid, username, body.buyIn, body.game),
-  settle: async ({ uid, username }) => {
-    const settled = await settleCasinoSession(uid, username, { manual: true });
-    if (!settled) throw new CasinoError(409, '精算するテーブルがありません。');
-    return { settled };
-  },
-  slotSpin: ({ uid, body }) => casinoSlotSpin(uid, body.bet),
-  nrSpin: ({ uid, body }) => casinoNariagariSpin(uid, body.bet, body.layout),
+  // 持ち込み・精算は 55.0 で無くした (開いたままの古い画面から呼ばれたときは読み込み直してもらう)
+  enter: () => { throw new CasinoError(410, '55.0 で持ち込みは無くなりました (レートからそのまま賭けられます)。画面を読み込み直してください。'); },
+  settle: () => { throw new CasinoError(410, '55.0 で精算は無くなりました (結果はそのままレートに入ります)。画面を読み込み直してください。'); },
+  slotSpin: ({ uid, username, body }) => casinoSlotSpin(uid, username, body.bet),
+  nrSpin: ({ uid, username, body }) => casinoNariagariSpin(uid, username, body.bet, body.layout),
   vgStatus: ({ uid }) => readVoyageStatus(uid).then(voyage => ({ voyage })),
   vgRoll: ({ uid, username, body }) => casinoVoyageRoll(uid, username, body.bet),
   bjJoin: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => joinSeat(ctx, uid, username, body.seat)),
@@ -3897,6 +3630,9 @@ async function handleCasinoRequest(req, res) {
     if (!Object.hasOwn(CASINO_ACTIONS, action)) {
       throw new CasinoError(400, '不明な操作です。');
     }
+    // 54.x の持ち込みの財布が残っていれば、操作より先に精算して消す (卓の賭けを二重に数えないため)
+    await migrateLegacyCasinoSessions();
+    await refundAikankakuBets();
     const payload = await CASINO_ACTIONS[action]({ uid: decoded.uid, username, body, admin: Boolean(decoded.admin) });
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
@@ -3920,14 +3656,21 @@ export const casino = onRequest({ region: 'asia-northeast1' }, handleCasinoReque
 // 更新前から開いたままのタブでも精算できるよう、同じ処理のまま残している
 export const casinoRoulette = onRequest({ region: 'asia-northeast1' }, handleCasinoRequest);
 
-// 精算せずに離れたテーブルを片付ける。期限は最後の操作から30分 / 入場から3時間。
-// ブラックジャックと宝探しの卓も、誰も画面を開いていないまま時間切れで止まっていれば先へ進める
-// 指名手配でこの10分にめくられた賞金首がいれば、レート推移グラフもここで作り直す (AIカンカクの BET・取り消しも同じ)
+// 10分ごと。ブラックジャック・宝探し・沈没の卓が、誰も画面を開いていないまま時間切れで止まっていれば先へ進める。
+// 指名手配でこの10分にめくられた賞金首がいれば、レート推移グラフもここで作り直す。AIカンカク (55.1 で削除) の残りの BET も返す。
+// 関数名は 54.x (持ち込みの財布の自動精算) のまま (変えると Cloud Scheduler のジョブが作り直されるため)
 export const settleIdleCasinoSessions = onSchedule({
   region: 'asia-northeast1',
   schedule: 'every 10 minutes',
   timeZone: 'Asia/Tokyo'
 }, async () => {
+  try {
+    // 54.x の持ち込みの財布が残っていれば精算して消す (55.0 からは作られない)。卓を進めるより先に (卓の賭けを二重に数えないため)
+    legacyCasinoSessionsCleared = false;
+    await migrateLegacyCasinoSessions();
+  } catch (error) {
+    console.error('持ち込みの財布の精算 (55.0 の移行) に失敗しました:', error);
+  }
   try {
     await runBlackjackTable(null, tickTable);
   } catch (error) {
@@ -3949,20 +3692,11 @@ export const settleIdleCasinoSessions = onSchedule({
     console.error('指名手配のあとのレート推移グラフの作り直しに失敗しました:', error);
   }
   try {
-    await rebuildRateChartAfterAikankaku(10 * 60 * 1000);
+    // AIカンカク (55.1 で削除) の精算していない BET が残っていれば返す
+    aikankakuRefundChecked = false;
+    await refundAikankakuBets();
   } catch (error) {
-    console.error('AIカンカクのあとのレート推移グラフの作り直しに失敗しました:', error);
-  }
-  const snapshot = await db.collection(CASINO_SESSIONS)
-    .where('expiresAt', '<=', new Date().toISOString())
-    .get();
-  for (const doc of snapshot.docs) {
-    try {
-      const settled = await settleCasinoSession(doc.id, 'casino_auto_settle');
-      console.log('casino auto settle:', JSON.stringify(settled));
-    } catch (error) {
-      console.error(`casino_sessions/${doc.id} の自動精算に失敗しました:`, error);
-    }
+    console.error('AIカンカクの BET の返却に失敗しました:', error);
   }
 });
 
@@ -3977,6 +3711,38 @@ export const finalizeVoyageTreasure = onSchedule({
     console.log('finalizeVoyageTreasure:', JSON.stringify({ skipped: result.skipped || null, count: result.final?.count ?? null }));
   } catch (error) {
     console.error('航海の最終秘宝の山分けに失敗しました:', error);
+  }
+});
+
+// 学食のメニュー (大学のサイトの PDF) を中継する。大学のサイトは CORS のヘッダーを返さないので、
+// ホームの画面 (PDF.js で絵にして横幅いっぱいに出す) はここから読む。毎回取り直し、画面側で10分だけ使い回させる
+const CAFETERIA_MENU_PDF_URL = 'https://www.cit-s.com/wp/wp-content/themes/cit/syokudo/t.pdf';
+const CAFETERIA_MENU_MAX_BYTES = 15 * 1024 * 1024;
+
+export const cafeteriaMenu = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'GET') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+  try {
+    const response = await fetch(`${CAFETERIA_MENU_PDF_URL}?t=${Date.now()}`, { signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`大学のサイトが ${response.status} を返しました`);
+    const body = Buffer.from(await response.arrayBuffer());
+    if (!String(response.headers.get('content-type') || '').includes('pdf') || body.length > CAFETERIA_MENU_MAX_BYTES) {
+      throw new Error('メニューの PDF ではありませんでした');
+    }
+    res.set('Content-Type', 'application/pdf');
+    res.set('Cache-Control', 'public, max-age=600');
+    res.status(200).send(body);
+  } catch (error) {
+    console.error('学食のメニューの取得に失敗しました:', error);
+    res.status(502).json({ status: 'error', message: `学食のメニューを取得できませんでした: ${error.message}` });
   }
 });
 

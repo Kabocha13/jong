@@ -188,10 +188,10 @@ export function boardSink(ctx, uid, name, rawFare) {
   if (playerIndex(table, uid) >= 0) throw new SinkTableError(409, 'もう乗っています。');
   if (table.players.length >= SINK_MAX_PLAYERS) throw new SinkTableError(409, `満員です (${SINK_MAX_PLAYERS}人まで)。`);
   const wallet = ctx.wallets.get(uid);
-  if (!wallet) throw new SinkTableError(409, '先にチップを持ち込んでください。');
+  if (!wallet) throw new SinkTableError(409, 'ゲームの準備ができていません。画面を読み込み直してください。');
   const fare = table.fare ?? Number(rawFare);
   if (!SINK_FARES.includes(fare)) throw new SinkTableError(400, `運賃は ${SINK_FARES.join('・')} から選んでください。`);
-  if (wallet.chips < fare) throw new SinkTableError(400, `手元のチップ (${wallet.chips}) が運賃 (${fare}) に足りません。`);
+  if (wallet.chips < fare) throw new SinkTableError(400, `使えるレート (${wallet.chips}) が運賃 (${fare}) に足りません。`);
 
   wallet.chips -= fare;
   ctx.touchWallet(wallet, ctx.nowIso);
@@ -275,6 +275,7 @@ function finishSink(ctx) {
     if (!wallet) return;
     const won = winner && winner.uid === player.uid;
     wallet.skRounds = (wallet.skRounds || 0) + 1;
+    wallet.wagered = (wallet.wagered || 0) + table.fare;   // 賭けた額は結果の回に数える (増減ログの「賭け」)
     wallet.skRecent = [{
       bet: table.fare,
       returned: won ? prize : 0,

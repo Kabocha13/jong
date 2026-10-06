@@ -532,20 +532,102 @@ REFRESH_BUTTON?.addEventListener('click', async () => {
 });
 
 // 食堂メニュー (毎回 PDF を取得しなおす)
+//   iframe で PDF を出すと iPhone (Safari・アプリ) では1ページ目の一部しか描かれず、動かせもしないので、
+//   PDF.js (cdnjs) で絵にして横幅いっぱいにページ全体を出す。大学のサイトは CORS を返さないので、
+//   PDF は Cloud Function (cafeteriaMenu) を通して読む。「拡大する」で2倍にし、枠の中で動かして読む
 const CAFETERIA_MENU_PDF_URL = 'https://www.cit-s.com/wp/wp-content/themes/cit/syokudo/t.pdf';
+const PDFJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+const CAFETERIA_ZOOMS = [1, 2];
+const cafeteria = { page: null, zoom: 1, rendering: null, width: 0, resizeTimer: null };
 
-function loadCafeteriaMenu() {
-    const frame = document.getElementById('tsudanuma-menu');
-    const link = document.getElementById('tsudanuma-menu-link');
-    if (!frame) return;
-
-    // キャッシュを避けて常に最新のメニューを読み込む
-    const url = `${CAFETERIA_MENU_PDF_URL}?t=${Date.now()}`;
-    // #view=FitH で横幅に合わせて表示させる (対応しないビューアでは無視される)。
-    // ツールバーとサイドパネルは狭い画面では邪魔なので畳む
-    frame.src = `${url}#view=FitH&toolbar=0&navpanes=0`;
-    if (link) link.href = url;
+function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = `${PDFJS_BASE}pdf.min.js`;
+        script.onload = () => {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_BASE}pdf.worker.min.js`;
+            resolve(window.pdfjsLib);
+        };
+        script.onerror = () => reject(new Error('PDF.js を読み込めませんでした'));
+        document.head.appendChild(script);
+    });
 }
+
+/** いまの枠の幅 × 拡大率で描く (画面の細かさに合わせて、くっきり描く) */
+async function renderCafeteriaMenu() {
+    const viewer = document.getElementById('tsudanuma-menu-viewer');
+    const canvas = document.getElementById('tsudanuma-menu');
+    if (!cafeteria.page || !viewer || !canvas) return;
+    const width = viewer.clientWidth;
+    if (!width) return;
+    cafeteria.width = width;
+    const base = cafeteria.page.getViewport({ scale: 1 });
+    const cssWidth = width * cafeteria.zoom;
+    const ratio = Math.min(window.devicePixelRatio || 1, 3);
+    const viewport = cafeteria.page.getViewport({ scale: (cssWidth * ratio) / base.width });
+    // 描いている途中で幅や拡大率が変わったら、前のは止めて描き直す
+    if (cafeteria.rendering) cafeteria.rendering.cancel();
+    const next = document.createElement('canvas');
+    next.width = Math.floor(viewport.width);
+    next.height = Math.floor(viewport.height);
+    const task = cafeteria.page.render({ canvasContext: next.getContext('2d'), viewport });
+    cafeteria.rendering = task;
+    try {
+        await task.promise;
+    } catch (error) {
+        if (error && error.name === 'RenderingCancelledException') return;
+        throw error;
+    } finally {
+        if (cafeteria.rendering === task) cafeteria.rendering = null;
+    }
+    canvas.width = next.width;
+    canvas.height = next.height;
+    canvas.getContext('2d').drawImage(next, 0, 0);
+    canvas.style.width = `${cssWidth}px`;
+    canvas.style.height = `${(cssWidth * base.height) / base.width}px`;
+    viewer.dataset.zoom = String(cafeteria.zoom);
+}
+
+async function loadCafeteriaMenu() {
+    const canvas = document.getElementById('tsudanuma-menu');
+    const status = document.getElementById('tsudanuma-menu-status');
+    const zoom = document.getElementById('tsudanuma-menu-zoom');
+    const link = document.getElementById('tsudanuma-menu-link');
+    if (!canvas) return;
+    // 「PDFを開く」はキャッシュを避けて常に最新を開く
+    if (link) link.href = `${CAFETERIA_MENU_PDF_URL}?t=${Date.now()}`;
+    try {
+        const pdfjs = await loadPdfJs();
+        // 10分ごとに URL を変えて取り直す (Cloud Function の返事は10分使い回してよい)
+        const pdf = await pdfjs.getDocument({ url: `${getFunctionsBaseUrl()}/cafeteriaMenu?t=${Math.floor(Date.now() / 600000)}` }).promise;
+        cafeteria.page = await pdf.getPage(1);
+        await renderCafeteriaMenu();
+        status.classList.add('hidden');
+        canvas.classList.remove('hidden');
+        if (zoom) zoom.disabled = false;
+    } catch (error) {
+        console.error('食堂メニューの表示に失敗しました:', error);
+        status.textContent = 'メニューを表示できませんでした。「PDFを開く」から見てください。';
+        status.classList.remove('hidden');
+    }
+}
+
+document.getElementById('tsudanuma-menu-zoom')?.addEventListener('click', event => {
+    const index = CAFETERIA_ZOOMS.indexOf(cafeteria.zoom);
+    cafeteria.zoom = CAFETERIA_ZOOMS[(index + 1) % CAFETERIA_ZOOMS.length];
+    event.currentTarget.textContent = cafeteria.zoom > 1 ? '元の大きさに戻す' : '拡大する';
+    renderCafeteriaMenu().catch(error => console.error('食堂メニューの描き直しに失敗しました:', error));
+});
+
+// 幅が変わったら (画面を回したときなど) 描き直す
+window.addEventListener('resize', () => {
+    window.clearTimeout(cafeteria.resizeTimer);
+    cafeteria.resizeTimer = window.setTimeout(() => {
+        const viewer = document.getElementById('tsudanuma-menu-viewer');
+        if (viewer && Math.abs(viewer.clientWidth - cafeteria.width) > 8) renderCafeteriaMenu().catch(() => {});
+    }, 200);
+});
 
 loadCafeteriaMenu();
 

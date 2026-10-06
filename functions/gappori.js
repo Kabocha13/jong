@@ -2,8 +2,8 @@
 // 乱数は呼び出し側から randomInt(n) → 0〜n-1 の整数 として受け取る。
 //
 // ルール
-//   回る盤面に16マス。15マスにお宝の絵柄 (毎回7種類から6種類)、1マスは船長。
-//   絵柄ごとのマスの数も毎回変わるが、レア度の順 (錨 ≥ オウム ≥ ラム酒 ≥ 宝の地図 ≥ 羅針盤 ≥ 金貨 ≥ 宝箱) は守る。
+//   回る盤面に16マス。15マスにお宝の絵柄 (毎回11種類から6種類)、1マスは船長。
+//   絵柄ごとのマスの数も毎回変わるが、レア度の順 (錨 ≥ オウム ≥ 舵輪 ≥ ラム酒 ≥ 望遠鏡 ≥ 宝の地図 ≥ 羅針盤 ≥ 大砲 ≥ 金貨 ≥ 海賊旗 ≥ 宝箱) は守る。
 //   同じ絵柄のマスは盤面の上でまとまって並ぶ (並ぶ順と船長マスの位置は毎回ランダム)。
 //   5球がそれぞれ別のマスに入る。絵柄を2〜5個予想して何口でも買え (1口の値段は予想の個数で決まる)、
 //   同じ絵柄を何個選んでもよい (その絵柄のマスの数まで。錨を2つ選んだら「錨のマスに2球」の予想)。
@@ -16,10 +16,13 @@
 //   0 から貯めたもの (外れた券は賭けの約91% なので、賭けの約9% がジャックポットで戻る)。
 //   還元率は 配当 GAPPORI_BASE_RETURN (チャンスも含めて) + ジャックポット 約9% = 約99%
 
-/** 絵柄。レア度の順 (前ほど多く、後ろほど少なく並べる) */
-export const GAPPORI_SYMBOLS = ['anchor', 'parrot', 'rum', 'map', 'compass', 'coin', 'chest'];
+/** 絵柄。レア度の順 (前ほど多く、後ろほど少なく並べる)。舵輪・望遠鏡・大砲・海賊旗は 54.19 で足した */
+export const GAPPORI_SYMBOLS = ['anchor', 'parrot', 'helm', 'rum', 'telescope', 'map', 'compass', 'cannon', 'coin', 'flag', 'chest'];
 export const GAPPORI_CAPTAIN = 'captain';
-const GAPPORI_NAMES = { anchor: '錨', parrot: 'オウム', rum: 'ラム酒', map: '宝の地図', compass: '羅針盤', coin: '金貨', chest: '宝箱' };
+const GAPPORI_NAMES = {
+  anchor: '錨', parrot: 'オウム', helm: '舵輪', rum: 'ラム酒', telescope: '望遠鏡', map: '宝の地図',
+  compass: '羅針盤', cannon: '大砲', coin: '金貨', flag: '海賊旗', chest: '宝箱'
+};
 export const GAPPORI_KINDS = 6;              // 1回の盤面に並べる絵柄の種類
 export const GAPPORI_SYMBOL_POCKETS = 15;    // 絵柄のマス (ほかに船長が1マス)
 export const GAPPORI_MAX_PER_KIND = 4;       // 1つの絵柄のマスの数の上限
@@ -74,12 +77,12 @@ function shuffle(list, randomInt) {
 }
 
 /**
- * 1回ぶんの盤面。kinds は並べる6種類 (レア度の順)、counts は絵柄ごとのマスの数、
+ * 1回ぶんの盤面。kinds は並べる6種類 (全部の絵柄から毎回選び、レア度の順に並べる)、counts は絵柄ごとのマスの数、
  * pockets は盤面を時計回りに見たマスの並び (16)。同じ絵柄はまとめて並べ、絵柄の順と船長の位置はランダム
  */
 export function generateGapporiBoard(randomInt) {
-  const dropped = randomInt(GAPPORI_SYMBOLS.length);
-  const kinds = GAPPORI_SYMBOLS.filter((_, index) => index !== dropped);
+  const kinds = shuffle(GAPPORI_SYMBOLS, randomInt).slice(0, GAPPORI_KINDS)
+    .sort((a, b) => GAPPORI_SYMBOLS.indexOf(a) - GAPPORI_SYMBOLS.indexOf(b));
   const sizes = GAPPORI_COMPOSITIONS[randomInt(GAPPORI_COMPOSITIONS.length)];
   const counts = Object.fromEntries(kinds.map((kind, index) => [kind, sizes[index]]));
   const groups = shuffle([...kinds.map(kind => Array(counts[kind]).fill(kind)), [GAPPORI_CAPTAIN]], randomInt);

@@ -4,7 +4,7 @@
 // ディーラーの裏のカードは決着するまで届かない (null のまま) ので、画面では伏せて描く。
 // カードを絞る人の手は、本人がめくった枚数 (opened) より先をほかの人の画面では伏せて描く。
 // 締め切り (ベット受付・番の人の持ち時間) を過ぎたら、画面を開いている人が bjTick を送って先へ進める。
-// 入場・手元チップ・精算・画面の切り替えは game.js。
+// 財布 (使えるレート) の表示と画面の切り替えは game.js。
 
 const BLACKJACK_POLL_MS = 1200;     // 卓を読み直す間隔
 const BLACKJACK_DEAL_MS = 200;      // 配るときの1枚ごとの間隔
@@ -287,7 +287,7 @@ function createSeatPanel(view, index, before, fresh) {
     }
     const chips = document.createElement('span');
     chips.className = 'bj-seat-chips';
-    chips.title = '手元チップ';
+    chips.title = '使えるレート';
     chips.textContent = Number(seat.chips || 0).toLocaleString('ja-JP');
     head.appendChild(chips);
 
@@ -957,7 +957,7 @@ function addBlackjackChip(amount) {
     if (casino.busy || !casino.session) return;
     const add = Math.min(amount, casino.session.chips - blackjack.bet);
     if (add < 1) {
-        showMessage(el('bj-message'), '手元のチップを使い切っています。', 'info');
+        showMessage(el('bj-message'), '使えるレートを使い切っています。', 'info');
         return;
     }
     blackjack.bet += add;

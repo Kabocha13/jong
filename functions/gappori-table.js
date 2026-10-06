@@ -55,8 +55,9 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  4: 52.3 の 配当の還元率 90% と、外れた券の代金の1割を 0 から貯めるジャックポット /
 //  5: 52.4 の 券ごとに予想の個数で決まるチャンスの確率 /
 //  6: 52.6 の チャンスの確率を半分に /
-//  7: 54.17 の 本日のおすすめ (5・4・3・2個の予想を1つずつ、倍率 ×1.1))
-export const GAPPORI_RULES_VERSION = 7;
+//  7: 54.17 の 本日のおすすめ (5・4・3・2個の予想を1つずつ、倍率 ×1.1) /
+//  8: 54.19 の お宝を 7種類 → 11種類に (舵輪・望遠鏡・大砲・海賊旗。1回に並べるのは今までどおり6種類))
+export const GAPPORI_RULES_VERSION = 8;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -149,7 +150,7 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
     throw new GapporiTableError(409, 'この回の受付は締め切りました。次の回をお待ちください。');
   }
   const wallet = ctx.wallets.get(uid);
-  if (!wallet) throw new GapporiTableError(409, '先にチップを持ち込んでください。');
+  if (!wallet) throw new GapporiTableError(409, 'ゲームの準備ができていません。画面を読み込み直してください。');
   const orders = Array.isArray(rawOrders) ? rawOrders : [];
   if (!orders.length) throw new GapporiTableError(400, '買う券を選んでください。');
   const bought = table.tickets.filter(ticket => ticket.uid === uid).length;
@@ -170,10 +171,9 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
   });
   const total = tickets.reduce((sum, ticket) => sum + ticket.cost, 0);
   if (total > wallet.chips) {
-    throw new GapporiTableError(400, `手元のチップ (${wallet.chips}) が足りません (合計 ${total})。`);
+    throw new GapporiTableError(400, `使えるレート (${wallet.chips}) が足りません (合計 ${total})。`);
   }
   wallet.chips -= total;
-  wallet.wagered = (wallet.wagered || 0) + total;
   ctx.touchWallet(wallet, ctx.nowIso);
   ctx.touched.add(uid);
   table.tickets.push(...tickets);
@@ -332,6 +332,7 @@ function finishGapporiRound(ctx, start) {
     const wallet = ctx.wallets.get(uid);
     if (!wallet) return;
     wallet.gpRounds = (wallet.gpRounds || 0) + 1;
+    wallet.wagered = (wallet.wagered || 0) + item.cost;   // 賭けた額は結果の回に数える (増減ログの「賭け」)
     wallet.gpRecent = [{
       bet: item.cost,
       returned: payout + share,

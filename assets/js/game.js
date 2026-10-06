@@ -1,9 +1,10 @@
 // ゲームタブの共通部分
-//   ログイン、ゲームの選択 (ブロックのタイル)、入場 (持ち込み)、手元チップと精算、画面の切り替え。
+//   ログイン、ゲームの選択 (ブロックのタイル)、財布 (使えるレート) の表示、画面の切り替え。
+//   55.0 で持ち込み・精算を無くした。賭けはレートから直接で、賭けられるのは「使えるレート = レート − 結果待ちの賭け」まで。
+//   casino.session はサーバーが返す財布 (chips = 使えるレート、held = 結果待ちの賭け、score = レート)。
 //   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js / game-voyage.js / game-sink.js
 //   (ルーレットとテキサスホールデムは 52.0 で廃止)。
-//   船底 (#underground)・指名手配 (#wanted)・AIカンカク (#aikankaku) はチップを使わない別の遊び場で、
-//   中身は game-underground.js・game-wanted.js・game-aikankaku.js。
+//   船底 (#underground) と指名手配 (#wanted) はチップを使わない別の遊び場で、中身は game-underground.js と game-wanted.js。
 //   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
 //   画面は #blackjack / #slot / #gappori / #nariagari のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
 
@@ -23,9 +24,9 @@ const casino = {
     ready: false,       // status を読み込み終えたか
     me: '',             // ログインしている人の名前 (卓で自分の席を見分ける)
     score: 0,
-    session: null,      // 持ち込んだチップ。どのゲームでも共通
+    session: null,      // 財布 (chips = 使えるレート、held = 結果待ちの賭け、score = レート)。どのゲームでも共通
     busy: false,
-    lobbyGame: null     // 入場フォームを出しているゲーム
+    rulesGame: null     // ルールの欄に出しているゲーム
 };
 
 const el = id => document.getElementById(id);
@@ -91,6 +92,11 @@ function playsSummary(settled) {
 
 function settledMessage(settled) {
     if (!settled) return '';
+    if (settled.reason === 'v55') {
+        // 54.x の持ち込みの財布を、55.0 で持ち込みを無くしたときに精算した結果
+        return '持ち込み・精算は無くなり、レートからそのまま賭けられるようになりました。前の持ち込みは精算しました'
+            + (settled.beforeScore === null ? '。' : ` (レート ${settled.beforeScore.toLocaleString('ja-JP')} → ${settled.afterScore.toLocaleString('ja-JP')})。`);
+    }
     const head = settled.reason === 'broke' ? 'チップがなくなったので精算しました'
         : settled.auto ? '前回のテーブルを自動で精算しました' : '精算しました';
     if (settled.beforeScore === null) return `${head}。`;
@@ -114,10 +120,6 @@ function isWantedRoute() {
     return location.hash.slice(1) === 'wanted';
 }
 
-function isAikankakuRoute() {
-    return location.hash.slice(1) === 'aikankaku';
-}
-
 function renderRoute() {
     if (!casino.ready) return;
     const game = routeGame();
@@ -130,17 +132,11 @@ function renderRoute() {
         // 指名手配もチップを持ち込まずに入る (レートがその場で動く)
         view = 'wanted';
         openWanted();
-    } else if (isAikankakuRoute()) {
-        // AIカンカクもチップを持ち込まずに入る (BET した額がその場でレートから引かれる)
-        view = 'aikankaku';
-        openAikankaku();
     } else if (!game) {
         renderMenu();
-    } else if (!casino.session) {
-        view = 'lobby';
-        renderLobby(game);
     } else {
         view = game;
+        renderCasinoRules(game);
         if (game === 'blackjack') openBlackjackTable();
         else if (game === 'slot') openSlotTable();
         else if (game === 'gappori') openGapporiTable();
@@ -156,12 +152,11 @@ function renderRoute() {
     if (view !== 'sink') closeSinkTable();
     if (view !== 'underground') closeUnderground();
     if (view !== 'wanted') closeWanted();
-    if (view !== 'aikankaku') closeAikankaku();
     showView(view);
     // 画面ごとの見た目の切り替えに使う (宝探しと成り上がりはスマホで見出しを消し、1画面に収める)
     document.body.dataset.casinoView = view;
-    // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す (船底・指名手配・AIカンカクはチップを使わないので出さない)
-    el('casino-wallet').classList.toggle('hidden', !casino.session || ['lobby', 'underground', 'wanted', 'aikankaku'].includes(view));
+    // 財布 (使えるレート) はカジノの各テーブルで出す (ゲーム一覧・船底・指名手配では出さない)
+    el('casino-wallet').classList.toggle('hidden', !casino.session || !game);
     renderWallet();
 }
 
@@ -170,7 +165,9 @@ function renderRoute() {
 // ------------------------------------------------------------------
 function renderMenu() {
     el('casino-menu-score').textContent = formatRate(casino.score);
-    el('casino-menu-rate').classList.toggle('hidden', Boolean(casino.session));
+    // 結果待ちの賭けがあれば添える
+    const held = casino.session?.held || 0;
+    el('casino-menu-held').textContent = held > 0 ? `(結果待ち ${formatRate(held)})` : '';
     document.querySelectorAll('.game-tile').forEach(tile => {
         const badge = tile.querySelector('.game-tile-badge');
         let text = tile.dataset.game === 'blackjack' && isBlackjackLive() ? '勝負の途中'
@@ -180,7 +177,6 @@ function renderMenu() {
         // 船底はレートが上限 (既定1000) 未満のときだけ仕分けできる
         if (tile.dataset.game === 'underground' && casino.score < undergroundMaxRate()) text = '入れます';
         if (tile.dataset.game === 'wanted') text = wantedTileBadge();
-        if (tile.dataset.game === 'aikankaku') text = aikankakuTileBadge();
         badge.textContent = text;
         badge.classList.toggle('hidden', !text);
     });
@@ -191,81 +187,45 @@ function renderMenu() {
 }
 
 // ------------------------------------------------------------------
-// 入場
+// ルール (各テーブルの下。そのゲームの分だけ出す)
 // ------------------------------------------------------------------
-function renderLobby(game) {
-    casino.lobbyGame = game;
-    el('casino-lobby-title').textContent = CASINO_GAMES[game].name;
-    document.querySelectorAll('#casino-lobby [data-rules]').forEach(item => {
+function renderCasinoRules(game) {
+    casino.rulesGame = game;
+    el('casino-rules-title').textContent = `${CASINO_GAMES[game].name}のルール`;
+    document.querySelectorAll('#casino-rules-box [data-rules]').forEach(item => {
         item.classList.toggle('hidden', item.dataset.rules !== game);
     });
-    el('casino-lobby-score').textContent = formatRate(casino.score);
-    const input = el('casino-buyin');
-    input.max = String(casino.score);
-    if (!input.value || Number(input.value) > casino.score) {
-        input.value = String(Math.min(casino.score, 100));
-    }
-    el('casino-enter-button').disabled = casino.busy || casino.score < 1;
-}
-
-async function enterTable(event) {
-    event.preventDefault();
-    if (casino.busy || !casino.lobbyGame) return;
-    const buyIn = Number(el('casino-buyin').value);
-    if (!Number.isInteger(buyIn) || buyIn < 1 || buyIn > casino.score) {
-        showMessage(el('casino-message'), `持ち込めるのは1〜${casino.score}の整数です。`, 'error');
-        return;
-    }
-
-    const button = el('casino-enter-button');
-    setCasinoBusy(true);
-    button.setAttribute('aria-busy', 'true');
-    try {
-        const game = casino.lobbyGame;
-        const data = await callCasino('enter', { buyIn, game });
-        if (data.autoSettled) showMessage(el('casino-message'), settledMessage(data.autoSettled), 'info');
-        casino.session = data.session;
-        renderRoute();
-        // ブラックジャックから入場したら、そのまま空いている席に座る
-        if (game === 'blackjack') await joinBlackjackAfterEntering();
-    } catch (error) {
-        showMessage(el('casino-message'), error.message, 'error');
-        await refreshCasino().catch(() => {});
-    } finally {
-        button.removeAttribute('aria-busy');
-        setCasinoBusy(false);
-    }
 }
 
 // ------------------------------------------------------------------
-// 手元チップと精算
+// 財布 (使えるレート = レート − 結果待ちの賭け)
 // ------------------------------------------------------------------
 function renderWallet() {
     const session = casino.session;
     if (!session) return;
+    if (Number.isFinite(Number(session.score))) casino.score = Number(session.score);
     const game = routeGame();
-    const net = session.chips - session.buyIn;
-    el('casino-chips').textContent = session.chips.toLocaleString('ja-JP');
-    el('casino-buyin-display').textContent = session.buyIn.toLocaleString('ja-JP');
-    // 回数は開いているテーブルのもの。ゲーム一覧では合計
+    el('casino-chips').textContent = formatRate(session.chips);
+    el('casino-held').textContent = formatRate(session.held || 0);
+    el('casino-score').textContent = formatRate(session.score ?? casino.score);
+    // 回数は開いているテーブルのもの (これまでの合計)
     el('casino-plays-label').textContent = game ? CASINO_GAMES[game].playsLabel : 'プレイ';
     const plays = game
         ? session[CASINO_GAMES[game].plays] || 0
         : Object.values(CASINO_GAMES).reduce((sum, item) => sum + (session[item.plays] || 0), 0);
-    el('casino-plays').textContent = `${plays}回`;
-    const netEl = el('casino-net');
-    netEl.textContent = formatSigned(net);
-    netEl.dataset.sign = net > 0 ? 'plus' : net < 0 ? 'minus' : 'zero';
-    el('casino-expiry').textContent = `${formatClock(session.expiresAt)} までに遊ぶか精算しないと自動で精算されます`;
+    el('casino-plays').textContent = `${plays.toLocaleString('ja-JP')}回`;
     renderSettleButton();
 }
 
+/** 結果待ちの賭けがあれば、その説明を添える (名前は 54.x の精算ボタンのころのまま。ほかのゲームの画面からも呼ぶ) */
 function renderSettleButton() {
     const pending = isBlackjackLive() ? 'ブラックジャックの勝負' : isGapporiLive() ? '宝探しの抽選'
         : isSinkLive() ? '沈没の航海' : '';
-    el('casino-settle-button').disabled = casino.busy || !casino.session || Boolean(pending);
-    el('casino-settle-note').classList.toggle('hidden', !pending);
-    if (pending) el('casino-settle-note').textContent = `${pending}が終わると精算できます。`;
+    const note = el('casino-held-note');
+    note.classList.toggle('hidden', !(casino.session?.held > 0));
+    note.textContent = pending
+        ? `${pending}の賭けは、結果が出るまで使えるレートから外しています。結果が出たら差し引きがレートに入ります。`
+        : '結果待ちの賭けは、結果が出るまで使えるレートから外しています。';
 }
 
 function setCasinoBusy(busy) {
@@ -277,26 +237,6 @@ function setCasinoBusy(busy) {
     renderNariagariControls();
     renderVoyageControls();
     renderSinkControlsIfReady();
-    if (casino.lobbyGame) el('casino-enter-button').disabled = busy || casino.score < 1;
-}
-
-async function settle() {
-    if (casino.busy || !casino.session) return;
-    const net = casino.session.chips - casino.session.buyIn;
-    if (!confirm(`精算します。レートに ${formatSigned(net)} を反映します。よろしいですか？`)) return;
-
-    setCasinoBusy(true);
-    try {
-        const data = await callCasino('settle');
-        casino.session = null;
-        await refreshCasino();
-        showMessage(el('casino-message'), settledMessage(data.settled), 'success');
-    } catch (error) {
-        showMessage(el('casino-message'), error.message, 'error');
-        await refreshCasino().catch(() => {});
-    } finally {
-        setCasinoBusy(false);
-    }
 }
 
 // ------------------------------------------------------------------
@@ -320,15 +260,6 @@ async function refreshCasino() {
 }
 
 function bindCasinoEvents() {
-    el('casino-enter-form').addEventListener('submit', enterTable);
-    document.querySelectorAll('.casino-presets [data-buyin]').forEach(button => {
-        button.addEventListener('click', () => {
-            // 候補にない額は入力欄に直接打ってもらう
-            const input = el('casino-buyin');
-            input.value = String(Math.min(Number(button.dataset.buyin), casino.score));
-        });
-    });
-    el('casino-settle-button').addEventListener('click', settle);
     window.addEventListener('hashchange', () => {
         renderRoute();
         window.scrollTo(0, 0);
@@ -344,7 +275,6 @@ async function initCasino() {
     initSink();
     initUnderground();
     initWanted();
-    initAikankaku();
     bindCasinoEvents();
     showView('loading');
 

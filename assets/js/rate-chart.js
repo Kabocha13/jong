@@ -542,6 +542,9 @@ async function healRateChartIfEmpty() {
     await rateChartLoadPromise;
 }
 
+let rateChartUnwatch = null;
+let rateChartLiveTimer = null;
+
 async function loadRateChart() {
     if (!RATE_CHART_CONTAINER) return;
     try {
@@ -552,6 +555,27 @@ async function loadRateChart() {
         rateChartState = { days: [], hoverIndex: -1, loaded: true, hide: null };
     }
     renderRateChart();
+    watchRateChartLive();
+}
+
+/**
+ * 今日の分 (rate_chart/today) を見張り、カジノの1回ごとの変化をその場で描き直す (55.0 から)。
+ * なぞっている・タップしているあいだは、読み取り欄が動かないよう描き直しを少し待つ
+ */
+function watchRateChartLive() {
+    if (rateChartUnwatch || typeof watchRateChartToday !== 'function') return;
+    rateChartUnwatch = watchRateChartToday(today => {
+        rateChartState.days = mergeRateChartToday(rateChartState.days, today);
+        window.clearTimeout(rateChartLiveTimer);
+        const redraw = () => {
+            if (rateChartState.hoverIndex >= 0) {
+                rateChartLiveTimer = window.setTimeout(redraw, 1500);
+                return;
+            }
+            renderRateChart();
+        };
+        redraw();
+    });
 }
 
 // 幅が変わったら描き直す (フォントサイズを保つため viewBox は固定せず実寸で描いている)

@@ -137,7 +137,7 @@ export function sweepSeats(ctx) {
 export function joinSeat(ctx, uid, name, rawSeat) {
   const { table } = ctx;
   const wallet = ctx.wallets.get(uid);
-  if (!wallet) throw new TableError(409, '先にチップを持ち込んでください。');
+  if (!wallet) throw new TableError(409, 'ゲームの準備ができていません。画面を読み込み直してください。');
   if (seatIndexOf(table, uid) >= 0) return;
   const wanted = Number.isInteger(rawSeat) && rawSeat >= 0 && rawSeat < TABLE_SEATS ? rawSeat : null;
   const index = wanted ?? table.seats.findIndex(seat => !seat);
@@ -172,11 +172,11 @@ export function placeBet(ctx, uid, rawAmount, squeeze = false) {
     throw new TableError(400, '賭け金は0以上の整数で指定してください。');
   }
   const wallet = ctx.wallets.get(uid);
-  if (!wallet) throw new TableError(409, '先にチップを持ち込んでください。');
+  if (!wallet) throw new TableError(409, 'ゲームの準備ができていません。画面を読み込み直してください。');
   const seat = table.seats[index];
   const available = wallet.chips + seat.bet;
   if (amount > available) {
-    throw new TableError(400, `手元のチップ (${available}) を超えて賭けることはできません。`);
+    throw new TableError(400, `使えるレート (${available}) を超えて賭けることはできません。`);
   }
   wallet.chips = available - amount;
   seat.bet = amount;

@@ -7,7 +7,7 @@
 //   航海のあいだは skTick を送り続けて、沈んだらすぐ結果を受け取る。
 //   海の水位は浸水の進み具合で、満水になったときに沈む。skTick の返事の「いまの水位と、いまの速さ」で描き、
 //   次の返事までその速さで進める (速さは途中で変わる。この先の速さはサーバーしか知らない)。
-//   入場・手元チップ・精算・画面の切り替えは game.js。
+//   財布 (使えるレート) の表示と画面の切り替えは game.js。
 
 const SINK_POLL_MS = 1200;        // 船の写しを読み直す間隔
 const SINK_CLOCK_MS = 100;        // 経過時間の表示を進める間隔
@@ -248,7 +248,7 @@ function renderSinkControls() {
     el('sk-jump-button').classList.toggle('hidden', !canJump);
     el('sk-jump-button').disabled = sk.busy;
     let note = '';
-    if (open && !aboard && table.fare && table.fare > chips) note = `手元のチップが運賃 (${table.fare.toLocaleString('ja-JP')}) に足りません。`;
+    if (open && !aboard && table.fare && table.fare > chips) note = `使えるレートが運賃 (${table.fare.toLocaleString('ja-JP')}) に足りません。`;
     else if (open && !aboard && table.players.length >= rules.maxPlayers) note = '満員です。次の便を待ってください。';
     else if (table.phase === 'sailing' && !aboard) note = '次の便を待ってください。';
     el('sk-note').textContent = note;

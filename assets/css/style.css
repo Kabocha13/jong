@@ -1273,21 +1273,57 @@ html.auth-pending #auth-section { visibility: hidden; }
     color: var(--color-indigo);
 }
 
-.cafeteria-pdf {
-    display: block;
-    width: 100%;
-    /* メニュー PDF は 728x1032pt の縦長 1 ページ。
-       同じ縦横比にしておくと、ビューアが幅に合わせて描画したとき全体が収まる。
-       固定の高さだと上の一部しか見えず、拡大表示されたように見えてしまう */
-    aspect-ratio: 728 / 1032;
+.cafeteria-viewer {
+    position: relative;
+    overflow: auto;
     background: var(--parchment-warm);
     border: 1px solid var(--parchment-edge);
     border-radius: var(--radius-sm);
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 拡大しているときは枠の高さを決めて、その中で上下左右に動かして読む */
+.cafeteria-viewer[data-zoom="2"] { max-height: min(80vh, 760px); }
+
+/* メニュー PDF (縦長1ページ) を main.js が PDF.js で絵にしたもの。描くまでは同じ縦横比の場所を空けておく */
+.cafeteria-pdf {
+    display: block;
+    width: 100%;
+    aspect-ratio: 728 / 1032;
+}
+
+.cafeteria-status {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    padding: 12px;
+    font-size: 0.86em;
+    text-align: center;
+    color: var(--ink-soft);
+}
+
+.cafeteria-status.hidden { display: none; }
+
+.cafeteria-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin-top: 8px;
+}
+
+.cafeteria-actions button.cafeteria-zoom {
+    width: auto;
+    min-height: 34px;
+    margin: 0;
+    padding: 6px 14px;
+    font-size: 0.8em;
 }
 
 .cafeteria-pdf-link {
     display: inline-block;
-    margin-top: 8px;
     font-size: 0.8em;
     color: var(--color-indigo);
 }
@@ -2009,6 +2045,9 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 #casino-net[data-sign="minus"] { color: var(--ng); }
 
 .casino-expiry { margin: 10px 0 0; font-size: 0.8em; }
+.casino-held-note { margin: 10px 0 0; font-size: 0.8em; }
+#casino-menu-held { font-size: 0.8em; color: var(--ink-soft); }
+.casino-rules-box { margin-top: clamp(14px, 2.4vw, 22px); }
 
 .casino-result {
     min-height: 1.75em;
@@ -3169,6 +3208,28 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     -webkit-user-drag: none;
 }
 
+/* 宝探しだけのお宝 (舵輪・望遠鏡・大砲)。背景を抜いた立体物の絵なので、ほかのお宝の絵 (青緑の背景ごと描いてあり、
+   枠の金の線が絵で隠れる) と見た目をそろえる: 枠の金の線を消し、背景の濃淡をほかの絵 (真ん中が明るく、外ほど暗い) に合わせる */
+.slot-symbol.is-helm,
+.slot-symbol.is-telescope,
+.slot-symbol.is-cannon {
+    background: radial-gradient(circle at 50% 46%, #2a6473 0%, #1a4955 34%, #0f303a 62%, #0a2026 100%);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+/* 物が絵の端までいっぱいに入っているので、切らずに余白を取って収める (ほかのお宝の物は絵の幅の約55〜65%) */
+.slot-symbol.is-helm img,
+.slot-symbol.is-telescope img,
+.slot-symbol.is-cannon img {
+    box-sizing: border-box;
+    padding: 16%;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+
+/* 海賊旗 (スロットのドクロ旗の絵) は周りの余白が広く小さく見えるので、少し寄せる */
+.slot-symbol.is-flag img { transform: scale(1.2); }
+
 .slot-symbol-emoji {
     font-size: 0.54em;
     line-height: 1;
@@ -4211,6 +4272,8 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 }
 
 .gp-pocket .slot-symbol { box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.45), 0 2px 6px rgba(0, 0, 0, 0.6); }
+/* 背景を抜いた絵のお宝 (舵輪・望遠鏡・大砲) は、ほかのお宝 (金の線が絵で隠れる) にそろえて金の線を引かない */
+.gp-pocket .slot-symbol:is(.is-helm, .is-telescope, .is-cannon) { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); }
 
 /* 入った球。お宝の絵が見えるよう、マスの右下に白い球を重ねる */
 .gp-ball {
@@ -5506,280 +5569,6 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 @media (prefers-reduced-motion: reduce) {
     .wd-card.is-up, .wd-card.is-matched.is-flash, .wd-card.is-pending { animation: none; }
 }
-
-/* ------------------------------------------------------------
-   19g2b. ゲーム — AIカンカク (1日1問。AI が表した数を当てる)
-   ------------------------------------------------------------ */
-/* ゲーム一覧のタイル: 伏せた数の札と、1〜100 の目盛り */
-.game-tile-art.is-aikankaku {
-    position: relative;
-    flex-direction: column;
-    gap: 10px;
-    background:
-        radial-gradient(ellipse 60% 55% at 50% 40%, rgba(126, 214, 223, 0.22), transparent 70%),
-        linear-gradient(180deg, var(--night), var(--water));
-}
-
-.ak-tile-card {
-    display: grid;
-    justify-items: center;
-    width: clamp(70px, 19vw, 96px);
-    padding: 6px 6px 8px;
-    color: var(--ink);
-    background: var(--img-parchment), var(--parchment);
-    background-size: cover;
-    background-blend-mode: multiply;
-    border: 1px solid var(--parchment-edge);
-    border-radius: 4px;
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.55);
-    transform: rotate(3deg);
-    transition: transform 0.25s ease;
-}
-
-.game-tile:hover .ak-tile-card { transform: rotate(0deg) scale(1.05); }
-
-.ak-tile-ai {
-    font-family: var(--font-title);
-    font-size: 0.72em;
-    letter-spacing: 0.3em;
-    color: var(--water-light);
-}
-
-.ak-tile-q {
-    font-family: var(--font-display);
-    font-size: clamp(1.8em, 7vw, 2.4em);
-    line-height: 1;
-    color: var(--rum-dark);
-}
-
-/* 目盛り (1〜100 を10ずつ) */
-.ak-tile-scale {
-    width: 70%;
-    height: 8px;
-    background:
-        repeating-linear-gradient(90deg, var(--brass-light) 0 1px, transparent 1px 10%),
-        linear-gradient(90deg, rgba(236, 194, 100, 0.15), rgba(236, 194, 100, 0.45));
-    border-bottom: 1px solid var(--brass-light);
-}
-
-/* お題 (羊皮紙の札) */
-.ak-topic {
-    max-width: 560px;
-    margin: 0 auto clamp(14px, 2.4vw, 22px);
-    padding: 14px 18px 16px;
-    text-align: center;
-    color: var(--ink);
-    background: var(--img-parchment), var(--parchment);
-    background-size: cover;
-    background-blend-mode: multiply;
-    border: 1px solid var(--parchment-edge);
-    border-radius: 3px;
-    box-shadow: inset 0 0 26px rgba(93, 74, 50, 0.45), var(--shadow-deep);
-}
-
-.ak-topic p { margin: 0; }
-
-.ak-topic-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    font-family: var(--font-title);
-    font-size: 0.84em;
-    letter-spacing: 0.08em;
-    color: var(--ink-soft);
-}
-
-.ak-topic-lead { margin-top: 10px !important; font-size: 0.84em; color: var(--ink-soft); }
-
-.ak-topic-hint {
-    margin: 8px 0 !important;
-    padding: 10px 4px;
-    font-size: clamp(1.15em, 5vw, 1.45em);
-    font-weight: 700;
-    line-height: 1.5;
-    overflow-wrap: anywhere;
-    border-top: 2px solid var(--ink);
-    border-bottom: 2px solid var(--ink);
-}
-
-.ak-topic-ask { font-weight: 700; color: var(--rum-dark); }
-.ak-topic-clock { margin-top: 8px !important; font-size: 0.8em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.ak-topic[data-phase="closed"] .ak-topic-clock { color: var(--rum-dark); font-weight: 700; }
-.ak-topic[data-phase="before"] .ak-topic-hint,
-.ak-topic[data-phase="ended"] .ak-topic-hint { font-size: 1.05em; color: var(--ink-soft); }
-
-.ak-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.ak-notice { margin: 10px 0 0; font-size: 0.86em; }
-#ak-message { margin: 10px 0 0; }
-
-/* 1〜100 の盤 (指名手配と同じ木の箱) */
-.ak-table {
-    margin: 0 auto clamp(14px, 2.4vw, 24px);
-    padding: clamp(6px, 1.6vw, 12px);
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 30%),
-        var(--img-wood),
-        linear-gradient(180deg, var(--timber), var(--pitch-light) 55%, var(--pitch));
-    background-size: auto, 260px, auto;
-    background-blend-mode: normal, multiply, normal;
-    border: 2px solid var(--brass);
-    border-radius: 12px;
-    box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.3), var(--shadow-deep);
-}
-
-.ak-table.is-locked { filter: grayscale(0.5) brightness(0.8); }
-
-.ak-board {
-    display: grid;
-    grid-template-columns: repeat(10, minmax(0, 1fr));
-    gap: clamp(2px, 0.8vw, 6px);
-    max-width: 560px;
-    margin: 0 auto;
-}
-
-.ak-cell {
-    position: relative;
-    display: grid;
-    grid-template-rows: 1fr auto;
-    place-items: center;
-    aspect-ratio: 1;
-    width: auto;
-    min-width: 0;
-    min-height: 0;
-    margin: 0;
-    padding: 2px 0;
-    overflow: hidden;
-    font-family: var(--font-body);
-    font-size: clamp(12px, 3.6vw, 20px);
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: 0;
-    color: var(--ink);
-    background: var(--parchment-warm);
-    border: 1px solid var(--parchment-edge);
-    border-radius: clamp(3px, 0.8vw, 6px);
-    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
-    font-variant-numeric: tabular-nums;
-    transition: transform 0.12s ease, background 0.12s ease;
-}
-
-.ak-cell:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5), 0 0 0 1px var(--brass-light); filter: none; }
-.ak-cell:disabled { opacity: 1; cursor: default; }
-.ak-table.is-locked .ak-cell { cursor: not-allowed; }
-
-.ak-cell-bet {
-    max-width: 100%;
-    overflow: hidden;
-    font-size: clamp(7px, 2vw, 10px);
-    font-weight: 400;
-    white-space: nowrap;
-    text-overflow: clip;
-}
-
-.ak-cell.has-bet {
-    color: var(--brass-pale);
-    background: linear-gradient(180deg, var(--water-light), var(--water));
-    border-color: var(--brass-light);
-}
-
-.ak-cell.is-selected {
-    color: var(--pitch);
-    background: var(--lantern);
-    border-color: var(--lantern-soft);
-    box-shadow: 0 0 0 2px var(--lantern-soft), 0 0 10px var(--lantern-glow);
-}
-
-/* BET する欄 */
-.ak-selected { margin: 0 0 10px; font-size: 0.9em; overflow-wrap: anywhere; }
-
-.ak-range {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 12px;
-    font-size: 0.86em;
-}
-
-.ak-range input[type="number"] { width: 4.6em; min-height: 36px; padding: 6px 8px; }
-
-.ak-range button,
-.ak-cancel-button {
-    width: auto;
-    min-width: 0;
-    min-height: 36px;
-    margin: 0;
-    padding: 6px 12px;
-    font-family: var(--font-body);
-    font-size: 0.9em;
-    letter-spacing: 0.02em;
-    color: var(--color-indigo);
-    background: var(--parchment-warm);
-    border: 1px solid var(--parchment-edge);
-    box-shadow: none;
-}
-
-.ak-range button:hover,
-.ak-cancel-button:hover { background: #fff; box-shadow: none; transform: none; }
-
-.ak-amount-label { display: block; margin-bottom: 6px; font-size: 0.86em; color: var(--ink-soft); }
-.ak-presets { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 8px; }
-
-/* この問題の BET */
-.ak-mine-list { margin: 0; padding: 0; list-style: none; }
-
-.ak-mine-list li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 12px;
-    padding: 6px 0;
-    border-bottom: 1px dashed var(--parchment-edge);
-}
-
-.ak-mine-list li:last-child { border-bottom: none; }
-
-.ak-mine-number {
-    min-width: 2.4em;
-    font-size: 1.3em;
-    font-weight: 700;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-}
-
-.ak-mine-amount { flex: 1; font-size: 0.86em; font-variant-numeric: tabular-nums; }
-.ak-mine-empty { font-size: 0.86em; color: var(--ink-soft); }
-
-/* 発表 */
-.ak-result { padding: 10px 0; border-top: 1px dashed var(--parchment-edge); }
-.ak-result:first-child { padding-top: 0; border-top: none; }
-.ak-result p { margin: 4px 0 0; }
-.ak-result-head { margin: 0 !important; font-weight: 700; font-size: 0.9em; }
-summary.ak-result-head { cursor: pointer; }
-.ak-result-hint { font-size: 0.94em; }
-
-.ak-result-answer {
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: 10px;
-}
-
-.ak-result-answer span { font-size: 0.86em; letter-spacing: 0.2em; color: var(--ink-soft); }
-
-.ak-result-answer strong {
-    font-family: var(--font-title);
-    font-size: 1.6em;
-    font-variant-numeric: tabular-nums;
-    color: var(--rum-dark);
-}
-
-.ak-result.is-latest .ak-result-answer strong { font-size: clamp(2.4em, 11vw, 3.2em); line-height: 1; }
-.ak-result-mine { font-weight: 700; font-size: 0.9em; }
-.ak-result-mine[data-sign="plus"]  { color: var(--ok); }
-.ak-result-mine[data-sign="minus"] { color: var(--ng); }
-.ak-result-meta { font-size: 0.82em; color: var(--ink-soft); overflow-wrap: anywhere; }
-.ak-total { margin: 10px 0 0; font-size: 0.84em; }
 
 /* ------------------------------------------------------------
    19g3. ゲーム — 沈没 (全員共通の1卓のチキンレース)

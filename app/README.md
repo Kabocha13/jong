@@ -13,7 +13,7 @@ Android はアプリにせず、ブラウザ (とホーム画面に追加した 
 | --- | --- |
 | `capacitor.config.json` | アプリの設定。Bundle ID (`appId`)・アプリ名・開く URL・背景色 |
 | `www/index.html` | 本番のサイトを開けなかったときの控えの画面 (Capacitor の決まりで必要) |
-| `ios/App/App/Info.plist` | アプリ名・縦向きだけ・ステータスバーは白い文字・暗号化の申告 (`ITSAppUsesNonExemptEncryption` = false。通信は HTTPS だけ) |
+| `ios/App/App/Info.plist` | アプリ名・画面の向き (iPhone は縦と横 (左右)。逆さの縦は無し) ・ステータスバーは白い文字・暗号化の申告 (`ITSAppUsesNonExemptEncryption` = false。通信は HTTPS だけ) |
 | `ios/App/App/Assets.xcassets` | アイコン (`assets/icon.png` をそのまま) と起動画面 (紺の背景に角丸のアイコン) |
 | `ios/App/App/AppDelegate.swift` | 通知の登録結果と届いた通知を、通知のプラグインへ渡す |
 | `ios/App/App/App.entitlements` | 通知 (`aps-environment`)。Archive して App Store Connect へ出すときは Xcode が production にする |

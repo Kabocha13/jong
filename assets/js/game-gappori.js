@@ -8,9 +8,10 @@
 //   券を買う欄の上に「本日のおすすめ」(回ごとに 5・4・3・2個の予想を1つずつ。サーバーが倍率を上げてある) を出す。
 //   球は ballsAt の時刻に合わせて1つずつ入れて見せる。締め切りを過ぎたら、画面を開いている人が gpTick を送って先へ進める。
 //   お宝の絵は game-slot.js の createSymbol、閃光・金貨・震え・画面いっぱいの演出もスロットのものを使う。
-//   入場・手元チップ・精算・画面の切り替えは game.js。
+//   財布 (使えるレート) の表示と画面の切り替えは game.js。
 
-const GAPPORI_ORDER = ['anchor', 'parrot', 'rum', 'map', 'compass', 'coin', 'chest'];   // レア度の順 (functions/gappori.js と同じ)
+// レア度の順 (functions/gappori.js と同じ)。11種類から毎回6種類が盤面に並ぶ。名前と絵は game-slot.js の SLOT_SYMBOLS
+const GAPPORI_ORDER = ['anchor', 'parrot', 'helm', 'rum', 'telescope', 'map', 'compass', 'cannon', 'coin', 'flag', 'chest'];
 const GAPPORI_PICKS_MIN = 2;
 const GAPPORI_PICKS_MAX = 5;
 const GAPPORI_UNIT_STEPS = [1, 2, 3, 5, 10, 20, 30, 50];   // 口数の選び方 (上限はサーバーの GAPPORI_MAX_UNITS と同じ)
@@ -154,6 +155,8 @@ function gapporiPickIcons(picks) {
 // ------------------------------------------------------------------
 /** 回る盤面。16マスを時計回りに並べる (回ごとに作り直す) */
 function buildGapporiWheel(table) {
+    // 宝探しだけのお宝 (立体物の絵) は、盤面に出たときに読む
+    table.board.kinds.forEach(kind => loadSlotSymbolImage(kind));
     const wheel = el('gp-wheel');
     wheel.innerHTML = '';
     table.board.pockets.forEach((kind, index) => {

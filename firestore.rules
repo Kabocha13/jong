@@ -149,6 +149,12 @@ service cloud.firestore {
 
     // AIカンカクの問題ごとの BET と人ごとの合計。書き換えられるとレートを偽れるので、
     // 読み書きとも Cloud Functions (aikankaku) だけに限る (答えはお題と一緒に Cloud Functions の中だけにある)。
+    // カジノの口座 (55.0 から。遊んだ回数・直近の結果・まとめている途中の増減ログ)。
+    // 書き換えられると増減ログを偽れるので、読み書きとも Cloud Functions (casino) だけに限る。
+    match /casino_accounts/{userId} {
+      allow read, write: if false;
+    }
+
     match /aikankaku_days/{dateKey} {
       allow read, write: if false;
     }

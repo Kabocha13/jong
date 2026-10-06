@@ -5,7 +5,7 @@
 //   第1弾の並びは画面で作って nrSpin に送る (止まるマスはサーバーが等確率に決めるので、並びで有利にはならない)。
 //   途中で閉じても払い戻しは入っている。第4弾以上まで行った回は、次に開いたときに第4弾のボタンから続きを見せる。
 //   オートは結果が出たら少し間を置いて次を回す。第4弾・第5弾のボタンはオートでも押さず、押してもらうまで待つ。
-//   閃光・金貨・震え・画面いっぱいの演出は game-slot.js のものを使う。入場・手元チップ・精算は game.js。
+//   閃光・金貨・震え・画面いっぱいの演出は game-slot.js のものを使う。財布 (使えるレート) の表示は game.js。
 
 const NR_BETS = [1, 2, 5, 10, 20, 50, 100, 500, 1000, 5000];   // サーバーの NARIAGARI_BETS と同じ
 const NR_BET_STORAGE_KEY = 'nariagariBet';
@@ -476,7 +476,7 @@ function queueNariagariAuto(wait) {
         if (!nr.auto || !nr.open) return;
         if (nr.bet > nrChips()) {
             stopNariagariAuto();
-            showMessage(el('nr-message'), '手元のチップが賭け金に足りないので、オートを止めました。', 'info');
+            showMessage(el('nr-message'), '使えるレートが賭け金に足りないので、オートを止めました。', 'info');
             return;
         }
         spinNariagari();
