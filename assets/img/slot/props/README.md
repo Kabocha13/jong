@@ -6,13 +6,13 @@
 ## ファイル名
 
 「出てくる向き-番号.png」で置きます。向きごとに3枚まで (番号は 1〜3)。
+いまは左右の6枚 (left-1 宝箱・left-2 大砲・left-3 舵輪・right-1 ラム酒の樽・right-2 大きな金貨・right-3 望遠鏡) だけを使う。
+上・下からも出せる作りだが、絵を置かないことにしたので探さない (使うなら game-slot.js の SLOT_PROP_SIDES に 'top'・'bottom' を足す)。
 
 | 向き | ファイル名 | 止まる位置 |
 |---|---|---|
-| 左から | left-1.png 〜 left-3.png | 左端の上か下 (真ん中の文字を避ける) |
-| 右から | right-1.png 〜 right-3.png | 右端の上か下 |
-| 上から | top-1.png 〜 top-3.png | 上端のまん中あたり |
-| 下から | bottom-1.png 〜 bottom-3.png | 下端のまん中あたり |
+| 左から | left-1.png 〜 left-3.png | 左端の上の帯 → 下の帯 → 真ん中の端から半分のぞかせる |
+| 右から | right-1.png 〜 right-3.png | 右端の同じ順 |
 
 ## 絵の作り方
 
@@ -23,7 +23,7 @@
 
 ## 出る場面
 
-- ジャックポットタイム突入: 置いてある全部が四方から飛び込む (約3.4秒)
+- ジャックポットタイム突入: 置いてある全部が左右から飛び込む (約3.4秒)
 - ジャックポットタイム中の当たり: 1つ (大当たり ×20 以上は3つ。なるべく違う向きから)
 - ジャックポットタイム終了 (払い戻しがあったとき): 置いてある全部
 
@@ -39,6 +39,8 @@ Gemini などは背景透過の画像を出せないので、公式キャラ (�
 python3 tools/cutout-parchment.py assets/img/src/props/original-left-1.jpeg assets/img/slot/props/left-1.png
 ```
 
+舵輪のように物に囲まれた背景 (スポークのあいだ) があるときは `HOLES=1` を付ける (外とつながっていない背景も抜く)。
+
 背景と同じような薄い色 (白っぽい金・クリーム色) が物の縁にあると、背景と一緒に抜けてしまう。
 共通の指定で「濃い輪郭線」と「背景より濃い色」を入れてある。
 
@@ -50,11 +52,3 @@ python3 tools/cutout-parchment.py assets/img/src/props/original-left-1.jpeg asse
 > saturated than the background, the whole object fully inside the frame with about 10% empty margin on every side,
 > pirate treasure theme. Background: plain flat light parchment-cream color only (#f1e3c4), no scenery, no ground,
 > no cast shadow, no glow on the background. No text, no letters, no numbers, no logo, no watermark.
-
-### 絵ごとの前半
-
-| top-2.png | 交差したカトラス | Two crossed pirate cutlasses with curved steel blades and ornate gold hand guards, the blades pointing downward, sharp gleaming edges |
-| top-3.png | 王冠 | A jewel-encrusted golden royal crown with red rubies, blue sapphires and pearls, tilted forward toward the viewer, sparkling |
-| bottom-1.png | 金貨の山 | A heaped pile of gold doubloons with a few jewels, a golden goblet and a pearl necklace on top, seen from slightly above |
-| bottom-2.png | 金のドクロ | A polished golden pirate skull with glowing ruby eyes, wearing a small black tricorn hat, facing the viewer at a slight angle |
-| bottom-3.png | 真珠の貝 | A large open oyster shell with a huge glowing white pearl inside, iridescent mother-of-pearl, a few small gold coins around it |

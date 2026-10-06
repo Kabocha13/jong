@@ -1,4 +1,4 @@
-# jong　　Ver54.14
+# jong　　Ver54.15
 
 **1.1** 麻雀得点管理アプリリリース
 
@@ -407,3 +407,5 @@ iOS アプリは `app/` (Capacitor。中身は本番のサイト https://q-jong.
 **54.13** スロットのジャックポットの立体物の絵を5枚置いた (left-1 宝箱・left-2 大砲・left-3 舵輪・right-1 ラム酒の樽・right-2 大きな金貨。Gemini で羊皮紙色の背景で作り、tools/cutout-parchment.py で背景を抜いた。元の画像は assets/img/src/props/)。tools/cutout-parchment.py に HOLES=1 (外とつながっていない背景 = 物に囲まれた紙も抜く。画像の 0.2% より小さいかたまりは残す) を足した (舵輪のスポークのあいだを抜くため)。同じ向きから一緒に出る絵が重ならないよう、止まる位置を順番に分けた (左右は 上の帯 → 下の帯 → 真ん中の端から絵の幅の35〜45%をはみ出させてのぞかせる、上下は 左寄り → 右寄り → 端)。絵の幅は .slot-props の --prop-w (130〜280px)。デプロイは hosting
 
 **54.14** スロットのジャックポットの立体物に right-3 (望遠鏡) を足した (元の画像は assets/img/src/props/original-right-3.jpeg)。これで左右から3枚ずつ (上下からは無し)。デプロイは hosting
+
+**54.15** スロットのジャックポットの立体物は、左右の6枚だけで終わりにした (上・下の絵は置かない)。スロットを開くたびに置いていない上・下の名前を探して 404 が出ていたので、探す向きを左右だけにした (assets/js/game-slot.js の SLOT_PROP_SIDES。上・下から出す CSS は残してあるので、使うならここに 'top'・'bottom' を足す)。assets/img/slot/props/README.md から使わないプロンプトを消し、いま置いてある絵と HOLES=1 の説明を書いた。デプロイは hosting

@@ -50,10 +50,12 @@ const SLOT_CUTIN_MS = 3800;               // 突入・終了の画面いっぱ�
 const SLOT_STROBE_GAP_MS = 350;           // 続けて光らせる間隔 (光過敏に配慮して1秒に3回を超えないように)
 const SLOT_HAPTIC_TAP_MS = 60;            // アプリで震わせるとき、これより短い区間は「コツッ」と叩くだけにする
 // ジャックポットの演出で、画面の端から飛び込んでくる立体物の絵 (背景透過の PNG)。
-// assets/img/slot/props/ に「出てくる向き-番号.png」(left-1.png・right-2.png・top-1.png・bottom-1.png …) で置く。
-// 向きごとに SLOT_PROP_MAX_PER_SIDE 枚まで探し、置いていない名前は使わない (assets/img/slot/props/README.md)
+// assets/img/slot/props/ に「出てくる向き-番号.png」(left-1.png・right-2.png …) で置く。
+// 向きごとに SLOT_PROP_MAX_PER_SIDE 枚まで探し、置いていない名前は使わない (assets/img/slot/props/README.md)。
+// いまは左右の6枚だけ。上・下 ('top'・'bottom') からも出せる (CSS もある) が、絵を置かないので探さない
+// (探すと、スロットを開くたびに無い名前の 404 が出るため)
 const SLOT_PROP_DIR = 'assets/img/slot/props/';
-const SLOT_PROP_SIDES = ['left', 'right', 'top', 'bottom'];
+const SLOT_PROP_SIDES = ['left', 'right'];
 const SLOT_PROP_MAX_PER_SIDE = 3;
 const SLOT_PROP_STAGGER_MS = 140;         // 何枚か出すとき、1枚ずつずらす間隔
 const SLOT_PROP_LEAVE_MS = 450;           // 引っ込む長さ (CSS の slot-prop-out と同じ)
