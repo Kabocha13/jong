@@ -19,7 +19,9 @@ import {
   GAPPORI_FLAG_ODDS_MAX,
   GAPPORI_FLAG_ODDS_MIN,
   GAPPORI_JP_FLAG,
+  GAPPORI_JP_EXTRA,
   GAPPORI_JP_FUND_FACTOR,
+  GAPPORI_JP_PAYOUT2,
   GAPPORI_FIRST_BALLS,
   GAPPORI_JACKPOT_LOST_RATE,
   GAPPORI_JP_TREASURE,
@@ -36,6 +38,8 @@ import {
 
 const SIZES = [2, 3, 4, 5];
 const JP_TREASURE_RATE = GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_TREASURE] / GAPPORI_JP_WHEEL_POCKETS;
+const JP_EXTRA_RATE = (GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_EXTRA] || 0) / GAPPORI_JP_WHEEL_POCKETS;     // もう1球
+const JP_PAYOUT2_RATE = (GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_PAYOUT2] || 0) / GAPPORI_JP_WHEEL_POCKETS; // 払い戻し2倍
 
 function binom(n, k) {
   if (k < 0 || k > n) return 0;
@@ -73,7 +77,7 @@ function boardStats(sizes) {
   const caps = [...sizes, 1];
   const tickets = gapporiPickSets(board).map(picks => {
     const c = gapporiPickCounts(picks);
-    return { key: gapporiPickKey(picks), size: picks.length, need: [...kinds.map(kind => c[kind] || 0), 0], Pn: 0, Pc: 0, Jn: 0, Jc: 0 };
+    return { key: gapporiPickKey(picks), size: picks.length, need: [...kinds.map(kind => c[kind] || 0), 0], Pn: 0, Pc: 0, Jn: 0, Jc: 0, Wn: 0, Wc: 0, Xn: 0, Xc: 0 };
   });
   hitVectors(caps, GAPPORI_FIRST_BALLS).forEach(first => {
     const rest = caps.map((cap, i) => cap - first.vector[i]);
@@ -109,6 +113,26 @@ function boardStats(sizes) {
         if (shortC === 0) ticket.Pc += last.weight;
         if (captainHit && shortN === 1) ticket.Jn += last.weight;
         if (captainHit && shortC === 1) ticket.Jc += last.weight;
+        // 払い戻し2倍: 船長マスに入って、5球で当たっている
+        if (captainHit && shortN === 0) ticket.Wn += last.weight;
+        if (captainHit && shortC === 0) ticket.Wc += last.weight;
+        // もう1球: あと1球だった券が、残りの11マスから引く6球目でそのお宝のマスに入る
+        const free = caps.reduce((sum, cap) => sum + cap, 0) - GAPPORI_BALLS;
+        const extraHit = (short, have) => {
+          if (short !== 1) return 0;
+          const kind = ticket.need.findIndex((value, i) => value > have[i]);
+          return (caps[kind] - last.sum[kind]) / free;
+        };
+        if (captainHit) {
+          ticket.Xn += last.weight * extraHit(shortN, last.sum);
+          if (grant >= 0) {
+            const have = last.sum.slice();
+            have[grant] += 1;
+            ticket.Xc += last.weight * extraHit(shortC, have);
+          } else {
+            ticket.Xc += last.weight * extraHit(shortC, last.sum);
+          }
+        }
       });
     });
   });
@@ -119,7 +143,7 @@ const STATS = GAPPORI_COMPOSITIONS.map(boardStats);
 
 /** baseReturns のときの、予想の個数ごとの { bet, base, treasure, fund } (賭けた額あたり) */
 function returnsFor(baseReturns) {
-  const sum = Object.fromEntries(SIZES.map(size => [size, { n: 0, base: 0, treasure: 0, fund: 0, hit: 0, featured: 0, withFeatured: 0 }]));
+  const sum = Object.fromEntries(SIZES.map(size => [size, { n: 0, base: 0, treasure: 0, fund: 0, hit: 0, featured: 0, withFeatured: 0, extras: 0, fundFull: 0 }]));
   STATS.forEach(({ board, tickets }) => {
     const odds = gapporiOdds(board, baseReturns);
     // この盤面で、個数ごとの「おすすめに選ばれたときに増える分」の平均 (全部1口ずつ買ったとき、そのうち1つがおすすめ)
@@ -134,11 +158,17 @@ function returnsFor(baseReturns) {
     tickets.forEach(ticket => {
       const c = GAPPORI_CHANCE_RATES[ticket.size];
       const pWin = (1 - c) * ticket.Pn + c * ticket.Pc;
+      // JP ルーレットのお宝ゲットで当たりになる分 (あと1球だった券)。105% に入れる
       const pJp = JP_TREASURE_RATE * ((1 - c) * ticket.Jn + c * ticket.Jc);
+      // 105% に入れない分 (参考に出す): もう1球 (6球目で当たる) と払い戻し2倍 (5球で当たっていたら払い戻しがもう1回分)
+      const pExtra = JP_EXTRA_RATE * ((1 - c) * ticket.Xn + c * ticket.Xc);
+      const pDouble = JP_PAYOUT2_RATE * ((1 - c) * ticket.Wn + c * ticket.Wc);
       const s = sum[ticket.size];
       s.n += 1;
       s.base += odds[ticket.key] * pWin;
       s.treasure += odds[ticket.key] * pJp;
+      s.extras += odds[ticket.key] * (pExtra + pDouble);
+      s.fundFull += GAPPORI_JACKPOT_LOST_RATE * GAPPORI_JP_FUND_FACTOR * (1 - pWin - pJp - pExtra);
       s.fund += GAPPORI_JACKPOT_LOST_RATE * GAPPORI_JP_FUND_FACTOR * (1 - pWin - pJp);
       s.hit += pWin + pJp;
       // おすすめに選ばれたとき (どの予想も同じ確率で選ばれるので、平均がおすすめの券の還元率になる)
@@ -150,7 +180,8 @@ function returnsFor(baseReturns) {
     const base = s.base / s.n;
     const treasure = s.treasure / s.n;
     const fund = s.fund / s.n;
-    return [size, { base, treasure, fund, total: base + treasure + fund, hit: s.hit / s.n, featured: s.featured / s.n, withFeatured: base + treasure + fund + s.withFeatured / s.n }];
+    return [size, { base, treasure, fund, total: base + treasure + fund, hit: s.hit / s.n, featured: s.featured / s.n, withFeatured: base + treasure + fund + s.withFeatured / s.n,
+      withExtras: base + treasure + s.extras / s.n + s.fundFull / s.n }];
   }));
 }
 
@@ -162,7 +193,7 @@ function print(baseReturns) {
     console.log(`${size}個  配当の設計値 ${baseReturns[size].toFixed(4)}  配当 ${pct(r.base)}  お宝ゲット(JP盤) ${pct(r.treasure)}  JP積立 ${pct(r.fund)}  合計 ${pct(r.total)}  当たる確率 ${pct(r.hit)}`);
   });
   console.log('参考 (105% に含めないもの):');
-  SIZES.forEach(size => console.log(`  ${size}個  おすすめの券だけ ${pct(result[size].featured)}  ・ ${size}個の予想を全部1口ずつ (うち1つがおすすめ) ${pct(result[size].withFeatured)}`));
+  SIZES.forEach(size => console.log(`  ${size}個  おすすめの券だけ ${pct(result[size].featured)}  ・ ${size}個の予想を全部1口ずつ (うち1つがおすすめ) ${pct(result[size].withFeatured)}  ・ 払い戻し2倍ともう1球を入れると ${pct(result[size].withExtras)}`));
   // ドクロ旗 (単品): 船長マスに球が入り (5/16)、JP ルーレットがドクロ旗に止まったら (1/16) 当たり。倍率は ×最小〜×最大 から均等
   const captain = GAPPORI_BALLS / (GAPPORI_COMPOSITIONS[0].reduce((sum, n) => sum + n, 0) + 1);
   const flagHit = captain * (GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_FLAG] / GAPPORI_JP_WHEEL_POCKETS);
@@ -175,7 +206,7 @@ if (process.argv.includes('--dump')) {
   // 盤面の内訳ごとの確率を書き出す (ほかの方法で数えた値と比べる用)
   const index = Number(process.argv[process.argv.indexOf('--dump') + 1] || 0);
   const { tickets } = STATS[index];
-  console.log(JSON.stringify({ comp: GAPPORI_COMPOSITIONS[index], tickets: tickets.map(t => [t.key, t.Pn, t.Pc, t.Jn, t.Jc]) }));
+  console.log(JSON.stringify({ comp: GAPPORI_COMPOSITIONS[index], tickets: tickets.map(t => [t.key, t.Pn, t.Pc, t.Jn, t.Jc, t.Wn, t.Wc, t.Xn, t.Xc]) }));
 } else if (process.argv.includes('--solve')) {
   // 個数ごとに、合計が目標になる配当の設計値を二分法で探す (倍率は刻みで丸めるので、いちばん近い値)
   const solved = { ...GAPPORI_BASE_RETURNS };

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="assets/js/no-zoom.js?v=55.12"></script>
+    <script src="assets/js/no-zoom.js?v=55.17"></script>
     <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,8 +12,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=55.12">
-    <script src="assets/js/treasure-rain.js?v=55.12" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=55.17">
+    <script src="assets/js/treasure-rain.js?v=55.17" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -527,7 +527,7 @@
                 <li data-rules="gappori">「本日のおすすめ」は回ごとに 5・4・3・2個の予想が1つずつ選ばれ、倍率がふだんの約1.1倍になる (券を買う欄の上。押すとその予想を選ぶ)。</li>
                 <li data-rules="gappori">「ドクロ旗」は盤面には無く、単品でだけ賭けられる (いつでも選べる。1口 1,000)。船長チャンスの JP ルーレットでドクロ旗に止まったら当たりで、倍率はそのとき ×50〜×99 を抽選する (その回のドクロ旗の券はみな同じ倍率)。</li>
                 <li data-rules="gappori">券を買ったら「すぐ始める」で受付の30秒を飛ばせる (その回に券を買った人が全員押したら始まる)。</li>
-                <li data-rules="gappori">船長マスに球が入ると「船長チャンス」。5球のあと、盤面が JP ルーレット (JP・お宝ゲット・ドクロ旗・JP 2倍・JP 1/2・ハズレのマス) に変わって1回回る。JP 2倍・JP 1/2 なら、貯まっているジャックポットが2倍・半分になって持ち越し。JP ならジャックポット (外れた券の代金の1割を貯めたもの) を、その回に券を買った人みんなで均等に山分けする。お宝ゲットなら、全員の券ごとに足りないお宝を1つ「1球入ったこと」にする (あと1球で当たりだった券が当たりになる)。</li>
+                <li data-rules="gappori">船長マスに球が入ると「船長チャンス」。5球のあと、盤面が JP ルーレット (JP・お宝ゲット・ドクロ旗・JP 2倍・JP 1/2・払い戻し2倍・もう1球・JP+???・JP−???・ハズレのマス) に変わって1回回る。JP 2倍・JP 1/2 なら、貯まっているジャックポットが2倍・半分に、JP+???・JP−??? なら 100〜500 増える・減る (持ち越し)。払い戻し2倍ならその回の当たりの券の払い戻しが2倍、もう1球なら盤面に6球目が入る (全員の券に効く)。JP ならジャックポット (外れた券の代金の1割を貯めたもの) を、その回に券を買った人みんなで均等に山分けする。お宝ゲットなら、全員の券ごとに足りないお宝を1つ「1球入ったこと」にする (あと1球で当たりだった券が当たりになる)。</li>
                 <li data-rules="nariagari">賭け金を決めて「回す」を押すと、第1弾のルーレットが回る。UP に止まると次の弾へ進み、終了で終わり。×N に止まったら賭け金 × N が戻る (賭け金込み)。</li>
                 <li data-rules="nariagari">第2弾・第3弾は UP の2秒後に自動で回る。第4弾 (JP)・第5弾 (SJP) は、画面の真ん中に出る大きなボタンを押して回す。</li>
                 <li data-rules="voyage">2026/10/5〜12/21 の期間限定。30マスの海をぐるぐる回るエンドレス双六。毎週月曜に物語と海 (マスの中身) が進む。</li>
@@ -643,17 +643,17 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=55.12"></script>
-    <script src="assets/js/game-sound.js?v=55.12"></script>
-    <script src="assets/js/game-blackjack.js?v=55.12"></script>
-    <script src="assets/js/game-slot.js?v=55.12"></script>
-    <script src="assets/js/game-gappori.js?v=55.12"></script>
-    <script src="assets/js/game-nariagari.js?v=55.12"></script>
-    <script src="assets/js/voyage-story.js?v=55.12"></script>
-    <script src="assets/js/game-voyage.js?v=55.12"></script>
-    <script src="assets/js/game-sink.js?v=55.12"></script>
-    <script src="assets/js/game-underground.js?v=55.12"></script>
-    <script src="assets/js/game-wanted.js?v=55.12"></script>
-    <script src="assets/js/game.js?v=55.12"></script>
+    <script src="assets/js/common.js?v=55.17"></script>
+    <script src="assets/js/game-sound.js?v=55.17"></script>
+    <script src="assets/js/game-blackjack.js?v=55.17"></script>
+    <script src="assets/js/game-slot.js?v=55.17"></script>
+    <script src="assets/js/game-gappori.js?v=55.17"></script>
+    <script src="assets/js/game-nariagari.js?v=55.17"></script>
+    <script src="assets/js/voyage-story.js?v=55.17"></script>
+    <script src="assets/js/game-voyage.js?v=55.17"></script>
+    <script src="assets/js/game-sink.js?v=55.17"></script>
+    <script src="assets/js/game-underground.js?v=55.17"></script>
+    <script src="assets/js/game-wanted.js?v=55.17"></script>
+    <script src="assets/js/game.js?v=55.17"></script>
 </body>
 </html>

@@ -14,8 +14,12 @@
 //   チャンス: 券ごとに、予想の個数で決まる確率 (GAPPORI_CHANCE_RATES) で、3球の時点でその券のまだ足りない絵柄を
 //   1つ選び、「1球入ったこと」にできる (その券だけ。盤面は変わらない)。
 //   船長マスに球が入るとチャンスタイム。5球が入ったあと、盤面が JP ルーレット (16マス。JP 1マス・お宝ゲット 1マス・
-//   ドクロ旗 1マス (55.5〜)・JP 2倍 1マス・JP 1/2 2マス (55.8〜。1/2 は 55.10 で2マスに)・ハズレ 10マス。generateGapporiJpWheel) に変わって1回だけ回る (55.2)。
+//   ドクロ旗 1マス (55.5〜)・JP 2倍 1マス・JP 1/2 2マス (55.8〜。1/2 は 55.10 で2マスに)・
+//   払い戻し2倍・もう1球・JP+???・JP−??? 1マスずつ (55.17〜)・ハズレ 6マス。generateGapporiJpWheel) に変わって1回だけ回る (55.2)。
 //     JP 2倍・JP 1/2: 貯まっているジャックポット (この回の積立のあと) を2倍・半分にして持ち越す。
+//     払い戻し2倍 (55.17〜): その回の当たりの券の払い戻しが2倍。
+//     もう1球 (55.17〜): 盤面に6球目を入れる (まだ入っていないマスから)。その回の全員の券に効く。
+//     JP+??? / JP−??? (55.17〜): ジャックポットに 100〜500 を足す / 引く (0 より下げない)。
 //     ドクロ旗: ドクロ旗の券 (単品) が当たり。倍率は ×50〜×99 から引く。
 //     JP: ジャックポットが当たり、その回に券を買った人で均等に分ける (54.5 まで賭けた額に応じて分けていた)。
 //     お宝ゲット: 3球目のあとのお宝ゲットと同じで、その回の全員の券ごとに、まだ足りないお宝を1つ「1球入ったこと」にする
@@ -41,7 +45,7 @@ const GAPPORI_NAMES = {
 };
 export const GAPPORI_KINDS = 5;              // 1回の盤面に並べる絵柄の種類 (55.6 で 6 → 5)
 export const GAPPORI_SYMBOL_POCKETS = 15;    // 絵柄のマス (ほかに船長が1マス)
-export const GAPPORI_MAX_PER_KIND = 4;       // 1つの絵柄のマスの数の上限
+export const GAPPORI_MAX_PER_KIND = 5;       // 1つの絵柄のマスの数の上限 (55.16 で 4 → 5。内訳は 5通り → 12通り)
 export const GAPPORI_BALLS = 5;
 export const GAPPORI_FIRST_BALLS = 3;        // チャンスはこの数の球が入ったあと
 export const GAPPORI_PICKS_MIN = 2;
@@ -54,7 +58,7 @@ export const GAPPORI_MAX_TICKETS = 20;       // 1回に1人が買える券 (セ�
 // 配当 + JP ルーレットのお宝ゲット + JP 積立 (外れた券の代金の1割) が、どの個数でもちょうど GAPPORI_TARGET_RETURN に
 // なるよう tools/gappori-return.mjs で決めた値 (本日のおすすめの倍率アップは含めない)
 export const GAPPORI_TARGET_RETURN = 1.05;
-export const GAPPORI_BASE_RETURNS = { 2: 0.9607, 3: 0.9157, 4: 0.8823, 5: 0.8673 };   // 合計 2個 105.04%・3個 104.98%・4個 105.00%・5個 105.01% (55.10 の JP 2倍1・1/2 2 で JP の戻りは 1倍。倍率の刻みで、これがいちばん近い)
+export const GAPPORI_BASE_RETURNS = { 2: 0.9607, 3: 0.9155, 4: 0.8835, 5: 0.8685 };   // 合計 2個 105.06%・3個 104.99%・4個 105.00%・5個 105.00% (おすすめ・ドクロ旗・払い戻し2倍・もう1球は含めない。倍率の刻みで、これがいちばん近い)
 export const GAPPORI_JACKPOT_LOST_RATE = 0.1;  // 外れた券の代金のうち、ジャックポットに貯める割合
 // JP ルーレット (船長マスに球が入った回の最後に、盤面が変わって1回だけ回る)。16マスのうち JP 1マス・お宝ゲット 1マス、残りはハズレ
 export const GAPPORI_JP_WHEEL_POCKETS = 16;
@@ -64,8 +68,15 @@ export const GAPPORI_JP_MISS = 'miss';
 export const GAPPORI_JP_FLAG = 'flag';          // ドクロ旗のマス (55.5〜)。止まったらドクロ旗の券が当たり
 export const GAPPORI_JP_DOUBLE = 'double';      // JP 2倍のマス (55.8〜)。貯まっているジャックポットを2倍にして持ち越す
 export const GAPPORI_JP_HALF = 'half';          // JP 1/2 のマス (55.8〜)。貯まっているジャックポットを半分にして持ち越す
+export const GAPPORI_JP_PAYOUT2 = 'payout2';    // 払い戻し2倍のマス (55.17〜)。その回の当たりの券の払い戻しが2倍
+export const GAPPORI_JP_EXTRA = 'extra';        // もう1球のマス (55.17〜)。盤面に6球目を入れ、その回の全員の券に効く
+export const GAPPORI_JP_PLUS = 'plus';          // JP+??? のマス (55.17〜)。ジャックポットに GAPPORI_JP_SHIFT_MIN〜MAX を足す
+export const GAPPORI_JP_MINUS = 'minus';        // JP−??? のマス (55.17〜)。ジャックポットから GAPPORI_JP_SHIFT_MIN〜MAX を引く (0 より下げない)
+export const GAPPORI_JP_SHIFT_MIN = 100;
+export const GAPPORI_JP_SHIFT_MAX = 500;
 export const GAPPORI_JP_WHEEL_COUNTS = {
-  [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 1, [GAPPORI_JP_FLAG]: 1, [GAPPORI_JP_DOUBLE]: 1, [GAPPORI_JP_HALF]: 2   // 1/2 は 55.10 で 1 → 2
+  [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 1, [GAPPORI_JP_FLAG]: 1, [GAPPORI_JP_DOUBLE]: 1, [GAPPORI_JP_HALF]: 2,   // 1/2 は 55.10 で 1 → 2
+  [GAPPORI_JP_PAYOUT2]: 1, [GAPPORI_JP_EXTRA]: 1, [GAPPORI_JP_PLUS]: 1, [GAPPORI_JP_MINUS]: 1   // 55.17 で足した (ハズレは 6)
 };
 // JP 2倍・1/2 があると、ジャックポットは長い目で見て貯めた額の何倍が戻るか。止まる確率を JP a・2倍 d・1/2 h とすると
 // 船長の回ごとの増え方の期待値から a / (a − d + h/2) (2倍1マス・1/2 2マスなら釣り合って 1倍。1マスずつなら 2倍。tools/gappori-return.mjs で使う)
@@ -89,7 +100,7 @@ export class GapporiRuleError extends Error {
   }
 }
 
-/** 15マスの内訳の候補: GAPPORI_KINDS 種類で合計15、1種類1〜4マス、レア度の順に多い→少ない (同じ数は可) */
+/** 15マスの内訳の候補: GAPPORI_KINDS 種類で合計15、1種類1〜GAPPORI_MAX_PER_KIND マス、レア度の順に多い→少ない (同じ数は可) */
 function compositions(parts = GAPPORI_KINDS, total = GAPPORI_SYMBOL_POCKETS, max = GAPPORI_MAX_PER_KIND) {
   if (parts === 1) return total >= 1 && total <= max ? [[total]] : [];
   const out = [];
@@ -135,6 +146,11 @@ export function generateGapporiJpWheel(randomInt) {
   const pockets = shuffle([...fixed, ...Array(GAPPORI_JP_WHEEL_POCKETS - fixed.length).fill(GAPPORI_JP_MISS)], randomInt);
   const index = randomInt(pockets.length);
   return { pockets, index, kind: pockets[index] };
+}
+
+/** JP+???・JP−??? で動かす額 (GAPPORI_JP_SHIFT_MIN〜MAX から均等に1つ) */
+export function drawGapporiJpShift(randomInt) {
+  return GAPPORI_JP_SHIFT_MIN + randomInt(GAPPORI_JP_SHIFT_MAX - GAPPORI_JP_SHIFT_MIN + 1);
 }
 
 /** ドクロ旗の券 (単品) か */

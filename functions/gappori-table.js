@@ -31,6 +31,10 @@ import {
   GAPPORI_FLAG_ODDS_MIN,
   GAPPORI_FLAG_PRICE,
   GAPPORI_JP_DOUBLE,
+  GAPPORI_JP_EXTRA,
+  GAPPORI_JP_MINUS,
+  GAPPORI_JP_PAYOUT2,
+  GAPPORI_JP_PLUS,
   GAPPORI_JP_FLAG,
   GAPPORI_JP_HALF,
   GAPPORI_JP_JACKPOT,
@@ -43,6 +47,7 @@ import {
   gapporiFeatured,
   gapporiHitList,
   drawGapporiFlagOdds,
+  drawGapporiJpShift,
   gapporiJpTreasureChoice,
   isGapporiFlagPicks,
   gapporiOdds,
@@ -76,8 +81,10 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  11: 55.5 の ドクロ旗 (盤面のお宝から外し、単品で賭けて JP ルーレットのドクロ旗のマスで当たり。倍率 ×1〜×99 を当たったときに引く) /
 //  12: 55.6 の 1回に並べるお宝を 6種類 → 5種類に (配当の設計値も 105% になるよう直した) /
 //  13: 55.8 の JP ルーレットに JP 2倍・JP 1/2 のマスを足し、配当の設計値を 105% になるよう下げた /
-//  14: 55.10 の JP 1/2 のマスを2つにし (JP の戻りが釣り合う)、配当の設計値を 55.6 の値に戻した)
-export const GAPPORI_RULES_VERSION = 14;
+//  14: 55.10 の JP 1/2 のマスを2つにし (JP の戻りが釣り合う)、配当の設計値を 55.6 の値に戻した /
+//  15: 55.16 の 1種類のマスの上限を 4 → 5 に (内訳 5通り → 12通り。配当の設計値も 105% に合わせた) /
+//  16: 55.17 の JP ルーレットに 払い戻し2倍・もう1球・JP+???・JP−??? を足した。配当の設計値は 55.16 のまま (払い戻し2倍・もう1球は 105% に入れない))
+export const GAPPORI_RULES_VERSION = 16;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -302,12 +309,6 @@ function creditGappori(ctx, uid, name, amount, reason) {
 function finishGapporiRound(ctx, start) {
   const { table } = ctx;
   const grantedBy = new Map(table.chances.map(chance => [chance.ticket, chance.choice]));
-  const settle = (ticket, index, extra = null) => {
-    ticket.win = !isGapporiFlagPicks(ticket.picks) && isGapporiWin(table.board, table.balls, ticket.picks, [grantedBy.get(index) || null, extra]);
-    ticket.payout = ticket.win ? Math.round(ticket.cost * ticket.odds) : 0;
-  };
-  table.tickets.forEach((ticket, index) => settle(ticket, index));
-
   const costBy = new Map();
   table.tickets.forEach(ticket => {
     const current = costBy.get(ticket.uid) || { name: ticket.name, cost: 0 };
@@ -317,13 +318,27 @@ function finishGapporiRound(ctx, start) {
 
   // 船長マスに球が入ったらチャンスタイム: JP ルーレットを1回回す (券を買った人がいる回だけ)
   const captain = table.balls.some(index => table.board.pockets[index] === GAPPORI_CAPTAIN);
-  const jackpot = { captain, rate: GAPPORI_JACKPOT_RATE, wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [], flagOdds: null, flagWinners: [], boost: null };
+  const jackpot = { captain, rate: GAPPORI_JACKPOT_RATE, wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [], flagOdds: null, flagWinners: [], boost: null, extraBall: null, shift: null };
   if (captain && costBy.size) {
     const wheel = generateGapporiJpWheel(ctx.randomInt);
     jackpot.wheel = wheel.pockets;
     jackpot.index = wheel.index;
     jackpot.kind = wheel.kind;
   }
+
+  // もう1球: 盤面に6球目を入れる (まだ入っていないマスから。table.balls には足さず、jackpot.extraBall に持つ)
+  jackpot.extraBall = jackpot.kind === GAPPORI_JP_EXTRA ? drawGapporiBall(table.board, table.balls, ctx.randomInt) : null;
+  const balls = jackpot.extraBall === null ? table.balls : [...table.balls, jackpot.extraBall];
+
+  // 当たり (5球と、もう1球の回は6球で)。もう1球で当たりになった券には印 (byExtra) を付ける
+  const settle = (ticket, index, extra = null) => {
+    const flag = isGapporiFlagPicks(ticket.picks);
+    const granted = [grantedBy.get(index) || null, extra];
+    ticket.win = !flag && isGapporiWin(table.board, balls, ticket.picks, granted);
+    ticket.byExtra = ticket.win && jackpot.extraBall !== null && !isGapporiWin(table.board, table.balls, ticket.picks, granted);
+    ticket.payout = ticket.win ? Math.round(ticket.cost * ticket.odds) : 0;
+  };
+  table.tickets.forEach((ticket, index) => settle(ticket, index));
 
   // ドクロ旗: ドクロ旗の券 (単品) が全部当たり。倍率はここで ×50〜×99 から1つ引く (この回の券はみな同じ倍率)
   if (jackpot.kind === GAPPORI_JP_FLAG) {
@@ -341,11 +356,20 @@ function finishGapporiRound(ctx, start) {
   if (jackpot.kind === GAPPORI_JP_TREASURE) {
     table.tickets.forEach((ticket, index) => {
       if (ticket.win) return;
-      const kind = gapporiJpTreasureChoice(table.board, table.balls, ticket.picks, grantedBy.get(index) || null);
+      const kind = gapporiJpTreasureChoice(table.board, balls, ticket.picks, grantedBy.get(index) || null);
       if (!kind) return;
       ticket.granted = kind;
       settle(ticket, index, kind);
       jackpot.granted.push({ ticket: index, uid: ticket.uid, name: ticket.name, kind });
+    });
+  }
+
+  // 払い戻し2倍: その回の当たりの券 (ドクロ旗は当たらない回) の払い戻しを2倍にする
+  if (jackpot.kind === GAPPORI_JP_PAYOUT2) {
+    table.tickets.forEach(ticket => {
+      if (!ticket.win) return;
+      ticket.payout *= 2;
+      ticket.doubled = true;
     });
   }
 
@@ -359,6 +383,15 @@ function finishGapporiRound(ctx, start) {
     const before = Math.floor(table.jackpot);
     table.jackpot *= factor;
     jackpot.boost = { factor, before, after: Math.floor(table.jackpot) };
+  }
+
+  // JP+??? / JP−???: ジャックポットに 100〜500 を足す / 引く (0 より下げない)
+  if (jackpot.kind === GAPPORI_JP_PLUS || jackpot.kind === GAPPORI_JP_MINUS) {
+    const amount = drawGapporiJpShift(ctx.randomInt);
+    const before = Math.floor(table.jackpot);
+    const delta = jackpot.kind === GAPPORI_JP_PLUS ? amount : -Math.min(amount, before);
+    table.jackpot += delta;
+    jackpot.shift = { delta, before, after: Math.floor(table.jackpot) };
   }
 
   // JP: ジャックポットをその回に券を買った人で均等に分ける
@@ -409,7 +442,7 @@ function finishGapporiRound(ctx, start) {
     jackpot
   };
   table.phase = 'result';
-  table.nextRoundAt = iso(start + GAPPORI_RESULT_MS + (jackpot.kind ? GAPPORI_CAPTAIN_MS : 0) + (jackpot.won || jackpot.flagWinners.length ? GAPPORI_JACKPOT_MS : 0));
+  table.nextRoundAt = iso(start + GAPPORI_RESULT_MS + (jackpot.kind ? GAPPORI_CAPTAIN_MS : 0) + (jackpot.won || jackpot.flagWinners.length || jackpot.extraBall !== null ? GAPPORI_JACKPOT_MS : 0));
 }
 
 /**
@@ -465,9 +498,9 @@ export function publicGapporiTable(table) {
     drawEndsAt: table.drawEndsAt || null,
     chances: showChances ? (table.chances || []).map(({ ticket, name, choice, auto }) => ({ ticket, name, choice, auto: Boolean(auto) })) : [],
     chanceEndsAt: table.chanceEndsAt || null,
-    tickets: (table.tickets || []).map(({ name, picks, key, units, cost, odds, featured, win, payout, granted }) => (
+    tickets: (table.tickets || []).map(({ name, picks, key, units, cost, odds, featured, win, payout, granted, byExtra, doubled }) => (
       table.phase === 'result'
-        ? { name, picks, key, units, cost, odds, featured: Boolean(featured), win, payout, granted: granted || null }
+        ? { name, picks, key, units, cost, odds, featured: Boolean(featured), win, payout, granted: granted || null, byExtra: Boolean(byExtra), doubled: Boolean(doubled) }
         : { name, picks, key, units, cost, odds, featured: Boolean(featured) }
     )),
     result: table.result

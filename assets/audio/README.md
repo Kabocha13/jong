@@ -14,7 +14,7 @@
 | nariagari-sjp-spin-loop.mp3 | 成り上がりの SJP (第5弾) の抽選中。盤面が止まるまで 0.5〜4.0秒の区間を繰り返す | 同上 |
 | gappori-drawing-loop.mp3 | 宝探しの抽選中。抽選が始まってから5球が出そろうまで、2.255〜10.255秒 (4小節) の区間を、つなぎ目を 0.04秒重ねて繰り返す (曲の終わりのフェードアウトと無音は使わない) | `assets/js/game-gappori.js` の `updateGapporiDrawSound` |
 | gappori-ball.mp3 | 宝探しで球が出たとき (1球ごと)。自分の券のお宝ではないマス (船長・ほかのお宝)、券を買っていないとき | `assets/js/game-gappori.js` の `revealGapporiBalls` |
-| gappori-ball-hit.mp3 | 宝探しで球が自分の券のお宝のマスに入ったとき (1球ごと。gappori-ball.mp3 の代わりに鳴らす) | 同上 |
+| gappori-ball-hit.mp3 | 宝探しで球が自分の券のお宝のマスに入ったとき (1球ごと。gappori-ball.mp3 の代わりに鳴らす)。JP ルーレットがハズレ以外 (JP・ドクロ旗・お宝ゲット・JP 2倍・JP 1/2) に止まったときも | `revealGapporiBalls`・`celebrateGapporiResult` |
 | gappori-finish.mp3 | 宝探しの全部の抽選 (5球と、船長の回は JP ルーレットも) が終わったとき | `assets/js/game-gappori.js` の `celebrateGapporiResult` |
 | gappori-captain-cutin.mp3 | 宝探しの船長チャンスのカットイン | `assets/js/game-gappori.js` の `celebrateGapporiResult` |
 | gappori-jackpot-win.mp3 | 宝探しの JP ルーレットでジャックポット・ドクロ旗が当たったカットイン | 同上 |
@@ -24,7 +24,7 @@
 55.11 で、何の音かがわかる名前に変えた (前の名前: hero → home-hero-doubletap、a → slot-jackpot-time、b → nariagari-jp-button、
 c → nariagari-sjp-button、d → nariagari-up、e → gappori-captain-cutin、f → blackjack-deal、g → gappori-jackpot-win、
 h → gappori-jackpot-miss、1 → nariagari-jp-spin-loop、2 → nariagari-sjp-spin-loop、3 → gappori-drawing-loop、
-4 → gappori-ball、5 → gappori-ball-hit、6 → gappori-finish。55.11 では 4 を unused-gappori-ball-short、5 を gappori-ball にしていたのを 55.12 で直した)。
+4 → gappori-ball-hit、5 → gappori-ball、6 → gappori-finish。55.11〜55.12 は 4 と 5 の使い方が逆だったのを 55.13 で直した)。
 
 home-hero-doubletap 以外はゲームの効果音で、鳴らす仕組みは `assets/js/game-sound.js` にまとめてあります
 (名前とファイルの対応は `GAME_SOUNDS`)。通信や回転のあと (タップの直後でないとき) に鳴らすため、
