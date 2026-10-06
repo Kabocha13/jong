@@ -173,6 +173,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         loadRateReversionSettings();
         loadLoanSettings();
         loadUndergroundSettingsForm();
+        loadGapporiJackpot();
 
         if (!isAuto) {
              showMessage(AUTH_MESSAGE, `✅ ログイン成功! マスターモードを有効化しました。`, 'success');
@@ -1348,6 +1349,79 @@ if (UNDERGROUND_SETTINGS_FORM) {
         } catch (error) {
             console.error(error);
             showMessage(UNDERGROUND_SETTINGS_MESSAGE, `❌ 保存エラー: ${error.message}`, 'error');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+}
+
+// --- 宝探しのジャックポット ---
+// 見るのも書き換えるのも Cloud Function (gapporiAdmin)。書き換えは卓のトランザクションの中で行い、公開の写しも同時に直る
+const GAPPORI_JACKPOT_FORM = document.getElementById('gappori-jackpot-form');
+const GAPPORI_JACKPOT_AMOUNT = document.getElementById('gappori-jackpot-amount');
+const GAPPORI_JACKPOT_STATUS = document.getElementById('gappori-jackpot-status');
+const GAPPORI_JACKPOT_MESSAGE = document.getElementById('gappori-jackpot-message');
+let gapporiJackpotCurrent = null;
+
+async function callGapporiAdmin(action, payload = {}) {
+    const token = await getFirebaseIdToken();
+    if (!token) throw new Error('Firebaseログインが必要です。');
+    const response = await fetch(`${getFunctionsBaseUrl()}/gapporiAdmin`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ action, ...payload })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.status !== 'success') {
+        throw new Error(result.message || `Cloud Function Error ${response.status}`);
+    }
+    return result;
+}
+
+function renderGapporiJackpotStatus(info) {
+    gapporiJackpotCurrent = info.jackpot;
+    if (GAPPORI_JACKPOT_AMOUNT && document.activeElement !== GAPPORI_JACKPOT_AMOUNT) GAPPORI_JACKPOT_AMOUNT.value = String(info.jackpot);
+    const rate = `${Math.round(info.jackpotRate * 10000) / 100}%`;
+    const adjust = info.lastAdjust
+        ? ` / 最後の書き換え: ${formatRate(info.lastAdjust.before)} → ${formatRate(info.lastAdjust.after)} (${info.lastAdjust.by}、${new Date(info.lastAdjust.at).toLocaleString('ja-JP')})`
+        : '';
+    GAPPORI_JACKPOT_STATUS.textContent = `いまのジャックポット: ${formatRate(info.jackpot)} / 船長チャンスの当選率 ${rate} (外れ ${info.jackpotMisses}回続き)${adjust}`;
+}
+
+async function loadGapporiJackpot() {
+    if (!GAPPORI_JACKPOT_FORM) return;
+    try {
+        renderGapporiJackpotStatus(await callGapporiAdmin('status'));
+    } catch (error) {
+        console.error(error);
+        GAPPORI_JACKPOT_STATUS.textContent = `ジャックポットを読み込めませんでした: ${error.message}`;
+    }
+}
+
+if (GAPPORI_JACKPOT_FORM) {
+    document.getElementById('gappori-jackpot-reload')?.addEventListener('click', loadGapporiJackpot);
+    GAPPORI_JACKPOT_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const amount = Number(GAPPORI_JACKPOT_AMOUNT.value);
+        if (!Number.isSafeInteger(amount) || amount < 0 || amount > 100000000) {
+            showMessage(GAPPORI_JACKPOT_MESSAGE, 'ジャックポットは 0〜100,000,000 の整数で入力してください。', 'error');
+            return;
+        }
+        const before = gapporiJackpotCurrent === null ? '?' : formatRate(gapporiJackpotCurrent);
+        if (!confirm(`宝探しのジャックポットを ${before} → ${formatRate(amount)} にします。よろしいですか？`)) return;
+        const submitButton = GAPPORI_JACKPOT_FORM.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        showMessage(GAPPORI_JACKPOT_MESSAGE, '書き換えています...', 'info');
+        try {
+            const result = await callGapporiAdmin('setJackpot', { amount });
+            renderGapporiJackpotStatus(result);
+            showMessage(GAPPORI_JACKPOT_MESSAGE, `✅ ジャックポットを ${formatRate(result.before)} → ${formatRate(result.jackpot)} にしました。`, 'success');
+        } catch (error) {
+            console.error(error);
+            showMessage(GAPPORI_JACKPOT_MESSAGE, `❌ ${error.message}`, 'error');
         } finally {
             submitButton.disabled = false;
         }

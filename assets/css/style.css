@@ -4747,9 +4747,128 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     .gp-machine { --wheel: 360px; margin-bottom: 0; }
 }
 
-/* スマホの切り替え (券を買う / ルーレット) と、ルーレットの画面の自分の券。PC では出さない */
-.gp-tabs,
-.gp-mine-strip { display: none; }
+/* スマホの切り替え (券を買う / ルーレット)。PC では出さない */
+.gp-tabs { display: none; }
+
+/* ルーレットの下: この回の全員の券 (人ごと。自分がいちばん上)。折り返して並べ、横にはみ出さない */
+.gp-crowd {
+    display: grid;
+    gap: 5px;
+    max-width: var(--wheel);
+    margin: 10px auto 0;
+}
+
+.gp-crowd:empty { display: none; }
+
+.gp-crowd-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.gp-crowd-name {
+    flex: none;
+    max-width: 7em;
+    overflow: hidden;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--brass-pale);
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(201, 146, 47, 0.45);
+    border-radius: 999px;
+}
+
+.gp-crowd-row.is-me .gp-crowd-name { color: var(--ink); background: var(--brass-light); border-color: var(--brass-light); }
+
+.gp-crowd-ticket {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px 2px 3px;
+    font-size: 11px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--brass-pale);
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 7px;
+}
+
+.gp-crowd-ticket .gp-pick-icons { gap: 1px; font-size: 20px; }
+.gp-crowd-row.is-me .gp-crowd-ticket { box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.55); }
+.gp-crowd-ticket.is-featured { box-shadow: inset 0 0 0 1px var(--lantern); }
+.gp-crowd-ticket.is-win { color: #fff; background: rgba(47, 125, 82, 0.8); }
+.gp-crowd-ticket.is-lose { opacity: 0.5; }
+
+/* 本日のおすすめ (券を買う欄の上)。押すとその予想を選ぶ */
+.gp-featured { margin: 0 0 10px; }
+
+.gp-featured-title {
+    margin: 0 0 6px;
+    font-size: 0.86em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--rum-dark);
+}
+
+.gp-featured-title small {
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 0.82em;
+    letter-spacing: 0.04em;
+    color: #fff;
+    background: var(--rum);
+    border-radius: 999px;
+}
+
+.gp-featured-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.gp-featured-list button.gp-featured-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "size odds" "icons icons";
+    align-items: center;
+    gap: 3px 6px;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 5px 7px;
+    font-family: var(--font-body);
+    letter-spacing: 0;
+    text-align: left;
+    color: var(--ink);
+    background: var(--parchment-warm);
+    border: 1px solid var(--parchment-edge);
+    border-radius: 8px;
+    box-shadow: none;
+}
+
+.gp-featured-list button.gp-featured-item:hover:not(:disabled) { background: #fff; box-shadow: none; transform: none; }
+.gp-featured-list button.gp-featured-item[aria-pressed="true"] { border-color: var(--lantern); box-shadow: 0 0 0 2px var(--lantern), 0 0 10px var(--lantern-glow); }
+.gp-featured-size { grid-area: size; font-size: 11px; font-weight: 700; color: var(--ink-soft); }
+.gp-featured-item .gp-pick-icons { grid-area: icons; gap: 2px; font-size: 20px; }
+
+.gp-featured-odds {
+    grid-area: odds;
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.gp-featured-odds s { font-size: 11px; color: var(--ink-soft); }
+.gp-featured-odds strong { font-size: 15px; color: var(--rum); }
 
 /* スマホ: 見出しを消して、「券を買う」と「ルーレット」をそれぞれ1画面 (上の「ゲーム一覧へ」と下のメニューのあいだ) に収める。
    手元チップと精算は宝探しの下へ回す */
@@ -4760,11 +4879,17 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     body[data-casino-view="gappori"] .casino-back { margin-bottom: 8px; }
 
     #gappori-table {
-        /* 10 (上の余白) + 44 (ゲーム一覧へ) + 92 (下のメニュー。body の下の余白と同じ) + 少しのゆとり */
-        --gp-h: calc(100dvh - 152px - env(safe-area-inset-bottom, 0px));
+        /* 10 (上の余白) + 44 (ゲーム一覧へ) + 92 (下のメニュー。body の下の余白と同じ) + 少しのゆとり。
+           svh (アドレスバーが出ているときの高さ) で測る。dvh だとスクロールでアドレスバーが出入りするたびに
+           高さが変わり、盤面の大きさとページの長さが動いて、下のほうで画面がガクガクしていた */
+        --gp-h: calc(100svh - 152px - env(safe-area-inset-bottom, 0px));
         display: flex;
         flex-direction: column;
         gap: 8px;
+    }
+
+    /* ルーレットの画面だけ1画面に収める。券を買う画面は高さを決めず、この回の券から下もそのまま並べる (ページで送る) */
+    #gappori-table[data-screen="wheel"] {
         height: var(--gp-h);
         min-height: 360px;
     }
@@ -4827,9 +4952,9 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     .gp-drawn li { width: 44px; font-size: 44px; }
 
     /* 券を買う画面: 盤面は出さない。台はジャックポットと進み具合を1行に */
-    #gappori-table[data-screen="buy"] .gp-wheel-wrap,
+    #gappori-table[data-screen="buy"] .gp-wheel-stage,
     #gappori-table[data-screen="buy"] .gp-drawn,
-    #gappori-table[data-screen="buy"] .gp-mine-strip { display: none; }
+    #gappori-table[data-screen="buy"] .gp-crowd { display: none; }
     #gappori-table[data-screen="buy"] .gp-machine { padding: 6px 8px; }
     #gappori-table[data-screen="buy"] .gp-top { display: flex; align-items: center; gap: 8px; }
     #gappori-table[data-screen="buy"] .gp-jackpot { flex: none; gap: 6px; padding: 2px 10px; border-radius: 10px; }
@@ -4837,49 +4962,46 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     #gappori-table[data-screen="buy"] .gp-jackpot strong { font-size: 1.3em; }
     #gappori-table[data-screen="buy"] .gp-status { flex: 1; margin: 0; line-height: 1.25; }
 
-    /* ルーレット画面: 買う欄は出さず、台を残りの高さいっぱいに */
+    /* ルーレット画面: 買う欄は出さず、台を残りの高さいっぱいに。
+       盤面は「ジャックポット・入ったお宝・全員の券」を置いた残りの高さ (gp-wheel-stage) に合わせて縮め、
+       券が多くても画面の外へはみ出さない (それでも入りきらないときだけ、券の欄の中で送る) */
     #gappori-table[data-screen="wheel"] .gp-panel { display: none; }
-    #gappori-table[data-screen="wheel"] .gp-machine { flex: 1; min-height: 0; padding: 10px; }
-    #gappori-table[data-screen="wheel"] .gp-top { margin-bottom: 8px; }
-
-    .gp-mine-strip {
-        display: flex;
-        gap: 6px;
-        margin: 8px 0 0;
-        padding: 0 0 2px;
-        overflow-x: auto;
-        list-style: none;
-    }
-
-    .gp-mine-strip:empty { display: none; }
-
-    .gp-mine-strip li {
-        display: flex;
-        flex: none;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 8px 4px 5px;
-        font-size: 12px;
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-        color: var(--brass-pale);
-        background: rgba(0, 0, 0, 0.4);
-        border-radius: 8px;
-    }
-
-    .gp-mine-strip .gp-pick-icons { gap: 2px; font-size: 24px; }
-    .gp-mine-strip li.is-win { color: #fff; background: rgba(47, 125, 82, 0.75); }
-    .gp-mine-strip li.is-lose { opacity: 0.55; }
-
-    /* 券を買う画面: 残りの高さいっぱいに。この回の券は、その中だけで送る */
-    .gp-panel {
+    #gappori-table[data-screen="wheel"] .gp-machine {
         display: flex;
         flex: 1;
         flex-direction: column;
         min-height: 0;
+        padding: 10px;
+    }
+    #gappori-table[data-screen="wheel"] .gp-top { flex: none; margin-bottom: 8px; }
+    #gappori-table[data-screen="wheel"] .gp-drawn { flex: none; }
+
+    #gappori-table[data-screen="wheel"] .gp-wheel-stage {
+        display: grid;
+        flex: 1 1 0;
+        place-items: center;
+        min-height: 140px;
+        container-type: size;
+    }
+
+    #gappori-table[data-screen="wheel"] .gp-wheel-wrap { --wheel: min(100cqw, 100cqh); }
+
+    #gappori-table[data-screen="wheel"] .gp-crowd {
+        flex: 0 1 auto;
+        min-height: 0;
+        max-width: none;
+        margin-top: 8px;
+        overflow-y: auto;
+        overscroll-behavior: contain;   /* 中で送りきってもページまで動かさない */
+    }
+
+
+    /* 券を買う画面: 中で送らず、この回の券まで全部並べる (ページで送る) */
+    .gp-panel {
+        display: flex;
+        flex-direction: column;
         margin: 0;
         padding: 10px 12px;
-        overflow-y: auto;   /* とても背の低い画面だけ、この中で送る */
     }
 
     .gp-panel > h3.icon-title:first-child { display: none; }   /* 切り替えが「券を買う」なので見出しは出さない */
@@ -4909,9 +5031,6 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     #gp-message { display: none; }
 
     .gp-mine {
-        flex: 1;
-        min-height: 76px;
-        overflow-y: auto;
         border-top: 1px solid var(--parchment-edge);
         padding-top: 6px;
     }
@@ -5387,6 +5506,280 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 @media (prefers-reduced-motion: reduce) {
     .wd-card.is-up, .wd-card.is-matched.is-flash, .wd-card.is-pending { animation: none; }
 }
+
+/* ------------------------------------------------------------
+   19g2b. ゲーム — AIカンカク (1日1問。AI が表した数を当てる)
+   ------------------------------------------------------------ */
+/* ゲーム一覧のタイル: 伏せた数の札と、1〜100 の目盛り */
+.game-tile-art.is-aikankaku {
+    position: relative;
+    flex-direction: column;
+    gap: 10px;
+    background:
+        radial-gradient(ellipse 60% 55% at 50% 40%, rgba(126, 214, 223, 0.22), transparent 70%),
+        linear-gradient(180deg, var(--night), var(--water));
+}
+
+.ak-tile-card {
+    display: grid;
+    justify-items: center;
+    width: clamp(70px, 19vw, 96px);
+    padding: 6px 6px 8px;
+    color: var(--ink);
+    background: var(--img-parchment), var(--parchment);
+    background-size: cover;
+    background-blend-mode: multiply;
+    border: 1px solid var(--parchment-edge);
+    border-radius: 4px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.55);
+    transform: rotate(3deg);
+    transition: transform 0.25s ease;
+}
+
+.game-tile:hover .ak-tile-card { transform: rotate(0deg) scale(1.05); }
+
+.ak-tile-ai {
+    font-family: var(--font-title);
+    font-size: 0.72em;
+    letter-spacing: 0.3em;
+    color: var(--water-light);
+}
+
+.ak-tile-q {
+    font-family: var(--font-display);
+    font-size: clamp(1.8em, 7vw, 2.4em);
+    line-height: 1;
+    color: var(--rum-dark);
+}
+
+/* 目盛り (1〜100 を10ずつ) */
+.ak-tile-scale {
+    width: 70%;
+    height: 8px;
+    background:
+        repeating-linear-gradient(90deg, var(--brass-light) 0 1px, transparent 1px 10%),
+        linear-gradient(90deg, rgba(236, 194, 100, 0.15), rgba(236, 194, 100, 0.45));
+    border-bottom: 1px solid var(--brass-light);
+}
+
+/* お題 (羊皮紙の札) */
+.ak-topic {
+    max-width: 560px;
+    margin: 0 auto clamp(14px, 2.4vw, 22px);
+    padding: 14px 18px 16px;
+    text-align: center;
+    color: var(--ink);
+    background: var(--img-parchment), var(--parchment);
+    background-size: cover;
+    background-blend-mode: multiply;
+    border: 1px solid var(--parchment-edge);
+    border-radius: 3px;
+    box-shadow: inset 0 0 26px rgba(93, 74, 50, 0.45), var(--shadow-deep);
+}
+
+.ak-topic p { margin: 0; }
+
+.ak-topic-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--font-title);
+    font-size: 0.84em;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+}
+
+.ak-topic-lead { margin-top: 10px !important; font-size: 0.84em; color: var(--ink-soft); }
+
+.ak-topic-hint {
+    margin: 8px 0 !important;
+    padding: 10px 4px;
+    font-size: clamp(1.15em, 5vw, 1.45em);
+    font-weight: 700;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    border-top: 2px solid var(--ink);
+    border-bottom: 2px solid var(--ink);
+}
+
+.ak-topic-ask { font-weight: 700; color: var(--rum-dark); }
+.ak-topic-clock { margin-top: 8px !important; font-size: 0.8em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.ak-topic[data-phase="closed"] .ak-topic-clock { color: var(--rum-dark); font-weight: 700; }
+.ak-topic[data-phase="before"] .ak-topic-hint,
+.ak-topic[data-phase="ended"] .ak-topic-hint { font-size: 1.05em; color: var(--ink-soft); }
+
+.ak-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ak-notice { margin: 10px 0 0; font-size: 0.86em; }
+#ak-message { margin: 10px 0 0; }
+
+/* 1〜100 の盤 (指名手配と同じ木の箱) */
+.ak-table {
+    margin: 0 auto clamp(14px, 2.4vw, 24px);
+    padding: clamp(6px, 1.6vw, 12px);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 30%),
+        var(--img-wood),
+        linear-gradient(180deg, var(--timber), var(--pitch-light) 55%, var(--pitch));
+    background-size: auto, 260px, auto;
+    background-blend-mode: normal, multiply, normal;
+    border: 2px solid var(--brass);
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.3), var(--shadow-deep);
+}
+
+.ak-table.is-locked { filter: grayscale(0.5) brightness(0.8); }
+
+.ak-board {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: clamp(2px, 0.8vw, 6px);
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.ak-cell {
+    position: relative;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    place-items: center;
+    aspect-ratio: 1;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 2px 0;
+    overflow: hidden;
+    font-family: var(--font-body);
+    font-size: clamp(12px, 3.6vw, 20px);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+    color: var(--ink);
+    background: var(--parchment-warm);
+    border: 1px solid var(--parchment-edge);
+    border-radius: clamp(3px, 0.8vw, 6px);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+    font-variant-numeric: tabular-nums;
+    transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.ak-cell:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5), 0 0 0 1px var(--brass-light); filter: none; }
+.ak-cell:disabled { opacity: 1; cursor: default; }
+.ak-table.is-locked .ak-cell { cursor: not-allowed; }
+
+.ak-cell-bet {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: clamp(7px, 2vw, 10px);
+    font-weight: 400;
+    white-space: nowrap;
+    text-overflow: clip;
+}
+
+.ak-cell.has-bet {
+    color: var(--brass-pale);
+    background: linear-gradient(180deg, var(--water-light), var(--water));
+    border-color: var(--brass-light);
+}
+
+.ak-cell.is-selected {
+    color: var(--pitch);
+    background: var(--lantern);
+    border-color: var(--lantern-soft);
+    box-shadow: 0 0 0 2px var(--lantern-soft), 0 0 10px var(--lantern-glow);
+}
+
+/* BET する欄 */
+.ak-selected { margin: 0 0 10px; font-size: 0.9em; overflow-wrap: anywhere; }
+
+.ak-range {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    font-size: 0.86em;
+}
+
+.ak-range input[type="number"] { width: 4.6em; min-height: 36px; padding: 6px 8px; }
+
+.ak-range button,
+.ak-cancel-button {
+    width: auto;
+    min-width: 0;
+    min-height: 36px;
+    margin: 0;
+    padding: 6px 12px;
+    font-family: var(--font-body);
+    font-size: 0.9em;
+    letter-spacing: 0.02em;
+    color: var(--color-indigo);
+    background: var(--parchment-warm);
+    border: 1px solid var(--parchment-edge);
+    box-shadow: none;
+}
+
+.ak-range button:hover,
+.ak-cancel-button:hover { background: #fff; box-shadow: none; transform: none; }
+
+.ak-amount-label { display: block; margin-bottom: 6px; font-size: 0.86em; color: var(--ink-soft); }
+.ak-presets { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-bottom: 8px; }
+
+/* この問題の BET */
+.ak-mine-list { margin: 0; padding: 0; list-style: none; }
+
+.ak-mine-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--parchment-edge);
+}
+
+.ak-mine-list li:last-child { border-bottom: none; }
+
+.ak-mine-number {
+    min-width: 2.4em;
+    font-size: 1.3em;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.ak-mine-amount { flex: 1; font-size: 0.86em; font-variant-numeric: tabular-nums; }
+.ak-mine-empty { font-size: 0.86em; color: var(--ink-soft); }
+
+/* 発表 */
+.ak-result { padding: 10px 0; border-top: 1px dashed var(--parchment-edge); }
+.ak-result:first-child { padding-top: 0; border-top: none; }
+.ak-result p { margin: 4px 0 0; }
+.ak-result-head { margin: 0 !important; font-weight: 700; font-size: 0.9em; }
+summary.ak-result-head { cursor: pointer; }
+.ak-result-hint { font-size: 0.94em; }
+
+.ak-result-answer {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+}
+
+.ak-result-answer span { font-size: 0.86em; letter-spacing: 0.2em; color: var(--ink-soft); }
+
+.ak-result-answer strong {
+    font-family: var(--font-title);
+    font-size: 1.6em;
+    font-variant-numeric: tabular-nums;
+    color: var(--rum-dark);
+}
+
+.ak-result.is-latest .ak-result-answer strong { font-size: clamp(2.4em, 11vw, 3.2em); line-height: 1; }
+.ak-result-mine { font-weight: 700; font-size: 0.9em; }
+.ak-result-mine[data-sign="plus"]  { color: var(--ok); }
+.ak-result-mine[data-sign="minus"] { color: var(--ng); }
+.ak-result-meta { font-size: 0.82em; color: var(--ink-soft); overflow-wrap: anywhere; }
+.ak-total { margin: 10px 0 0; font-size: 0.84em; }
 
 /* ------------------------------------------------------------
    19g3. ゲーム — 沈没 (全員共通の1卓のチキンレース)
@@ -6053,7 +6446,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 
     .nr-cabinet {
         /* 10 (上の余白) + 44 (ゲーム一覧へ) + 92 (下のメニュー) + 少しのゆとり */
-        --nr-h: calc(100dvh - 152px - env(safe-area-inset-bottom, 0px));
+        --nr-h: calc(100svh - 152px - env(safe-area-inset-bottom, 0px));   /* dvh だとアドレスバーの出入りで高さが動く (宝探しと同じ) */
         --nr-wheel: max(180px, min(100vw - var(--gutter) * 2 - 96px, 360px, var(--nr-h) - 264px));
         width: auto;
         margin-bottom: 14px;

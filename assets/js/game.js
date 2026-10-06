@@ -2,7 +2,8 @@
 //   ログイン、ゲームの選択 (ブロックのタイル)、入場 (持ち込み)、手元チップと精算、画面の切り替え。
 //   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js / game-voyage.js / game-sink.js
 //   (ルーレットとテキサスホールデムは 52.0 で廃止)。
-//   船底 (#underground) と指名手配 (#wanted) はチップを使わない別の遊び場で、中身は game-underground.js と game-wanted.js。
+//   船底 (#underground)・指名手配 (#wanted)・AIカンカク (#aikankaku) はチップを使わない別の遊び場で、
+//   中身は game-underground.js・game-wanted.js・game-aikankaku.js。
 //   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
 //   画面は #blackjack / #slot / #gappori / #nariagari のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
 
@@ -113,6 +114,10 @@ function isWantedRoute() {
     return location.hash.slice(1) === 'wanted';
 }
 
+function isAikankakuRoute() {
+    return location.hash.slice(1) === 'aikankaku';
+}
+
 function renderRoute() {
     if (!casino.ready) return;
     const game = routeGame();
@@ -125,6 +130,10 @@ function renderRoute() {
         // 指名手配もチップを持ち込まずに入る (レートがその場で動く)
         view = 'wanted';
         openWanted();
+    } else if (isAikankakuRoute()) {
+        // AIカンカクもチップを持ち込まずに入る (BET した額がその場でレートから引かれる)
+        view = 'aikankaku';
+        openAikankaku();
     } else if (!game) {
         renderMenu();
     } else if (!casino.session) {
@@ -147,11 +156,12 @@ function renderRoute() {
     if (view !== 'sink') closeSinkTable();
     if (view !== 'underground') closeUnderground();
     if (view !== 'wanted') closeWanted();
+    if (view !== 'aikankaku') closeAikankaku();
     showView(view);
     // 画面ごとの見た目の切り替えに使う (宝探しと成り上がりはスマホで見出しを消し、1画面に収める)
     document.body.dataset.casinoView = view;
-    // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す (船底と指名手配はチップを使わないので出さない)
-    el('casino-wallet').classList.toggle('hidden', !casino.session || view === 'lobby' || view === 'underground' || view === 'wanted');
+    // 手元チップは入場中だけ、ゲーム一覧と各テーブルで出す (船底・指名手配・AIカンカクはチップを使わないので出さない)
+    el('casino-wallet').classList.toggle('hidden', !casino.session || ['lobby', 'underground', 'wanted', 'aikankaku'].includes(view));
     renderWallet();
 }
 
@@ -170,6 +180,7 @@ function renderMenu() {
         // 船底はレートが上限 (既定1000) 未満のときだけ仕分けできる
         if (tile.dataset.game === 'underground' && casino.score < undergroundMaxRate()) text = '入れます';
         if (tile.dataset.game === 'wanted') text = wantedTileBadge();
+        if (tile.dataset.game === 'aikankaku') text = aikankakuTileBadge();
         badge.textContent = text;
         badge.classList.toggle('hidden', !text);
     });
@@ -333,6 +344,7 @@ async function initCasino() {
     initSink();
     initUnderground();
     initWanted();
+    initAikankaku();
     bindCasinoEvents();
     showView('loading');
 

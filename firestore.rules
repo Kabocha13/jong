@@ -147,6 +147,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // AIカンカクの問題ごとの BET と人ごとの合計。書き換えられるとレートを偽れるので、
+    // 読み書きとも Cloud Functions (aikankaku) だけに限る (答えはお題と一緒に Cloud Functions の中だけにある)。
+    match /aikankaku_days/{dateKey} {
+      allow read, write: if false;
+    }
+
+    match /aikankaku_players/{userId} {
+      allow read, write: if false;
+    }
+
     // スロットのジャックポットタイムの状態 (残りの回数・天井までの回数・固定の賭け金)。
     // 書き換えられるとジャックポットタイムを偽れるので、読み書きとも Cloud Functions (casino) だけに限る。
     match /slot_states/{userId} {

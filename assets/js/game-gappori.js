@@ -3,7 +3,9 @@
 //   予想したお宝ごとに、選んだ数だけ球が入れば当たり。1口の値段は予想の個数で決まる。
 //   盤面・配当・球・チャンス・ジャックポットはすべて Cloud Function (casino の gpBuy / gpChance / gpTick) が決める
 //   (ルールは functions/gappori.js、卓の進め方は functions/gappori-table.js)。
-//   ほかの人の券や進み具合は、誰でも読める卓の写し (gappori_public/main) を読み直して反映する。
+//   ほかの人の券や進み具合は、誰でも読める卓の写し (gappori_public/main) を読み直して反映する
+//   (ルーレットの下に、この回の全員の券を人ごとに出す)。
+//   券を買う欄の上に「本日のおすすめ」(回ごとに 5・4・3・2個の予想を1つずつ。サーバーが倍率を上げてある) を出す。
 //   球は ballsAt の時刻に合わせて1つずつ入れて見せる。締め切りを過ぎたら、画面を開いている人が gpTick を送って先へ進める。
 //   お宝の絵は game-slot.js の createSymbol、閃光・金貨・震え・画面いっぱいの演出もスロットのものを使う。
 //   入場・手元チップ・精算・画面の切り替えは game.js。
@@ -364,13 +366,16 @@ function renderGapporiControls() {
         ? `お宝をあと${GAPPORI_PICKS_MIN - picks}個選んでください (${GAPPORI_PICKS_MIN}〜${GAPPORI_PICKS_MAX}個。同じお宝を重ねてもよい)`
         : !odds || !gapporiPrice()
             ? 'この予想は次の回から買えます。'
-            : `${chosen} (1口 ${gapporiPrice()}) ・ 倍率 ×${odds} ・ 当たれば ${Math.round(cost * odds).toLocaleString('ja-JP')}`;
+            : `${chosen} (1口 ${gapporiPrice()}) ・ 倍率 ×${odds}`
+                + (gapporiFeaturedFor(gapporiKey(gp.picks)) ? ` (おすすめ。通常 ×${gapporiFeaturedFor(gapporiKey(gp.picks)).baseOdds})` : '')
+                + ` ・ 当たれば ${Math.round(cost * odds).toLocaleString('ja-JP')}`;
     el('gp-pick-info').classList.toggle('is-ready', Boolean(odds));
     el('gp-units-down').disabled = gp.units <= 1;
     el('gp-units-up').disabled = gp.units >= GAPPORI_MAX_UNITS;
     el('gp-buy-button').disabled = casino.busy || !casino.session || !isGapporiOpen(table) || !odds || !gapporiPrice()
         || cost > slotChips() || myGapporiTickets(table).length >= GAPPORI_MAX_TICKETS;
     renderGapporiStart();
+    renderGapporiFeatured();
 }
 
 /** 口数を 1〜GAPPORI_MAX_UNITS の整数にして入れる (手で打った数もここで直す) */
@@ -418,18 +423,35 @@ function followGapporiScreen(table) {
     setGapporiScreen(screen);
 }
 
-/** 自分の券 (結果が出たら当たり・はずれと払い戻し) と、ほかの人の数 */
+/**
+ * 券のお宝の絵。同じお宝は、入った球の数だけ前から光らせる。
+ * お宝ゲット (チャンス) で足したぶんは、足りない1つに点線の枠
+ */
+function gapporiTicketIcons(table, ticket, hits) {
+    const granted = table.chances.find(chance => chance.ticket === table.tickets.indexOf(ticket))?.choice || null;
+    const icons = gapporiPickIcons(ticket.picks);
+    const used = {};
+    let grantUsed = false;
+    icons.querySelectorAll('.slot-symbol').forEach((node, i) => {
+        const kind = ticket.picks[i];
+        used[kind] = (used[kind] || 0) + 1;
+        const hit = used[kind] <= (hits[kind] || 0);
+        const grant = !hit && !grantUsed && kind === granted;
+        if (grant) grantUsed = true;
+        node.classList.toggle('is-hit', hit);
+        node.classList.toggle('is-granted', grant);
+    });
+    return icons;
+}
+
+/** 自分の券 (結果が出たら当たり・はずれと払い戻し) と、ほかの人の数。ルーレットの画面の全員の券もここで描く */
 function renderGapporiTickets() {
     const table = gp.table;
     const list = el('gp-my-tickets');
     if (!table || !list) return;
     list.innerHTML = '';
-    // ルーレットの画面 (スマホ) の券: お宝と、代金か結果だけ
-    const strip = el('gp-mine-strip');
-    if (strip) strip.innerHTML = '';
     const mine = myGapporiTickets(table);
     const hits = gapporiShownHits(table);
-    const grantedFor = ticket => table.chances.find(chance => chance.ticket === table.tickets.indexOf(ticket))?.choice || null;
     const finished = table.phase === 'result' && gp.shownBalls >= table.balls.length;
     if (!mine.length) {
         const item = document.createElement('li');
@@ -439,22 +461,10 @@ function renderGapporiTickets() {
     }
     mine.forEach(ticket => {
         const item = document.createElement('li');
-        // 同じお宝は、入った球の数だけ前から光らせる。チャンスで足したぶんは、足りない1つに点線の枠
-        const icons = gapporiPickIcons(ticket.picks);
-        const used = {};
-        let grantUsed = false;
-        icons.querySelectorAll('.slot-symbol').forEach((node, i) => {
-            const kind = ticket.picks[i];
-            used[kind] = (used[kind] || 0) + 1;
-            const hit = used[kind] <= (hits[kind] || 0);
-            const grant = !hit && !grantUsed && kind === grantedFor(ticket);
-            if (grant) grantUsed = true;
-            node.classList.toggle('is-hit', hit);
-            node.classList.toggle('is-granted', grant);
-        });
         const info = document.createElement('span');
         info.className = 'gp-ticket-info';
-        info.textContent = `${ticket.units}口 ×${ticket.odds}`;
+        info.textContent = `${ticket.units}口 ×${ticket.odds}${ticket.featured ? ' ★' : ''}`;
+        if (ticket.featured) info.title = '本日のおすすめ (倍率アップ)';
         const state = document.createElement('strong');
         state.className = 'gp-ticket-state';
         if (finished) {
@@ -463,15 +473,7 @@ function renderGapporiTickets() {
         } else {
             state.textContent = ticket.cost.toLocaleString('ja-JP');
         }
-        if (strip) {
-            const chip = document.createElement('li');
-            chip.className = item.className;
-            const chipState = document.createElement('span');
-            chipState.textContent = finished ? state.textContent : `${ticket.units}口`;
-            chip.append(icons.cloneNode(true), chipState);
-            strip.appendChild(chip);
-        }
-        item.append(icons, info, state);
+        item.append(gapporiTicketIcons(table, ticket, hits), info, state);
         list.appendChild(item);
     });
     const others = new Map();
@@ -481,6 +483,97 @@ function renderGapporiTickets() {
     el('gp-others').textContent = others.size
         ? `ほかの参加者: ${[...others.entries()].map(([name, count]) => `${name} ${count}枚`).join('、')}`
         : '';
+    renderGapporiCrowd(table, hits, finished);
+}
+
+/** ルーレットの下: この回の全員の券を人ごとに (自分がいちばん上)。お宝と口数、結果が出たら払い戻しかはずれ */
+function renderGapporiCrowd(table, hits, finished) {
+    const box = el('gp-crowd');
+    if (!box) return;
+    box.innerHTML = '';
+    const byName = new Map();
+    table.tickets.forEach(ticket => {
+        if (!byName.has(ticket.name)) byName.set(ticket.name, []);
+        byName.get(ticket.name).push(ticket);
+    });
+    const me = myName();
+    [...byName.keys()]
+        .sort((a, b) => Number(b === me) - Number(a === me))
+        .forEach(name => {
+            const row = document.createElement('div');
+            row.className = `gp-crowd-row${name === me ? ' is-me' : ''}`;
+            const label = document.createElement('span');
+            label.className = 'gp-crowd-name';
+            label.textContent = name === me ? 'あなた' : name;
+            row.appendChild(label);
+            byName.get(name).forEach(ticket => {
+                const chip = document.createElement('span');
+                chip.className = 'gp-crowd-ticket';
+                if (finished) chip.classList.add(ticket.win ? 'is-win' : 'is-lose');
+                chip.classList.toggle('is-featured', Boolean(ticket.featured));
+                chip.title = `${ticket.picks.map(gapporiKindName).join('・')} ${ticket.units}口 ×${ticket.odds}`;
+                const state = document.createElement('span');
+                state.className = 'gp-crowd-state';
+                state.textContent = finished
+                    ? ticket.win ? `+${ticket.payout.toLocaleString('ja-JP')}` : 'はずれ'
+                    : `${ticket.units}口`;
+                chip.append(gapporiTicketIcons(table, ticket, hits), state);
+                row.appendChild(chip);
+            });
+            box.appendChild(row);
+        });
+}
+
+// ------------------------------------------------------------------
+// 本日のおすすめ (券を買う画面。回ごとに 5・4・3・2個の予想を1つずつ、倍率が上がっている)
+// ------------------------------------------------------------------
+function gapporiFeaturedFor(key, table = gp.table) {
+    return (table?.featured || []).find(item => item.key === key) || null;
+}
+
+function renderGapporiFeatured() {
+    const box = el('gp-featured');
+    if (!box) return;
+    const table = gp.table;
+    const featured = table?.featured || [];
+    box.classList.toggle('hidden', !featured.length);
+    const open = isGapporiOpen(table);
+    const current = gp.picks.length ? gapporiKey(gp.picks) : '';
+    // 受付の残り時間を出すたびに作り直すと押している途中のボタンが消えるので、変わったときだけ描く
+    const signature = `${table?.roundNo}|${open}|${current}|${casino.busy}`;
+    if (box.dataset.signature === signature) return;
+    box.dataset.signature = signature;
+    el('gp-featured-note').textContent = '倍率アップ中';
+    const list = el('gp-featured-list');
+    list.innerHTML = '';
+    featured.forEach(item => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'gp-featured-item';
+        button.setAttribute('aria-pressed', String(item.key === current));
+        button.setAttribute('aria-label', `${item.picks.map(gapporiKindName).join('・')} 倍率 ${item.odds} (通常 ${item.baseOdds})`);
+        button.disabled = !open || casino.busy;
+        const size = document.createElement('span');
+        size.className = 'gp-featured-size';
+        size.textContent = `${item.size}個`;
+        const odds = document.createElement('span');
+        odds.className = 'gp-featured-odds';
+        const base = document.createElement('s');
+        base.textContent = `×${item.baseOdds}`;
+        const up = document.createElement('strong');
+        up.textContent = `×${item.odds}`;
+        odds.append(base, up);
+        button.append(size, gapporiPickIcons(item.picks), odds);
+        button.addEventListener('click', () => chooseGapporiFeatured(item));
+        list.appendChild(button);
+    });
+}
+
+function chooseGapporiFeatured(item) {
+    if (!isGapporiOpen()) return;
+    gp.picks = item.picks.slice();
+    renderGapporiKinds();
+    renderGapporiControls();
 }
 
 /** 自分の券のうち、チャンスが来ていてまだ選んでいないもの [{ ticket (この回の券の番号), picks }] */

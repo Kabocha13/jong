@@ -5,7 +5,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
 import { normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
-import { GapporiRuleError } from './gappori.js';
+import { GapporiRuleError, gapporiJackpotRate } from './gappori.js';
 import { NARIAGARI_BETS, playNariagari } from './nariagari.js';
 import {
   VOYAGE_BET,
@@ -101,6 +101,33 @@ import {
   wantedLogStep,
   wantedReason
 } from './wanted.js';
+import {
+  AIKANKAKU_CLOSE_HOUR,
+  AIKANKAKU_MAX_BET,
+  AIKANKAKU_MIN_BET,
+  AIKANKAKU_MULTIPLIER,
+  AIKANKAKU_REVEAL_HOUR,
+  AIKANKAKU_SOURCE,
+  AIKANKAKU_START_DATE,
+  AIKANKAKU_TOTAL,
+  AikankakuError,
+  addAikankakuBets,
+  addDays,
+  aikankakuPayout,
+  aikankakuRound,
+  aikankakuTimes,
+  aikankakuTopicOn,
+  betReason,
+  cancelAikankakuBet,
+  cancelReason,
+  isAikankakuRevealed,
+  latestRevealedAikankakuDate,
+  normalizeAikankakuStats,
+  normalizeDayBets,
+  payoutReason,
+  picksTotal,
+  summarizeAikankakuDay
+} from './aikankaku.js';
 import {
   SinkTableError,
   advanceSinkTable,
@@ -2152,6 +2179,344 @@ export const wanted = onRequest({ region: 'asia-northeast1' }, async (req, res) 
 });
 
 // -----------------------------------------------------------------
+// AIカンカク (1日1問。AI が数字を出さずに表したお題の数 (1〜100) を当てる)
+//   ルールは aikankaku.js、お題は aikankaku-topics.js (答えが入っているので画面には渡さない)。
+//   第N問は前の日の 14:00 から当日 13:00 まで BET を受け付け、14:00 に発表する。BET はその場でレートから引き、
+//   発表のときの精算 (毎日 14:01 の settleAikankakuDays。画面を開いたときも、発表の時刻を過ぎた分を確かめる) で
+//   答えの数に BET した額の10倍をレートに入れる。
+//   問題ごとの BET aikankaku_days/{日付} と人ごとの合計 aikankaku_players/{uid} は Cloud Functions だけが読み書きする (rules で禁止)。
+//   レート推移グラフは、BET のたびには作り直さず settleIdleCasinoSessions (10分ごと) と精算のときに作り直す。
+// -----------------------------------------------------------------
+const AIKANKAKU_DAYS = 'aikankaku_days';
+const AIKANKAKU_PLAYERS = 'aikankaku_players';
+const AIKANKAKU_HISTORY_LIMIT = 7;   // 画面に返す、発表済みの問題の数 (新しい順)
+
+function aikankakuDayRef(dateKey) {
+  return db.collection(AIKANKAKU_DAYS).doc(dateKey);
+}
+
+function aikankakuStatsRef(uid) {
+  return db.collection(AIKANKAKU_PLAYERS).doc(uid);
+}
+
+/** 受付中・集計中の問題 (答えは入れない) */
+function publicAikankakuRound(round, dayData, uid) {
+  if (!round.topic) return null;
+  const bets = normalizeDayBets(dayData?.bets);
+  const mine = bets[uid];
+  return {
+    date: round.date,
+    no: round.topic.no,
+    hint: round.topic.hint,
+    ...aikankakuTimes(round.date),
+    mine: mine ? { picks: mine.picks, total: mine.total } : { picks: {}, total: 0 },
+    players: Object.keys(bets).length,
+    amount: Object.values(bets).reduce((sum, entry) => sum + entry.total, 0)
+  };
+}
+
+/** 発表した問題の結果 */
+function publicAikankakuResult(dateKey, dayData, uid) {
+  const topic = aikankakuTopicOn(dateKey);
+  const bets = normalizeDayBets(dayData?.bets);
+  const summary = summarizeAikankakuDay(bets, topic.answer);
+  const mine = bets[uid];
+  return {
+    date: dateKey,
+    no: topic.no,
+    hint: topic.hint,
+    answer: topic.answer,
+    revealsAt: aikankakuTimes(dateKey).revealsAt,
+    // BET が無かった日は精算するものが無い
+    settled: !dayData || Boolean(dayData.settled) || summary.players === 0,
+    mine: mine ? { picks: mine.picks, total: mine.total, payout: aikankakuPayout(mine.picks, topic.answer) } : null,
+    players: summary.players,
+    amount: summary.amount,
+    winners: summary.winners,
+    popular: summary.popular
+  };
+}
+
+function publicAikankakuRules() {
+  return {
+    total: AIKANKAKU_TOTAL,
+    startDate: AIKANKAKU_START_DATE,
+    minBet: AIKANKAKU_MIN_BET,
+    maxBet: AIKANKAKU_MAX_BET,
+    multiplier: AIKANKAKU_MULTIPLIER,
+    closeHour: AIKANKAKU_CLOSE_HOUR,
+    revealHour: AIKANKAKU_REVEAL_HOUR
+  };
+}
+
+/**
+ * 発表の時刻を過ぎた問題を精算する。答えの数に BET した人へ BET の10倍を入れ、増減ログを残す。
+ * 済んでいれば何もしない (2回呼ばれても二重には払わない)。返り値は払った人の一覧 (精算しなかったら null)
+ */
+async function settleAikankakuDay(dateKey) {
+  const topic = aikankakuTopicOn(dateKey);
+  if (!isAikankakuRevealed(dateKey, Date.now())) return null;
+  const ref = aikankakuDayRef(dateKey);
+  const at = new Date().toISOString();
+  const paid = await db.runTransaction(async transaction => {
+    const dayDoc = await transaction.get(ref);
+    if (!dayDoc.exists || dayDoc.data().settled) return null;
+    if (!topic) {
+      transaction.update(ref, { settled: true, settledAt: at });
+      return null;
+    }
+    const bets = normalizeDayBets(dayDoc.data().bets);
+    const winnerUids = Object.keys(bets).filter(uid => aikankakuPayout(bets[uid].picks, topic.answer) > 0);
+    const [playerSnapshots, statsDocs] = await Promise.all([
+      Promise.all(winnerUids.map(uid => transaction.get(playerQuery(bets[uid].player)))),
+      Promise.all(winnerUids.map(uid => transaction.get(aikankakuStatsRef(uid))))
+    ]);
+    const winners = [];
+    winnerUids.forEach((uid, i) => {
+      const entry = bets[uid];
+      const bet = entry.picks[String(topic.answer)];
+      const payout = aikankakuPayout(entry.picks, topic.answer);
+      const playerSnapshot = playerSnapshots[i];
+      if (playerSnapshot.empty) {
+        console.warn(`AIカンカク ${dateKey}: ${entry.player} が見つからないので払い戻し ${payout} を渡せませんでした`);
+        return;
+      }
+      const playerDoc = playerSnapshot.docs[0];
+      const beforeScore = normalizeRate(playerDoc.data().score);
+      const afterScore = beforeScore + payout;
+      transaction.update(playerDoc.ref, { score: afterScore });
+      const historyId = rateHistoryDocId(entry.player, at);
+      transaction.set(db.collection('point_history').doc(historyId), {
+        id: historyId,
+        player: entry.player,
+        beforeScore,
+        afterScore,
+        delta: payout,
+        source: AIKANKAKU_SOURCE,
+        reason: payoutReason(topic.no, topic.answer, bet),
+        actor: 'aikankaku',
+        createdAt: at
+      });
+      const stats = normalizeAikankakuStats(statsDocs[i].exists ? statsDocs[i].data() : null);
+      transaction.set(aikankakuStatsRef(uid), {
+        player: entry.player,
+        ...stats,
+        hits: stats.hits + 1,
+        payout: stats.payout + payout,
+        updatedAt: at
+      });
+      winners.push({ player: entry.player, payout });
+    });
+    transaction.update(ref, { settled: true, settledAt: at, answer: topic.answer });
+    return winners;
+  });
+  if (paid && paid.length) await rebuildRateChartQuietly(AIKANKAKU_SOURCE);
+  return paid;
+}
+
+/** まだ精算していない問題のうち、発表の時刻を過ぎたものを全部精算する */
+async function settlePendingAikankakuDays() {
+  const snapshot = await db.collection(AIKANKAKU_DAYS).where('settled', '==', false).get();
+  const results = [];
+  for (const doc of snapshot.docs) {
+    if (!isAikankakuRevealed(doc.id, Date.now())) continue;
+    results.push({ date: doc.id, paid: await settleAikankakuDay(doc.id) });
+  }
+  return results;
+}
+
+async function aikankakuStatus(uid, username) {
+  await settlePendingAikankakuDays();
+  const nowMs = Date.now();
+  const round = aikankakuRound(nowMs);
+  const latest = latestRevealedAikankakuDate(nowMs);
+  const pastDates = [];
+  for (let i = 0; latest && i < AIKANKAKU_HISTORY_LIMIT; i++) {
+    const date = addDays(latest, -i);
+    if (!aikankakuTopicOn(date)) break;
+    pastDates.push(date);
+  }
+  const roundRefs = round.topic ? [aikankakuDayRef(round.date)] : [];
+  const [playerSnapshot, statsDoc, ...dayDocs] = await Promise.all([
+    playerQuery(username).get(),
+    aikankakuStatsRef(uid).get(),
+    ...[...roundRefs, ...pastDates.map(aikankakuDayRef)].map(ref => ref.get())
+  ]);
+  const roundDoc = round.topic ? dayDocs.shift() : null;
+  return {
+    me: username,
+    score: playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score),
+    phase: round.phase,
+    firstOpensAt: aikankakuTimes(AIKANKAKU_START_DATE).opensAt,
+    round: publicAikankakuRound(round, roundDoc && roundDoc.exists ? roundDoc.data() : null, uid),
+    results: pastDates.map((date, i) => publicAikankakuResult(date, dayDocs[i].exists ? dayDocs[i].data() : null, uid)),
+    stats: normalizeAikankakuStats(statsDoc.exists ? statsDoc.data() : null),
+    rules: publicAikankakuRules(),
+    now: new Date(nowMs).toISOString()
+  };
+}
+
+/** 受付中の問題か確かめる (画面が見ている問題 rawDate と、いまの問題が同じか) */
+function requireOpenAikankakuRound(rawDate) {
+  const round = aikankakuRound(Date.now());
+  if (round.phase === 'before') throw new AikankakuError(409, 'AIカンカクはまだ始まっていません。');
+  if (round.phase === 'ended') throw new AikankakuError(409, 'AIカンカクは全問終わりました。');
+  if (round.phase === 'closed' || String(rawDate || '') !== round.date) {
+    throw new AikankakuError(409, `この問題の受付は締め切りました (毎日 ${AIKANKAKU_CLOSE_HOUR}:00 締め切り)。`);
+  }
+  return round;
+}
+
+/**
+ * BET を足す (body.picks: { '37': 100, ... })。または1つの数の BET を取り消す (body.cancel: 37)。
+ * どちらもその場でレートを動かし、増減ログを1件残す
+ */
+async function aikankakuChangeBets(uid, username, body, cancel) {
+  const round = requireOpenAikankakuRound(body.date);
+  const ref = aikankakuDayRef(round.date);
+  const statsRef = aikankakuStatsRef(uid);
+  const change = await db.runTransaction(async transaction => {
+    const [dayDoc, playerSnapshot, statsDoc] = await Promise.all([
+      transaction.get(ref),
+      transaction.get(playerQuery(username)),
+      transaction.get(statsRef)
+    ]);
+    // トランザクションのやり直しのあいだに締め切りを過ぎていないか
+    requireOpenAikankakuRound(round.date);
+    if (playerSnapshot.empty) throw new AikankakuError(404, 'プレイヤーが見つかりません。');
+    const dayData = dayDoc.exists ? dayDoc.data() : {};
+    if (dayData.settled) throw new AikankakuError(409, 'この問題はもう精算しました。');
+    const playerDoc = playerSnapshot.docs[0];
+    const beforeScore = normalizeRate(playerDoc.data().score);
+    const bets = normalizeDayBets(dayData.bets);
+    const current = bets[uid];
+    const at = new Date().toISOString();
+
+    let delta;
+    let reason;
+    let picks;
+    if (cancel) {
+      const canceled = cancelAikankakuBet(current?.picks, body.number);
+      delta = canceled.refund;
+      reason = cancelReason(round.topic.no, canceled.number);
+      picks = canceled.picks;
+    } else {
+      const added = addAikankakuBets(current?.picks, body.picks);
+      if (beforeScore < added.cost) {
+        throw new AikankakuError(400, `レートが足りません (いま ${beforeScore.toLocaleString('ja-JP')}、BET の合計 ${added.cost.toLocaleString('ja-JP')})。`);
+      }
+      delta = -added.cost;
+      reason = betReason(round.topic.no, added.added);
+      picks = added.picks;
+    }
+    const afterScore = beforeScore + delta;
+    transaction.update(playerDoc.ref, { score: afterScore });
+    const historyId = rateHistoryDocId(username, at);
+    transaction.set(db.collection('point_history').doc(historyId), {
+      id: historyId,
+      player: username,
+      beforeScore,
+      afterScore,
+      delta,
+      source: AIKANKAKU_SOURCE,
+      reason,
+      actor: username,
+      createdAt: at
+    });
+
+    // その問題の BET (取り消しで消えた数を残さないよう、bets はまるごと書き直す)
+    const nextBets = { ...bets };
+    if (Object.keys(picks).length) nextBets[uid] = { player: username, picks, total: picksTotal(picks), updatedAt: at };
+    else delete nextBets[uid];
+    transaction.set(ref, { date: round.date, no: round.topic.no, bets: nextBets, settled: false, updatedAt: at });
+
+    // 人ごとの合計 (BET した問題の数は、その問題で最初に BET したとき / 全部取り消したときに増減)
+    const stats = normalizeAikankakuStats(statsDoc.exists ? statsDoc.data() : null);
+    const hadBets = Boolean(current);
+    const hasBets = Object.keys(picks).length > 0;
+    transaction.set(statsRef, {
+      player: username,
+      ...stats,
+      plays: Math.max(0, stats.plays + (hasBets && !hadBets ? 1 : 0) - (hadBets && !hasBets ? 1 : 0)),
+      bet: Math.max(0, stats.bet - delta),
+      updatedAt: at
+    });
+    return { delta, beforeScore, afterScore };
+  });
+  return { ...await aikankakuStatus(uid, username), change };
+}
+
+/** この時間内に BET・取り消しがあれば、レート推移グラフを作り直す (settleIdleCasinoSessions から呼ぶ) */
+async function rebuildRateChartAfterAikankaku(sinceMs) {
+  const round = aikankakuRound(Date.now());
+  // 締め切った直後にも、締め切り前の BET の分を作り直せるよう、いまの問題を見る (集計中も同じ日)
+  if (!round.date) return;
+  const dayDoc = await aikankakuDayRef(round.date).get();
+  const updatedAt = dayDoc.exists ? Date.parse(dayDoc.data().updatedAt || '') : NaN;
+  if (Number.isFinite(updatedAt) && updatedAt >= Date.now() - sinceMs) await rebuildRateChartQuietly(AIKANKAKU_SOURCE);
+}
+
+const AIKANKAKU_ACTIONS = {
+  status: ({ uid, username }) => aikankakuStatus(uid, username),
+  bet: ({ uid, username, body }) => aikankakuChangeBets(uid, username, body, false),
+  cancel: ({ uid, username, body }) => aikankakuChangeBets(uid, username, body, true)
+};
+
+export const aikankaku = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const decoded = await getVerifiedAuthToken(req);
+    const username = decoded && decoded.username;
+    if (!username) {
+      res.status(401).json({ status: 'error', message: 'ログインが必要です。マイページでログインし直してください。' });
+      return;
+    }
+    if (RATE_EXCLUDED_PLAYERS.has(username)) {
+      res.status(403).json({ status: 'error', message: 'このアカウントはAIカンカクを利用できません。' });
+      return;
+    }
+
+    const body = req.body || {};
+    const action = String(body.action || 'status');
+    if (!Object.hasOwn(AIKANKAKU_ACTIONS, action)) {
+      throw new AikankakuError(400, '不明な操作です。');
+    }
+    const payload = await AIKANKAKU_ACTIONS[action]({ uid: decoded.uid, username, body });
+    res.status(200).json({ status: 'success', ...payload });
+  } catch (error) {
+    if (error instanceof AikankakuError) {
+      res.status(error.status).json({ status: 'error', message: error.message });
+      return;
+    }
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `AIカンカクの処理に失敗しました: ${error.message}` });
+  }
+});
+
+// 毎日 14:01 (JST) に、14:00 に発表した問題を精算する (画面を開いた人がいれば、その時点で先に済んでいることもある)
+export const settleAikankakuDays = onSchedule({
+  region: 'asia-northeast1',
+  schedule: `1 ${AIKANKAKU_REVEAL_HOUR} * * *`,
+  timeZone: 'Asia/Tokyo'
+}, async () => {
+  try {
+    const results = await settlePendingAikankakuDays();
+    console.log('settleAikankakuDays:', JSON.stringify(results));
+  } catch (error) {
+    console.error('AIカンカクの精算に失敗しました:', error);
+  }
+});
+
+// -----------------------------------------------------------------
 // レートの貸し出し (借金)
 //   ルールは loan.js。誰でも借りられ、上限 (信用枠) は「日付をまたいでから返した元本」「付いた利息」「レートの変動の大きさ」で決まる。
 //   借りた額はそのままレートに足し (以後は通常のレートと同じ扱い)、同じ額を借金として記録する。
@@ -3124,6 +3489,88 @@ async function gapporiTableAction(uid, username, mutate) {
 }
 
 // -----------------------------------------------------------------
+// 宝探しのジャックポット (管理画面から見る・書き換える。管理者だけ)
+//   書き換えは卓のトランザクション (runGapporiTable) の中で行い、公開の写しも同時に直す。
+//   抽選の途中でも書き換えられ、その回の船長チャンスには書き換えたあとの額が使われる。
+//   最後に書き換えた内容は卓の jackpotAdjust に残す (公開の写しには出さない)。
+// -----------------------------------------------------------------
+const GAPPORI_JACKPOT_ADMIN_MAX = 100000000;
+
+class GapporiAdminError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+function gapporiJackpotInfo(table) {
+  return {
+    jackpot: Math.floor(Number(table.jackpot) || 0),
+    jackpotRate: gapporiJackpotRate(table.jackpotMisses),
+    jackpotMisses: Math.max(0, Math.floor(Number(table.jackpotMisses) || 0)),
+    phase: table.phase || null,
+    roundNo: table.roundNo || 0,
+    lastAdjust: table.jackpotAdjust || null
+  };
+}
+
+async function gapporiAdminStatus() {
+  const { tableRef } = gapporiTableRefs();
+  const doc = await tableRef.get();
+  return gapporiJackpotInfo(doc.exists ? doc.data() : { jackpot: 0 });
+}
+
+async function gapporiAdminSetJackpot(rawAmount, actor) {
+  const amount = Number(rawAmount);
+  if (!Number.isSafeInteger(amount) || amount < 0 || amount > GAPPORI_JACKPOT_ADMIN_MAX) {
+    throw new GapporiAdminError(400, `ジャックポットは 0〜${GAPPORI_JACKPOT_ADMIN_MAX.toLocaleString('ja-JP')} の整数で入力してください。`);
+  }
+  let before = 0;
+  const ctx = await runGapporiTable(null, context => {
+    before = Math.floor(Number(context.table.jackpot) || 0);
+    context.table.jackpot = amount;
+    context.table.jackpotAdjust = { before, after: amount, by: actor, at: context.nowIso };
+    context.changed = true;
+  });
+  console.log('gappori jackpot set:', JSON.stringify({ before, after: amount, by: actor }));
+  return { before, ...gapporiJackpotInfo(ctx.table) };
+}
+
+export const gapporiAdmin = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
+  setCors(req, res);
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ status: 'error', message: 'Method Not Allowed' });
+    return;
+  }
+
+  try {
+    const decoded = await getVerifiedAuthToken(req);
+    if (!decoded || decoded.admin !== true) {
+      res.status(403).json({ status: 'error', message: '管理者としてログインしてください。' });
+      return;
+    }
+    const body = req.body || {};
+    const action = String(body.action || 'status');
+    let payload;
+    if (action === 'status') payload = await gapporiAdminStatus();
+    else if (action === 'setJackpot') payload = await gapporiAdminSetJackpot(body.amount, String(decoded.username || 'admin'));
+    else throw new GapporiAdminError(400, '不明な操作です。');
+    res.status(200).json({ status: 'success', ...payload });
+  } catch (error) {
+    if (error instanceof GapporiAdminError) {
+      res.status(error.status).json({ status: 'error', message: error.message });
+      return;
+    }
+    console.error(error);
+    res.status(500).json({ status: 'error', message: `宝探しのジャックポットの処理に失敗しました: ${error.message}` });
+  }
+});
+
+// -----------------------------------------------------------------
 // 航海 (大海賊の航海日誌)。ルールは voyage.js。2026/10/5 〜 12/21 の期間限定。
 //   みんなで共有する分 (ジャックポット・最終秘宝・直近の JP) は voyage_public/main (誰でも読める)、
 //   人ごとの分 (位置・周回・航海した金額) は voyage_players/{uid} (Cloud Functions だけ) に置く。
@@ -3475,7 +3922,7 @@ export const casinoRoulette = onRequest({ region: 'asia-northeast1' }, handleCas
 
 // 精算せずに離れたテーブルを片付ける。期限は最後の操作から30分 / 入場から3時間。
 // ブラックジャックと宝探しの卓も、誰も画面を開いていないまま時間切れで止まっていれば先へ進める
-// 指名手配でこの10分にめくられた賞金首がいれば、レート推移グラフもここで作り直す
+// 指名手配でこの10分にめくられた賞金首がいれば、レート推移グラフもここで作り直す (AIカンカクの BET・取り消しも同じ)
 export const settleIdleCasinoSessions = onSchedule({
   region: 'asia-northeast1',
   schedule: 'every 10 minutes',
@@ -3500,6 +3947,11 @@ export const settleIdleCasinoSessions = onSchedule({
     await rebuildRateChartAfterWanted(10 * 60 * 1000);
   } catch (error) {
     console.error('指名手配のあとのレート推移グラフの作り直しに失敗しました:', error);
+  }
+  try {
+    await rebuildRateChartAfterAikankaku(10 * 60 * 1000);
+  } catch (error) {
+    console.error('AIカンカクのあとのレート推移グラフの作り直しに失敗しました:', error);
   }
   const snapshot = await db.collection(CASINO_SESSIONS)
     .where('expiresAt', '<=', new Date().toISOString())

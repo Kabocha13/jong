@@ -30,6 +30,7 @@ import {
   GAPPORI_UNIT_PRICES,
   drawGapporiBall,
   gapporiAutoChance,
+  gapporiFeatured,
   gapporiHitList,
   gapporiJackpotRate,
   gapporiOdds,
@@ -53,8 +54,9 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  3: 52.2 の 1口 2個 10・3個 50・4個 100・5個 200 と、1口の払い戻しが整数になる倍率の刻み /
 //  4: 52.3 の 配当の還元率 90% と、外れた券の代金の1割を 0 から貯めるジャックポット /
 //  5: 52.4 の 券ごとに予想の個数で決まるチャンスの確率 /
-//  6: 52.6 の チャンスの確率を半分に)
-export const GAPPORI_RULES_VERSION = 6;
+//  6: 52.6 の チャンスの確率を半分に /
+//  7: 54.17 の 本日のおすすめ (5・4・3・2個の予想を1つずつ、倍率 ×1.1))
+export const GAPPORI_RULES_VERSION = 7;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -69,7 +71,10 @@ export class GapporiTableError extends Error {
 function startGapporiBoard(table, randomInt) {
   table.rulesVersion = GAPPORI_RULES_VERSION;
   table.board = generateGapporiBoard(randomInt);
-  table.odds = gapporiOdds(table.board);
+  // 本日のおすすめ (個数ごとに1つ) は倍率を上げて配当表に入れる。券はこの配当表の倍率で買う
+  const featured = gapporiFeatured(table.board, gapporiOdds(table.board), randomInt);
+  table.odds = featured.odds;
+  table.featured = featured.featured;
   table.phase = 'betting';
   table.roundNo = (table.roundNo || 0) + 1;
   table.tickets = [];
@@ -160,7 +165,8 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
     const key = gapporiPickKey(picks);
     if (!table.odds[key]) throw new GapporiTableError(409, 'この予想は次の回から買えます。');
     const price = gapporiUnitPrice(picks);
-    return { uid, name, picks, key, units, price, cost: units * price, odds: table.odds[key], at: ctx.nowIso };
+    const featured = (table.featured || []).some(item => item.key === key);
+    return { uid, name, picks, key, units, price, cost: units * price, odds: table.odds[key], featured, at: ctx.nowIso };
   });
   const total = tickets.reduce((sum, ticket) => sum + ticket.cost, 0);
   if (total > wallet.chips) {
@@ -388,6 +394,7 @@ export function publicGapporiTable(table) {
     rulesVersion: table.rulesVersion || 1,
     board: table.board,
     odds: table.odds,
+    featured: table.featured || [],
     prices: GAPPORI_UNIT_PRICES,
     jackpot: Math.floor(table.jackpot || 0),
     // いまの船長チャンスで当たる確率と、続けて外れた回数
@@ -400,8 +407,10 @@ export function publicGapporiTable(table) {
     drawEndsAt: table.drawEndsAt || null,
     chances: showChances ? (table.chances || []).map(({ ticket, name, choice, auto }) => ({ ticket, name, choice, auto: Boolean(auto) })) : [],
     chanceEndsAt: table.chanceEndsAt || null,
-    tickets: (table.tickets || []).map(({ name, picks, key, units, cost, odds, win, payout }) => (
-      table.phase === 'result' ? { name, picks, key, units, cost, odds, win, payout } : { name, picks, key, units, cost, odds }
+    tickets: (table.tickets || []).map(({ name, picks, key, units, cost, odds, featured, win, payout }) => (
+      table.phase === 'result'
+        ? { name, picks, key, units, cost, odds, featured: Boolean(featured), win, payout }
+        : { name, picks, key, units, cost, odds, featured: Boolean(featured) }
     )),
     result: table.result
       ? { hits: table.result.hits, jackpot: { ...table.result.jackpot, shares: table.result.jackpot.shares.map(({ name, amount }) => ({ name, amount })) } }

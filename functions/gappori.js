@@ -41,6 +41,10 @@ export const GAPPORI_JACKPOT_RAMP_MISSES = 100;
 export const GAPPORI_JACKPOT_SCALE = 10000;   // 確率を整数の乱数で引くときの目の細かさ
 // チャンスの確率 (券ごと。予想の個数で決まる)。倍率はこの確率も含めて計算する
 export const GAPPORI_CHANCE_RATES = { 2: 0.025, 3: 0.05, 4: 0.075, 5: 0.15 };
+// 本日のおすすめ: 回ごとに、予想の個数 (5・4・3・2) ごとに1つずつ選び、その予想の倍率だけ GAPPORI_FEATURED_BOOST 倍にする
+// (刻みに合わせて丸め、少なくとも1刻みは上げる)。おすすめだけを買ったときの配当の還元率は 90% × 1.1 = 約99%
+export const GAPPORI_FEATURED_SIZES = [5, 4, 3, 2];
+export const GAPPORI_FEATURED_BOOST = 1.1;
 
 export class GapporiRuleError extends Error {
   constructor(status, message) {
@@ -201,8 +205,12 @@ export function gapporiProbabilities(board) {
  * 10倍未満は 1/値段 (ただし 0.01 より細かくしない)、10倍以上は 0.1。
  * 例: 2個 (1口 10) は 0.1 刻み、3個 (1口 50) は 0.02 刻み、4個・5個 (1口 100・200) は 0.01 刻み
  */
+function oddsStep(value, price) {
+  return value < 10 ? Math.max(0.01, 1 / price) : 0.1;
+}
+
 function roundOdds(value, price) {
-  const step = value < 10 ? Math.max(0.01, 1 / price) : 0.1;
+  const step = oddsStep(value, price);
   return Math.round(Math.round(value / step) * step * 100) / 100;
 }
 
@@ -285,4 +293,26 @@ export function normalizeGapporiPicks(board, rawPicks) {
     throw new GapporiRuleError(400, `${GAPPORI_NAMES[kind]}はこの盤面に${board.counts[kind]}マスしかないので、${board.counts[kind]}個までしか選べません。`);
   }
   return sortPicks(picks);
+}
+
+/**
+ * 本日のおすすめを選び、その倍率を上げた配当表を返す。odds は gapporiOdds の配当表 (書き換えない)。
+ * 返り値: { odds (おすすめの倍率を上げた配当表), featured: [{ size, key, picks, baseOdds, odds }] (5個 → 2個の順) }
+ */
+export function gapporiFeatured(board, odds, randomInt) {
+  const sets = gapporiPickSets(board);
+  const boosted = { ...odds };
+  const featured = [];
+  GAPPORI_FEATURED_SIZES.forEach(size => {
+    const keys = sets.filter(picks => picks.length === size).map(gapporiPickKey).filter(key => odds[key]);
+    if (!keys.length) return;
+    const key = keys[randomInt(keys.length)];
+    const baseOdds = odds[key];
+    const price = GAPPORI_UNIT_PRICES[size];
+    const raised = roundOdds(baseOdds * GAPPORI_FEATURED_BOOST, price);
+    const next = raised > baseOdds ? raised : roundOdds(baseOdds + oddsStep(baseOdds, price), price);
+    boosted[key] = next;
+    featured.push({ size, key, picks: key.split('-'), baseOdds, odds: next });
+  });
+  return { odds: boosted, featured };
 }

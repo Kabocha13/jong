@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="assets/js/no-zoom.js?v=54.15"></script>
+    <script src="assets/js/no-zoom.js?v=54.18"></script>
     <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,8 +12,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=54.15">
-    <script src="assets/js/treasure-rain.js?v=54.15" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=54.18">
+    <script src="assets/js/treasure-rain.js?v=54.18" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -36,13 +36,13 @@
             <a href="mypage.html" class="action-button">マイページでログイン</a>
         </section>
 
-        <nav class="casino-back hidden" data-view="lobby blackjack slot gappori nariagari voyage sink underground wanted" aria-label="ゲームの切り替え">
+        <nav class="casino-back hidden" data-view="lobby blackjack slot gappori nariagari voyage sink underground wanted aikankaku" aria-label="ゲームの切り替え">
             <a href="#">ゲーム一覧へ</a>
         </nav>
 
         <p id="casino-message" class="hidden" aria-live="polite"></p>
 
-        <!-- ゲームの選択。タイルはそのまま #blackjack / #slot / #gappori / #underground / #wanted へのリンク -->
+        <!-- ゲームの選択。タイルはそのまま #blackjack / #slot / #gappori / #underground / #wanted / #aikankaku へのリンク -->
         <section id="casino-menu" class="casino-menu hidden" data-view="menu" aria-labelledby="casino-menu-title">
             <h2 id="casino-menu-title">ゲームを選ぶ</h2>
             <p class="casino-menu-rate" id="casino-menu-rate">現在のレート <strong id="casino-menu-score"></strong></p>
@@ -117,6 +117,22 @@
                         <span class="game-tile-sub">Last One Aboard</span>
                         <span class="game-tile-desc">2人以上で出港。沈む前に飛び降りた人のうち、いちばん最後の1人が総取り</span>
                         <span class="game-tile-live" id="sk-tile-live"></span>
+                    </span>
+                    <span class="game-tile-badge hidden"></span>
+                </a>
+                <a class="game-tile" href="#aikankaku" data-game="aikankaku">
+                    <!-- 伏せた数の札と、1〜100 の目盛り -->
+                    <span class="game-tile-art is-aikankaku" aria-hidden="true">
+                        <span class="ak-tile-card">
+                            <span class="ak-tile-ai">AI</span>
+                            <span class="ak-tile-q">??</span>
+                        </span>
+                        <span class="ak-tile-scale"></span>
+                    </span>
+                    <span class="game-tile-body">
+                        <span class="game-tile-name">AIカンカク</span>
+                        <span class="game-tile-sub">AI Sense</span>
+                        <span class="game-tile-desc" id="ak-tile-desc">1日1問。AI が数字を出さずに表した数 (1〜100) を当てる。当てると10倍</span>
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
@@ -196,6 +212,7 @@
                 <li data-rules="gappori">お宝と口数を選んで「買う」を押すと、すぐ券が買える。違う予想の券も続けて買える (1回に20枚まで)。</li>
                 <li data-rules="gappori">予想したお宝ごとに、選んだ数だけ球が入れば当たり。倍率はその回の盤面で決まり、個数が多いほど大きい。</li>
                 <li data-rules="gappori">3球目のあと、券ごとに「お宝ゲット」が来ることがある (2個 2.5%・3個 5%・4個 7.5%・5個 15%)。その券でまだ足りないお宝を1つ選ぶと「1球入ったこと」になる (その券だけ)。</li>
+                <li data-rules="gappori">「本日のおすすめ」は回ごとに 5・4・3・2個の予想が1つずつ選ばれ、倍率がふだんの約1.1倍になる (券を買う欄の上。押すとその予想を選ぶ)。</li>
                 <li data-rules="gappori">券を買ったら「すぐ始める」で受付の30秒を飛ばせる (その回に券を買った人が全員押したら始まる)。</li>
                 <li data-rules="gappori">船長マスに球が入ると「船長チャンス」。ジャックポット (外れた券の代金の1割を貯めたもの) が当たると、その回に券を買った人みんなで均等に山分けする。当たる確率は最初 5% で、船長チャンスで外れるたびに上がり、100回外れると 50% になる (当たったら 5% に戻る)。</li>
                 <li data-rules="nariagari">賭け金を決めて「回す」を押すと、第1弾のルーレットが回る。UP に止まると次の弾へ進み、終了で終わり。×N に止まったら賭け金 × N が戻る (賭け金込み)。</li>
@@ -350,7 +367,9 @@
                     <p class="gp-jackpot"><span>JACKPOT</span><strong id="gp-jackpot">0</strong><small class="gp-jackpot-rate" id="gp-jackpot-rate"></small></p>
                     <p class="gp-status" id="gp-status" aria-live="polite"></p>
                 </div>
-                <!-- 16マスは game-gappori.js が回ごとに並べる。球を入れるたびに盤面が回り、球の入ったマスが上の針で止まる -->
+                <!-- 16マスは game-gappori.js が回ごとに並べる。球を入れるたびに盤面が回り、球の入ったマスが上の針で止まる。
+                     スマホのルーレットの画面では、盤面の大きさを gp-wheel-stage の残りの高さに合わせる -->
+                <div class="gp-wheel-stage">
                 <div class="gp-wheel-wrap" id="gp-wheel-wrap">
                     <div class="gp-wheel" id="gp-wheel" role="img" aria-label="回る盤面 (16マス)"></div>
                     <span class="gp-hub" aria-hidden="true">Treasure<br>Balls</span>
@@ -363,13 +382,19 @@
                         <p class="gp-ranking-note">タップで閉じる</p>
                     </div>
                 </div>
+                </div>
                 <ol class="gp-drawn" id="gp-drawn" aria-label="入ったお宝 (5球)"></ol>
-                <!-- ルーレットの画面で見せる自分の券 (スマホだけ。PC は右の「この回の券」) -->
-                <ul class="gp-mine-strip" id="gp-mine-strip" aria-label="自分の券"></ul>
+                <!-- この回の全員の券 (人ごと。自分がいちばん上)。入ったお宝を光らせ、結果が出たら払い戻しかはずれを出す -->
+                <div class="gp-crowd" id="gp-crowd" aria-label="この回の券 (全員)"></div>
             </div>
 
             <div class="info-box gp-panel">
                 <h3 class="icon-title">券を買う</h3>
+                <!-- 本日のおすすめ (回ごとに 5・4・3・2個の予想を1つずつ。倍率が上がっている)。押すとその予想を選ぶ -->
+                <div class="gp-featured hidden" id="gp-featured">
+                    <p class="gp-featured-title">本日のおすすめ <small id="gp-featured-note"></small></p>
+                    <div class="gp-featured-list" id="gp-featured-list"></div>
+                </div>
                 <div class="gp-kinds" id="gp-kinds" role="group" aria-label="予想するお宝 (2〜5個)"></div>
                 <p class="gp-pick-info" id="gp-pick-info"></p>
                 <div class="gp-buy">
@@ -623,6 +648,65 @@
                 <p class="info-text wd-total" id="wd-total"></p>
             </div>
         </section>
+
+        <!-- AIカンカク (1日1問)。中身は game-aikankaku.js が作る (お題・答え・BET・精算はすべて Cloud Function aikankaku が決める) -->
+        <section id="aikankaku-view" class="hidden" data-view="aikankaku" aria-label="AIカンカク">
+            <div class="ak-topic" id="ak-topic" data-phase="loading">
+                <p class="ak-topic-head"><span id="ak-topic-no">AIカンカク</span><span id="ak-topic-date"></span></p>
+                <p class="ak-topic-lead">AI がある数を、数字を出さずに表すと…</p>
+                <p class="ak-topic-hint" id="ak-topic-hint">読み込み中...</p>
+                <p class="ak-topic-ask">その数は 1〜100 のどれ？</p>
+                <p class="ak-topic-clock" id="ak-topic-clock" aria-live="off"></p>
+            </div>
+
+            <div class="info-box ak-status">
+                <dl class="casino-stats ak-stats">
+                    <div><dt>レート</dt><dd id="ak-score">—</dd></div>
+                    <div><dt>この問題のBET</dt><dd id="ak-mine-total">—</dd></div>
+                    <div><dt>参加</dt><dd id="ak-players">—</dd></div>
+                </dl>
+                <p id="ak-notice" class="info-text ak-notice"></p>
+                <p id="ak-message" class="hidden" aria-live="polite"></p>
+            </div>
+
+            <div class="ak-table" id="ak-table">
+                <div class="ak-board" id="ak-board" role="group" aria-label="数 (1〜100)"></div>
+            </div>
+
+            <div class="info-box ak-slip hidden" id="ak-slip">
+                <h3 class="icon-title">BET する</h3>
+                <p class="ak-selected" id="ak-selected"></p>
+                <div class="ak-range">
+                    <span>まとめて選ぶ</span>
+                    <input type="number" id="ak-range-from" min="1" max="100" inputmode="numeric" aria-label="ここから">
+                    <span>〜</span>
+                    <input type="number" id="ak-range-to" min="1" max="100" inputmode="numeric" aria-label="ここまで">
+                    <button type="button" id="ak-range-button">選ぶ</button>
+                    <button type="button" id="ak-clear-button">選び直す</button>
+                </div>
+                <label class="ak-amount-label" for="ak-amount">1つの数あたりの BET</label>
+                <div class="casino-presets ak-presets" id="ak-presets"></div>
+                <input type="number" id="ak-amount" min="1" max="1000" value="10" inputmode="numeric">
+                <p class="casino-bet-total">合計 <strong id="ak-cost">0</strong> ・ 当たれば <strong id="ak-payout">—</strong></p>
+                <button type="button" id="ak-bet-button" class="ak-bet-button">BET する</button>
+            </div>
+
+            <div class="info-box ak-mine hidden" id="ak-mine">
+                <h3 class="icon-title">この問題の BET</h3>
+                <ul class="ak-mine-list" id="ak-mine-list"></ul>
+            </div>
+
+            <div class="info-box ak-results hidden" id="ak-results-box">
+                <h3 class="icon-title">発表</h3>
+                <div id="ak-results"></div>
+            </div>
+
+            <div class="info-box ak-info">
+                <h3 class="icon-title">ルール</h3>
+                <ul class="casino-rules" id="ak-rules"></ul>
+                <p class="info-text ak-total" id="ak-total"></p>
+            </div>
+        </section>
     </main>
 
     <!-- 自分に配られたカードを絞る画面。中身は game-blackjack.js が作る -->
@@ -651,17 +735,18 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=54.15"></script>
-    <script src="assets/js/game-sound.js?v=54.15"></script>
-    <script src="assets/js/game-blackjack.js?v=54.15"></script>
-    <script src="assets/js/game-slot.js?v=54.15"></script>
-    <script src="assets/js/game-gappori.js?v=54.15"></script>
-    <script src="assets/js/game-nariagari.js?v=54.15"></script>
-    <script src="assets/js/voyage-story.js?v=54.15"></script>
-    <script src="assets/js/game-voyage.js?v=54.15"></script>
-    <script src="assets/js/game-sink.js?v=54.15"></script>
-    <script src="assets/js/game-underground.js?v=54.15"></script>
-    <script src="assets/js/game-wanted.js?v=54.15"></script>
-    <script src="assets/js/game.js?v=54.15"></script>
+    <script src="assets/js/common.js?v=54.18"></script>
+    <script src="assets/js/game-sound.js?v=54.18"></script>
+    <script src="assets/js/game-blackjack.js?v=54.18"></script>
+    <script src="assets/js/game-slot.js?v=54.18"></script>
+    <script src="assets/js/game-gappori.js?v=54.18"></script>
+    <script src="assets/js/game-nariagari.js?v=54.18"></script>
+    <script src="assets/js/voyage-story.js?v=54.18"></script>
+    <script src="assets/js/game-voyage.js?v=54.18"></script>
+    <script src="assets/js/game-sink.js?v=54.18"></script>
+    <script src="assets/js/game-underground.js?v=54.18"></script>
+    <script src="assets/js/game-wanted.js?v=54.18"></script>
+    <script src="assets/js/game-aikankaku.js?v=54.18"></script>
+    <script src="assets/js/game.js?v=54.18"></script>
 </body>
 </html>
