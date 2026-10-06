@@ -1388,7 +1388,7 @@ function renderGapporiJackpotStatus(info) {
     const adjust = info.lastAdjust
         ? ` / 最後の書き換え: ${formatRate(info.lastAdjust.before)} → ${formatRate(info.lastAdjust.after)} (${info.lastAdjust.by}、${new Date(info.lastAdjust.at).toLocaleString('ja-JP')})`
         : '';
-    GAPPORI_JACKPOT_STATUS.textContent = `いまのジャックポット: ${formatRate(info.jackpot)} / 船長チャンスの当選率 ${rate} (外れ ${info.jackpotMisses}回続き)${adjust}`;
+    GAPPORI_JACKPOT_STATUS.textContent = `いまのジャックポット: ${formatRate(info.jackpot)} / 船長チャンス (JP ルーレット) で JP が出る確率 ${rate}${adjust}`;
 }
 
 async function loadGapporiJackpot() {

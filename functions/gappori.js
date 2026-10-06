@@ -10,11 +10,17 @@
 //   予想した絵柄ごとに、選んだ数だけ球が入れば当たり。配当の倍率は、その盤面での当たる確率から決める。
 //   チャンス: 券ごとに、予想の個数で決まる確率 (GAPPORI_CHANCE_RATES) で、3球の時点でその券のまだ足りない絵柄を
 //   1つ選び、「1球入ったこと」にできる (その券だけ。盤面は変わらない)。
-//   船長マスに球が入るとチャンスタイム。gapporiJackpotRate の確率でジャックポットが当たり、
-//   その回に賭けた人で均等に分ける (54.5 まで賭けた額に応じて分けていた)。確率は最初 5% で、
-//   船長マスで外れるたびに上がり、100回外れたあとで 50% になる (それより上がらない。当たったら 5% に戻る)。ジャックポットは外れた券の代金の GAPPORI_JACKPOT_LOST_RATE を
-//   0 から貯めたもの (外れた券は賭けの約91% なので、賭けの約9% がジャックポットで戻る)。
-//   還元率は 配当 GAPPORI_BASE_RETURN (チャンスも含めて) + ジャックポット 約9% = 約99%
+//   船長マスに球が入るとチャンスタイム。5球が入ったあと、盤面が JP ルーレット (16マス。JP 1マス・お宝ゲット 1マス・
+//   ハズレ 14マス。generateGapporiJpWheel) に変わって1回だけ回る (55.2)。
+//     JP: ジャックポットが当たり、その回に券を買った人で均等に分ける (54.5 まで賭けた額に応じて分けていた)。
+//     お宝ゲット: 3球目のあとのお宝ゲットと同じで、その回の全員の券ごとに、まだ足りないお宝を1つ「1球入ったこと」にする
+//       (球はもう残っていないので、あと1球で当たりだった券だけが当たりになる。選ぶのは自動。gapporiJpTreasureChoice)。
+//     ハズレ: 何も起きない。ジャックポットは持ち越し。
+//   (55.1 までは、船長マスで 5%〜50% (外れるたびに上がる) の確率でジャックポットを引いていた)
+//   ジャックポットは外れた券の代金の GAPPORI_JACKPOT_LOST_RATE を 0 から貯めたもの
+//   (外れた券は賭けの約91% なので、賭けの約9% がジャックポットで戻る)。
+//   還元率は 配当 GAPPORI_BASE_RETURN (チャンスも含めて) + ジャックポット 約9% + JP ルーレットのお宝ゲット = 約100%
+//   (正確な値は tools/gappori-sim.mjs で測る)
 
 /** 絵柄。レア度の順 (前ほど多く、後ろほど少なく並べる)。舵輪・望遠鏡・大砲・海賊旗は 54.19 で足した */
 export const GAPPORI_SYMBOLS = ['anchor', 'parrot', 'helm', 'rum', 'telescope', 'map', 'compass', 'cannon', 'coin', 'flag', 'chest'];
@@ -36,12 +42,14 @@ export const GAPPORI_MAX_UNITS = 50;         // 1枚の券で買える口数
 export const GAPPORI_MAX_TICKETS = 20;       // 1回に1人が買える券 (セット) の数
 export const GAPPORI_BASE_RETURN = 0.90;
 export const GAPPORI_JACKPOT_LOST_RATE = 0.1;  // 外れた券の代金のうち、ジャックポットに貯める割合
-// 船長マスに入ったときにジャックポットが当たる確率。続けて外れた回数 (misses) で上がる。
-// 0回 5% → 100回 50% まで直線で上げる (平均で船長マス 約11.6回 = 約37回に1回当たる)
-export const GAPPORI_JACKPOT_BASE_RATE = 0.05;
-export const GAPPORI_JACKPOT_MAX_RATE = 0.5;
-export const GAPPORI_JACKPOT_RAMP_MISSES = 100;
-export const GAPPORI_JACKPOT_SCALE = 10000;   // 確率を整数の乱数で引くときの目の細かさ
+// JP ルーレット (船長マスに球が入った回の最後に、盤面が変わって1回だけ回る)。16マスのうち JP 1マス・お宝ゲット 1マス、残りはハズレ
+export const GAPPORI_JP_WHEEL_POCKETS = 16;
+export const GAPPORI_JP_JACKPOT = 'jackpot';
+export const GAPPORI_JP_TREASURE = 'treasure';
+export const GAPPORI_JP_MISS = 'miss';
+export const GAPPORI_JP_WHEEL_COUNTS = { [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 1 };
+// ジャックポットが当たる確率 (JP のマスの数 / マスの数 = 1/16)。船長マスに球が入るのは 5/16 の回なので、約51回に1回当たる
+export const GAPPORI_JACKPOT_RATE = GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_JACKPOT] / GAPPORI_JP_WHEEL_POCKETS;
 // チャンスの確率 (券ごと。予想の個数で決まる)。倍率はこの確率も含めて計算する
 export const GAPPORI_CHANCE_RATES = { 2: 0.025, 3: 0.05, 4: 0.075, 5: 0.15 };
 // 本日のおすすめ: 回ごとに、予想の個数 (5・4・3・2) ごとに1つずつ選び、その予想の倍率だけ GAPPORI_FEATURED_BOOST 倍にする
@@ -93,11 +101,15 @@ export function generateGapporiBoard(randomInt) {
   return { kinds, counts, pockets };
 }
 
-/** ジャックポットの当たる確率 (0〜1)。misses は船長マスで続けて外れた回数 */
-export function gapporiJackpotRate(misses) {
-  const n = Math.max(0, Math.floor(Number(misses) || 0));
-  const step = (GAPPORI_JACKPOT_MAX_RATE - GAPPORI_JACKPOT_BASE_RATE) / GAPPORI_JACKPOT_RAMP_MISSES;
-  return Math.min(GAPPORI_JACKPOT_MAX_RATE, GAPPORI_JACKPOT_BASE_RATE + step * n);
+/**
+ * JP ルーレットの盤面 (16マス。JP 1つ・お宝ゲット 1つ・残りはハズレ)。並びは毎回ランダム。
+ * 返り値: { pockets: [kind × 16], index: 止まるマス, kind: 止まったマスの中身 }
+ */
+export function generateGapporiJpWheel(randomInt) {
+  const fixed = Object.entries(GAPPORI_JP_WHEEL_COUNTS).flatMap(([kind, count]) => Array(count).fill(kind));
+  const pockets = shuffle([...fixed, ...Array(GAPPORI_JP_WHEEL_POCKETS - fixed.length).fill(GAPPORI_JP_MISS)], randomInt);
+  const index = randomInt(pockets.length);
+  return { pockets, index, kind: pockets[index] };
 }
 
 /** 1口の値段 */
@@ -239,10 +251,18 @@ export function gapporiHitCounts(board, balls) {
   return gapporiPickCounts(gapporiHitList(board, balls));
 }
 
-/** 予想のうち、まだ足りない絵柄ごとの数。granted はチャンスで「1球入ったこと」にした絵柄 */
+/** チャンスで「1球入ったこと」にした絵柄 (1つ、または並び) を、絵柄ごとの数にして足す */
+function addGranted(hits, granted) {
+  (Array.isArray(granted) ? granted : [granted]).filter(Boolean).forEach(kind => { hits[kind] = (hits[kind] || 0) + 1; });
+  return hits;
+}
+
+/**
+ * 予想のうち、まだ足りない絵柄ごとの数。granted はチャンスで「1球入ったこと」にした絵柄
+ * (3球目のあとのお宝ゲットと JP ルーレットのお宝ゲットの両方なら並びで渡す)
+ */
 export function gapporiShortfall(board, balls, picks, granted = null) {
-  const hits = gapporiHitCounts(board, balls);
-  if (granted) hits[granted] = (hits[granted] || 0) + 1;
+  const hits = addGranted(gapporiHitCounts(board, balls), granted);
   const short = {};
   Object.entries(gapporiPickCounts(picks)).forEach(([kind, need]) => {
     if (need > (hits[kind] || 0)) short[kind] = need - (hits[kind] || 0);
@@ -279,6 +299,17 @@ export function gapporiAutoChance(board, balls, tickets) {
   return candidates
     .sort((a, b) => GAPPORI_SYMBOLS.indexOf(b) - GAPPORI_SYMBOLS.indexOf(a))
     .reduce((best, kind) => (expected(kind) > expected(best) ? kind : best));
+}
+
+/**
+ * JP ルーレットのお宝ゲット (5球が入ったあと) で「1球入ったこと」にする絵柄。granted は 3球目のあとのお宝ゲットで足した絵柄。
+ * 球はもう残っていないので、足すと当たりになる絵柄 (あと1球で当たりだった券) を返す。無ければ null (足しても当たらない)
+ */
+export function gapporiJpTreasureChoice(board, balls, picks, granted = null) {
+  const short = gapporiShortfall(board, balls, picks, granted);
+  const kinds = Object.keys(short);
+  if (kinds.length !== 1 || short[kinds[0]] !== 1) return null;
+  return kinds[0];
 }
 
 /** 予想を検証して、決まった形 (レア度の順) にする */

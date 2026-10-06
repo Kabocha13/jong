@@ -5,7 +5,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
 import { normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
-import { GapporiRuleError, gapporiJackpotRate } from './gappori.js';
+import { GAPPORI_JACKPOT_RATE, GapporiRuleError } from './gappori.js';
 import { NARIAGARI_BETS, playNariagari } from './nariagari.js';
 import {
   VOYAGE_BET,
@@ -3261,8 +3261,7 @@ class GapporiAdminError extends Error {
 function gapporiJackpotInfo(table) {
   return {
     jackpot: Math.floor(Number(table.jackpot) || 0),
-    jackpotRate: gapporiJackpotRate(table.jackpotMisses),
-    jackpotMisses: Math.max(0, Math.floor(Number(table.jackpotMisses) || 0)),
+    jackpotRate: GAPPORI_JACKPOT_RATE,   // JP ルーレットで JP が出る確率 (1/16)
     phase: table.phase || null,
     roundNo: table.roundNo || 0,
     lastAdjust: table.jackpotAdjust || null

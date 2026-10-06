@@ -4308,6 +4308,68 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     100% { filter: brightness(1); }
 }
 
+/* JP ルーレット (船長マスの回の最後に、盤面が JP・お宝ゲット・ハズレ の16マスに変わって1回回る) */
+.gp-wheel.is-jp {
+    background:
+        radial-gradient(circle, transparent 0 58%, rgba(0, 0, 0, 0.35) 58.5% 60%, transparent 60.5%),
+        repeating-conic-gradient(from -11.25deg, var(--rum-dark) 0 22.5deg, var(--pitch-light) 22.5deg 45deg);
+    box-shadow: 0 0 0 3px var(--lantern), 0 0 26px var(--lantern-glow), inset 0 0 24px rgba(0, 0, 0, 0.7), 0 10px 22px rgba(0, 0, 0, 0.55);
+}
+
+.gp-jp-pocket {
+    display: grid;
+    place-items: center;
+    width: 0.88em;
+    height: 0.88em;
+    font-family: var(--font-title);
+    font-size: 1em;
+    font-weight: 700;
+    line-height: 1.05;
+    text-align: center;
+    white-space: pre-line;
+    border-radius: 14%;
+    box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.35), 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+/* 札の大きさは 1em 基準なので、字だけを小さくする (JP は大きく、お宝ゲット・ハズレは2行に収める) */
+.gp-jp-pocket.is-miss {
+    font-size: 0.22em;
+    color: rgba(246, 227, 178, 0.55);
+    background: radial-gradient(circle at 50% 38%, #2a2a2a 0%, #121212 74%);
+}
+
+.gp-jp-pocket.is-treasure {
+    font-size: 0.22em;
+    color: #2b1d06;
+    background: radial-gradient(circle at 50% 35%, var(--brass-light) 0%, var(--brass) 60%, #96690f 100%);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.gp-jp-pocket.is-jackpot {
+    font-family: var(--font-display);
+    font-size: 0.42em;
+    letter-spacing: 0.04em;
+    color: #fff4dc;
+    background: radial-gradient(circle at 50% 35%, #ff6a5a 0%, var(--rum) 55%, var(--rum-dark) 100%);
+    text-shadow: 0 1px 0 #3a0908, 0 0 10px rgba(255, 120, 90, 0.8);
+    animation: gp-jp-glow 0.9s ease-in-out infinite alternate;
+}
+
+/* 字の大きさを変えた札でも、マスの大きさ (0.88em) は元の em で決める */
+.gp-pocket .gp-jp-pocket.is-miss,
+.gp-pocket .gp-jp-pocket.is-treasure { width: 4em; height: 4em; }
+.gp-pocket .gp-jp-pocket.is-jackpot { width: calc(0.88em / 0.42); height: calc(0.88em / 0.42); }
+
+@keyframes gp-jp-glow {
+    from { box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.35), 0 0 6px rgba(255, 90, 74, 0.5); }
+    to   { box-shadow: inset 0 0 0 1px rgba(236, 194, 100, 0.35), 0 0 18px #ff5a4a; }
+}
+
+/* 止まったマス: 金 (JP は赤) に光らせる */
+.gp-pocket.is-stopped .gp-jp-pocket { box-shadow: 0 0 0 3px var(--lantern), 0 0 18px var(--lantern); animation: none; }
+.gp-pocket.is-stopped .gp-jp-pocket.is-jackpot { box-shadow: 0 0 0 3px #ff5a4a, 0 0 24px #ff5a4a; }
+.gp-pocket.is-stopped .gp-jp-pocket.is-miss { color: var(--brass-pale); }
+
 .gp-pocket.is-landing { animation: gp-land 0.8s ease-out; }
 
 /* 船長のマス (まだ絵が無いので札で出す) */

@@ -10,10 +10,12 @@
 //     GAPPORI_CHANCE_MS のうちに、その券のまだ足りない絵柄を1つ選んで「1球入ったこと」にする
 //     (その券だけに効く。選ばなければ当たりやすくなるものを自動で選ぶ)。チャンスの券がなければ飛ばす。
 //   受付は、券を買った人が全員「すぐ始める」を押したら、締め切りを待たずに始める。
-//   残り2球を入れて結果 (result): 払い戻しを財布に足し、外れた券の代金の1割をジャックポットに貯め、
-//   船長マスに入っていればジャックポットの抽選 (確率は外れが続くほど上がる。gappori.js の gapporiJackpotRate)。
-//   当たったら、その回に券を買った人で均等に分ける。
-//     GAPPORI_RESULT_MS (船長のときは + GAPPORI_CAPTAIN_MS) 見せてから、次の盤面で受付に戻る。
+//   残り2球を入れて結果 (result): 船長マスに球が入っていれば JP ルーレット (gappori.js の generateGapporiJpWheel) を1回回す。
+//     JP ならジャックポットをその回に券を買った人で均等に分け、お宝ゲットなら全員の券ごとに足りないお宝を1つ
+//     「1球入ったこと」にする (あと1球で当たりだった券が当たりになる)。ハズレなら何もしない。
+//   払い戻しを財布に足し、外れた券の代金の1割をジャックポットに貯める。
+//     GAPPORI_RESULT_MS (船長のときは + GAPPORI_CAPTAIN_MS、JP が当たったら さらに + GAPPORI_JACKPOT_MS) 見せてから、
+//     次の盤面で受付に戻る。
 //   券を買った人が途中で財布を精算しても券は残り、払い戻しはレートへ直接返す。
 //   サーバーは常駐しないので、締め切りの判定は画面を開いている誰かの gpTick と定期処理で行う。
 //   次の段階の時刻は前の締め切りから数えるので、誰も見ていないまま時間がたっていても1回の gpTick で最後まで進む。
@@ -24,7 +26,9 @@ import {
   GAPPORI_CHANCE_RATES,
   GAPPORI_FIRST_BALLS,
   GAPPORI_JACKPOT_LOST_RATE,
-  GAPPORI_JACKPOT_SCALE,
+  GAPPORI_JACKPOT_RATE,
+  GAPPORI_JP_JACKPOT,
+  GAPPORI_JP_TREASURE,
   GAPPORI_MAX_TICKETS,
   GAPPORI_MAX_UNITS,
   GAPPORI_UNIT_PRICES,
@@ -32,12 +36,13 @@ import {
   gapporiAutoChance,
   gapporiFeatured,
   gapporiHitList,
-  gapporiJackpotRate,
+  gapporiJpTreasureChoice,
   gapporiOdds,
   gapporiPickKey,
   gapporiShortfall,
   gapporiUnitPrice,
   generateGapporiBoard,
+  generateGapporiJpWheel,
   isGapporiWin,
   normalizeGapporiPicks
 } from './gappori.js';
@@ -47,7 +52,8 @@ export const GAPPORI_BALL_MS = 5200;           // 球を1つ入れる間隔 (画
 export const GAPPORI_SETTLE_MS = 900;          // 最後の球が入ってから次の段階までの間
 export const GAPPORI_CHANCE_MS = 10 * 1000;
 export const GAPPORI_RESULT_MS = 9 * 1000;
-export const GAPPORI_CAPTAIN_MS = 6 * 1000;    // 船長のチャンスタイムの演出のぶん、結果を長く見せる
+export const GAPPORI_CAPTAIN_MS = 10 * 1000;   // 船長チャンス (カットイン + JP ルーレットを回す) の演出のぶん、結果を長く見せる
+export const GAPPORI_JACKPOT_MS = 4 * 1000;    // JP が当たったときのカットインのぶん、さらに長く見せる
 const GAPPORI_RECENT_LIMIT = 12;
 // 盤面と配当の作り方 (ルール) を変えたら上げる。卓がこれより古ければ、受付中で券が無いときに新しい作り方の盤面にする
 // (1: 52.0 の 3〜5個・重ねなし / 2: 52.1 の 2〜5個・重ねてよい・同じお宝はまとめて並べる /
@@ -56,8 +62,9 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  5: 52.4 の 券ごとに予想の個数で決まるチャンスの確率 /
 //  6: 52.6 の チャンスの確率を半分に /
 //  7: 54.17 の 本日のおすすめ (5・4・3・2個の予想を1つずつ、倍率 ×1.1) /
-//  8: 54.19 の お宝を 7種類 → 11種類に (舵輪・望遠鏡・大砲・海賊旗。1回に並べるのは今までどおり6種類))
-export const GAPPORI_RULES_VERSION = 8;
+//  8: 54.19 の お宝を 7種類 → 11種類に (舵輪・望遠鏡・大砲・海賊旗。1回に並べるのは今までどおり6種類) /
+//  9: 55.2 の 船長チャンスを JP ルーレット (JP 1/16・お宝ゲット 1/16) に)
+export const GAPPORI_RULES_VERSION = 9;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -276,35 +283,51 @@ function creditGappori(ctx, uid, name, amount, reason) {
   }
 }
 
-/** 5球が入った: 当たりの払い戻しと、船長マスならジャックポットの抽選 */
+/** 5球が入った: 当たりの払い戻しと、船長マスなら JP ルーレット (JP / お宝ゲット / ハズレ) */
 function finishGapporiRound(ctx, start) {
   const { table } = ctx;
   const grantedBy = new Map(table.chances.map(chance => [chance.ticket, chance.choice]));
-  table.tickets.forEach((ticket, index) => {
-    ticket.win = isGapporiWin(table.board, table.balls, ticket.picks, grantedBy.get(index) || null);
+  const settle = (ticket, index, extra = null) => {
+    ticket.win = isGapporiWin(table.board, table.balls, ticket.picks, [grantedBy.get(index) || null, extra]);
     ticket.payout = ticket.win ? Math.round(ticket.cost * ticket.odds) : 0;
-  });
+  };
+  table.tickets.forEach((ticket, index) => settle(ticket, index));
 
-  // 外れた券の代金の1割をジャックポットに貯める (この回のぶんも、このあとの抽選に入る)
-  const lost = table.tickets.filter(ticket => !ticket.win).reduce((sum, ticket) => sum + ticket.cost, 0);
-  table.jackpot = (table.jackpot || 0) + lost * GAPPORI_JACKPOT_LOST_RATE;
-
-  // 船長マスに入ったらチャンスタイム。ジャックポットはその回に賭けた人で均等に分ける。
-  // 当たる確率は船長マスで続けて外れた回数 (jackpotMisses) で上がり、当たったら 0 に戻す
-  const captain = table.balls.some(index => table.board.pockets[index] === GAPPORI_CAPTAIN);
-  const jackpot = { captain, won: false, amount: 0, shares: [] };
   const costBy = new Map();
   table.tickets.forEach(ticket => {
     const current = costBy.get(ticket.uid) || { name: ticket.name, cost: 0 };
     current.cost += ticket.cost;
     costBy.set(ticket.uid, current);
   });
-  const misses = Math.max(0, Math.floor(Number(table.jackpotMisses) || 0));
-  jackpot.rate = gapporiJackpotRate(misses);
-  const hit = captain && costBy.size
-    && ctx.randomInt(GAPPORI_JACKPOT_SCALE) < Math.round(jackpot.rate * GAPPORI_JACKPOT_SCALE);
-  if (captain && costBy.size) table.jackpotMisses = hit ? 0 : misses + 1;
-  if (hit) {
+
+  // 船長マスに球が入ったらチャンスタイム: JP ルーレットを1回回す (券を買った人がいる回だけ)
+  const captain = table.balls.some(index => table.board.pockets[index] === GAPPORI_CAPTAIN);
+  const jackpot = { captain, rate: GAPPORI_JACKPOT_RATE, wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [] };
+  if (captain && costBy.size) {
+    const wheel = generateGapporiJpWheel(ctx.randomInt);
+    jackpot.wheel = wheel.pockets;
+    jackpot.index = wheel.index;
+    jackpot.kind = wheel.kind;
+  }
+
+  // お宝ゲット: 全員の券ごとに、足りないお宝を1つ「1球入ったこと」にする (あと1球で当たりだった券が当たりになる)
+  if (jackpot.kind === GAPPORI_JP_TREASURE) {
+    table.tickets.forEach((ticket, index) => {
+      if (ticket.win) return;
+      const kind = gapporiJpTreasureChoice(table.board, table.balls, ticket.picks, grantedBy.get(index) || null);
+      if (!kind) return;
+      ticket.granted = kind;
+      settle(ticket, index, kind);
+      jackpot.granted.push({ ticket: index, uid: ticket.uid, name: ticket.name, kind });
+    });
+  }
+
+  // 外れた券の代金の1割をジャックポットに貯める (この回のぶんも、このあとの JP に入る)
+  const lost = table.tickets.filter(ticket => !ticket.win).reduce((sum, ticket) => sum + ticket.cost, 0);
+  table.jackpot = (table.jackpot || 0) + lost * GAPPORI_JACKPOT_LOST_RATE;
+
+  // JP: ジャックポットをその回に券を買った人で均等に分ける
+  if (jackpot.kind === GAPPORI_JP_JACKPOT) {
     const amount = Math.floor(table.jackpot);
     // 均等に割り、割り切れない端数は1ずつ、くじで選んだ人に足す
     const people = [...costBy.entries()];
@@ -351,7 +374,7 @@ function finishGapporiRound(ctx, start) {
     jackpot
   };
   table.phase = 'result';
-  table.nextRoundAt = iso(start + GAPPORI_RESULT_MS + (captain ? GAPPORI_CAPTAIN_MS : 0));
+  table.nextRoundAt = iso(start + GAPPORI_RESULT_MS + (jackpot.kind ? GAPPORI_CAPTAIN_MS : 0) + (jackpot.won ? GAPPORI_JACKPOT_MS : 0));
 }
 
 /**
@@ -398,9 +421,7 @@ export function publicGapporiTable(table) {
     featured: table.featured || [],
     prices: GAPPORI_UNIT_PRICES,
     jackpot: Math.floor(table.jackpot || 0),
-    // いまの船長チャンスで当たる確率と、続けて外れた回数
-    jackpotRate: gapporiJackpotRate(table.jackpotMisses),
-    jackpotMisses: Math.max(0, Math.floor(Number(table.jackpotMisses) || 0)),
+    jackpotRate: GAPPORI_JACKPOT_RATE,   // JP ルーレットで JP が出る確率 (1/16)
     ready: (table.ready || []).map(id => table.tickets.find(ticket => ticket.uid === id)?.name).filter(Boolean),
     bettingEndsAt: table.bettingEndsAt || null,
     balls: table.balls || [],
@@ -408,13 +429,20 @@ export function publicGapporiTable(table) {
     drawEndsAt: table.drawEndsAt || null,
     chances: showChances ? (table.chances || []).map(({ ticket, name, choice, auto }) => ({ ticket, name, choice, auto: Boolean(auto) })) : [],
     chanceEndsAt: table.chanceEndsAt || null,
-    tickets: (table.tickets || []).map(({ name, picks, key, units, cost, odds, featured, win, payout }) => (
+    tickets: (table.tickets || []).map(({ name, picks, key, units, cost, odds, featured, win, payout, granted }) => (
       table.phase === 'result'
-        ? { name, picks, key, units, cost, odds, featured: Boolean(featured), win, payout }
+        ? { name, picks, key, units, cost, odds, featured: Boolean(featured), win, payout, granted: granted || null }
         : { name, picks, key, units, cost, odds, featured: Boolean(featured) }
     )),
     result: table.result
-      ? { hits: table.result.hits, jackpot: { ...table.result.jackpot, shares: table.result.jackpot.shares.map(({ name, amount }) => ({ name, amount })) } }
+      ? {
+        hits: table.result.hits,
+        jackpot: {
+          ...table.result.jackpot,
+          shares: table.result.jackpot.shares.map(({ name, amount }) => ({ name, amount })),
+          granted: (table.result.jackpot.granted || []).map(({ ticket, name, kind }) => ({ ticket, name, kind }))
+        }
+      }
       : null,
     nextRoundAt: table.nextRoundAt || null,
     updatedAt: table.updatedAt || null
