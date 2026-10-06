@@ -28,7 +28,7 @@ const GAPPORI_RANKING_SIZE = 3;    // 結果のあとに見せる「理想の賭
 const GAPPORI_RANKING_DELAY_MS = 1200;   // 結果の演出のあと、ランキングを出すまでの間 (当たりの金貨を見せてから)
 const GAPPORI_JP_SPIN_MS = 4200;         // JP ルーレットを回す長さ
 const GAPPORI_JP_HOLD_MS = 1400;         // JP ルーレットが止まってから、結果 (JP・お宝ゲット・ハズレ) を見せておく間
-const GAPPORI_JP_LABELS = { jackpot: 'JP', treasure: 'お宝\nゲット', miss: 'ハズレ' };   // マスの字 (お宝ゲットは2行)
+const GAPPORI_JP_LABELS = { jackpot: 'JP', treasure: 'お宝', miss: 'ハズレ' };   // マスの字 (お宝ゲットは「お宝」)
 
 const gp = {
     table: null,        // 最後に受け取った卓 (公開の形)
