@@ -30,7 +30,9 @@ import {
   GAPPORI_FLAG_ODDS_MAX,
   GAPPORI_FLAG_ODDS_MIN,
   GAPPORI_FLAG_PRICE,
+  GAPPORI_JP_DOUBLE,
   GAPPORI_JP_FLAG,
+  GAPPORI_JP_HALF,
   GAPPORI_JP_JACKPOT,
   GAPPORI_JP_TREASURE,
   GAPPORI_MAX_TICKETS,
@@ -71,8 +73,11 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  8: 54.19 の お宝を 7種類 → 11種類に (舵輪・望遠鏡・大砲・海賊旗。1回に並べるのは今までどおり6種類) /
 //  9: 55.2 の 船長チャンスを JP ルーレット (JP 1/16・お宝ゲット 1/16) に /
 //  10: 55.4 の 配当の設計値を予想の個数ごとにして、どの個数でも還元率 105% (本日のおすすめを除く) /
-//  11: 55.5 の ドクロ旗 (盤面のお宝から外し、単品で賭けて JP ルーレットのドクロ旗のマスで当たり。倍率 ×1〜×99 を当たったときに引く))
-export const GAPPORI_RULES_VERSION = 11;
+//  11: 55.5 の ドクロ旗 (盤面のお宝から外し、単品で賭けて JP ルーレットのドクロ旗のマスで当たり。倍率 ×1〜×99 を当たったときに引く) /
+//  12: 55.6 の 1回に並べるお宝を 6種類 → 5種類に (配当の設計値も 105% になるよう直した) /
+//  13: 55.8 の JP ルーレットに JP 2倍・JP 1/2 のマスを足し、配当の設計値を 105% になるよう下げた /
+//  14: 55.10 の JP 1/2 のマスを2つにし (JP の戻りが釣り合う)、配当の設計値を 55.6 の値に戻した)
+export const GAPPORI_RULES_VERSION = 14;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -312,7 +317,7 @@ function finishGapporiRound(ctx, start) {
 
   // 船長マスに球が入ったらチャンスタイム: JP ルーレットを1回回す (券を買った人がいる回だけ)
   const captain = table.balls.some(index => table.board.pockets[index] === GAPPORI_CAPTAIN);
-  const jackpot = { captain, rate: GAPPORI_JACKPOT_RATE, wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [], flagOdds: null, flagWinners: [] };
+  const jackpot = { captain, rate: GAPPORI_JACKPOT_RATE, wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [], flagOdds: null, flagWinners: [], boost: null };
   if (captain && costBy.size) {
     const wheel = generateGapporiJpWheel(ctx.randomInt);
     jackpot.wheel = wheel.pockets;
@@ -320,7 +325,7 @@ function finishGapporiRound(ctx, start) {
     jackpot.kind = wheel.kind;
   }
 
-  // ドクロ旗: ドクロ旗の券 (単品) が全部当たり。倍率はここで ×1〜×99 から1つ引く (この回の券はみな同じ倍率)
+  // ドクロ旗: ドクロ旗の券 (単品) が全部当たり。倍率はここで ×50〜×99 から1つ引く (この回の券はみな同じ倍率)
   if (jackpot.kind === GAPPORI_JP_FLAG) {
     jackpot.flagOdds = drawGapporiFlagOdds(ctx.randomInt);
     table.tickets.forEach(ticket => {
@@ -347,6 +352,14 @@ function finishGapporiRound(ctx, start) {
   // 外れた券の代金の1割をジャックポットに貯める (この回のぶんも、このあとの JP に入る)
   const lost = table.tickets.filter(ticket => !ticket.win).reduce((sum, ticket) => sum + ticket.cost, 0);
   table.jackpot = (table.jackpot || 0) + lost * GAPPORI_JACKPOT_LOST_RATE;
+
+  // JP 2倍・JP 1/2: 貯まっている額 (この回の積立のあと) を2倍・半分にして持ち越す
+  if (jackpot.kind === GAPPORI_JP_DOUBLE || jackpot.kind === GAPPORI_JP_HALF) {
+    const factor = jackpot.kind === GAPPORI_JP_DOUBLE ? 2 : 0.5;
+    const before = Math.floor(table.jackpot);
+    table.jackpot *= factor;
+    jackpot.boost = { factor, before, after: Math.floor(table.jackpot) };
+  }
 
   // JP: ジャックポットをその回に券を買った人で均等に分ける
   if (jackpot.kind === GAPPORI_JP_JACKPOT) {

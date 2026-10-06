@@ -169,7 +169,7 @@ function createCardElement(card) {
 }
 
 /**
- * 配る音 (f.mp3) を、カードが飛んでくる時刻に鳴らす。
+ * 配る音 (blackjack-deal.mp3) を、カードが飛んでくる時刻に鳴らす。
  * 同じ瞬間に何枚も出るとき (スプリットなど) は、音が重なって大きくならないように1回にまとめる
  */
 function playDealSound(wait) {

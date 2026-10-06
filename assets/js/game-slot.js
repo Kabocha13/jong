@@ -376,7 +376,7 @@ function showSlotOverlay(variant, build, { captain = null } = {}) {
     });
 }
 
-/** ジャックポットタイム突入のカットイン (効果音 a.mp3 はカットインとほぼ同じ長さ) */
+/** ジャックポットタイム突入のカットイン (効果音 slot-jackpot-time.mp3 はカットインとほぼ同じ長さ) */
 function showJackpotCutin(spins) {
     window.playGameSound?.('slotJackpot');
     window.qjongTreasureRain?.preview(6000);

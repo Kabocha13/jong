@@ -634,7 +634,7 @@ loadCafeteriaMenu();
 // ヒーロー画像のダブルタップで音を鳴らす (隠し要素)
 // 音源は assets/audio/ に置く。ファイルが無い場合は何も起きない。
 (function () {
-    const HERO_AUDIO_SRC = 'assets/audio/hero.mp3';
+    const HERO_AUDIO_SRC = 'assets/audio/home-hero-doubletap.mp3';
     const DOUBLE_TAP_MS = 400;       // 2回目までの猶予
     const DOUBLE_TAP_SLOP_PX = 40;   // 指のぶれをどこまで同じ位置とみなすか
 

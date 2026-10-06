@@ -389,7 +389,7 @@ async function presentNariagariPlay(play, from = 0) {
         }
         setNariagariStatus(`${NR_STAGE_NAMES[index]} 回転中…`);
         setNariagariHub(NR_HUB_NAMES[index]);
-        // JP・SJP の抽選中は、盤面が止まるまで音を流し続ける (1.mp3・2.mp3)
+        // JP・SJP の抽選中は、盤面が止まるまで音を流し続ける (nariagari-jp-spin-loop.mp3・nariagari-sjp-spin-loop.mp3)
         const stopSpinSound = index >= 3 && !prefersReducedMotion()
             ? (window.startGameSoundLoop?.(index >= 4 ? 'nrSjpSpin' : 'nrJpSpin') || (() => {}))
             : () => {};

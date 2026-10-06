@@ -8,7 +8,8 @@
 //     配当        = 当たりの払い戻し (3球目のあとのお宝ゲットを含む。お宝ゲットで足すお宝は本番の自動選択と同じく、
 //                   当たる見込みがいちばん大きいもの・同じならレアなもの)
 //     お宝ゲット  = 船長マスの回の JP ルーレットでお宝ゲットが出て、あと1球で当たりだった券が当たりになった分
-//     JP 積立     = 外れた券の代金のうちジャックポットに貯める分 (貯まった分は全部 JP で戻るので、長い目で見た戻り)
+//     JP 積立     = 外れた券の代金のうちジャックポットに貯める分 × GAPPORI_JP_FUND_FACTOR (JP 2倍・1/2 のマスで増減するので、
+//                   長い目で見て JP で戻る額。2倍と 1/2 が1マスずつなら貯めた額の2倍)
 
 import {
   GAPPORI_BALLS,
@@ -18,6 +19,7 @@ import {
   GAPPORI_FLAG_ODDS_MAX,
   GAPPORI_FLAG_ODDS_MIN,
   GAPPORI_JP_FLAG,
+  GAPPORI_JP_FUND_FACTOR,
   GAPPORI_FIRST_BALLS,
   GAPPORI_JACKPOT_LOST_RATE,
   GAPPORI_JP_TREASURE,
@@ -25,6 +27,7 @@ import {
   GAPPORI_JP_WHEEL_POCKETS,
   GAPPORI_SYMBOLS,
   GAPPORI_TARGET_RETURN,
+  gapporiBoostedOdds,
   gapporiOdds,
   gapporiPickCounts,
   gapporiPickKey,
@@ -116,9 +119,18 @@ const STATS = GAPPORI_COMPOSITIONS.map(boardStats);
 
 /** baseReturns のときの、予想の個数ごとの { bet, base, treasure, fund } (賭けた額あたり) */
 function returnsFor(baseReturns) {
-  const sum = Object.fromEntries(SIZES.map(size => [size, { n: 0, base: 0, treasure: 0, fund: 0, hit: 0 }]));
+  const sum = Object.fromEntries(SIZES.map(size => [size, { n: 0, base: 0, treasure: 0, fund: 0, hit: 0, featured: 0, withFeatured: 0 }]));
   STATS.forEach(({ board, tickets }) => {
     const odds = gapporiOdds(board, baseReturns);
+    // この盤面で、個数ごとの「おすすめに選ばれたときに増える分」の平均 (全部1口ずつ買ったとき、そのうち1つがおすすめ)
+    const lift = Object.fromEntries(SIZES.map(size => [size, { n: 0, extra: 0 }]));
+    tickets.forEach(ticket => {
+      const c = GAPPORI_CHANCE_RATES[ticket.size];
+      const p = (1 - c) * ticket.Pn + c * ticket.Pc + JP_TREASURE_RATE * ((1 - c) * ticket.Jn + c * ticket.Jc);
+      lift[ticket.size].n += 1;
+      lift[ticket.size].extra += (gapporiBoostedOdds(odds[ticket.key], ticket.size) - odds[ticket.key]) * p;
+    });
+    SIZES.forEach(size => { if (lift[size].n) sum[size].withFeatured += lift[size].extra / lift[size].n; });
     tickets.forEach(ticket => {
       const c = GAPPORI_CHANCE_RATES[ticket.size];
       const pWin = (1 - c) * ticket.Pn + c * ticket.Pc;
@@ -127,8 +139,10 @@ function returnsFor(baseReturns) {
       s.n += 1;
       s.base += odds[ticket.key] * pWin;
       s.treasure += odds[ticket.key] * pJp;
-      s.fund += GAPPORI_JACKPOT_LOST_RATE * (1 - pWin - pJp);
+      s.fund += GAPPORI_JACKPOT_LOST_RATE * GAPPORI_JP_FUND_FACTOR * (1 - pWin - pJp);
       s.hit += pWin + pJp;
+      // おすすめに選ばれたとき (どの予想も同じ確率で選ばれるので、平均がおすすめの券の還元率になる)
+      s.featured += gapporiBoostedOdds(odds[ticket.key], ticket.size) * (pWin + pJp) + GAPPORI_JACKPOT_LOST_RATE * GAPPORI_JP_FUND_FACTOR * (1 - pWin - pJp);
     });
   });
   return Object.fromEntries(SIZES.map(size => {
@@ -136,7 +150,7 @@ function returnsFor(baseReturns) {
     const base = s.base / s.n;
     const treasure = s.treasure / s.n;
     const fund = s.fund / s.n;
-    return [size, { base, treasure, fund, total: base + treasure + fund, hit: s.hit / s.n }];
+    return [size, { base, treasure, fund, total: base + treasure + fund, hit: s.hit / s.n, featured: s.featured / s.n, withFeatured: base + treasure + fund + s.withFeatured / s.n }];
   }));
 }
 
@@ -147,12 +161,14 @@ function print(baseReturns) {
     const r = result[size];
     console.log(`${size}個  配当の設計値 ${baseReturns[size].toFixed(4)}  配当 ${pct(r.base)}  お宝ゲット(JP盤) ${pct(r.treasure)}  JP積立 ${pct(r.fund)}  合計 ${pct(r.total)}  当たる確率 ${pct(r.hit)}`);
   });
+  console.log('参考 (105% に含めないもの):');
+  SIZES.forEach(size => console.log(`  ${size}個  おすすめの券だけ ${pct(result[size].featured)}  ・ ${size}個の予想を全部1口ずつ (うち1つがおすすめ) ${pct(result[size].withFeatured)}`));
   // ドクロ旗 (単品): 船長マスに球が入り (5/16)、JP ルーレットがドクロ旗に止まったら (1/16) 当たり。倍率は ×最小〜×最大 から均等
   const captain = GAPPORI_BALLS / (GAPPORI_COMPOSITIONS[0].reduce((sum, n) => sum + n, 0) + 1);
   const flagHit = captain * (GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_FLAG] / GAPPORI_JP_WHEEL_POCKETS);
   const flagOdds = (GAPPORI_FLAG_ODDS_MIN + GAPPORI_FLAG_ODDS_MAX) / 2;
-  const flagFund = GAPPORI_JACKPOT_LOST_RATE * (1 - flagHit);
-  console.log(`ドクロ旗  倍率 ×${GAPPORI_FLAG_ODDS_MIN}〜×${GAPPORI_FLAG_ODDS_MAX} (平均 ×${flagOdds})  配当 ${pct(flagHit * flagOdds)}  JP積立 ${pct(flagFund)}  合計 ${pct(flagHit * flagOdds + flagFund)}  当たる確率 ${pct(flagHit)}`);
+  const flagFund = GAPPORI_JACKPOT_LOST_RATE * GAPPORI_JP_FUND_FACTOR * (1 - flagHit);
+  console.log(`  ドクロ旗 (単品)  倍率 ×${GAPPORI_FLAG_ODDS_MIN}〜×${GAPPORI_FLAG_ODDS_MAX} (平均 ×${flagOdds})  配当 ${pct(flagHit * flagOdds)}  JP積立 ${pct(flagFund)}  合計 ${pct(flagHit * flagOdds + flagFund)}  当たる確率 ${pct(flagHit)}`);
 }
 
 if (process.argv.includes('--dump')) {
