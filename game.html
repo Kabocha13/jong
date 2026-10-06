@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="assets/js/no-zoom.js?v=54.6"></script>
+    <script src="assets/js/no-zoom.js?v=54.14"></script>
     <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,8 +12,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=54.6">
-    <script src="assets/js/treasure-rain.js?v=54.6" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=54.14">
+    <script src="assets/js/treasure-rain.js?v=54.14" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -36,7 +36,7 @@
             <a href="mypage.html" class="action-button">マイページでログイン</a>
         </section>
 
-        <nav class="casino-back hidden" data-view="lobby blackjack slot gappori nariagari voyage underground wanted" aria-label="ゲームの切り替え">
+        <nav class="casino-back hidden" data-view="lobby blackjack slot gappori nariagari voyage sink underground wanted" aria-label="ゲームの切り替え">
             <a href="#">ゲーム一覧へ</a>
         </nav>
 
@@ -103,6 +103,20 @@
                         <span class="game-tile-name">成り上がり</span>
                         <span class="game-tile-sub">Rags to Riches</span>
                         <span class="game-tile-desc">5段のルーレットを UP で上へ。第4弾で JP、最上段の第5弾で SJP。最高100倍</span>
+                    </span>
+                    <span class="game-tile-badge hidden"></span>
+                </a>
+                <a class="game-tile" href="#sink" data-game="sink">
+                    <!-- 荒れた海で傾いた船 -->
+                    <span class="game-tile-art is-sink" aria-hidden="true">
+                        <span class="sk-tile-ship">⛵</span>
+                        <span class="sk-tile-wave"></span>
+                    </span>
+                    <span class="game-tile-body">
+                        <span class="game-tile-name">沈没</span>
+                        <span class="game-tile-sub">Last One Aboard</span>
+                        <span class="game-tile-desc">2人以上で出港。沈む前に飛び降りた人のうち、いちばん最後の1人が総取り</span>
+                        <span class="game-tile-live" id="sk-tile-live"></span>
                     </span>
                     <span class="game-tile-badge hidden"></span>
                 </a>
@@ -190,6 +204,10 @@
                 <li data-rules="voyage">1回 10 (賭け金は固定)。「振る」とサイコロの目だけ進み、止まったマスで払い戻しが決まる (×2 なら 20 が戻る)。マスの種類と効果は、盤の下の「この章のマス」にある。</li>
                 <li data-rules="voyage">宝箱は当たりなら大きいが、空っぽのこともある。災難のマス (ツケ・座礁など) に止まると、賭け金に加えてさらにチップを失う。</li>
                 <li data-rules="voyage">ジャックポットは賭け金の 6% が貯まる。船長マスに止まると 1/2 で総取り (第11章・最終日は必ず)。当たると 0 から貯め直し。</li>
+                <li data-rules="sink">運賃 (10〜5,000) は最初に乗った人が決め、あとの人も同じ額を払う。2人以上 (8人まで) そろうと20秒後に出港する (全員が「出港準備OK」を押せばすぐ)。</li>
+                <li data-rules="sink">出港すると浸水が始まり、満水になった瞬間に沈む (出港から10〜30秒のどこか。どの時刻も同じ確率)。水の入る速さは途中で何度も変わるので、水位だけでは沈む時刻はわからない。</li>
+                <li data-rules="sink">沈む前に「飛び降りる」を押す。誰が飛び降りたかは結果まで見えない。沈む前に飛び降りた人のうち、いちばん最後に飛び降りた1人が総取り (運賃の合計の95% + 海の底の財宝)。</li>
+                <li data-rules="sink">全員が船と一緒に沈んだら、賞金は「海の底の財宝」として次の便に持ち越す。</li>
                 <li data-rules="voyage">「最終秘宝」は賭け金の 8% が貯まる。12/22 0:10 に全員に山分け (レートへ直接)。港を通って1周するたびに、その分け前が増える (全員の周回の数の比で分ける)。</li>
             </ul>
             <form id="casino-enter-form">
@@ -502,6 +520,37 @@
             </div>
         </section>
 
+        <!-- 沈没 (全員共通の1卓のチキンレース)。中身は game-sink.js が作る (沈む時刻・勝ち負けはすべて Cloud Function casino が決める) -->
+        <section id="sink-table" class="hidden" data-view="sink" aria-label="沈没">
+            <div class="sk-machine">
+                <div class="sk-top">
+                    <p class="sk-carry"><span>海の底の財宝</span><strong id="sk-carry">0</strong></p>
+                    <p class="sk-status" id="sk-status" aria-live="polite"></p>
+                </div>
+                <div class="sk-sea" id="sk-sea" data-phase="waiting">
+                    <p class="sk-timer" id="sk-timer" aria-live="off"></p>
+                    <span class="sk-ship" id="sk-ship" aria-hidden="true">⛵</span>
+                    <span class="sk-water" id="sk-water" aria-hidden="true"></span>
+                    <p class="sk-fare" id="sk-fare"></p>
+                </div>
+                <ul class="sk-crew" id="sk-crew" aria-label="乗っている人"></ul>
+                <div class="sk-controls" id="sk-controls">
+                    <div class="sk-fares hidden" id="sk-fares" role="group" aria-label="運賃を選んで乗る"></div>
+                    <button type="button" id="sk-board-button" class="sk-board-button hidden">乗船する</button>
+                    <button type="button" id="sk-ready-button" class="sk-ready-button hidden">出港準備OK</button>
+                    <button type="button" id="sk-leave-button" class="sk-leave-button hidden">降りる (運賃を返してもらう)</button>
+                    <button type="button" id="sk-jump-button" class="sk-jump-button hidden">飛び降りる！</button>
+                    <p class="sk-note" id="sk-note"></p>
+                </div>
+                <div class="sk-result hidden" id="sk-result" role="status"></div>
+                <p id="sk-message" class="hidden" aria-live="polite"></p>
+            </div>
+            <div class="info-box sk-info">
+                <h3 class="icon-title">直近の結果</h3>
+                <ol id="sk-recent" class="casino-recent" aria-label="直近の結果"></ol>
+            </div>
+        </section>
+
         <!-- 船底。中身は game-underground.js が作る (積荷の並び・採点・レートの増減はすべて Cloud Function underground が決める) -->
         <section id="underground-view" class="hidden" data-view="underground" aria-label="船底">
             <div class="info-box ug-status">
@@ -602,16 +651,17 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=54.6"></script>
-    <script src="assets/js/game-sound.js?v=54.6"></script>
-    <script src="assets/js/game-blackjack.js?v=54.6"></script>
-    <script src="assets/js/game-slot.js?v=54.6"></script>
-    <script src="assets/js/game-gappori.js?v=54.6"></script>
-    <script src="assets/js/game-nariagari.js?v=54.6"></script>
-    <script src="assets/js/voyage-story.js?v=54.6"></script>
-    <script src="assets/js/game-voyage.js?v=54.6"></script>
-    <script src="assets/js/game-underground.js?v=54.6"></script>
-    <script src="assets/js/game-wanted.js?v=54.6"></script>
-    <script src="assets/js/game.js?v=54.6"></script>
+    <script src="assets/js/common.js?v=54.14"></script>
+    <script src="assets/js/game-sound.js?v=54.14"></script>
+    <script src="assets/js/game-blackjack.js?v=54.14"></script>
+    <script src="assets/js/game-slot.js?v=54.14"></script>
+    <script src="assets/js/game-gappori.js?v=54.14"></script>
+    <script src="assets/js/game-nariagari.js?v=54.14"></script>
+    <script src="assets/js/voyage-story.js?v=54.14"></script>
+    <script src="assets/js/game-voyage.js?v=54.14"></script>
+    <script src="assets/js/game-sink.js?v=54.14"></script>
+    <script src="assets/js/game-underground.js?v=54.14"></script>
+    <script src="assets/js/game-wanted.js?v=54.14"></script>
+    <script src="assets/js/game.js?v=54.14"></script>
 </body>
 </html>

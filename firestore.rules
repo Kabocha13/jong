@@ -98,6 +98,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 沈没の船。中身 (沈む時刻・誰が飛び降りたか) は Cloud Functions だけに限る。
+    match /sink_tables/{tableId} {
+      allow read, write: if false;
+    }
+
+    // 船を誰でも読める形に直したもの (沈む時刻と、航海中に誰が飛び降りたかは含まない)。
+    match /sink_public/{tableId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // 航海 (大海賊の航海日誌。2026/10/5〜12/21) のみんなで共有する分 (ジャックポット・最終秘宝・取り分の合計・直近の JP)。
     // 画面はこれを読んで JP を出す。書き込みは Cloud Functions (casino) だけ。
     match /voyage_public/{docId} {

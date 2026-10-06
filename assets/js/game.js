@@ -1,6 +1,6 @@
 // ゲームタブの共通部分
 //   ログイン、ゲームの選択 (ブロックのタイル)、入場 (持ち込み)、手元チップと精算、画面の切り替え。
-//   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js / game-voyage.js
+//   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js / game-voyage.js / game-sink.js
 //   (ルーレットとテキサスホールデムは 52.0 で廃止)。
 //   船底 (#underground) と指名手配 (#wanted) はチップを使わない別の遊び場で、中身は game-underground.js と game-wanted.js。
 //   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
@@ -13,7 +13,9 @@ const CASINO_GAMES = {
     gappori:   { name: '宝探し', playsLabel: '回', plays: 'gpRounds' },
     nariagari: { name: '成り上がり', playsLabel: '回', plays: 'nrSpins' },
     // 航海 (2026/10/5〜12/21 の期間限定)。ゲーム一覧のカードは 10/4 0:00 に Coming soon から切り替わる (game-voyage.js の showVoyageTile)
-    voyage:    { name: '航海', playsLabel: '回', plays: 'vgRolls' }
+    voyage:    { name: '航海', playsLabel: '回', plays: 'vgRolls' },
+    // 沈没 (2人以上で出港するチキンレース。全員共通の1卓)
+    sink:      { name: '沈没', playsLabel: '回', plays: 'skRounds' }
 };
 
 const casino = {
@@ -134,6 +136,7 @@ function renderRoute() {
         else if (game === 'slot') openSlotTable();
         else if (game === 'gappori') openGapporiTable();
         else if (game === 'voyage') openVoyageTable();
+        else if (game === 'sink') openSinkTable();
         else openNariagariTable();
     }
     if (view !== 'blackjack') closeBlackjackTable();
@@ -141,6 +144,7 @@ function renderRoute() {
     if (view !== 'gappori') closeGapporiTable();
     if (view !== 'nariagari') closeNariagariTable();
     if (view !== 'voyage') closeVoyageTable();
+    if (view !== 'sink') closeSinkTable();
     if (view !== 'underground') closeUnderground();
     if (view !== 'wanted') closeWanted();
     showView(view);
@@ -161,7 +165,8 @@ function renderMenu() {
         const badge = tile.querySelector('.game-tile-badge');
         let text = tile.dataset.game === 'blackjack' && isBlackjackLive() ? '勝負の途中'
             : tile.dataset.game === 'gappori' && isGapporiLive() ? '抽選の途中'
-                : tile.dataset.game === 'nariagari' ? nariagariTileBadge() : '';
+                : tile.dataset.game === 'nariagari' ? nariagariTileBadge()
+                    : tile.dataset.game === 'sink' ? sinkTileBadge() : '';
         // 船底はレートが上限 (既定1000) 未満のときだけ仕分けできる
         if (tile.dataset.game === 'underground' && casino.score < undergroundMaxRate()) text = '入れます';
         if (tile.dataset.game === 'wanted') text = wantedTileBadge();
@@ -170,6 +175,7 @@ function renderMenu() {
     });
     renderBlackjackTile();
     renderGapporiTile();
+    renderSinkTile();
     renderUndergroundTile();
 }
 
@@ -244,7 +250,8 @@ function renderWallet() {
 }
 
 function renderSettleButton() {
-    const pending = isBlackjackLive() ? 'ブラックジャックの勝負' : isGapporiLive() ? '宝探しの抽選' : '';
+    const pending = isBlackjackLive() ? 'ブラックジャックの勝負' : isGapporiLive() ? '宝探しの抽選'
+        : isSinkLive() ? '沈没の航海' : '';
     el('casino-settle-button').disabled = casino.busy || !casino.session || Boolean(pending);
     el('casino-settle-note').classList.toggle('hidden', !pending);
     if (pending) el('casino-settle-note').textContent = `${pending}が終わると精算できます。`;
@@ -258,6 +265,7 @@ function setCasinoBusy(busy) {
     renderGapporiControls();
     renderNariagariControls();
     renderVoyageControls();
+    renderSinkControlsIfReady();
     if (casino.lobbyGame) el('casino-enter-button').disabled = busy || casino.score < 1;
 }
 
@@ -293,6 +301,7 @@ async function refreshCasino() {
     receiveGapporiTable(data.gappori, data.now);
     receiveSlotState(data.slot);
     receiveVoyage(data.voyage);
+    receiveSinkTable(data.sink, data.now, data.sinkMine, data.sinkSea);
     renderRoute();
     if (data.autoSettled) {
         showMessage(el('casino-message'), settledMessage(data.autoSettled), 'info');
@@ -321,6 +330,7 @@ async function initCasino() {
     initGappori();
     initNariagari();
     initVoyage();
+    initSink();
     initUnderground();
     initWanted();
     bindCasinoEvents();

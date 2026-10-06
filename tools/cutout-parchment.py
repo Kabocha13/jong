@@ -9,7 +9,10 @@
 #   環境変数:
 #     FLOOR=0.14   下から何割を床とみなし、床の影 (紙より少し暗い色) も背景にする (全身の立ち絵向け)
 #     KEEP_MAIN=1  いちばん大きいかたまり以外で、切り出した範囲の端に触れているもの (隣の絵のはみ出し) を消す
+#     HOLES=1      外とつながっていない背景 (舵輪のスポークのあいだなど、物に囲まれた紙) も抜く。
+#                  画像の 0.2% より小さいかたまりは抜かない (金具の照り返しなど、紙に近い色の小さな光を残すため)
 #   例 (ホームの立ち絵): FLOOR=0.14 python3 tools/cutout-parchment.py assets/img/src/captain/original-stand.jpeg assets/img/captain/stand.png
+#   例 (舵輪):       HOLES=1 python3 tools/cutout-parchment.py assets/img/src/props/original-left-3.jpeg assets/img/slot/props/left-3.png
 #   例 (設定画の顔):     KEEP_MAIN=1 python3 tools/cutout-parchment.py assets/img/src/captain/original-sheet.jpeg assets/img/captain/laugh.png 418 1590 878 2048
 #   必要なもの: Python 3 と numpy・scipy・Pillow
 import sys
@@ -45,6 +48,10 @@ if FLOOR > 0:
 labels, n = ndimage.label(cand)
 border = set(np.unique(np.concatenate([labels[0], labels[-1], labels[:, 0], labels[:, -1]]))) - {0}
 bgmask = np.isin(labels, list(border))
+if __import__('os').environ.get('HOLES') == '1':
+    sizes0 = ndimage.sum(cand, labels, range(1, n + 1))
+    holes = [i + 1 for i, size in enumerate(sizes0) if size >= h * w * 0.002 and (i + 1) not in border]
+    bgmask |= np.isin(labels, holes)
 
 # 背景の色を場所ごとに見積もる (紙のむら・影): 背景の画素だけをぼかして広げる
 weight = ndimage.gaussian_filter(bgmask.astype(np.float32), 12)

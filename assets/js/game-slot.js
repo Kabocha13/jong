@@ -49,6 +49,14 @@ const SLOT_FREEZE_MS = 1300;              // ジャックポットタイム突�
 const SLOT_CUTIN_MS = 3800;               // 突入・終了の画面いっぱいの演出を出しておく長さ (タップで閉じられる)
 const SLOT_STROBE_GAP_MS = 350;           // 続けて光らせる間隔 (光過敏に配慮して1秒に3回を超えないように)
 const SLOT_HAPTIC_TAP_MS = 60;            // アプリで震わせるとき、これより短い区間は「コツッ」と叩くだけにする
+// ジャックポットの演出で、画面の端から飛び込んでくる立体物の絵 (背景透過の PNG)。
+// assets/img/slot/props/ に「出てくる向き-番号.png」(left-1.png・right-2.png・top-1.png・bottom-1.png …) で置く。
+// 向きごとに SLOT_PROP_MAX_PER_SIDE 枚まで探し、置いていない名前は使わない (assets/img/slot/props/README.md)
+const SLOT_PROP_DIR = 'assets/img/slot/props/';
+const SLOT_PROP_SIDES = ['left', 'right', 'top', 'bottom'];
+const SLOT_PROP_MAX_PER_SIDE = 3;
+const SLOT_PROP_STAGGER_MS = 140;         // 何枚か出すとき、1枚ずつずらす間隔
+const SLOT_PROP_LEAVE_MS = 450;           // 引っ込む長さ (CSS の slot-prop-out と同じ)
 
 const slot = {
     bet: 1,
@@ -58,7 +66,8 @@ const slot = {
     auto: false,
     autoTimer: null,
     open: false,
-    jackpotWon: 0           // いまのジャックポットタイムで払い戻された合計 (画面を開き直すと0から数える)
+    jackpotWon: 0,          // いまのジャックポットタイムで払い戻された合計 (画面を開き直すと0から数える)
+    props: null             // 読み込めた立体物の絵 [{ src, side }] (スロットを初めて開いたときに探す)
 };
 
 function randomFiller() {
@@ -208,11 +217,100 @@ function burstCoins(count, from = document.querySelector('.slot-window-frame')) 
     setTimeout(() => burst.remove(), 1600);
 }
 
+// ------------------------------------------------------------------
+// 立体物 (ジャックポットの演出で、画面の端から飛び込んでくる絵)
+// ------------------------------------------------------------------
+/** 置いてある立体物の絵を探す (1回だけ)。読めた絵だけを slot.props に入れる */
+function loadSlotProps() {
+    if (slot.props) return;
+    slot.props = [];
+    SLOT_PROP_SIDES.forEach(side => {
+        for (let no = 1; no <= SLOT_PROP_MAX_PER_SIDE; no++) {
+            const src = `${SLOT_PROP_DIR}${side}-${no}.png`;
+            const img = new Image();
+            img.onload = () => slot.props.push({ src, side });
+            img.src = src;
+        }
+    });
+}
+
+function slotPropLayer() {
+    let layer = document.querySelector('body > .slot-props');
+    if (!layer) {
+        layer = document.createElement('div');
+        layer.className = 'slot-props';
+        layer.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(layer);
+    }
+    return layer;
+}
+
+/**
+ * 止まる位置 (画面に対する %)。order は同じ向きから一緒に出る絵の何枚目か (0 から)。同じ向きの絵は別の位置に止めて重ねない。
+ * x・y は出てきた側の端からの距離 (右から来る絵は右端から、下から来る絵は下端から。CSS で向きごとに読み替える)。
+ * 左右の絵は、真ん中の文字 (Jackpot Time など) をなるべく避けて、上の帯 → 下の帯 → 真ん中の端 (半分だけのぞかせる) の順に置く
+ */
+function slotPropPlace(side, order) {
+    const jitter = (min, max) => min + Math.random() * (max - min);
+    const percent = value => `${value.toFixed(1)}%`;
+    if (side === 'left' || side === 'right') {
+        const slot0 = order % 3;
+        // 3枚目は絵の幅の 35〜45% を画面の外に出して、真ん中の端からのぞかせる (画面の幅によらず同じだけ見える)
+        if (slot0 === 2) return { x: `calc(var(--prop-w) * -${jitter(0.35, 0.45).toFixed(2)})`, y: percent(jitter(34, 42)) };
+        return { x: percent(jitter(-6, 2)), y: percent(slot0 === 0 ? jitter(3, 13) : jitter(62, 70)) };
+    }
+    const xs = [[20, 30], [50, 58], [0, 8]];
+    return { x: percent(jitter(...xs[order % xs.length])), y: percent(jitter(-6, 2)) };
+}
+
+/**
+ * 立体物を飛び込ませ、holdMs のあいだ浮かべてから引っ込める。count は出す枚数 ('all' なら置いてある全部)。
+ * 同じ向きの絵が重ならないように、なるべく違う向きから選ぶ。絵が無い・動きを減らす設定なら何もしない
+ */
+function showSlotProps(count, holdMs) {
+    const props = slot.props || [];
+    if (!props.length || prefersReducedMotion()) return;
+    const shuffled = props.slice().sort(() => Math.random() - 0.5);
+    let picked = shuffled;
+    if (count !== 'all') {
+        // 向きが偏らないよう、まず向きごとに1枚ずつ選び、足りなければ残りから
+        const bySide = [];
+        const rest = [];
+        shuffled.forEach(prop => (bySide.some(item => item.side === prop.side) ? rest : bySide).push(prop));
+        picked = [...bySide, ...rest].slice(0, count);
+    }
+    const layer = slotPropLayer();
+    const orders = {};
+    // 同じ向きの絵は位置の順番を決め直してから置く (並べるたびに違う絵が上・下に来るように、選んだ順のまま数える)
+    picked.forEach((prop, index) => {
+        orders[prop.side] = (orders[prop.side] ?? -1) + 1;
+        const place = slotPropPlace(prop.side, orders[prop.side]);
+        const wrap = document.createElement('div');
+        wrap.className = `slot-prop is-from-${prop.side}`;
+        wrap.style.setProperty('--x', place.x);
+        wrap.style.setProperty('--y', place.y);
+        wrap.style.setProperty('--tilt', `${(Math.random() * 16 - 8).toFixed(1)}deg`);
+        wrap.style.animationDelay = `${index * SLOT_PROP_STAGGER_MS}ms`;
+        const img = document.createElement('img');
+        img.src = prop.src;
+        img.alt = '';
+        img.draggable = false;
+        wrap.appendChild(img);
+        layer.appendChild(wrap);
+        setTimeout(() => {
+            wrap.classList.add('is-leaving');
+            setTimeout(() => wrap.remove(), SLOT_PROP_LEAVE_MS);
+        }, holdMs + index * SLOT_PROP_STAGGER_MS);
+    });
+}
+
 /** ジャックポットタイム中に当たった: 揺らして光らせ、倍率に応じて金貨を飛ばす。大当たりは何度も光らせて長く震わせる */
 function celebrateJackpotWin(multiplier) {
     restartClass(document.querySelector('.slot-window-frame'), 'is-shake');
     restartClass(document.querySelector('.slot-mode-won'), 'is-bump');
     burstCoins(Math.min(60, 12 + multiplier * 2));
+    // 立体物: 当たりで1つ、大当たりは3つ飛び込んでくる
+    showSlotProps(multiplier >= SLOT_BIG_WIN ? 3 : 1, multiplier >= SLOT_BIG_WIN ? 2600 : 1500);
     if (multiplier >= SLOT_BIG_WIN) {
         strobeScreen(['white', 'gold', 'red', 'white']);
         buzz([200, 80, 200, 80, 500]);
@@ -273,6 +371,8 @@ function showSlotOverlay(variant, build, { captain = null } = {}) {
 function showJackpotCutin(spins) {
     window.playGameSound?.('slotJackpot');
     window.qjongTreasureRain?.preview(6000);
+    // 立体物: 置いてある全部が四方から飛び込んでくる
+    showSlotProps('all', SLOT_CUTIN_MS - 400);
     flashScreen('white');
     buzz([120, 60, 120, 60, 400]);
     return showSlotOverlay('is-start', body => {
@@ -292,7 +392,10 @@ function showJackpotCutin(spins) {
 
 /** ジャックポットタイム終了: 払い戻しの合計を数え上げて見せる */
 function showJackpotResult(won) {
-    if (won > 0) window.qjongTreasureRain?.preview(5000);
+    if (won > 0) {
+        window.qjongTreasureRain?.preview(5000);
+        showSlotProps('all', SLOT_CUTIN_MS - 400);
+    }
     flashScreen('gold');
     buzz([80, 40, 80, 40, 300]);
     let number = null;
@@ -712,6 +815,8 @@ async function spinSlot() {
 // ------------------------------------------------------------------
 function openSlotTable() {
     slot.open = true;
+    // ジャックポットの立体物の絵は、スロットを初めて開いたときに探しておく
+    loadSlotProps();
     if (!slot.grid) {
         renderGrid(randomGrid());
         setSlotResult('Good Luck', 'is-idle');

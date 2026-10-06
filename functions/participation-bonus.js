@@ -15,7 +15,7 @@
 export const PARTICIPATION_BONUS_SOURCE = 'participation_bonus';
 export const PARTICIPATION_BONUS_MAX_UNIT = 1000;   // 1回あたりの額の上限 (打ち間違いで大量に配らないように)
 const MAHJONG_SOURCE = 'mahjong';
-const CASINO_SOURCES = new Set(['casino', 'casino_roulette', 'casino_blackjack', 'casino_slot', 'casino_gappori', 'casino_nariagari', 'casino_voyage', 'casino_holdem']);
+const CASINO_SOURCES = new Set(['casino', 'casino_roulette', 'casino_blackjack', 'casino_slot', 'casino_gappori', 'casino_nariagari', 'casino_voyage', 'casino_sink', 'casino_holdem']);
 // この回数で1回と数えるゲーム (精算の reason に出る名前 → 回数)
 export const PLAYS_PER_COUNT = { 'スロット': 10, '成り上がり': 10, '航海': 10 };
 
