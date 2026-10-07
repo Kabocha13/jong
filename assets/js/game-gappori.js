@@ -19,6 +19,7 @@ const GAPPORI_ORDER = ['anchor', 'parrot', 'helm', 'rum', 'telescope', 'map', 'c
 const GAPPORI_FLAG = 'flag';
 // ハク (55.19〜): スタンプカードで使える「どのお宝の球でもOK」の札。倍率は結果で決まる (いちばん高くなるお宝に化ける)
 const GAPPORI_HAKU = 'haku';
+const GAPPORI_HAKU_MIN_PICKS = 3;   // ハクも1個に数えて3個以上の予想でだけ使える (サーバーの GAPPORI_HAKU_MIN_PICKS と同じ)
 const GAPPORI_STAMPS_PER_CARD = 10;
 const GAPPORI_PICKS_MIN = 2;
 const GAPPORI_PICKS_MAX = 5;
@@ -594,7 +595,7 @@ function renderGapporiControls() {
     const flag = isGapporiFlag(gp.picks);
     const haku = isGapporiHaku(gp.picks);
     const hakuOthers = gp.picks.filter(kind => kind !== GAPPORI_HAKU);
-    const hakuRange = haku && hakuOthers.length && picks >= GAPPORI_PICKS_MIN ? gapporiHakuRange(table, hakuOthers) : null;
+    const hakuRange = haku && picks >= GAPPORI_HAKU_MIN_PICKS ? gapporiHakuRange(table, hakuOthers) : null;
     const odds = !table ? null : flag ? GAPPORI_FLAG : haku ? (hakuRange ? GAPPORI_HAKU : null)
         : picks >= GAPPORI_PICKS_MIN ? table.odds[gapporiKey(gp.picks)] ?? null : null;
     const cost = gapporiCost();
@@ -604,8 +605,8 @@ function renderGapporiControls() {
     const chosen = sortGapporiPicks(gp.picks).map(gapporiKindName).join('・');
     const flagInfo = gapporiFlagInfo(table);
     el('gp-pick-info').textContent = haku
-        ? (!hakuOthers.length || picks < GAPPORI_PICKS_MIN
-            ? 'ハクのほかにお宝を1〜4個選んでください (ハクと合わせて2〜5個)'
+        ? (picks < GAPPORI_HAKU_MIN_PICKS
+            ? `ハクは${GAPPORI_HAKU_MIN_PICKS}個以上の予想でだけ使えます。ハクのほかにお宝をあと${GAPPORI_HAKU_MIN_PICKS - picks}個選んでください (ハクと合わせて${GAPPORI_HAKU_MIN_PICKS}〜5個)`
             : !hakuRange ? 'この予想は次の回から買えます。'
                 : `${sortGapporiPicks(hakuOthers).map(gapporiKindName).join('・')}・ハク (1口 ${gapporiPrice()}) ・ 倍率 ×${hakuRange.min}〜×${hakuRange.max} (ほかのお宝がそろって余った球があれば、いちばん高い倍率のお宝に化けて当たり)`)
         : flag

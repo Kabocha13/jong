@@ -2043,6 +2043,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 
 #casino-net[data-sign="plus"]  { color: var(--ok); }
 #casino-net[data-sign="minus"] { color: var(--ng); }
+#casino-plays[data-full="true"] { color: var(--ng); }
 
 .casino-expiry { margin: 10px 0 0; font-size: 0.8em; }
 .casino-held-note { margin: 10px 0 0; font-size: 0.8em; }

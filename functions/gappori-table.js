@@ -39,6 +39,7 @@ import {
   GAPPORI_JP_PLUS_SMALL,
   GAPPORI_JP_STAMP,
   GAPPORI_HAKU,
+  GAPPORI_HAKU_MIN_PICKS,
   GAPPORI_HAKU_PER_CARD,
   GAPPORI_STAMPS_PER_CARD,
   GAPPORI_JP_FLAG,
@@ -211,8 +212,8 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
     if (hakuCount && raw.includes('flag')) throw new GapporiTableError(400, 'ドクロ旗とハクは組み合わせられません。');
     // ハク以外のお宝は、ハクの分も数えた個数 (2〜5) で検証する (ハクは盤面のどのお宝とも数える)
     const others = hakuCount ? raw.filter(kind => kind !== GAPPORI_HAKU) : null;
-    if (hakuCount && (others.length + 1 < 2 || others.length + 1 > 5 || !others.length)) {
-      throw new GapporiTableError(400, 'ハクのほかにお宝を1〜4個選んでください (ハクと合わせて2〜5個)。');
+    if (hakuCount && (others.length + 1 < GAPPORI_HAKU_MIN_PICKS || others.length + 1 > 5)) {
+      throw new GapporiTableError(400, `ハクは${GAPPORI_HAKU_MIN_PICKS}個以上の予想でだけ使えます。ハクのほかにお宝を${GAPPORI_HAKU_MIN_PICKS - 1}〜4個選んでください。`);
     }
     const picks = hakuCount
       ? [...normalizeGapporiPicksLoose(table.board, others), GAPPORI_HAKU]

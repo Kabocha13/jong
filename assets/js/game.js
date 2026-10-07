@@ -208,12 +208,11 @@ function renderWallet() {
     el('casino-chips').textContent = formatRate(session.chips);
     el('casino-held').textContent = formatRate(session.held || 0);
     el('casino-score').textContent = formatRate(session.score ?? casino.score);
-    // 回数は開いているテーブルのもの (これまでの合計)
-    el('casino-plays-label').textContent = game ? CASINO_GAMES[game].playsLabel : 'プレイ';
-    const plays = game
-        ? session[CASINO_GAMES[game].plays] || 0
-        : Object.values(CASINO_GAMES).reduce((sum, item) => sum + (session[item.plays] || 0), 0);
-    el('casino-plays').textContent = `${plays.toLocaleString('ja-JP')}回`;
+    // 今日 (日本時間 0:00 から) 遊んだ回数と、1日の上限 (一般 100回・プロ 1,000回。56.0〜)。全部のゲームで共通に数える
+    const playsToday = Number(session.playsToday) || 0;
+    const playLimit = Number(session.playLimit) || 0;
+    el('casino-plays').textContent = playLimit ? `${playsToday.toLocaleString('ja-JP')}/${playLimit.toLocaleString('ja-JP')}` : `${playsToday.toLocaleString('ja-JP')}回`;
+    el('casino-plays').dataset.full = String(Boolean(playLimit) && playsToday >= playLimit);
     renderSettleButton();
 }
 

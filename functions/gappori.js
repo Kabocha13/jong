@@ -84,8 +84,10 @@ export const GAPPORI_JP_STAMP = 'stamp';        // スタンプのマス (55.19�
 export const GAPPORI_STAMPS_PER_CARD = 10;
 export const GAPPORI_HAKU_PER_CARD = 3;
 // ハク (55.19〜): 予想の1つとして選べる「どのお宝の球でもOK」の札。ほかのお宝がそろい、余った球 (船長以外) があれば当たりで、
-// 余った球のお宝のうち倍率がいちばん高くなるものに化ける。1枚の券に1つ・1回の抽選で1枚まで。値段は個数どおり
+// 余った球のお宝のうち倍率がいちばん高くなるものに化ける。1枚の券に1つ・1回の抽選で1枚まで。値段は個数どおり。
+// ハクも1個に数えて GAPPORI_HAKU_MIN_PICKS 個以上の予想でだけ使える (55.24〜。2個の予想では使えない)
 export const GAPPORI_HAKU = 'haku';
+export const GAPPORI_HAKU_MIN_PICKS = 3;
 export const GAPPORI_JP_PLUS_SMALL = 'plussmall';    // JP+?? のマス (55.18〜)。ジャックポットに 10〜99 を足す
 export const GAPPORI_JP_MINUS_SMALL = 'minussmall';  // JP−?? のマス (55.18〜)。ジャックポットから 10〜99 を引く (0 より下げない)
 // JP±??? と JP±?? で動かす額の範囲 (均等)

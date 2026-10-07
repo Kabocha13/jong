@@ -1401,6 +1401,33 @@ async function loadGapporiJackpot() {
     }
 }
 
+// ハクを全員に配る (Cloud Function gapporiAdmin の grantHaku)
+const GAPPORI_HAKU_FORM = document.getElementById('gappori-haku-form');
+if (GAPPORI_HAKU_FORM) {
+    GAPPORI_HAKU_FORM.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = document.getElementById('gappori-haku-message');
+        const count = Number(document.getElementById('gappori-haku-count').value);
+        if (!Number.isSafeInteger(count) || count < 1 || count > 10) {
+            showMessage(message, '1人あたりの回数は 1〜10 の整数で入力してください。', 'error');
+            return;
+        }
+        if (!confirm(`宝探しのハクを、全員に ${count}回ずつ配ります。よろしいですか？`)) return;
+        const submitButton = GAPPORI_HAKU_FORM.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        showMessage(message, '配っています...', 'info');
+        try {
+            const result = await callGapporiAdmin('grantHaku', { count });
+            showMessage(message, `✅ ハクを ${result.granted.players.length}人に ${result.granted.count}回ずつ配りました (${result.granted.players.join('・')})。`, 'success');
+        } catch (error) {
+            console.error(error);
+            showMessage(message, `❌ ${error.message}`, 'error');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+}
+
 if (GAPPORI_JACKPOT_FORM) {
     document.getElementById('gappori-jackpot-reload')?.addEventListener('click', loadGapporiJackpot);
     GAPPORI_JACKPOT_FORM.addEventListener('submit', async (e) => {

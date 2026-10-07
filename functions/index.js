@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import admin from 'firebase-admin';
-import { getFirestore } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
@@ -2604,6 +2604,33 @@ class CasinoError extends Error {
   }
 }
 
+// 1日のプレイ回数の上限 (55.26〜)。スロット1回転・成り上がり1回・航海1回・ブラックジャック1ハンド・
+// 宝探し1回 (券を買った回)・沈没1便を、どれも1回と数える。会員の種類 (players の status) で決まる (ラグジュアリーは上限なし)
+const CASINO_DAILY_PLAY_LIMITS = { none: 100, pro: 1000, luxury: Infinity };
+
+function casinoDailyPlayLimit(status) {
+  return CASINO_DAILY_PLAY_LIMITS[status] ?? CASINO_DAILY_PLAY_LIMITS.none;
+}
+
+/** 今日 (JST) 遊んだ回数 (結果まで済んだもの) */
+function casinoPlaysToday(account, todayKey = getJstDateKey()) {
+  return account && account.playDate === todayKey ? account.playCount || 0 : 0;
+}
+
+/**
+ * 新しく遊び始めてよいか確かめる。今日遊んだ回数 + いま結果待ちの卓の数 (game の卓は除く。同じ卓で賭け足すのは同じ1回) が
+ * 上限に届いていたら断る。tables は3つの卓 (操作の前)
+ */
+function assertCasinoPlayAllowed(origin, tables, game, uid) {
+  if (!origin) return;
+  const pending = ['blackjack', 'gappori', 'sink']
+    .filter(name => name !== game && tableHeld(name, tables[name], uid) > 0).length;
+  const limit = casinoDailyPlayLimit(origin.status);
+  if (casinoPlaysToday(origin.account) + pending >= limit) {
+    throw new CasinoError(429, `今日のプレイ回数の上限 (${limit.toLocaleString('ja-JP')}回) に達しました。0:00 (日本時間) からまた遊べます。${origin.status === 'none' || !origin.status ? ' (プロ会員は1日1,000回まで)' : ''}`);
+  }
+}
+
 /** blackjack.js に渡す乱数 (0〜n-1) */
 function casinoRandom(n) {
   return randomInt(n);
@@ -2625,6 +2652,9 @@ function normalizeCasinoAccount(value, player) {
   CASINO_ACCOUNT_RECENTS.forEach(key => { account[key] = Array.isArray(source[key]) ? source[key] : []; });
   account.nrLast = source.nrLast || null;
   account.logs = source.logs && typeof source.logs === 'object' ? source.logs : {};
+  // 1日のプレイ回数 (55.26〜。playDate の日 (JST) に遊んだ回数。日付が変わったら 0 から)
+  account.playDate = source.playDate ? String(source.playDate) : null;
+  account.playCount = Math.max(0, normalizeRate(source.playCount));
   account.updatedAt = source.updatedAt ? String(source.updatedAt) : null;
   return account;
 }
@@ -2633,9 +2663,11 @@ function normalizeCasinoAccount(value, player) {
  * 画面に返す財布。chips は使えるレート (レート − 押さえている額)、held は押さえている額。
  * 形は 54.x の持ち込みの財布に合わせてある (buyIn・expiresAt は無い)
  */
-function publicCasinoSession(wallet, held) {
+function publicCasinoSession(wallet, held, limit = casinoDailyPlayLimit('none')) {
   return {
     chips: wallet.chips,
+    playsToday: casinoPlaysToday(wallet),
+    playLimit: Number.isFinite(limit) ? limit : null,   // 上限なし (ラグジュアリー) は null
     held,
     score: wallet.chips + held,
     buyIn: null,
@@ -2762,7 +2794,8 @@ async function readCasinoWallets(transaction, names, tables, game) {
     const score = normalizeRate(playerDoc.data().score);
     const held = casinoHeld(tables, uid);
     wallets.set(uid, { ...JSON.parse(JSON.stringify(account)), chips: score - held });
-    origins.set(uid, { account, score, held, heldHere: tableHeld(game, tables[game], uid), playerRef: playerDoc.ref, name });
+    const status = String(playerDoc.data().status || 'none');
+    origins.set(uid, { account, score, held, heldHere: tableHeld(game, tables[game], uid), playerRef: playerDoc.ref, name, status });
   });
   return { wallets, origins };
 }
@@ -2789,6 +2822,14 @@ function writeCasinoWallets(transaction, { wallets, origins }, game, tableAfter,
     const plays = (wallet[info.plays] || 0) - (origin.account[info.plays] || 0);
     const wagered = (wallet.wagered || 0) - (origin.account.wagered || 0);
     const { chips, ...next } = wallet;
+    if (plays > 0) {
+      // 今日 (JST) の回数を足す (日付が変わっていたら 0 から)
+      next.playCount = (next.playDate === date ? next.playCount || 0 : 0) + plays;
+      next.playDate = date;
+      // 返事の財布 (publicCasinoSession) にも足したあとの回数を出す
+      wallet.playCount = next.playCount;
+      wallet.playDate = next.playDate;
+    }
     if (delta !== 0) transaction.update(origin.playerRef, { score: afterScore });
     if (delta !== 0 || plays > 0) {
       const log = casinoLogStep(origin.account.logs[game], {
@@ -2816,7 +2857,8 @@ function writeCasinoWallets(transaction, { wallets, origins }, game, tableAfter,
       transaction.set(casinoAccountRef(uid), { ...next, player: origin.name, updatedAt: nowIso });
     }
   });
-  return { chart, held: heldAfter };
+  const limits = new Map([...origins.entries()].map(([uid, origin]) => [uid, casinoDailyPlayLimit(origin.status)]));
+  return { chart, held: heldAfter, limits };
 }
 
 // -----------------------------------------------------------------
@@ -2934,7 +2976,8 @@ async function readCasinoSession(uid, username) {
   };
   const held = casinoHeld(tables, uid);
   const account = normalizeCasinoAccount(accountDoc.exists ? accountDoc.data() : null, username);
-  return { score, session: publicCasinoSession({ ...account, chips: score - held }, held) };
+  const status = playerSnapshot.empty ? 'none' : String(playerSnapshot.docs[0].data().status || 'none');
+  return { score, session: publicCasinoSession({ ...account, chips: score - held }, held, casinoDailyPlayLimit(status)) };
 }
 
 async function readPublicBlackjackTable() {
@@ -2991,14 +3034,15 @@ async function runSoloCasinoPlay(game, uid, username, { extraRefs = [], play, wr
     const loaded = await readCasinoWallets(transaction, new Map([[uid, username]]), tables, game);
     const wallet = loaded.wallets.get(uid);
     if (!wallet) throw new CasinoError(404, 'プレイヤーが見つかりません。');
+    assertCasinoPlayAllowed(loaded.origins.get(uid), tables, game, uid);
     const nowIso = new Date().toISOString();
     const played = play(wallet, extraDocs, nowIso);
     write(transaction, played, nowIso);
     const written = writeCasinoWallets(transaction, loaded, game, null, nowIso);
-    return { played, wallet, held: written.held.get(uid) || 0, chart: written.chart };
+    return { played, wallet, held: written.held.get(uid) || 0, limit: written.limits.get(uid), chart: written.chart };
   });
   await applyRateChartLive(done.chart);
-  return { ...done.played, session: publicCasinoSession(done.wallet, done.held) };
+  return { ...done.played, session: publicCasinoSession(done.wallet, done.held, done.limit) };
 }
 
 /**
@@ -3101,6 +3145,11 @@ async function runBlackjackTable(actorUid, mutate, actorName = null) {
       touchWallet: touchCasinoWallet
     });
     sweepSeats(context);
+    // 新しく遊び始める操作 (賭ける・券を買う・乗る) の前に、1日のプレイ回数を確かめる (この卓で賭け足すのは同じ1回)
+    context.assertPlayAllowed = uid => {
+      if (tableHeld('blackjack', context.table, uid) > 0) return;
+      assertCasinoPlayAllowed(loaded.origins.get(uid), tables, 'blackjack', uid);
+    };
     mutate(context);
     maybeStartRound(context);
 
@@ -3115,7 +3164,7 @@ async function runBlackjackTable(actorUid, mutate, actorName = null) {
   });
   warnCasinoOrphans('blackjack', done.context.orphanPayouts);
   await applyRateChartLive(done.written.chart);
-  return { ...done.context, heldAfter: done.written.held };
+  return { ...done.context, heldAfter: done.written.held, limits: done.written.limits };
 }
 
 /** 卓の操作の返事: 卓の様子と本人の財布 */
@@ -3125,7 +3174,7 @@ async function blackjackTableAction(uid, username, mutate) {
   return {
     me: username,
     table: publicTable(ctx.table),
-    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0) : null,
+    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0, ctx.limits?.get(uid)) : null,
     now: new Date().toISOString()
   };
 }
@@ -3151,6 +3200,11 @@ async function runGapporiTable(actorUid, mutate, actorName = null) {
     });
     if (!tableDoc.exists) context.changed = true;
     refreshGapporiRules(context);
+    // 新しく遊び始める操作 (賭ける・券を買う・乗る) の前に、1日のプレイ回数を確かめる (この卓で賭け足すのは同じ1回)
+    context.assertPlayAllowed = uid => {
+      if (tableHeld('gappori', context.table, uid) > 0) return;
+      assertCasinoPlayAllowed(loaded.origins.get(uid), tables, 'gappori', uid);
+    };
     mutate(context);
     advanceGapporiTable(context);
 
@@ -3165,7 +3219,7 @@ async function runGapporiTable(actorUid, mutate, actorName = null) {
   });
   warnCasinoOrphans('gappori', done.context.orphanPayouts);
   await applyRateChartLive(done.written.chart);
-  return { ...done.context, heldAfter: done.written.held };
+  return { ...done.context, heldAfter: done.written.held, limits: done.written.limits };
 }
 
 // -----------------------------------------------------------------
@@ -3191,6 +3245,11 @@ async function runSinkTable(actorUid, mutate, actorName = null) {
     }
     // 沈む時刻を過ぎていれば、操作より先に沈める (沈んだあとの「飛び降りる」は受け付けない)
     advanceSinkTable(context);
+    // 新しく遊び始める操作 (賭ける・券を買う・乗る) の前に、1日のプレイ回数を確かめる (この卓で賭け足すのは同じ1回)
+    context.assertPlayAllowed = uid => {
+      if (tableHeld('sink', context.table, uid) > 0) return;
+      assertCasinoPlayAllowed(loaded.origins.get(uid), tables, 'sink', uid);
+    };
     mutate(context);
     advanceSinkTable(context);
 
@@ -3205,7 +3264,7 @@ async function runSinkTable(actorUid, mutate, actorName = null) {
   });
   warnCasinoOrphans('sink', done.context.orphanPayouts);
   await applyRateChartLive(done.written.chart);
-  return { ...done.context, heldAfter: done.written.held };
+  return { ...done.context, heldAfter: done.written.held, limits: done.written.limits };
 }
 
 /** 沈没の操作の返事: 船の様子と、本人の分 (乗っているか・飛び降りた時刻) と財布 */
@@ -3217,7 +3276,7 @@ async function sinkTableAction(uid, username, mutate) {
     sink: publicSinkTable(ctx.table),
     sinkMine: sinkMine(ctx.table, uid),
     sinkSea: sinkSeaState(ctx.table, Date.now()),
-    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0) : null,
+    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0, ctx.limits?.get(uid)) : null,
     now: new Date().toISOString()
   };
 }
@@ -3239,7 +3298,7 @@ async function gapporiTableAction(uid, username, mutate) {
   return {
     me: username,
     gappori: publicGapporiTable(ctx.table),
-    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0) : null,
+    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0, ctx.limits?.get(uid)) : null,
     now: new Date().toISOString()
   };
 }
@@ -3291,6 +3350,34 @@ async function gapporiAdminSetJackpot(rawAmount, actor) {
   return { before, ...gapporiJackpotInfo(ctx.table) };
 }
 
+/**
+ * ハクを全員 (レートの対象のプレイヤー) に count 回ずつ配る (管理者だけ。テストや配布用)。
+ * 口座 casino_accounts/{uid} の gpHaku に足す (口座がまだ無い人は作る)。uid はログインと同じくプレイヤー名から決まる
+ */
+const GAPPORI_HAKU_GRANT_MAX = 10;
+async function gapporiAdminGrantHaku(rawCount) {
+  const count = Number(rawCount);
+  if (!Number.isSafeInteger(count) || count < 1 || count > GAPPORI_HAKU_GRANT_MAX) {
+    throw new GapporiAdminError(400, `配る回数は 1〜${GAPPORI_HAKU_GRANT_MAX} の整数で入力してください。`);
+  }
+  const playersSnapshot = await db.collection('players').get();
+  const names = playersSnapshot.docs
+    .map(doc => String(doc.data().name || ''))
+    .filter(name => name && !RATE_EXCLUDED_PLAYERS.has(name));
+  const at = new Date().toISOString();
+  const batch = db.batch();
+  names.forEach(name => {
+    batch.set(casinoAccountRef(authUidFromUsername(name)), {
+      player: name,
+      gpHaku: FieldValue.increment(count),
+      updatedAt: at
+    }, { merge: true });
+  });
+  await batch.commit();
+  console.log('gappori haku granted:', JSON.stringify({ count, players: names.length }));
+  return { granted: { count, players: names } };
+}
+
 export const gapporiAdmin = onRequest({ region: 'asia-northeast1' }, async (req, res) => {
   setCors(req, res);
   if (req.method === 'OPTIONS') {
@@ -3313,6 +3400,7 @@ export const gapporiAdmin = onRequest({ region: 'asia-northeast1' }, async (req,
     let payload;
     if (action === 'status') payload = await gapporiAdminStatus();
     else if (action === 'setJackpot') payload = await gapporiAdminSetJackpot(body.amount, String(decoded.username || 'admin'));
+    else if (action === 'grantHaku') payload = await gapporiAdminGrantHaku(body.count);
     else throw new GapporiAdminError(400, '不明な操作です。');
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
@@ -3584,18 +3672,25 @@ const CASINO_ACTIONS = {
   vgRoll: ({ uid, username, body }) => casinoVoyageRoll(uid, username, body.bet),
   bjJoin: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => joinSeat(ctx, uid, username, body.seat)),
   bjLeave: ({ uid, username }) => blackjackTableAction(uid, username, ctx => leaveSeat(ctx, uid)),
-  bjBet: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => placeBet(ctx, uid, body.amount, body.squeeze)),
+  bjBet: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => {
+    if (Number(body.amount) > 0) ctx.assertPlayAllowed(uid);
+    placeBet(ctx, uid, body.amount, body.squeeze);
+  }),
   bjMove: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => moveTurn(ctx, uid, body.move, body.seq)),
   bjOpen: ({ uid, username, body }) => blackjackTableAction(uid, username, ctx => openCards(ctx, uid, body.no, body.hands)),
   bjTick: ({ uid, username }) => blackjackTableAction(uid, username, tickTable),
   // tickets: [{ picks, units }] をまとめて買う (古い画面の { picks, units } 1枚も受け付ける)
-  gpBuy: ({ uid, username, body }) => gapporiTableAction(uid, username, ctx => buyGapporiTickets(
-    ctx, uid, username, Array.isArray(body.tickets) ? body.tickets : [{ picks: body.picks, units: body.units }]
-  )),
+  gpBuy: ({ uid, username, body }) => gapporiTableAction(uid, username, ctx => {
+    ctx.assertPlayAllowed(uid);
+    buyGapporiTickets(ctx, uid, username, Array.isArray(body.tickets) ? body.tickets : [{ picks: body.picks, units: body.units }]);
+  }),
   gpChance: ({ uid, username, body }) => gapporiTableAction(uid, username, ctx => chooseGapporiChance(ctx, uid, body.ticket, body.kind)),
   gpStart: ({ uid, username }) => gapporiTableAction(uid, username, ctx => startGapporiNow(ctx, uid)),
   gpTick: ({ uid, username }) => gapporiTableAction(uid, username, () => {}),
-  skBoard: ({ uid, username, body }) => sinkTableAction(uid, username, ctx => boardSink(ctx, uid, username, body.fare)),
+  skBoard: ({ uid, username, body }) => sinkTableAction(uid, username, ctx => {
+    ctx.assertPlayAllowed(uid);
+    boardSink(ctx, uid, username, body.fare);
+  }),
   skLeave: ({ uid, username }) => sinkTableAction(uid, username, ctx => leaveSink(ctx, uid)),
   skReady: ({ uid, username }) => sinkTableAction(uid, username, ctx => readySink(ctx, uid)),
   skJump: ({ uid, username }) => sinkTableAction(uid, username, ctx => jumpSink(ctx, uid)),
