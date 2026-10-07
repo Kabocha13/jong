@@ -1352,11 +1352,31 @@ async function loadLotteryData() {
                 }
             }
 
+            // 購入締切までは、買った券を払った額のまま売却できる (57.2〜)
+            const sellableCount = isLotterySellable(l, now)
+                ? myTickets.filter(t => !t.isClaimed).reduce((sum, t) => sum + (t.count || 1), 0)
+                : 0;
+            let sellHtml = '';
+            if (sellableCount > 0) {
+                const unitPrices = [...new Set(myTickets.filter(t => !t.isClaimed).map(t => lotteryTicketUnitPrice(l, t)))];
+                const priceText = unitPrices.length === 1 ? `1枚 ${formatRate(unitPrices[0])} で売却` : '購入した価格で売却';
+                sellHtml = `
+                    <div class=\"form-group flex gap-10 items-end\" style=\"margin-top: 8px;\">
+                        <div class=\"flex-1\">
+                            <label for=\"lottery-sell-count-${l.lotteryId}\">売却枚数 (${priceText}・締切まで):</label>
+                            <input type=\"number\" id=\"lottery-sell-count-${l.lotteryId}\" min=\"1\" max=\"${sellableCount}\" value=\"${sellableCount}\" inputmode=\"numeric\">
+                        </div>
+                        <button type=\"button\" class=\"action-button sell-lottery-tickets\" data-lottery-id=\"${l.lotteryId}\" style=\"width: auto;\">売却する</button>
+                    </div>
+                `;
+            }
+
             html += `
                 <div class=\"bet-card\" style=\"margin-bottom: 10px;\">
                     <h4>${l.name} (#${l.lotteryId})</h4>
                     <p>購入枚数: ${totalTicketsCount} 枚</p>
                     ${statusHtml}
+                    ${sellHtml}
                     <p id=\"lottery-result-message-${l.lotteryId}\" class=\"hidden\"></p>
                 </div>
             `;
@@ -1365,6 +1385,9 @@ async function loadLotteryData() {
         
         LOTTERY_RESULTS_CONTAINER.querySelectorAll('.check-lottery-result').forEach(button => {
             button.addEventListener('click', handleCheckLotteryResult);
+        });
+        LOTTERY_RESULTS_CONTAINER.querySelectorAll('.sell-lottery-tickets').forEach(button => {
+            button.addEventListener('click', handleSellLotteryTickets);
         });
     }
 }
@@ -1463,9 +1486,10 @@ if (LOTTERY_PURCHASE_FORM) {
                     player: authenticatedUser.name,
                     purchaseDate: purchaseDate, 
                     prizeRank: prizeRank,
-                    prizeAmount: prizeAmount, 
-                    count: ticketCount, 
-                    isClaimed: false 
+                    prizeAmount: prizeAmount,
+                    count: ticketCount,
+                    isClaimed: false,
+                    unitPrice: lottery.ticketPrice * DISCOUNT_RATE   // 1枚あたり払った額 (売却のときにこの額で戻す。57.2〜)
                 };
                 
                 newTickets.push(newTicket);
@@ -1529,6 +1553,119 @@ function performLotteryDraw(prizes) {
     return { prizeRank: null, prizeAmount: 0, isWinner: false };
 }
 
+
+// -----------------------------------------------------------------
+// 宝くじの売却 (57.2〜)
+//   購入締切までは、買った券を払った額 (Luxury 割引のあとの額) のまま売却できる。
+//   どの券を売るかは選べず、持っている券から無作為に選ぶ (抽選結果は買ったときに決まっているので、
+//   外れ券だけを売り戻して得をすることができないように)。
+//   売却額は 1枚あたりの額の合計を切り捨てる (分けて売っても、買ったときに払った額を超えない)。
+// -----------------------------------------------------------------
+
+function isLotterySellable(lottery, now = new Date()) {
+    return lottery.status === 'OPEN' && new Date(lottery.purchaseDeadline) > now;
+}
+
+/** 券1枚の売却額。57.2 より前に買った券は払った額を持っていないので、いまの会員の割引で出す */
+function lotteryTicketUnitPrice(lottery, ticket) {
+    const unit = Number(ticket.unitPrice);
+    if (Number.isFinite(unit) && unit >= 0) return unit;
+    const discount = authenticatedUser && authenticatedUser.status === 'luxury' ? 0.8 : 1.0;
+    return Number(lottery.ticketPrice) * discount;
+}
+
+async function handleSellLotteryTickets(e) {
+    const button = e.currentTarget;
+    const lotteryId = parseInt(button.dataset.lotteryId);
+    if (!authenticatedUser || !lotteryId) return;
+
+    const messageEl = document.getElementById(`lottery-result-message-${lotteryId}`);
+    const countInput = document.getElementById(`lottery-sell-count-${lotteryId}`);
+    const count = parseInt(countInput?.value);
+    if (!Number.isInteger(count) || count <= 0) {
+        showMessage(messageEl, '❌ 1枚以上の売却枚数を入力してください。', 'error');
+        return;
+    }
+
+    button.disabled = true;
+    showMessage(messageEl, `${count}枚を売却中...`, 'info');
+
+    try {
+        const currentData = await fetchAllData();
+        const allLotteries = currentData.lotteries || [];
+        const targetIndex = allLotteries.findIndex(l => l.lotteryId === lotteryId);
+        if (targetIndex === -1 || !isLotterySellable(allLotteries[targetIndex])) {
+            showMessage(messageEl, '❌ この宝くじは購入締切を過ぎたため売却できません。', 'error');
+            await loadLotteryData();
+            return;
+        }
+
+        const player = authenticatedUser.name;
+        const scoresMap = new Map(currentData.scores.map(p => [p.name, p]));
+        const targetPlayer = scoresMap.get(player);
+        if (!targetPlayer) {
+            showMessage(messageEl, '❌ ユーザーデータが見つかりません。', 'error');
+            return;
+        }
+
+        // 読み込んだデータ (キャッシュ) を書き換えないように写しを作る
+        const lottery = { ...allLotteries[targetIndex], tickets: (allLotteries[targetIndex].tickets || []).map(t => ({ ...t })) };
+
+        // 自分のまだ確認していない券を1枚ずつに並べ、無作為に count 枚を選ぶ
+        const units = [];
+        lottery.tickets.forEach((t, index) => {
+            if (t.player !== player || t.isClaimed) return;
+            for (let k = 0; k < (t.count || 1); k++) units.push(index);
+        });
+        if (count > units.length) {
+            showMessage(messageEl, `❌ 売却できるのは ${units.length} 枚までです。`, 'error');
+            await loadLotteryData();
+            return;
+        }
+        for (let k = 0; k < count; k++) {
+            const j = k + Math.floor(Math.random() * (units.length - k));
+            [units[k], units[j]] = [units[j], units[k]];
+        }
+        const soldByIndex = new Map();
+        units.slice(0, count).forEach(index => soldByIndex.set(index, (soldByIndex.get(index) || 0) + 1));
+
+        let refundRaw = 0;
+        soldByIndex.forEach((sold, index) => {
+            const ticket = lottery.tickets[index];
+            refundRaw += lotteryTicketUnitPrice(lottery, ticket) * sold;
+            ticket.count = (ticket.count || 1) - sold;
+        });
+        lottery.tickets = lottery.tickets.filter(t => !(typeof t.count === 'number' && t.count <= 0));
+        const refund = Math.floor(refundRaw + 1e-9);
+
+        const newScore = normalizeRate(targetPlayer.score + refund);
+        scoresMap.set(player, { ...targetPlayer, score: newScore });
+
+        const response = await updateAllData({
+            scores: Array.from(scoresMap.values()),
+            sports_bets: currentData.sports_bets,
+            speedstorm_records: currentData.speedstorm_records,
+            lotteries: allLotteries.map((l, i) => (i === targetIndex ? lottery : l)),
+            gift_codes: currentData.gift_codes || [],
+            rate_history_meta: { source: 'lottery', reason: `宝くじ売却 ${lottery.name} ${count}枚` }
+        });
+
+        if (response.status === 'success') {
+            authenticatedUser.score = newScore;
+            CURRENT_SCORE_ELEMENT.textContent = formatRate(newScore);
+            await loadLotteryData();
+            showMessage(document.getElementById(`lottery-result-message-${lotteryId}`) || LOTTERY_PURCHASE_MESSAGE,
+                `✅ ${count}枚を売却し、レート ${formatRate(refund)} が戻りました。`, 'success');
+        } else {
+            showMessage(messageEl, `❌ 売却エラー: ${response.message}`, 'error');
+        }
+    } catch (error) {
+        console.error('宝くじ売却処理中にエラー:', error);
+        showMessage(messageEl, `❌ サーバーエラー: ${error.message}`, 'error');
+    } finally {
+        button.disabled = false;
+    }
+}
 
 async function handleCheckLotteryResult(e) {
     const button = e.target;
