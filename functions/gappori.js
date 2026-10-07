@@ -3,7 +3,8 @@
 //
 // ルール
 //   回る盤面に16マス。15マスにお宝の絵柄 (毎回10種類から5種類。55.5 までは6種類)、1マスは船長。
-//   2% の回はゴールド盤 (56.1〜): お宝は4種類だけで、1種類6マスまで (ルーレットは金色)。
+//   5% の回はゴールド盤 (57.0〜。57.0 は 2%、57.1 で 5%): お宝は4種類だけで、1種類6マスまで (ルーレットは金色)。
+//   5個の予想の券が当たった人には、その回にスタンプを1つ押す (57.1〜。何枚当たっても1回に1つ。ハク入りの5個も数える)。
 //   絵柄ごとのマスの数も毎回変わるが、レア度の順 (錨 ≥ オウム ≥ 舵輪 ≥ ラム酒 ≥ 望遠鏡 ≥ 宝の地図 ≥ 羅針盤 ≥ 大砲 ≥ 金貨 ≥ 宝箱) は守る。
 //   ドクロ旗 (55.5〜。54.19〜55.4 は盤面に出る「海賊旗」だった) は盤面には出さず、単品でだけ賭ける (1口 GAPPORI_FLAG_PRICE)。
 //   船長マスの回の JP ルーレットのドクロ旗のマスに止まったら当たりで、倍率はそのとき ×50〜×99 から均等に1つ引く (55.6 までは ×1〜×99)
@@ -89,6 +90,8 @@ export const GAPPORI_HAKU_PER_CARD = 3;
 // ハクも1個に数えて GAPPORI_HAKU_MIN_PICKS 個以上の予想でだけ使える (55.24〜。2個の予想では使えない)
 export const GAPPORI_HAKU = 'haku';
 export const GAPPORI_HAKU_MIN_PICKS = 3;
+// 5個の予想が当たった人へのスタンプ (57.1〜): この個数の予想の券が当たったら、その回にスタンプを1つ押す (何枚当たっても1回に1つ)
+export const GAPPORI_STAMP_WIN_PICKS = 5;
 export const GAPPORI_JP_PLUS_SMALL = 'plussmall';    // JP+?? のマス (55.18〜)。ジャックポットに 10〜99 を足す
 export const GAPPORI_JP_MINUS_SMALL = 'minussmall';  // JP−?? のマス (55.18〜)。ジャックポットから 10〜99 を引く (0 より下げない)
 // JP±??? と JP±?? で動かす額の範囲 (均等)
@@ -134,9 +137,9 @@ function compositions(parts = GAPPORI_KINDS, total = GAPPORI_SYMBOL_POCKETS, max
   return out;
 }
 export const GAPPORI_COMPOSITIONS = compositions();
-// ゴールド盤 (56.1〜): 毎回 GAPPORI_GOLD_RATE の確率で、お宝を GAPPORI_GOLD_KINDS 種類だけにし、1種類 GAPPORI_GOLD_MAX_PER_KIND マスまで許す。
+// ゴールド盤 (57.0〜): 毎回 GAPPORI_GOLD_RATE の確率で、お宝を GAPPORI_GOLD_KINDS 種類だけにし、1種類 GAPPORI_GOLD_MAX_PER_KIND マスまで許す。
 // 画面はルーレットを金色にする。倍率はふだんと同じくその盤面の当たる確率から作る (還元率 105% の計算には入れない)
-export const GAPPORI_GOLD_RATE = 0.02;
+export const GAPPORI_GOLD_RATE = 0.05;   // 57.0 は 0.02、57.1 で 0.05
 export const GAPPORI_GOLD_KINDS = 4;
 export const GAPPORI_GOLD_MAX_PER_KIND = 6;
 export const GAPPORI_GOLD_COMPOSITIONS = compositions(GAPPORI_GOLD_KINDS, GAPPORI_SYMBOL_POCKETS, GAPPORI_GOLD_MAX_PER_KIND);

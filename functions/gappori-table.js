@@ -42,6 +42,7 @@ import {
   GAPPORI_HAKU_MIN_PICKS,
   GAPPORI_HAKU_PER_CARD,
   GAPPORI_STAMPS_PER_CARD,
+  GAPPORI_STAMP_WIN_PICKS,
   GAPPORI_JP_FLAG,
   GAPPORI_JP_HALF,
   GAPPORI_JP_JACKPOT,
@@ -97,8 +98,9 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  17: 55.18 の JP ルーレットに JP+??・JP−?? (10〜99) を足し、ドクロ旗を2マスにした /
 //  18: 55.19 の JP ルーレットのハズレを全部スタンプにし、スタンプカードとハクを足した /
 //  19: 55.21 の JP ルーレットの JP+??・JP−?? をスタンプにした (スタンプ 5マス) /
-//  20: 56.1 の ゴールド盤 (2% の回はお宝4種類・1種類6マスまで))
-export const GAPPORI_RULES_VERSION = 20;
+//  20: 57.0 の ゴールド盤 (2% の回はお宝4種類・1種類6マスまで) /
+//  21: 57.1 の ゴールド盤 5% と、5個の予想が当たった人へのスタンプ)
+export const GAPPORI_RULES_VERSION = 21;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -425,23 +427,37 @@ function finishGapporiRound(ctx, start) {
     });
   }
 
-  // スタンプ: その回に券を買った全員のスタンプカードに1つ押す。10個貯まったらハクを3回使えるようにして、カードは 0 から
+  // スタンプカードに1つ押す。10個貯まったらハクを3回使えるようにして、カードは 0 から。押せたら { uid, name, completed }
+  const pushStamp = (uid, name) => {
+    const wallet = ctx.wallets.get(uid);
+    if (!wallet) return null;
+    let stamps = (wallet.gpStamps || 0) + 1;
+    let completed = false;
+    if (stamps >= GAPPORI_STAMPS_PER_CARD) {
+      stamps -= GAPPORI_STAMPS_PER_CARD;
+      wallet.gpHaku = (wallet.gpHaku || 0) + GAPPORI_HAKU_PER_CARD;
+      completed = true;
+    }
+    wallet.gpStamps = stamps;
+    return { uid, name, completed };
+  };
+
+  // スタンプ: その回に券を買った全員のスタンプカードに1つ押す
   if (jackpot.kind === GAPPORI_JP_STAMP) {
     jackpot.stamped = [];
     costBy.forEach((item, uid) => {
-      const wallet = ctx.wallets.get(uid);
-      if (!wallet) return;
-      let stamps = (wallet.gpStamps || 0) + 1;
-      let completed = false;
-      if (stamps >= GAPPORI_STAMPS_PER_CARD) {
-        stamps -= GAPPORI_STAMPS_PER_CARD;
-        wallet.gpHaku = (wallet.gpHaku || 0) + GAPPORI_HAKU_PER_CARD;
-        completed = true;
-      }
-      wallet.gpStamps = stamps;
-      jackpot.stamped.push({ uid, name: item.name, completed });
+      const stamped = pushStamp(uid, item.name);
+      if (stamped) jackpot.stamped.push(stamped);
     });
   }
+
+  // 5個の予想の券が当たった人にもスタンプを1つ押す (57.1〜。何枚当たっても1回に1つ。ハク入りの5個も数える。JP ルーレットのスタンプとは別に押す)
+  const winStamped = [];
+  costBy.forEach((item, uid) => {
+    if (!table.tickets.some(ticket => ticket.uid === uid && ticket.win && Array.isArray(ticket.picks) && ticket.picks.length === GAPPORI_STAMP_WIN_PICKS)) return;
+    const stamped = pushStamp(uid, item.name);
+    if (stamped) winStamped.push(stamped);
+  });
 
   // 払い戻し2倍: その回の当たりの券 (ドクロ旗は当たらない回) の払い戻しを2倍にする
   if (jackpot.kind === GAPPORI_JP_PAYOUT2) {
@@ -518,7 +534,8 @@ function finishGapporiRound(ctx, start) {
 
   table.result = {
     hits: gapporiHitList(table.board, table.balls),
-    jackpot
+    jackpot,
+    winStamped   // 5個の予想が当たってスタンプを押した人 (57.1〜)
   };
   table.phase = 'result';
   table.nextRoundAt = iso(start + GAPPORI_RESULT_MS + (jackpot.kind ? GAPPORI_CAPTAIN_MS : 0) + (jackpot.won || jackpot.flagWinners.length || jackpot.extraBall !== null ? GAPPORI_JACKPOT_MS : 0));
@@ -585,6 +602,7 @@ export function publicGapporiTable(table) {
     result: table.result
       ? {
         hits: table.result.hits,
+        winStamped: (table.result.winStamped || []).map(({ name, completed }) => ({ name, completed })),
         jackpot: {
           ...table.result.jackpot,
           shares: table.result.jackpot.shares.map(({ name, amount }) => ({ name, amount })),

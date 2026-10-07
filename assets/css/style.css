@@ -4300,7 +4300,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     100% { filter: brightness(1); }
 }
 
-/* ゴールド盤 (56.1〜。2% の回。お宝4種類・1種類6マスまで): ルーレットと台を金色にする (JP ルーレットのあいだは JP の色) */
+/* ゴールド盤 (57.0〜。5% の回。お宝4種類・1種類6マスまで): ルーレットと台を金色にする (JP ルーレットのあいだは JP の色) */
 .gp-wheel.is-gold:not(.is-jp) {
     background:
         radial-gradient(circle, transparent 0 58%, rgba(0, 0, 0, 0.25) 58.5% 60%, transparent 60.5%),

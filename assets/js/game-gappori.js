@@ -182,7 +182,7 @@ function buildGapporiWheel(table) {
     table.board.kinds.forEach(kind => loadSlotSymbolImage(kind));
     const wheel = el('gp-wheel');
     wheel.innerHTML = '';
-    // ゴールド盤 (2% の回。お宝4種類・1種類6マスまで) はルーレットと台を金色にする
+    // ゴールド盤 (5% の回。お宝4種類・1種類6マスまで) はルーレットと台を金色にする
     wheel.classList.toggle('is-gold', Boolean(table.board.gold));
     el('gappori-table')?.classList.toggle('is-gold', Boolean(table.board.gold));
     table.board.pockets.forEach((kind, index) => {
@@ -1154,7 +1154,10 @@ async function celebrateGapporiResult() {
             flashScreen('white');
             buzz([80, 50, 140]);
         }
-        showMessage(el('gp-message'), `🎉 当たり！ 払い戻し ${payout.toLocaleString('ja-JP')}`, 'success');
+        // 5個の予想が当たった回はスタンプも1つ (57.1〜。カードがいっぱいになったらハク3回)
+        const winStamp = (table.result?.winStamped || []).find(item => item.name === myName());
+        const stampNote = winStamp ? ` ・ 📮 5個の予想が当たってスタンプ1つ${winStamp.completed ? ' (カードがいっぱいになってハク3回！)' : ''}` : '';
+        showMessage(el('gp-message'), `🎉 当たり！ 払い戻し ${payout.toLocaleString('ja-JP')}${stampNote}`, 'success');
     } else if (mine.length && !jackpot.won) {
         showMessage(el('gp-message'), jackpot.kind === 'miss'
             ? `この回ははずれでした。JPルーレットもハズレ… ジャックポット ${table.jackpot.toLocaleString('ja-JP')} は持ち越しです。`
@@ -1239,6 +1242,7 @@ async function sendGapporiTick() {
             casino.session = data.session;
             renderWallet();
             renderGapporiRecent();
+            renderGapporiStamps();   // 結果でスタンプが増えていたらカードに出す
         } else if (casino.session) {
             // チップが尽きて精算された (または時間切れで精算されていた)
             await refreshCasino();
