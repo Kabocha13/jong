@@ -33,8 +33,10 @@ import {
   GAPPORI_JP_DOUBLE,
   GAPPORI_JP_EXTRA,
   GAPPORI_JP_MINUS,
+  GAPPORI_JP_MINUS_SMALL,
   GAPPORI_JP_PAYOUT2,
   GAPPORI_JP_PLUS,
+  GAPPORI_JP_PLUS_SMALL,
   GAPPORI_JP_FLAG,
   GAPPORI_JP_HALF,
   GAPPORI_JP_JACKPOT,
@@ -48,6 +50,7 @@ import {
   gapporiHitList,
   drawGapporiFlagOdds,
   drawGapporiJpShift,
+  isGapporiJpPlus,
   gapporiJpTreasureChoice,
   isGapporiFlagPicks,
   gapporiOdds,
@@ -83,8 +86,9 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  13: 55.8 の JP ルーレットに JP 2倍・JP 1/2 のマスを足し、配当の設計値を 105% になるよう下げた /
 //  14: 55.10 の JP 1/2 のマスを2つにし (JP の戻りが釣り合う)、配当の設計値を 55.6 の値に戻した /
 //  15: 55.16 の 1種類のマスの上限を 4 → 5 に (内訳 5通り → 12通り。配当の設計値も 105% に合わせた) /
-//  16: 55.17 の JP ルーレットに 払い戻し2倍・もう1球・JP+???・JP−??? を足した。配当の設計値は 55.16 のまま (払い戻し2倍・もう1球は 105% に入れない))
-export const GAPPORI_RULES_VERSION = 16;
+//  16: 55.17 の JP ルーレットに 払い戻し2倍・もう1球・JP+???・JP−??? を足した。配当の設計値は 55.16 のまま (払い戻し2倍・もう1球は 105% に入れない) /
+//  17: 55.18 の JP ルーレットに JP+??・JP−?? (10〜99) を足し、ドクロ旗を2マスにした)
+export const GAPPORI_RULES_VERSION = 17;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -385,11 +389,11 @@ function finishGapporiRound(ctx, start) {
     jackpot.boost = { factor, before, after: Math.floor(table.jackpot) };
   }
 
-  // JP+??? / JP−???: ジャックポットに 100〜500 を足す / 引く (0 より下げない)
-  if (jackpot.kind === GAPPORI_JP_PLUS || jackpot.kind === GAPPORI_JP_MINUS) {
-    const amount = drawGapporiJpShift(ctx.randomInt);
+  // JP+??? / JP−??? (100〜500)・JP+?? / JP−?? (10〜99): ジャックポットに足す / 引く (0 より下げない)
+  if ([GAPPORI_JP_PLUS, GAPPORI_JP_MINUS, GAPPORI_JP_PLUS_SMALL, GAPPORI_JP_MINUS_SMALL].includes(jackpot.kind)) {
+    const amount = drawGapporiJpShift(ctx.randomInt, jackpot.kind);
     const before = Math.floor(table.jackpot);
-    const delta = jackpot.kind === GAPPORI_JP_PLUS ? amount : -Math.min(amount, before);
+    const delta = isGapporiJpPlus(jackpot.kind) ? amount : -Math.min(amount, before);
     table.jackpot += delta;
     jackpot.shift = { delta, before, after: Math.floor(table.jackpot) };
   }

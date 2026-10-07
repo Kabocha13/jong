@@ -4361,15 +4361,21 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 .gp-jp-pocket.is-payout2,
 .gp-jp-pocket.is-extra,
 .gp-jp-pocket.is-plus,
-.gp-jp-pocket.is-minus { font-family: var(--font-display); font-size: 0.26em; letter-spacing: 0.02em; }
+.gp-jp-pocket.is-minus,
+.gp-jp-pocket.is-plussmall,
+.gp-jp-pocket.is-minussmall { font-family: var(--font-display); font-size: 0.26em; letter-spacing: 0.02em; }
 .gp-jp-pocket.is-payout2 { color: #fff4dc; background: radial-gradient(circle at 50% 35%, #7fd18a 0%, #2f7d52 60%, #164a2f 100%); }
 .gp-jp-pocket.is-extra { color: #2b1d06; background: radial-gradient(circle at 50% 35%, #ffffff 0%, #e6eaee 45%, #8a949c 100%); }
-.gp-jp-pocket.is-plus { color: #fff4dc; background: radial-gradient(circle at 50% 35%, #ffb648 0%, #c9922f 60%, #6b4a10 100%); }
-.gp-jp-pocket.is-minus { color: #dfe7ee; background: radial-gradient(circle at 50% 35%, #6d7f8e 0%, #3a4753 60%, #1d252c 100%); }
+.gp-jp-pocket.is-plus,
+.gp-jp-pocket.is-plussmall { color: #fff4dc; background: radial-gradient(circle at 50% 35%, #ffb648 0%, #c9922f 60%, #6b4a10 100%); }
+.gp-jp-pocket.is-minus,
+.gp-jp-pocket.is-minussmall { color: #dfe7ee; background: radial-gradient(circle at 50% 35%, #6d7f8e 0%, #3a4753 60%, #1d252c 100%); }
 .gp-pocket .gp-jp-pocket.is-payout2,
 .gp-pocket .gp-jp-pocket.is-extra,
 .gp-pocket .gp-jp-pocket.is-plus,
-.gp-pocket .gp-jp-pocket.is-minus { width: calc(0.88em / 0.26); height: calc(0.88em / 0.26); }
+.gp-pocket .gp-jp-pocket.is-minus,
+.gp-pocket .gp-jp-pocket.is-plussmall,
+.gp-pocket .gp-jp-pocket.is-minussmall { width: calc(0.88em / 0.26); height: calc(0.88em / 0.26); }
 .gp-jp-pocket.is-flag .slot-symbol { width: 100%; height: 100%; box-shadow: none; }
 .gp-pocket.is-stopped .gp-jp-pocket.is-flag { box-shadow: 0 0 0 3px #ff5a4a, 0 0 24px #ff5a4a; }
 

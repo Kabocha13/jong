@@ -15,11 +15,13 @@
 //   1つ選び、「1球入ったこと」にできる (その券だけ。盤面は変わらない)。
 //   船長マスに球が入るとチャンスタイム。5球が入ったあと、盤面が JP ルーレット (16マス。JP 1マス・お宝ゲット 1マス・
 //   ドクロ旗 1マス (55.5〜)・JP 2倍 1マス・JP 1/2 2マス (55.8〜。1/2 は 55.10 で2マスに)・
-//   払い戻し2倍・もう1球・JP+???・JP−??? 1マスずつ (55.17〜)・ハズレ 6マス。generateGapporiJpWheel) に変わって1回だけ回る (55.2)。
+//   払い戻し2倍・もう1球・JP+???・JP−??? 1マスずつ (55.17〜)・JP+??・JP−?? 1マスずつ (55.18〜)・
+//   ドクロ旗は 55.18 から 2マス・ハズレ 3マス。generateGapporiJpWheel) に変わって1回だけ回る (55.2)。
 //     JP 2倍・JP 1/2: 貯まっているジャックポット (この回の積立のあと) を2倍・半分にして持ち越す。
 //     払い戻し2倍 (55.17〜): その回の当たりの券の払い戻しが2倍。
 //     もう1球 (55.17〜): 盤面に6球目を入れる (まだ入っていないマスから)。その回の全員の券に効く。
 //     JP+??? / JP−??? (55.17〜): ジャックポットに 100〜500 を足す / 引く (0 より下げない)。
+//     JP+?? / JP−?? (55.18〜): ジャックポットに 10〜99 を足す / 引く (0 より下げない)。
 //     ドクロ旗: ドクロ旗の券 (単品) が当たり。倍率は ×50〜×99 から引く。
 //     JP: ジャックポットが当たり、その回に券を買った人で均等に分ける (54.5 まで賭けた額に応じて分けていた)。
 //     お宝ゲット: 3球目のあとのお宝ゲットと同じで、その回の全員の券ごとに、まだ足りないお宝を1つ「1球入ったこと」にする
@@ -70,13 +72,19 @@ export const GAPPORI_JP_DOUBLE = 'double';      // JP 2倍のマス (55.8〜)。
 export const GAPPORI_JP_HALF = 'half';          // JP 1/2 のマス (55.8〜)。貯まっているジャックポットを半分にして持ち越す
 export const GAPPORI_JP_PAYOUT2 = 'payout2';    // 払い戻し2倍のマス (55.17〜)。その回の当たりの券の払い戻しが2倍
 export const GAPPORI_JP_EXTRA = 'extra';        // もう1球のマス (55.17〜)。盤面に6球目を入れ、その回の全員の券に効く
-export const GAPPORI_JP_PLUS = 'plus';          // JP+??? のマス (55.17〜)。ジャックポットに GAPPORI_JP_SHIFT_MIN〜MAX を足す
-export const GAPPORI_JP_MINUS = 'minus';        // JP−??? のマス (55.17〜)。ジャックポットから GAPPORI_JP_SHIFT_MIN〜MAX を引く (0 より下げない)
-export const GAPPORI_JP_SHIFT_MIN = 100;
-export const GAPPORI_JP_SHIFT_MAX = 500;
+export const GAPPORI_JP_PLUS = 'plus';          // JP+??? のマス (55.17〜)。ジャックポットに 100〜500 を足す
+export const GAPPORI_JP_MINUS = 'minus';        // JP−??? のマス (55.17〜)。ジャックポットから 100〜500 を引く (0 より下げない)
+export const GAPPORI_JP_PLUS_SMALL = 'plussmall';    // JP+?? のマス (55.18〜)。ジャックポットに 10〜99 を足す
+export const GAPPORI_JP_MINUS_SMALL = 'minussmall';  // JP−?? のマス (55.18〜)。ジャックポットから 10〜99 を引く (0 より下げない)
+// JP±??? と JP±?? で動かす額の範囲 (均等)
+export const GAPPORI_JP_SHIFT_RANGES = {
+  [GAPPORI_JP_PLUS]: [100, 500], [GAPPORI_JP_MINUS]: [100, 500],
+  [GAPPORI_JP_PLUS_SMALL]: [10, 99], [GAPPORI_JP_MINUS_SMALL]: [10, 99]
+};
 export const GAPPORI_JP_WHEEL_COUNTS = {
-  [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 1, [GAPPORI_JP_FLAG]: 1, [GAPPORI_JP_DOUBLE]: 1, [GAPPORI_JP_HALF]: 2,   // 1/2 は 55.10 で 1 → 2
-  [GAPPORI_JP_PAYOUT2]: 1, [GAPPORI_JP_EXTRA]: 1, [GAPPORI_JP_PLUS]: 1, [GAPPORI_JP_MINUS]: 1   // 55.17 で足した (ハズレは 6)
+  [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 1, [GAPPORI_JP_FLAG]: 2, [GAPPORI_JP_DOUBLE]: 1, [GAPPORI_JP_HALF]: 2,   // 1/2 は 55.10 で 1 → 2
+  [GAPPORI_JP_PAYOUT2]: 1, [GAPPORI_JP_EXTRA]: 1, [GAPPORI_JP_PLUS]: 1, [GAPPORI_JP_MINUS]: 1,   // 55.17 で足した
+  [GAPPORI_JP_PLUS_SMALL]: 1, [GAPPORI_JP_MINUS_SMALL]: 1   // 55.18 で足し、ドクロ旗を 1 → 2 にした (ハズレは 3)
 };
 // JP 2倍・1/2 があると、ジャックポットは長い目で見て貯めた額の何倍が戻るか。止まる確率を JP a・2倍 d・1/2 h とすると
 // 船長の回ごとの増え方の期待値から a / (a − d + h/2) (2倍1マス・1/2 2マスなら釣り合って 1倍。1マスずつなら 2倍。tools/gappori-return.mjs で使う)
@@ -148,9 +156,15 @@ export function generateGapporiJpWheel(randomInt) {
   return { pockets, index, kind: pockets[index] };
 }
 
-/** JP+???・JP−??? で動かす額 (GAPPORI_JP_SHIFT_MIN〜MAX から均等に1つ) */
-export function drawGapporiJpShift(randomInt) {
-  return GAPPORI_JP_SHIFT_MIN + randomInt(GAPPORI_JP_SHIFT_MAX - GAPPORI_JP_SHIFT_MIN + 1);
+/** JP±??? (100〜500)・JP±?? (10〜99) で動かす額 (マスごとの範囲 GAPPORI_JP_SHIFT_RANGES から均等に1つ) */
+export function drawGapporiJpShift(randomInt, kind) {
+  const [min, max] = GAPPORI_JP_SHIFT_RANGES[kind];
+  return min + randomInt(max - min + 1);
+}
+
+/** ジャックポットを足すマスか (JP+???・JP+??) */
+export function isGapporiJpPlus(kind) {
+  return kind === GAPPORI_JP_PLUS || kind === GAPPORI_JP_PLUS_SMALL;
 }
 
 /** ドクロ旗の券 (単品) か */
