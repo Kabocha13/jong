@@ -5,7 +5,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
 import { normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
-import { GAPPORI_JACKPOT_RATE, GapporiRuleError } from './gappori.js';
+import { GAPPORI_JACKPOT_RATE, GapporiRuleError, settleGapporiStampCard } from './gappori.js';
 import { NARIAGARI_BETS, playNariagari } from './nariagari.js';
 import {
   VOYAGE_BET,
@@ -34,6 +34,7 @@ import {
   GapporiTableError,
   advanceGapporiTable,
   buyGapporiTickets,
+  resetGapporiBoard,
   chooseGapporiChance,
   createGapporiContext,
   emptyGapporiTable,
@@ -626,6 +627,43 @@ async function rebuildRateChartQuietly(context) {
 }
 
 /**
+ * 人ごとの結果待ちのくじ・賭けの額 (日次レート補正で、レートに足して計算する分)。
+ *   宝くじ: 発表前の券は買ったときの代金 (ラグジュアリーは 0.8倍で買っている)。発表後で受け取っていない当たり券は当たりの額
+ *   スポーツくじ: 結果が出ていない投票 (isWin が null) の額
+ *   カジノ: ブラックジャック・宝探し・沈没の結果待ちの賭け (押さえている額)
+ * 当たりの額は発表前には数えない (徴収の増え方で当たりがわかってしまうため)
+ */
+function pendingStakesByPlayer({ lotteries, sportsBets, statusByPlayer, casinoTables, now }) {
+  const pending = new Map();
+  const add = (name, amount) => {
+    const value = Math.max(0, Math.round(Number(amount) || 0));
+    if (name && value) pending.set(name, (pending.get(name) || 0) + value);
+  };
+  lotteries.forEach(lottery => {
+    const announced = Date.parse(lottery.resultAnnounceDate || '') <= now;
+    (lottery.tickets || []).forEach(ticket => {
+      if (!ticket || ticket.isClaimed) return;
+      const count = Math.max(0, Number(ticket.count) || 0);
+      if (!announced) {
+        const discount = statusByPlayer.get(ticket.player) === 'luxury' ? 0.8 : 1;
+        add(ticket.player, (Number(lottery.ticketPrice) || 0) * count * discount);
+      } else if (ticket.prizeAmount > 0) {
+        add(ticket.player, Number(ticket.prizeAmount) * count);
+      }
+    });
+  });
+  sportsBets.forEach(bet => {
+    if (bet.status === 'SETTLED') return;
+    (bet.wagers || []).forEach(wager => {
+      if (wager && wager.isWin === null) add(wager.player, wager.amount);
+    });
+  });
+  const names = new Set([...statusByPlayer.keys()]);
+  names.forEach(name => add(name, casinoHeld(casinoTables, authUidFromUsername(name))));
+  return pending;
+}
+
+/**
  * 日次レート補正 (と借金の利息)。毎日 0:05 の collectDailyPointTax からだけ呼ぶ (画面からは呼ばない)。
  * その日に済んだかどうかは rate_reversion_runs/{日付} で見る。settings/app はログインした人なら書けるので、
  * そこの rate_reversion_last_date (表示用) が書き換えられても、同じ日に2回は動かない
@@ -649,11 +687,23 @@ async function applyDailyRateReversionForToday() {
     const baseline = normalizeRate(settings.rate_baseline ?? RATE_BASELINE_DEFAULT);
     const rate = normalizeReversionRate(settings.rate_reversion_rate);
     const flat = Math.max(0, Math.round(Number(settings.rate_reversion_flat ?? RATE_REVERSION_FLAT_DEFAULT) || 0));
-    const [playersSnapshot, loansSnapshot] = await Promise.all([
+    const [playersSnapshot, loansSnapshot, lotteriesSnapshot, sportsSnapshot, casinoTables] = await Promise.all([
       transaction.get(db.collection('players')),
-      transaction.get(db.collection(LOAN_COLLECTION))
+      transaction.get(db.collection(LOAN_COLLECTION)),
+      transaction.get(db.collection(FIREBASE_COLLECTIONS.lotteries)),
+      transaction.get(db.collection(FIREBASE_COLLECTIONS.sports_bets)),
+      readCasinoTables(transaction)
     ]);
     const nowIso = new Date().toISOString();
+    // 結果待ちのくじ・賭け (56.2〜): くじを買ってレートを減らしておけば徴収を逃れられたので、
+    // 補正は「レート + 結果待ちの分」で計算し、出た増減をレートに入れる
+    const pendingByPlayer = pendingStakesByPlayer({
+      lotteries: lotteriesSnapshot.docs.map(doc => doc.data()),
+      sportsBets: sportsSnapshot.docs.map(doc => doc.data()),
+      statusByPlayer: new Map(playersSnapshot.docs.map(doc => [doc.data().name, doc.data().status])),
+      casinoTables,
+      now: Date.parse(nowIso)
+    });
     // 借金の利息は補正の直後に別の出来事として残す (グラフで「補正」と「利息」を分けて見せるため)。
     // 同じ時刻だと並び順が定まらないので 1秒だけ後ろにずらす
     const interestIso = new Date(Date.parse(nowIso) + 1000).toISOString();
@@ -670,9 +720,11 @@ async function applyDailyRateReversionForToday() {
       const player = doc.data();
       if (RATE_EXCLUDED_PLAYERS.has(player.name)) return;
 
-      // 1. 日次レート補正。借りたレートも通常のレートなので、そのまま含めて補正する
+      // 1. 日次レート補正。借りたレートも通常のレートなので、そのまま含めて補正する。
+      //    結果待ちのくじ・賭けの分も足した値で計算する (くじを買って徴収を逃れられないように)
       const before = normalizeRate(player.score);
-      const delta = getRateReversionDelta(before, baseline, rate, flat);
+      const pending = pendingByPlayer.get(player.name) || 0;
+      const delta = getRateReversionDelta(before + pending, baseline, rate, flat);
       const after = normalizeRate(before + delta);
       if (delta !== 0) {
         totalMoved += Math.abs(after - before);
@@ -685,7 +737,8 @@ async function applyDailyRateReversionForToday() {
           afterScore: after,
           delta: after - before,
           source: 'daily_rate_reversion',
-          reason: `日次レート補正 基準${baseline} / ${(rate * 100).toFixed(1).replace(/\.0$/, '')}%`,
+          reason: `日次レート補正 基準${baseline} / ${(rate * 100).toFixed(1).replace(/\.0$/, '')}%`
+            + (pending ? ` (結果待ちのくじ・賭け ${pending.toLocaleString('ja-JP')} を含めて計算)` : ''),
           actor: 'scheduled_function',
           createdAt: nowIso
         });
@@ -2594,7 +2647,8 @@ const GAPPORI_TABLE_ID = 'main';             // 宝探しの卓も1つだけ
 const SINK_TABLE_ID = 'main';                // 沈没の船も1つだけ
 // 口座に持つ、遊んだ回数と直近の結果の項目
 // gpStamps・gpHaku は宝探しのスタンプカード (押したスタンプの数・ハクを使える回数。55.19〜)
-const CASINO_ACCOUNT_COUNTS = ['bjHands', 'slotSpins', 'gpRounds', 'nrSpins', 'vgRolls', 'skRounds', 'wagered', 'gpStamps', 'gpHaku'];
+// gpResetUsed は宝探しの盤面のリセットを使ったか (1 = 使った。券を買うと 0 に戻る。56.4〜)
+const CASINO_ACCOUNT_COUNTS = ['bjHands', 'slotSpins', 'gpRounds', 'nrSpins', 'vgRolls', 'skRounds', 'wagered', 'gpStamps', 'gpHaku', 'gpResetUsed'];
 const CASINO_ACCOUNT_RECENTS = ['bjRecent', 'slotRecent', 'gpRecent', 'nrRecent', 'vgRecent', 'skRecent'];
 
 class CasinoError extends Error {
@@ -2682,7 +2736,7 @@ function publicCasinoSession(wallet, held, limit = casinoDailyPlayLimit('none'))
     expiresAt: null,
     blackjack: { recent: wallet.bjRecent || [] },
     slot: { recent: wallet.slotRecent || [] },
-    gappori: { recent: wallet.gpRecent || [], stamps: wallet.gpStamps || 0, haku: wallet.gpHaku || 0 },
+    gappori: { recent: wallet.gpRecent || [], stamps: wallet.gpStamps || 0, haku: wallet.gpHaku || 0, resetUsed: Boolean(wallet.gpResetUsed) },
     nariagari: {
       recent: wallet.nrRecent || [],
       // 最後の1回 (第4弾以上まで行った回を、画面を開き直したときに続きから見せるため)
@@ -2791,9 +2845,12 @@ async function readCasinoWallets(transaction, names, tables, game) {
     const playerDoc = snapshot.docs[0];
     const name = String(playerDoc.data().name || names.get(uid));
     const account = normalizeCasinoAccount(accountDocs[index].exists ? accountDocs[index].data() : null, name);
+    // スタンプカードの決まり (3つでハク1回) より多く貯まっていたら数え直す (56.3 で 10個 → 3つにしたため)。変われば書き戻される
+    const walletAccount = JSON.parse(JSON.stringify(account));
+    settleGapporiStampCard(walletAccount);
     const score = normalizeRate(playerDoc.data().score);
     const held = casinoHeld(tables, uid);
-    wallets.set(uid, { ...JSON.parse(JSON.stringify(account)), chips: score - held });
+    wallets.set(uid, { ...walletAccount, chips: score - held });
     const status = String(playerDoc.data().status || 'none');
     origins.set(uid, { account, score, held, heldHere: tableHeld(game, tables[game], uid), playerRef: playerDoc.ref, name, status });
   });
@@ -2976,6 +3033,7 @@ async function readCasinoSession(uid, username) {
   };
   const held = casinoHeld(tables, uid);
   const account = normalizeCasinoAccount(accountDoc.exists ? accountDoc.data() : null, username);
+  settleGapporiStampCard(account);   // 画面に出す分も数え直す (書き戻すのは次の操作のとき)
   const status = playerSnapshot.empty ? 'none' : String(playerSnapshot.docs[0].data().status || 'none');
   return { score, session: publicCasinoSession({ ...account, chips: score - held }, held, casinoDailyPlayLimit(status)) };
 }
@@ -3686,6 +3744,8 @@ const CASINO_ACTIONS = {
   }),
   gpChance: ({ uid, username, body }) => gapporiTableAction(uid, username, ctx => chooseGapporiChance(ctx, uid, body.ticket, body.kind)),
   gpStart: ({ uid, username }) => gapporiTableAction(uid, username, ctx => startGapporiNow(ctx, uid)),
+  // 盤面のリセット (1人1回。券を買うとまた使える)
+  gpReset: ({ uid, username }) => gapporiTableAction(uid, username, ctx => resetGapporiBoard(ctx, uid, username)),
   gpTick: ({ uid, username }) => gapporiTableAction(uid, username, () => {}),
   skBoard: ({ uid, username, body }) => sinkTableAction(uid, username, ctx => {
     ctx.assertPlayAllowed(uid);

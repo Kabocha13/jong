@@ -40,8 +40,6 @@ import {
   GAPPORI_JP_STAMP,
   GAPPORI_HAKU,
   GAPPORI_HAKU_MIN_PICKS,
-  GAPPORI_HAKU_PER_CARD,
-  GAPPORI_STAMPS_PER_CARD,
   GAPPORI_JP_FLAG,
   GAPPORI_JP_HALF,
   GAPPORI_JP_JACKPOT,
@@ -58,6 +56,7 @@ import {
   isGapporiJpPlus,
   gapporiJpTreasureChoice,
   gapporiHakuResult,
+  settleGapporiStampCard,
   isGapporiFlagPicks,
   isGapporiHakuPicks,
   gapporiOdds,
@@ -72,11 +71,15 @@ import {
 
 export const GAPPORI_BETTING_MS = 30 * 1000;
 export const GAPPORI_BALL_MS = 5200;           // 球を1つ入れる間隔 (画面の演出もこの間隔。52.9 までは 2.6秒)
+// 球を入れる間隔のゆらぎ (56.3〜)。1球ごとに GAPPORI_BALL_MS ± これ (均等) にする
+export const GAPPORI_BALL_JITTER_MS = 1000;
 export const GAPPORI_SETTLE_MS = 900;          // 最後の球が入ってから次の段階までの間
 export const GAPPORI_CHANCE_MS = 10 * 1000;
 export const GAPPORI_RESULT_MS = 9 * 1000;
 export const GAPPORI_CAPTAIN_MS = 10 * 1000;   // 船長チャンス (カットイン + JP ルーレットを回す) の演出のぶん、結果を長く見せる
 export const GAPPORI_JACKPOT_MS = 4 * 1000;    // JP が当たったときのカットインのぶん、さらに長く見せる
+// 結果の演出を始める時刻をそろえる間 (56.2〜)。どの人の画面も、結果を出した時刻 (result.at) からこれだけ置いて演出を始める
+export const GAPPORI_RESULT_SYNC_MS = 2 * 1000;
 const GAPPORI_RECENT_LIMIT = 12;
 // 盤面と配当の作り方 (ルール) を変えたら上げる。卓がこれより古ければ、受付中で券が無いときに新しい作り方の盤面にする
 // (1: 52.0 の 3〜5個・重ねなし / 2: 52.1 の 2〜5個・重ねてよい・同じお宝はまとめて並べる /
@@ -97,8 +100,9 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  17: 55.18 の JP ルーレットに JP+??・JP−?? (10〜99) を足し、ドクロ旗を2マスにした /
 //  18: 55.19 の JP ルーレットのハズレを全部スタンプにし、スタンプカードとハクを足した /
 //  19: 55.21 の JP ルーレットの JP+??・JP−?? をスタンプにした (スタンプ 5マス) /
-//  20: 56.1 の ゴールド盤 (2% の回はお宝4種類・1種類6マスまで))
-export const GAPPORI_RULES_VERSION = 20;
+//  20: 56.1 の ゴールド盤 (2% の回はお宝4種類・1種類6マスまで) /
+//  21: 56.6 の JP ルーレットの入れ替え (払い戻し2倍・JP±??? を外し、ドクロ旗 3・お宝ゲット 2・もう1球 2・JP 1/2 1・スタンプ 6。配当の設計値も直した))
+export const GAPPORI_RULES_VERSION = 21;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -129,6 +133,7 @@ function startGapporiBoard(table, randomInt) {
   table.ready = [];       // 「すぐ始める」を押した人の uid
   table.result = null;
   table.nextRoundAt = null;
+  table.resetBy = null;   // 盤面をリセットした人の名前 (resetGapporiBoard。ふつうに始まった回は null)
 }
 
 export function emptyGapporiTable(randomInt) {
@@ -204,7 +209,7 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
     if (hakuOrders.length > 1 || table.tickets.some(ticket => ticket.uid === uid && ticket.haku)) {
       throw new GapporiTableError(409, 'ハクは1回の抽選で1枚の券にしか使えません。');
     }
-    if ((wallet.gpHaku || 0) < 1) throw new GapporiTableError(409, 'ハクを使える回数がありません (スタンプを10個貯めると3回使えます)。');
+    if ((wallet.gpHaku || 0) < 1) throw new GapporiTableError(409, 'ハクを使える回数がありません (スタンプを3つ貯めると1回使えます)。');
   }
   const tickets = orders.map(order => {
     const raw = Array.isArray(order?.picks) ? order.picks.map(String) : [];
@@ -239,12 +244,33 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
   }
   wallet.chips -= total;
   if (tickets.some(ticket => ticket.haku)) wallet.gpHaku = (wallet.gpHaku || 0) - 1;
+  wallet.gpResetUsed = 0;   // 券を買ったら、盤面のリセットをまた使える
   ctx.touchWallet(wallet, ctx.nowIso);
   ctx.touched.add(uid);
   table.tickets.push(...tickets);
   // 買い足した人は、まだ「すぐ始める」を押していないことにする
   table.ready = (table.ready || []).filter(id => id !== uid);
   if (!table.bettingEndsAt) table.bettingEndsAt = iso(ctx.now + GAPPORI_BETTING_MS);
+  ctx.changed = true;
+}
+
+/**
+ * 盤面のリセット (56.4〜)。受付中で、この回にまだ誰も券を買っていないときだけ (買った券の盤面と倍率は変えない)。
+ * 1人1回 (wallet.gpResetUsed)。宝探しの券を買うと、また使えるようになる (buyGapporiTickets)。
+ * 新しい盤面は次の回として出す (roundNo が1つ進むので、画面は新しい回と同じように描き直す)。ゴールド盤もふつうの回と同じ確率で出る
+ */
+export function resetGapporiBoard(ctx, uid, name) {
+  const { table } = ctx;
+  if (table.phase !== 'betting') throw new GapporiTableError(409, '盤面をリセットできるのは受付中だけです。');
+  if (table.tickets.length) throw new GapporiTableError(409, 'この回はもう券が買われているので、盤面をリセットできません。');
+  const wallet = ctx.wallets.get(uid);
+  if (!wallet) throw new GapporiTableError(409, 'ゲームの準備ができていません。画面を読み込み直してください。');
+  if (wallet.gpResetUsed) throw new GapporiTableError(409, '盤面のリセットはもう使いました。宝探しの券を買うと、また使えます。');
+  wallet.gpResetUsed = 1;
+  ctx.touchWallet(wallet, ctx.nowIso);
+  ctx.touched.add(uid);
+  startGapporiBoard(table, ctx.randomInt);
+  table.resetBy = String(name || '');
   ctx.changed = true;
 }
 
@@ -306,13 +332,16 @@ export function chooseGapporiChance(ctx, uid, rawTicket, rawKind) {
 /** 球を count 個入れる。1つ目は start から GAPPORI_BALL_MS 後 */
 function dropBalls(ctx, count, start) {
   const { table } = ctx;
+  let at = start;
   for (let i = 0; i < count; i++) {
     // ジャックポットが貯まっているほど船長マスに入りやすい (内部だけの調整。公開の写しには重みを出さない)
     table.balls.push(drawGapporiBall(table.board, table.balls, ctx.randomInt, gapporiCaptainWeight(table.jackpot)));
-    table.ballsAt.push(iso(start + (i + 1) * GAPPORI_BALL_MS));
+    // 1球ごとの間隔は GAPPORI_BALL_MS ± GAPPORI_BALL_JITTER_MS (画面はこの間隔に合わせて盤面を回す)
+    at += GAPPORI_BALL_MS - GAPPORI_BALL_JITTER_MS + ctx.randomInt(GAPPORI_BALL_JITTER_MS * 2 + 1);
+    table.ballsAt.push(iso(at));
   }
   table.phase = 'drawing';
-  table.drawEndsAt = iso(start + count * GAPPORI_BALL_MS + GAPPORI_SETTLE_MS);
+  table.drawEndsAt = iso(at + GAPPORI_SETTLE_MS);
 }
 
 /** 3球が入ったあと: まだ足りない絵柄がある券ごとにチャンスを引く。チャンスの券がなければ残りの球へ */
@@ -425,20 +454,14 @@ function finishGapporiRound(ctx, start) {
     });
   }
 
-  // スタンプ: その回に券を買った全員のスタンプカードに1つ押す。10個貯まったらハクを3回使えるようにして、カードは 0 から
+  // スタンプ: その回に券を買った全員のスタンプカードに1つ押す。3つ貯まったらハクを1回使えるようにして、カードは 0 から (56.3〜。55.19〜56.2 は10個で3回)
   if (jackpot.kind === GAPPORI_JP_STAMP) {
     jackpot.stamped = [];
     costBy.forEach((item, uid) => {
       const wallet = ctx.wallets.get(uid);
       if (!wallet) return;
-      let stamps = (wallet.gpStamps || 0) + 1;
-      let completed = false;
-      if (stamps >= GAPPORI_STAMPS_PER_CARD) {
-        stamps -= GAPPORI_STAMPS_PER_CARD;
-        wallet.gpHaku = (wallet.gpHaku || 0) + GAPPORI_HAKU_PER_CARD;
-        completed = true;
-      }
-      wallet.gpStamps = stamps;
+      wallet.gpStamps = (wallet.gpStamps || 0) + 1;
+      const completed = settleGapporiStampCard(wallet) > 0;
       jackpot.stamped.push({ uid, name: item.name, completed });
     });
   }
@@ -518,10 +541,12 @@ function finishGapporiRound(ctx, start) {
 
   table.result = {
     hits: gapporiHitList(table.board, table.balls),
-    jackpot
+    jackpot,
+    at: iso(start),                 // 結果を出した時刻 (画面はここから GAPPORI_RESULT_SYNC_MS 置いて、みんな同時に演出を始める)
+    syncMs: GAPPORI_RESULT_SYNC_MS
   };
   table.phase = 'result';
-  table.nextRoundAt = iso(start + GAPPORI_RESULT_MS + (jackpot.kind ? GAPPORI_CAPTAIN_MS : 0) + (jackpot.won || jackpot.flagWinners.length || jackpot.extraBall !== null ? GAPPORI_JACKPOT_MS : 0));
+  table.nextRoundAt = iso(start + GAPPORI_RESULT_SYNC_MS + GAPPORI_RESULT_MS + (jackpot.kind ? GAPPORI_CAPTAIN_MS : 0) + (jackpot.won || jackpot.flagWinners.length || jackpot.extraBall !== null ? GAPPORI_JACKPOT_MS : 0));
 }
 
 /**
@@ -566,6 +591,7 @@ export function publicGapporiTable(table) {
     board: table.board,
     odds: table.odds,
     featured: table.featured || [],
+    resetBy: table.phase === 'betting' ? table.resetBy || null : null,
     prices: GAPPORI_UNIT_PRICES,
     flag: { price: GAPPORI_FLAG_PRICE, oddsMin: GAPPORI_FLAG_ODDS_MIN, oddsMax: GAPPORI_FLAG_ODDS_MAX },
     jackpot: Math.floor(table.jackpot || 0),
@@ -585,6 +611,8 @@ export function publicGapporiTable(table) {
     result: table.result
       ? {
         hits: table.result.hits,
+        at: table.result.at || null,
+        syncMs: table.result.syncMs || 0,
         jackpot: {
           ...table.result.jackpot,
           shares: table.result.jackpot.shares.map(({ name, amount }) => ({ name, amount })),

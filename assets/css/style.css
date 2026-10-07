@@ -4377,7 +4377,6 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 /* 払い戻し2倍・もう1球・JP+???・JP−??? (55.17〜) */
 .gp-jp-pocket.is-payout2,
 .gp-jp-pocket.is-extra,
-.gp-jp-pocket.is-stamp,
 .gp-jp-pocket.is-plus,
 .gp-jp-pocket.is-minus,
 .gp-jp-pocket.is-plussmall,
@@ -4386,12 +4385,13 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 .gp-jp-pocket.is-extra { color: #2b1d06; background: radial-gradient(circle at 50% 35%, #ffffff 0%, #e6eaee 45%, #8a949c 100%); }
 .gp-jp-pocket.is-plus,
 .gp-jp-pocket.is-plussmall { color: #fff4dc; background: radial-gradient(circle at 50% 35%, #ffb648 0%, #c9922f 60%, #6b4a10 100%); }
-.gp-jp-pocket.is-stamp { color: #fff; background: radial-gradient(circle at 50% 35%, #e0605a 0%, var(--rum) 55%, var(--rum-dark) 100%); font-size: 0.2em; }
 .gp-jp-pocket.is-minus,
 .gp-jp-pocket.is-minussmall { color: #dfe7ee; background: radial-gradient(circle at 50% 35%, #6d7f8e 0%, #3a4753 60%, #1d252c 100%); }
+/* スタンプ (56.6〜は絵。assets/img/gappori/stamp.svg) */
+.gp-jp-pocket.is-stamp { overflow: hidden; background: #ecd5a2; }
+.gp-jp-pocket.is-stamp img { display: block; width: 100%; height: 100%; pointer-events: none; }
 .gp-pocket .gp-jp-pocket.is-payout2,
 .gp-pocket .gp-jp-pocket.is-extra,
-.gp-pocket .gp-jp-pocket.is-stamp { width: calc(0.88em / 0.2); height: calc(0.88em / 0.2); }
 .gp-pocket .gp-jp-pocket.is-plus,
 .gp-pocket .gp-jp-pocket.is-minus,
 .gp-pocket .gp-jp-pocket.is-plussmall,
@@ -4775,6 +4775,24 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     letter-spacing: 0.08em;
 }
 
+/* 盤面のリセット (56.4〜)。スタンプカードの右に、控えめな枠のボタンで出す */
+.gp-stamps-row { display: flex; align-items: center; gap: 12px; }
+.gp-stamps-row .gp-stamps-card { flex: none; }
+.gp-reset-button {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 6px 10px;
+    font-size: 0.82em;
+    line-height: 1.3;
+    letter-spacing: 0.04em;
+    color: var(--rum-dark);
+    background: transparent;
+    border: 1px dashed var(--rum);
+    box-shadow: none;
+}
+.gp-reset-button:disabled { color: var(--ink-soft); border-color: var(--parchment-edge); }
+
 /* 船長チャンスがはずれたとき: 暗く沈んだ画面に銀の字 */
 .slot-overlay.is-miss {
     background: radial-gradient(circle at 50% 45%, rgba(40, 46, 56, 0.92), rgba(6, 8, 10, 0.97) 72%);
@@ -4987,17 +5005,17 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 /* 本日のおすすめ (券を買う欄の上)。押すとその予想を選ぶ */
 .gp-featured { margin: 0 0 10px; }
 
-/* スタンプカード (55.19〜)。10マスに錨のスタンプを押していく */
+/* スタンプカード (55.19〜)。3マス (56.3〜。56.2 までは10マス) に錨のスタンプを押していく */
 .gp-stamps { margin: 0 0 10px; }
 .gp-stamps-title { margin: 0 0 4px; font-size: 0.86em; font-weight: 700; letter-spacing: 0.08em; color: var(--rum-dark); }
 .gp-stamps-title small { margin-left: 6px; font-weight: 400; color: var(--ink-soft); }
-.gp-stamps-card { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; margin: 0; padding: 0; list-style: none; }
+.gp-stamps-card { display: grid; grid-template-columns: repeat(3, 34px); gap: 8px; margin: 0; padding: 0; list-style: none; }
 .gp-stamps-card li {
     display: grid; place-items: center; aspect-ratio: 1;
-    font-size: 10px; color: var(--ink-soft);
+    font-size: 12px; color: var(--ink-soft);
     border: 1px dashed var(--parchment-edge); border-radius: 50%;
 }
-.gp-stamps-card li.is-stamped { font-size: 15px; color: #fff; background: var(--rum); border: 1px solid var(--rum-dark); transform: rotate(-8deg); }
+.gp-stamps-card li.is-stamped { font-size: 19px; color: #fff; background: var(--rum); border: 1px solid var(--rum-dark); transform: rotate(-8deg); }
 
 /* ハク (スタンプカードで使える札)。縁を金にする */
 .gp-kinds button.gp-kind.is-haku { border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass-light); }
