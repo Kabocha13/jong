@@ -25,7 +25,9 @@ const SLOT_SYMBOLS = {
     helm:      { name: '舵輪', emoji: '☸️', src: ['assets/img/slot/props/left-3.png'], lazy: true },
     telescope: { name: '望遠鏡', emoji: '🔭', src: ['assets/img/slot/props/right-3.png'], lazy: true },
     cannon:    { name: '大砲', emoji: '💣', src: ['assets/img/slot/props/left-2.png'], lazy: true },
-    flag:      { name: 'ドクロ旗', emoji: '🏴‍☠️', src: ['assets/img/slot/wild.jpeg'] }
+    flag:      { name: 'ドクロ旗', emoji: '🏴‍☠️', src: ['assets/img/slot/wild.jpeg'] },
+    // 宝探しのハク (55.19〜。スタンプカードで使える「どのお宝の球でもOK」の札)。公式キャラの顔
+    haku:      { name: 'ハク', emoji: '🧑‍✈️', src: ['assets/img/captain/face.jpeg', 'assets/img/slot/captain.jpeg'] }
 };
 const SLOT_PAYS = { chest: 100, coin: 30, compass: 15, map: 12, rum: 5, parrot: 3, anchor: 2 };
 const SLOT_LINES = [[1, 1, 1], [0, 0, 0], [2, 2, 2], [0, 1, 2], [2, 1, 0]];

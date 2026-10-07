@@ -16,12 +16,13 @@
 //   船長マスに球が入るとチャンスタイム。5球が入ったあと、盤面が JP ルーレット (16マス。JP 1マス・お宝ゲット 1マス・
 //   ドクロ旗 1マス (55.5〜)・JP 2倍 1マス・JP 1/2 2マス (55.8〜。1/2 は 55.10 で2マスに)・
 //   払い戻し2倍・もう1球・JP+???・JP−??? 1マスずつ (55.17〜)・JP+??・JP−?? 1マスずつ (55.18〜)・
-//   ドクロ旗は 55.18 から 2マス・ハズレ 3マス。generateGapporiJpWheel) に変わって1回だけ回る (55.2)。
+//   ドクロ旗は 55.18 から 2マス・スタンプ 3マス (55.19〜。ハズレは無い)。generateGapporiJpWheel) に変わって1回だけ回る (55.2)。
 //     JP 2倍・JP 1/2: 貯まっているジャックポット (この回の積立のあと) を2倍・半分にして持ち越す。
 //     払い戻し2倍 (55.17〜): その回の当たりの券の払い戻しが2倍。
 //     もう1球 (55.17〜): 盤面に6球目を入れる (まだ入っていないマスから)。その回の全員の券に効く。
 //     JP+??? / JP−??? (55.17〜): ジャックポットに 100〜500 を足す / 引く (0 より下げない)。
 //     JP+?? / JP−?? (55.18〜): ジャックポットに 10〜99 を足す / 引く (0 より下げない)。
+//     スタンプ (55.19〜。55.18 までのハズレ): その回に券を買った全員のスタンプカードに1つ押す。10個でハクを3回使える。
 //     ドクロ旗: ドクロ旗の券 (単品) が当たり。倍率は ×50〜×99 から引く。
 //     JP: ジャックポットが当たり、その回に券を買った人で均等に分ける (54.5 まで賭けた額に応じて分けていた)。
 //     お宝ゲット: 3球目のあとのお宝ゲットと同じで、その回の全員の券ごとに、まだ足りないお宝を1つ「1球入ったこと」にする
@@ -54,7 +55,7 @@ export const GAPPORI_PICKS_MIN = 2;
 export const GAPPORI_PICKS_MAX = 5;
 // 1口の値段 (予想の個数ごと)。倍率はこの値段に対してかかる
 export const GAPPORI_UNIT_PRICES = { 2: 10, 3: 50, 4: 100, 5: 200 };
-export const GAPPORI_MAX_UNITS = 50;         // 1枚の券で買える口数
+// 1枚の券で買える口数の上限は 55.20 で無くした (54.x〜55.19 は 50口)。使えるレートの範囲でいくらでも買える
 export const GAPPORI_MAX_TICKETS = 20;       // 1回に1人が買える券 (セット) の数
 // 配当の設計値 (予想の個数ごと。3球目のあとのお宝ゲットも含めた、払い戻しの期待値 ÷ 賭けた額)。
 // 配当 + JP ルーレットのお宝ゲット + JP 積立 (外れた券の代金の1割) が、どの個数でもちょうど GAPPORI_TARGET_RETURN に
@@ -74,6 +75,13 @@ export const GAPPORI_JP_PAYOUT2 = 'payout2';    // 払い戻し2倍のマス (55
 export const GAPPORI_JP_EXTRA = 'extra';        // もう1球のマス (55.17〜)。盤面に6球目を入れ、その回の全員の券に効く
 export const GAPPORI_JP_PLUS = 'plus';          // JP+??? のマス (55.17〜)。ジャックポットに 100〜500 を足す
 export const GAPPORI_JP_MINUS = 'minus';        // JP−??? のマス (55.17〜)。ジャックポットから 100〜500 を引く (0 より下げない)
+export const GAPPORI_JP_STAMP = 'stamp';        // スタンプのマス (55.19〜)。その回に券を買った全員のスタンプカードに1つ押す
+// スタンプカード (55.19〜): スタンプが GAPPORI_STAMPS_PER_CARD 貯まると、ハクを GAPPORI_HAKU_PER_CARD 回使える (カードは 0 からやり直し)
+export const GAPPORI_STAMPS_PER_CARD = 10;
+export const GAPPORI_HAKU_PER_CARD = 3;
+// ハク (55.19〜): 予想の1つとして選べる「どのお宝の球でもOK」の札。ほかのお宝がそろい、余った球 (船長以外) があれば当たりで、
+// 余った球のお宝のうち倍率がいちばん高くなるものに化ける。1枚の券に1つ・1回の抽選で1枚まで。値段は個数どおり
+export const GAPPORI_HAKU = 'haku';
 export const GAPPORI_JP_PLUS_SMALL = 'plussmall';    // JP+?? のマス (55.18〜)。ジャックポットに 10〜99 を足す
 export const GAPPORI_JP_MINUS_SMALL = 'minussmall';  // JP−?? のマス (55.18〜)。ジャックポットから 10〜99 を引く (0 より下げない)
 // JP±??? と JP±?? で動かす額の範囲 (均等)
@@ -84,7 +92,8 @@ export const GAPPORI_JP_SHIFT_RANGES = {
 export const GAPPORI_JP_WHEEL_COUNTS = {
   [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 1, [GAPPORI_JP_FLAG]: 2, [GAPPORI_JP_DOUBLE]: 1, [GAPPORI_JP_HALF]: 2,   // 1/2 は 55.10 で 1 → 2
   [GAPPORI_JP_PAYOUT2]: 1, [GAPPORI_JP_EXTRA]: 1, [GAPPORI_JP_PLUS]: 1, [GAPPORI_JP_MINUS]: 1,   // 55.17 で足した
-  [GAPPORI_JP_PLUS_SMALL]: 1, [GAPPORI_JP_MINUS_SMALL]: 1   // 55.18 で足し、ドクロ旗を 1 → 2 にした (ハズレは 3)
+  [GAPPORI_JP_PLUS_SMALL]: 1, [GAPPORI_JP_MINUS_SMALL]: 1,   // 55.18 で足し、ドクロ旗を 1 → 2 にした
+  [GAPPORI_JP_STAMP]: 3   // 55.19 で残りのハズレを全部スタンプにした (ハズレは 0)
 };
 // JP 2倍・1/2 があると、ジャックポットは長い目で見て貯めた額の何倍が戻るか。止まる確率を JP a・2倍 d・1/2 h とすると
 // 船長の回ごとの増え方の期待値から a / (a − d + h/2) (2倍1マス・1/2 2マスなら釣り合って 1倍。1マスずつなら 2倍。tools/gappori-return.mjs で使う)
@@ -165,6 +174,39 @@ export function drawGapporiJpShift(randomInt, kind) {
 /** ジャックポットを足すマスか (JP+???・JP+??) */
 export function isGapporiJpPlus(kind) {
   return kind === GAPPORI_JP_PLUS || kind === GAPPORI_JP_PLUS_SMALL;
+}
+
+/** ハクを入れた予想か */
+export function isGapporiHakuPicks(picks) {
+  return Array.isArray(picks) && picks.includes(GAPPORI_HAKU);
+}
+
+/**
+ * ハクの券の結果。balls は入った球 (もう1球の6球目を含む)、odds はその回の配当表。
+ * ハク以外のお宝がそろっていて、余った球 (船長以外) があれば、そのお宝のうち倍率がいちばん高くなるものに化けて当たり。
+ * 返り値: { kind (化けたお宝), key, odds } / 当たらなければ null
+ */
+export function gapporiHakuResult(board, balls, picks, odds) {
+  const others = picks.filter(kind => kind !== GAPPORI_HAKU);
+  const hits = gapporiHitCounts(board, balls);
+  const need = gapporiPickCounts(others);
+  if (Object.entries(need).some(([kind, count]) => (hits[kind] || 0) < count)) return null;
+  let best = null;
+  board.kinds.forEach(kind => {
+    if ((hits[kind] || 0) - (need[kind] || 0) < 1) return;   // 余った球が無い
+    const key = gapporiPickKey([...others, kind]);
+    if (!odds[key]) return;
+    if (!best || odds[key] > best.odds) best = { kind, key, odds: odds[key] };
+  });
+  return best;
+}
+
+/** ハクの券の倍率の幅 (化けうるお宝ごとの倍率の最小と最大)。others はハク以外のお宝。無ければ null */
+export function gapporiHakuOddsRange(board, odds, others) {
+  const values = board.kinds
+    .map(kind => odds[gapporiPickKey([...others, kind])])
+    .filter(Boolean);
+  return values.length ? { min: Math.min(...values), max: Math.max(...values) } : null;
 }
 
 /** ドクロ旗の券 (単品) か */

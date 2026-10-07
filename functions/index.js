@@ -2593,7 +2593,8 @@ const BJ_TABLE_ID = 'main';                  // ブラックジャックの卓�
 const GAPPORI_TABLE_ID = 'main';             // 宝探しの卓も1つだけ
 const SINK_TABLE_ID = 'main';                // 沈没の船も1つだけ
 // 口座に持つ、遊んだ回数と直近の結果の項目
-const CASINO_ACCOUNT_COUNTS = ['bjHands', 'slotSpins', 'gpRounds', 'nrSpins', 'vgRolls', 'skRounds', 'wagered'];
+// gpStamps・gpHaku は宝探しのスタンプカード (押したスタンプの数・ハクを使える回数。55.19〜)
+const CASINO_ACCOUNT_COUNTS = ['bjHands', 'slotSpins', 'gpRounds', 'nrSpins', 'vgRolls', 'skRounds', 'wagered', 'gpStamps', 'gpHaku'];
 const CASINO_ACCOUNT_RECENTS = ['bjRecent', 'slotRecent', 'gpRecent', 'nrRecent', 'vgRecent', 'skRecent'];
 
 class CasinoError extends Error {
@@ -2649,7 +2650,7 @@ function publicCasinoSession(wallet, held) {
     expiresAt: null,
     blackjack: { recent: wallet.bjRecent || [] },
     slot: { recent: wallet.slotRecent || [] },
-    gappori: { recent: wallet.gpRecent || [] },
+    gappori: { recent: wallet.gpRecent || [], stamps: wallet.gpStamps || 0, haku: wallet.gpHaku || 0 },
     nariagari: {
       recent: wallet.nrRecent || [],
       // 最後の1回 (第4弾以上まで行った回を、画面を開き直したときに続きから見せるため)
