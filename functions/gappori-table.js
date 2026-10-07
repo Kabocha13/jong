@@ -48,6 +48,7 @@ import {
   GAPPORI_MAX_TICKETS,
   GAPPORI_UNIT_PRICES,
   drawGapporiBall,
+  gapporiCaptainWeight,
   gapporiAutoChance,
   gapporiFeatured,
   gapporiHitList,
@@ -93,8 +94,9 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  15: 55.16 の 1種類のマスの上限を 4 → 5 に (内訳 5通り → 12通り。配当の設計値も 105% に合わせた) /
 //  16: 55.17 の JP ルーレットに 払い戻し2倍・もう1球・JP+???・JP−??? を足した。配当の設計値は 55.16 のまま (払い戻し2倍・もう1球は 105% に入れない) /
 //  17: 55.18 の JP ルーレットに JP+??・JP−?? (10〜99) を足し、ドクロ旗を2マスにした /
-//  18: 55.19 の JP ルーレットのハズレを全部スタンプにし、スタンプカードとハクを足した)
-export const GAPPORI_RULES_VERSION = 18;
+//  18: 55.19 の JP ルーレットのハズレを全部スタンプにし、スタンプカードとハクを足した /
+//  19: 55.21 の JP ルーレットの JP+??・JP−?? をスタンプにした (スタンプ 5マス))
+export const GAPPORI_RULES_VERSION = 19;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -303,7 +305,8 @@ export function chooseGapporiChance(ctx, uid, rawTicket, rawKind) {
 function dropBalls(ctx, count, start) {
   const { table } = ctx;
   for (let i = 0; i < count; i++) {
-    table.balls.push(drawGapporiBall(table.board, table.balls, ctx.randomInt));
+    // ジャックポットが貯まっているほど船長マスに入りやすい (内部だけの調整。公開の写しには重みを出さない)
+    table.balls.push(drawGapporiBall(table.board, table.balls, ctx.randomInt, gapporiCaptainWeight(table.jackpot)));
     table.ballsAt.push(iso(start + (i + 1) * GAPPORI_BALL_MS));
   }
   table.phase = 'drawing';

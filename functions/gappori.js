@@ -15,13 +15,13 @@
 //   1つ選び、「1球入ったこと」にできる (その券だけ。盤面は変わらない)。
 //   船長マスに球が入るとチャンスタイム。5球が入ったあと、盤面が JP ルーレット (16マス。JP 1マス・お宝ゲット 1マス・
 //   ドクロ旗 1マス (55.5〜)・JP 2倍 1マス・JP 1/2 2マス (55.8〜。1/2 は 55.10 で2マスに)・
-//   払い戻し2倍・もう1球・JP+???・JP−??? 1マスずつ (55.17〜)・JP+??・JP−?? 1マスずつ (55.18〜)・
-//   ドクロ旗は 55.18 から 2マス・スタンプ 3マス (55.19〜。ハズレは無い)。generateGapporiJpWheel) に変わって1回だけ回る (55.2)。
+//   払い戻し2倍・もう1球・JP+???・JP−??? 1マスずつ (55.17〜)・ドクロ旗は 55.18 から 2マス・
+//   スタンプ 5マス (55.19〜。55.21 で JP+??・JP−?? の2マスもスタンプにした。ハズレは無い)。generateGapporiJpWheel) に変わって1回だけ回る (55.2)。
 //     JP 2倍・JP 1/2: 貯まっているジャックポット (この回の積立のあと) を2倍・半分にして持ち越す。
 //     払い戻し2倍 (55.17〜): その回の当たりの券の払い戻しが2倍。
 //     もう1球 (55.17〜): 盤面に6球目を入れる (まだ入っていないマスから)。その回の全員の券に効く。
 //     JP+??? / JP−??? (55.17〜): ジャックポットに 100〜500 を足す / 引く (0 より下げない)。
-//     JP+?? / JP−?? (55.18〜): ジャックポットに 10〜99 を足す / 引く (0 より下げない)。
+//     JP+?? / JP−?? (55.18〜55.20。55.21 でスタンプにした): ジャックポットに 10〜99 を足す / 引く。
 //     スタンプ (55.19〜。55.18 までのハズレ): その回に券を買った全員のスタンプカードに1つ押す。10個でハクを3回使える。
 //     ドクロ旗: ドクロ旗の券 (単品) が当たり。倍率は ×50〜×99 から引く。
 //     JP: ジャックポットが当たり、その回に券を買った人で均等に分ける (54.5 まで賭けた額に応じて分けていた)。
@@ -50,6 +50,10 @@ export const GAPPORI_KINDS = 5;              // 1回の盤面に並べる絵柄�
 export const GAPPORI_SYMBOL_POCKETS = 15;    // 絵柄のマス (ほかに船長が1マス)
 export const GAPPORI_MAX_PER_KIND = 5;       // 1つの絵柄のマスの数の上限 (55.16 で 4 → 5。内訳は 5通り → 12通り)
 export const GAPPORI_BALLS = 5;
+// ジャックポットが貯まってきたら、船長マスに球が入りやすくする (55.22〜。内部だけの調整で、プレイヤーには見せない)
+export const GAPPORI_CAPTAIN_BOOST_FROM = 3000;   // これを超えたら重みを上げ始める
+export const GAPPORI_CAPTAIN_BOOST_FULL = 30000;  // ここで最大の重み
+export const GAPPORI_CAPTAIN_BOOST_MAX = 3;       // 最大で、ほかのマスの何倍入りやすくするか
 export const GAPPORI_FIRST_BALLS = 3;        // チャンスはこの数の球が入ったあと
 export const GAPPORI_PICKS_MIN = 2;
 export const GAPPORI_PICKS_MAX = 5;
@@ -92,8 +96,8 @@ export const GAPPORI_JP_SHIFT_RANGES = {
 export const GAPPORI_JP_WHEEL_COUNTS = {
   [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 1, [GAPPORI_JP_FLAG]: 2, [GAPPORI_JP_DOUBLE]: 1, [GAPPORI_JP_HALF]: 2,   // 1/2 は 55.10 で 1 → 2
   [GAPPORI_JP_PAYOUT2]: 1, [GAPPORI_JP_EXTRA]: 1, [GAPPORI_JP_PLUS]: 1, [GAPPORI_JP_MINUS]: 1,   // 55.17 で足した
-  [GAPPORI_JP_PLUS_SMALL]: 1, [GAPPORI_JP_MINUS_SMALL]: 1,   // 55.18 で足し、ドクロ旗を 1 → 2 にした
-  [GAPPORI_JP_STAMP]: 3   // 55.19 で残りのハズレを全部スタンプにした (ハズレは 0)
+  // ドクロ旗は 55.18 で 1 → 2。JP+??・JP−?? (55.18〜55.20) は 55.21 でスタンプにした
+  [GAPPORI_JP_STAMP]: 5   // 55.19 で残りのハズレ3つを全部スタンプにし、55.21 で JP+??・JP−?? の2つも足した (ハズレは 0)
 };
 // JP 2倍・1/2 があると、ジャックポットは長い目で見て貯めた額の何倍が戻るか。止まる確率を JP a・2倍 d・1/2 h とすると
 // 船長の回ごとの増え方の期待値から a / (a − d + h/2) (2倍1マス・1/2 2マスなら釣り合って 1倍。1マスずつなら 2倍。tools/gappori-return.mjs で使う)
@@ -383,9 +387,29 @@ export function isGapporiWin(board, balls, picks, granted = null) {
 }
 
 /** 球を1つ選ぶ (まだ入っていないマスから一様に) */
-export function drawGapporiBall(board, balls, randomInt) {
+export function drawGapporiBall(board, balls, randomInt, captainWeight = 1) {
   const free = board.pockets.map((_, index) => index).filter(index => !balls.includes(index));
-  return free[randomInt(free.length)];
+  if (captainWeight === 1) return free[randomInt(free.length)];
+  // 船長マスだけ重みを付けて引く (重みは 1/100 単位の整数にして、整数の乱数で引く)
+  const weights = free.map(index => (board.pockets[index] === GAPPORI_CAPTAIN ? Math.round(captainWeight * 100) : 100));
+  let r = randomInt(weights.reduce((sum, weight) => sum + weight, 0));
+  for (let i = 0; i < free.length; i++) {
+    r -= weights[i];
+    if (r < 0) return free[i];
+  }
+  return free[free.length - 1];
+}
+
+/**
+ * 船長マスの重み (内部だけの調整。画面・ルールの説明・公開の写しには出さない)。
+ * ジャックポットが GAPPORI_CAPTAIN_BOOST_FROM を超えたら少しずつ上げ、GAPPORI_CAPTAIN_BOOST_FULL で GAPPORI_CAPTAIN_BOOST_MAX 倍。
+ * 5球のどれかが船長に入る確率は 1倍で 31%・2倍で 約51%・3倍で 約65%
+ */
+export function gapporiCaptainWeight(jackpot) {
+  const amount = Number(jackpot) || 0;
+  if (amount <= GAPPORI_CAPTAIN_BOOST_FROM) return 1;
+  const t = Math.min(1, (amount - GAPPORI_CAPTAIN_BOOST_FROM) / (GAPPORI_CAPTAIN_BOOST_FULL - GAPPORI_CAPTAIN_BOOST_FROM));
+  return 1 + t * (GAPPORI_CAPTAIN_BOOST_MAX - 1);
 }
 
 /**
