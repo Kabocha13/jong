@@ -182,6 +182,9 @@ function buildGapporiWheel(table) {
     table.board.kinds.forEach(kind => loadSlotSymbolImage(kind));
     const wheel = el('gp-wheel');
     wheel.innerHTML = '';
+    // ゴールド盤 (2% の回。お宝4種類・1種類6マスまで) はルーレットと台を金色にする
+    wheel.classList.toggle('is-gold', Boolean(table.board.gold));
+    el('gappori-table')?.classList.toggle('is-gold', Boolean(table.board.gold));
     table.board.pockets.forEach((kind, index) => {
         const pocket = document.createElement('span');
         pocket.className = `gp-pocket is-${kind}`;
@@ -373,7 +376,7 @@ function renderGapporiStatus() {
     } else if (table.phase === 'result') {
         text = `結果発表 次の回まで${gapporiSecondsLeft(table.nextRoundAt)}秒`;
     }
-    el('gp-status').textContent = text;
+    el('gp-status').textContent = table.board?.gold ? `✨ゴールド盤 ・ ${text}` : text;
 }
 
 function renderGapporiKinds() {
@@ -1177,6 +1180,11 @@ function receiveGapporiTable(table, now) {
     if (newRound) {
         const firstLook = gp.boardRound === 0;
         if (el('gp-wheel')) buildGapporiWheel(table);
+        // ゴールド盤の回が始まったら知らせる (開いたときにもう始まっていたときも)
+        if (table.board.gold && el('gp-wheel')) {
+            flashScreen('gold');
+            showMessage(el('gp-message'), '✨ ゴールド盤！ この回はお宝が4種類だけで、同じお宝が最大6マス並びます。', 'success');
+        }
         gp.shownBalls = firstLook ? gapporiDueBalls(table) : 0;
         gp.spinningFor = -1;
         el('gp-wheel-wrap')?.classList.remove('is-spinning');

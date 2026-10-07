@@ -4300,6 +4300,22 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     100% { filter: brightness(1); }
 }
 
+/* ゴールド盤 (56.1〜。2% の回。お宝4種類・1種類6マスまで): ルーレットと台を金色にする (JP ルーレットのあいだは JP の色) */
+.gp-wheel.is-gold:not(.is-jp) {
+    background:
+        radial-gradient(circle, transparent 0 58%, rgba(0, 0, 0, 0.25) 58.5% 60%, transparent 60.5%),
+        repeating-conic-gradient(from -11.25deg, #b8862a 0 22.5deg, #e6c162 22.5deg 45deg);
+    border-color: #6b4a10;
+    box-shadow: 0 0 0 3px var(--brass-light), 0 0 30px rgba(255, 210, 90, 0.75), inset 0 0 24px rgba(80, 50, 0, 0.55), 0 10px 22px rgba(0, 0, 0, 0.55);
+}
+
+#gappori-table.is-gold .gp-machine {
+    border-color: var(--brass-light);
+    box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.3), 0 0 26px rgba(255, 210, 90, 0.55), var(--shadow-deep);
+}
+
+#gappori-table.is-gold .gp-status { color: #ffe08a; }
+
 /* JP ルーレット (船長マスの回の最後に、盤面が JP・お宝ゲット・ハズレ の16マスに変わって1回回る) */
 .gp-wheel.is-jp {
     background:

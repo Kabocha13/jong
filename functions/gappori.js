@@ -3,6 +3,7 @@
 //
 // ルール
 //   回る盤面に16マス。15マスにお宝の絵柄 (毎回10種類から5種類。55.5 までは6種類)、1マスは船長。
+//   2% の回はゴールド盤 (56.1〜): お宝は4種類だけで、1種類6マスまで (ルーレットは金色)。
 //   絵柄ごとのマスの数も毎回変わるが、レア度の順 (錨 ≥ オウム ≥ 舵輪 ≥ ラム酒 ≥ 望遠鏡 ≥ 宝の地図 ≥ 羅針盤 ≥ 大砲 ≥ 金貨 ≥ 宝箱) は守る。
 //   ドクロ旗 (55.5〜。54.19〜55.4 は盤面に出る「海賊旗」だった) は盤面には出さず、単品でだけ賭ける (1口 GAPPORI_FLAG_PRICE)。
 //   船長マスの回の JP ルーレットのドクロ旗のマスに止まったら当たりで、倍率はそのとき ×50〜×99 から均等に1つ引く (55.6 までは ×1〜×99)
@@ -133,6 +134,13 @@ function compositions(parts = GAPPORI_KINDS, total = GAPPORI_SYMBOL_POCKETS, max
   return out;
 }
 export const GAPPORI_COMPOSITIONS = compositions();
+// ゴールド盤 (56.1〜): 毎回 GAPPORI_GOLD_RATE の確率で、お宝を GAPPORI_GOLD_KINDS 種類だけにし、1種類 GAPPORI_GOLD_MAX_PER_KIND マスまで許す。
+// 画面はルーレットを金色にする。倍率はふだんと同じくその盤面の当たる確率から作る (還元率 105% の計算には入れない)
+export const GAPPORI_GOLD_RATE = 0.02;
+export const GAPPORI_GOLD_KINDS = 4;
+export const GAPPORI_GOLD_MAX_PER_KIND = 6;
+export const GAPPORI_GOLD_COMPOSITIONS = compositions(GAPPORI_GOLD_KINDS, GAPPORI_SYMBOL_POCKETS, GAPPORI_GOLD_MAX_PER_KIND);
+const GAPPORI_GOLD_SCALE = 10000;   // ゴールド盤の確率を整数の乱数で引くときの目の細かさ
 
 function shuffle(list, randomInt) {
   const out = list.slice();
@@ -148,16 +156,18 @@ function shuffle(list, randomInt) {
  * pockets は盤面を時計回りに見たマスの並び (16)。同じ絵柄はまとめて並べ、絵柄の順と船長の位置はランダム
  */
 export function generateGapporiBoard(randomInt) {
-  const kinds = shuffle(GAPPORI_SYMBOLS, randomInt).slice(0, GAPPORI_KINDS)
+  const gold = randomInt(GAPPORI_GOLD_SCALE) < Math.round(GAPPORI_GOLD_RATE * GAPPORI_GOLD_SCALE);
+  const kinds = shuffle(GAPPORI_SYMBOLS, randomInt).slice(0, gold ? GAPPORI_GOLD_KINDS : GAPPORI_KINDS)
     .sort((a, b) => GAPPORI_SYMBOLS.indexOf(a) - GAPPORI_SYMBOLS.indexOf(b));
-  const sizes = GAPPORI_COMPOSITIONS[randomInt(GAPPORI_COMPOSITIONS.length)];
+  const choices = gold ? GAPPORI_GOLD_COMPOSITIONS : GAPPORI_COMPOSITIONS;
+  const sizes = choices[randomInt(choices.length)];
   const counts = Object.fromEntries(kinds.map((kind, index) => [kind, sizes[index]]));
   const groups = shuffle([...kinds.map(kind => Array(counts[kind]).fill(kind)), [GAPPORI_CAPTAIN]], randomInt);
   const ring = groups.flat();
   // 盤面のどこから並べ始めるかもランダムにする (いつも同じ位置から並ばないように)
   const offset = randomInt(ring.length);
   const pockets = [...ring.slice(offset), ...ring.slice(0, offset)];
-  return { kinds, counts, pockets };
+  return gold ? { kinds, counts, pockets, gold: true } : { kinds, counts, pockets };
 }
 
 /**

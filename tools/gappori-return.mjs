@@ -16,6 +16,7 @@ import {
   GAPPORI_BASE_RETURNS,
   GAPPORI_CHANCE_RATES,
   GAPPORI_COMPOSITIONS,
+  GAPPORI_GOLD_COMPOSITIONS,
   GAPPORI_FLAG_ODDS_MAX,
   GAPPORI_FLAG_ODDS_MIN,
   GAPPORI_JP_FLAG,
@@ -140,11 +141,12 @@ function boardStats(sizes) {
 }
 
 const STATS = GAPPORI_COMPOSITIONS.map(boardStats);
+const GOLD_STATS = GAPPORI_GOLD_COMPOSITIONS.map(boardStats);   // ゴールド盤 (4種類・6マスまで)。105% には入れない
 
 /** baseReturns のときの、予想の個数ごとの { bet, base, treasure, fund } (賭けた額あたり) */
-function returnsFor(baseReturns) {
+function returnsFor(baseReturns, stats = STATS) {
   const sum = Object.fromEntries(SIZES.map(size => [size, { n: 0, base: 0, treasure: 0, fund: 0, hit: 0, featured: 0, withFeatured: 0, extras: 0, fundFull: 0 }]));
-  STATS.forEach(({ board, tickets }) => {
+  stats.forEach(({ board, tickets }) => {
     const odds = gapporiOdds(board, baseReturns);
     // この盤面で、個数ごとの「おすすめに選ばれたときに増える分」の平均 (全部1口ずつ買ったとき、そのうち1つがおすすめ)
     const lift = Object.fromEntries(SIZES.map(size => [size, { n: 0, extra: 0 }]));
@@ -193,6 +195,8 @@ function print(baseReturns) {
     console.log(`${size}個  配当の設計値 ${baseReturns[size].toFixed(4)}  配当 ${pct(r.base)}  お宝ゲット(JP盤) ${pct(r.treasure)}  JP積立 ${pct(r.fund)}  合計 ${pct(r.total)}  当たる確率 ${pct(r.hit)}`);
   });
   console.log('参考 (105% に含めないもの):');
+  const gold = returnsFor(baseReturns, GOLD_STATS);
+  console.log(`  ゴールド盤 (2% の回。4種類・6マスまで): ${SIZES.map(size => `${size}個 ${pct(gold[size].total).trim()}`).join('・')}`);
   SIZES.forEach(size => console.log(`  ${size}個  おすすめの券だけ ${pct(result[size].featured)}  ・ ${size}個の予想を全部1口ずつ (うち1つがおすすめ) ${pct(result[size].withFeatured)}  ・ 払い戻し2倍ともう1球を入れると ${pct(result[size].withExtras)}`));
   // ドクロ旗 (単品): 船長マスに球が入り (5/16)、JP ルーレットがドクロ旗に止まったら (1/16) 当たり。倍率は ×最小〜×最大 から均等
   const captain = GAPPORI_BALLS / (GAPPORI_COMPOSITIONS[0].reduce((sum, n) => sum + n, 0) + 1);
