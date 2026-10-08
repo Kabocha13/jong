@@ -142,6 +142,10 @@ function renderRoute() {
         // 購入 (57.5〜)。レートを道具に交換する
         view = 'shop';
         openShop();
+    } else if (isHlRoute()) {
+        // HL (58.3〜)。トークンを手に入れるハイアンドロー
+        view = 'hl';
+        openHl();
     } else if (!game) {
         renderMenu();
     } else {
@@ -187,6 +191,8 @@ function renderMenu() {
         // 船底はレートが上限 (既定1000) 未満のときだけ仕分けできる
         if (tile.dataset.game === 'underground' && casino.score < undergroundMaxRate()) text = '入れます';
         if (tile.dataset.game === 'wanted') text = wantedTileBadge();
+        // HL (58.3〜) は使えるレートが1回の代金 (300,000) 以上の人だけが入れる VIP の卓
+        if (tile.dataset.game === 'hl' && (casino.session?.chips ?? casino.score) >= 300000) text = '入れます';
         badge.textContent = text;
         badge.classList.toggle('hidden', !text);
     });
@@ -288,6 +294,7 @@ async function initCasino() {
     initSink();
     initUnderground();
     initWanted();
+    initHl();
     bindCasinoEvents();
     showView('loading');
 

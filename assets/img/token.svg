@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- トークン (58.3〜。HL で手に入れる)。ランキングのレートの左と HL の画面に出す。用意した絵があれば、この名前で置き換えれば差し替わる -->
+  <defs>
+    <radialGradient id="face" cx="40%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#fff6cf"/>
+      <stop offset="0.35" stop-color="#f2c650"/>
+      <stop offset="0.75" stop-color="#c9922f"/>
+      <stop offset="1" stop-color="#7a5310"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe9a3"/>
+      <stop offset="0.5" stop-color="#a87418"/>
+      <stop offset="1" stop-color="#5a3c08"/>
+    </linearGradient>
+    <linearGradient id="star" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffbe6"/>
+      <stop offset="1" stop-color="#f0c040"/>
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="94" fill="url(#rim)"/>
+  <circle cx="100" cy="100" r="80" fill="url(#face)"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#7a5310" stroke-width="3" opacity="0.6"/>
+  <circle cx="100" cy="100" r="68" fill="none" stroke="#fff3c4" stroke-width="2.5" stroke-dasharray="4 6" opacity="0.8"/>
+  <path d="M100 42 L115 81 L157 82 L124 107 L136 148 L100 124 L64 148 L76 107 L43 82 L85 81 Z"
+        fill="url(#star)" stroke="#8a5c10" stroke-width="5" stroke-linejoin="round"/>
+  <ellipse cx="76" cy="58" rx="26" ry="12" fill="#ffffff" opacity="0.35" transform="rotate(-30 76 58)"/>
+</svg>

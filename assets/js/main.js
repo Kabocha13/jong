@@ -53,12 +53,17 @@ function renderWithData(allData, isStale = false) {
         const debtHtml = debt > 0
             ? `<span class="player-debt" title="借りているレート (利息込み)。返すまで毎日 0:05 に利息が付きます">${escapeText(formatDebtLabel(debt))}</span>`
             : '';
+        // トークン (58.3〜。HL で手に入れる) はレートの左に出す
+        const tokens = Math.max(0, Math.floor(Number(player.tokens) || 0));
+        const tokenHtml = tokens > 0
+            ? `<span class="player-tokens" title="トークン ${tokens}"><img src="assets/img/hl/token.png" onerror="this.onerror=null;this.src='assets/img/token.svg'" alt="トークン">${tokens > 1 ? `<span class="player-tokens-count">×${tokens}</span>` : ''}</span>`
+            : '';
         html += `
             <li class="ranking-item ${rankClass}${debt > 0 ? ' in-debt' : ''}">
                 <span class="rank-num">#${rank}</span>
                 <span class="${nameClass}">${escapeText(player.name)} ${memberMark}</span>
                 <span class="player-score-wrap">
-                    <span class="player-score">${formatRate(player.score)}</span>
+                    <span class="player-score-row">${tokenHtml}<span class="player-score">${formatRate(player.score)}</span></span>
                     ${debtHtml}
                 </span>
             </li>`;

@@ -7726,3 +7726,295 @@ body.vg-story-open { overflow: hidden; }
 .shop-bet select { padding: 4px 8px; }
 .shop-buy { width: auto; margin: 0; padding: 8px 16px; }
 .shop-item-blocked { flex-basis: 100%; margin: 0; font-size: 0.78em; text-align: right; color: var(--ink-soft); }
+
+/* -----------------------------------------------------------------
+   トークン (58.3〜)。ランキングのレートの左と、HL の画面
+   ----------------------------------------------------------------- */
+.player-score-row { display: inline-flex; align-items: center; gap: 4px; }
+.player-tokens { display: inline-flex; align-items: center; gap: 1px; font-size: 0.8em; font-weight: 700; color: var(--brass-dark, #96690f); }
+.player-tokens img { width: 1.35em; height: 1.35em; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35)); }
+.player-tokens-count { font-variant-numeric: tabular-nums; }
+
+.game-tile-art.is-hl {
+    position: relative;
+    gap: 6px;
+    overflow: hidden;
+    --card-w: clamp(38px, 10vw, 52px);
+    background:
+        linear-gradient(180deg, rgba(20, 10, 2, 0.15), rgba(20, 10, 2, 0.55)),
+        var(--img-treasure) center / cover,
+        linear-gradient(135deg, #6b4a12, #2a1d07 70%);
+}
+.game-tile-art.is-hl .bj-card:first-child { transform: rotate(-12deg) translateY(4px); }
+.game-tile-art.is-hl .bj-card:nth-child(3) { transform: rotate(12deg) translateY(4px); }
+.hl-tile-token { width: clamp(46px, 13vw, 64px); height: auto; filter: drop-shadow(0 0 10px rgba(255, 210, 110, 0.85)); }
+.hl-tile-vip {
+    position: absolute;
+    left: 50%;
+    bottom: 6px;
+    padding: 1px 10px;
+    font-family: var(--font-display);
+    font-size: 0.62em;
+    letter-spacing: 0.24em;
+    color: #2b1d06;
+    background: linear-gradient(135deg, #fff1b8, #c9922f 55%, #7a5310);
+    border-radius: 999px;
+    transform: translateX(-50%);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* VIP の部屋。お宝の山の絵と金の縁で、ほかのゲームより豪華に見せる */
+.hl-view {
+    margin: 0 0 18px;
+    padding: 0 0 16px;
+    color: #f6e8c6;
+    background:
+        radial-gradient(ellipse 90% 50% at 50% 0%, rgba(255, 196, 84, 0.18), transparent 70%),
+        var(--img-wood),
+        linear-gradient(180deg, #1c1208, #0b0703);
+    background-size: auto, 260px, auto;
+    background-blend-mode: normal, multiply, normal;
+    border: 2px solid var(--brass);
+    border-radius: 18px;
+    box-shadow: 0 0 0 1px #4a3208, 0 0 0 5px rgba(201, 146, 47, 0.25), 0 18px 40px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+.hl-hero {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    padding: 22px 16px 18px;
+    text-align: center;
+    background:
+        linear-gradient(180deg, rgba(10, 6, 2, 0.25), rgba(10, 6, 2, 0.85)),
+        var(--img-treasure) center 35% / cover;
+    border-bottom: 1px solid var(--brass);
+}
+.hl-vip {
+    padding: 3px 14px;
+    font-family: var(--font-display);
+    font-size: 0.78em;
+    letter-spacing: 0.32em;
+    color: #2b1d06;
+    background: linear-gradient(135deg, #fff1b8, #c9922f 55%, #7a5310);
+    border-radius: 999px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+.hl-hero-token {
+    width: 96px;
+    height: 96px;
+    margin: 12px 0 4px;
+    filter: drop-shadow(0 0 18px rgba(255, 210, 110, 0.9));
+    animation: hl-token-spin 4.5s ease-in-out infinite;
+}
+@keyframes hl-token-spin {
+    0%, 100% { transform: rotateY(0deg); }
+    50% { transform: rotateY(180deg); }
+}
+.hl-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 3.2em;
+    line-height: 1;
+    letter-spacing: 0.12em;
+    color: transparent;
+    background: linear-gradient(180deg, #fff6cf, #f2c650 45%, #a87418);
+    -webkit-background-clip: text;
+    background-clip: text;
+    filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.6));
+}
+.hl-subtitle { margin: 2px 0 8px; font-family: var(--font-display); letter-spacing: 0.3em; color: var(--brass-light); }
+.hl-tagline { margin: 0; font-size: 0.84em; line-height: 1.6; color: #f6e8c6; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
+
+.hl-purse { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 14px 0; }
+.hl-purse-item {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-areas: "icon label" "icon value";
+    align-items: center;
+    column-gap: 8px;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(201, 146, 47, 0.6);
+    border-radius: 12px;
+}
+.hl-purse-item img { grid-area: icon; width: 40px; height: 40px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
+.hl-purse-label { grid-area: label; font-size: 0.72em; letter-spacing: 0.08em; color: var(--brass-light); }
+.hl-purse-item strong { grid-area: value; font-family: var(--font-display); font-size: 1.25em; color: #fff6cf; font-variant-numeric: tabular-nums; }
+.hl-view #hl-message { margin: 12px 14px 0; }
+
+/* 卓: 濃い緑のフェルトに金の縁。ディーラー (船長) は左上 */
+.hl-table {
+    position: relative;
+    margin: 14px 14px 12px;
+    padding: 14px 12px 12px;
+    background:
+        radial-gradient(ellipse 80% 70% at 50% 40%, rgba(80, 160, 110, 0.35), transparent 75%),
+        radial-gradient(circle at 50% 45%, #1f5a3c, #0d2c1d 80%);
+    border: 3px solid #8a5c10;
+    border-radius: 999px / 120px;
+    box-shadow: inset 0 0 0 2px rgba(255, 220, 140, 0.35), inset 0 0 30px rgba(0, 0, 0, 0.6), 0 8px 18px rgba(0, 0, 0, 0.5);
+}
+.hl-dealer { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
+.hl-dealer-frame { position: relative; flex: none; display: grid; place-items: center; }
+.hl-dealer img {
+    flex: none;
+    width: 58px;
+    height: 58px;
+    object-fit: cover;
+    object-position: 50% 15%;
+    background: #12343a;
+    border: 2px solid var(--brass-light);
+    border-radius: 50%;
+    box-shadow: 0 0 12px rgba(255, 210, 110, 0.6);
+}
+.hl-dealer figcaption {
+    position: relative;
+    padding: 6px 10px;
+    font-size: 0.8em;
+    line-height: 1.4;
+    color: #2b1d06;
+    background: var(--img-parchment), #f6e8c6;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+.hl-cards { display: flex; align-items: center; justify-content: center; gap: 18px; min-height: 140px; }
+.hl-deck { position: relative; width: 62px; height: 87px; }
+.hl-deck span, .hl-card-back {
+    position: absolute;
+    inset: 0;
+    border-radius: 7px;
+    background:
+        repeating-linear-gradient(45deg, rgba(255, 220, 140, 0.25) 0 4px, transparent 4px 9px),
+        radial-gradient(circle at 50% 50%, #8e1f1a, #4a0d0a);
+    border: 2px solid #f2c650;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+.hl-deck span:nth-child(2) { transform: translate(3px, -3px); }
+.hl-deck span:nth-child(3) { transform: translate(6px, -6px); }
+.hl-board { display: grid; place-items: center; --card-w: 90px; }
+.hl-card-back.is-big { position: relative; display: block; width: 90px; height: 126px; }
+.hl-board .bj-card { box-shadow: 0 0 0 3px #f2c650, 0 8px 18px rgba(0, 0, 0, 0.55); }
+.hl-board .bj-card.is-win { box-shadow: 0 0 0 4px #ffe48a, 0 0 26px #ffcf4a; animation: hl-pop 0.4s ease-out; }
+.hl-board .bj-card.is-lose { box-shadow: 0 0 0 4px #9aa3ab, 0 8px 18px rgba(0, 0, 0, 0.55); animation: hl-shake 0.35s ease-out; }
+@keyframes hl-pop { from { transform: scale(0.85); } to { transform: scale(1); } }
+@keyframes hl-shake { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-6px); } 70% { transform: translateX(6px); } }
+.hl-pips { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; margin: 12px 0 6px; padding: 0; list-style: none; }
+.hl-pips li {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    font-size: 0.72em;
+    font-weight: 700;
+    color: rgba(246, 232, 198, 0.55);
+    border: 1px dashed rgba(246, 232, 198, 0.4);
+    border-radius: 50%;
+}
+.hl-pips li.is-win { color: #2b1d06; background: radial-gradient(circle at 40% 35%, #fff6cf, #f2c650 55%, #a87418); border: 1px solid #fff1b8; }
+.hl-pips li.is-lose { color: #dfe7ee; background: #4a5a68; border: 1px solid #8a949c; }
+.hl-progress { margin: 0; text-align: center; font-weight: 700; color: #fff6cf; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+.hl-progress:empty { display: none; }
+
+.hl-guess { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 14px 10px; }
+.hl-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 8px;
+    font-family: var(--font-display);
+    font-size: 1.25em;
+    letter-spacing: 0.08em;
+    color: #2b1d06;
+    background: linear-gradient(180deg, #fff1b8, #f2c650 45%, #a87418);
+    border: 2px solid #fff1b8;
+    border-radius: 14px;
+    box-shadow: 0 4px 0 #6b4a10, 0 8px 16px rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+}
+.hl-button.is-low { background: linear-gradient(180deg, #ffd7cf, #e0605a 45%, #8e1f1a); color: #fff6ec; border-color: #ffd7cf; box-shadow: 0 4px 0 #4a0d0a, 0 8px 16px rgba(0, 0, 0, 0.5); }
+.hl-button:active { transform: translateY(3px); box-shadow: 0 1px 0 #6b4a10, 0 4px 10px rgba(0, 0, 0, 0.5); }
+.hl-button:disabled { opacity: 0.5; cursor: default; transform: none; }
+.hl-start {
+    display: block;
+    width: calc(100% - 28px);
+    margin: 0 14px 6px;
+    padding: 14px 10px;
+    font-family: var(--font-display);
+    font-size: 1.15em;
+    letter-spacing: 0.08em;
+    color: #2b1d06;
+    background: linear-gradient(180deg, #fff6cf, #f2c650 45%, #a87418);
+    border: 2px solid #fff1b8;
+    border-radius: 14px;
+    box-shadow: 0 0 18px rgba(255, 210, 110, 0.55), 0 4px 0 #6b4a10;
+    cursor: pointer;
+}
+.hl-start:disabled { opacity: 0.5; box-shadow: none; cursor: default; }
+.hl-start-note { margin: 0 14px 8px; font-size: 0.82em; color: #ffb9a8; text-align: center; }
+.hl-start-note:empty { display: none; }
+.hl-history { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 6px 14px 0; padding: 0; list-style: none; --card-w: 32px; }
+.hl-history li { display: grid; justify-items: center; gap: 2px; }
+.hl-mark { font-size: 0.7em; font-weight: 700; }
+.hl-mark.is-win { color: #ffe48a; }
+.hl-mark.is-lose { color: #ff9a8a; }
+
+.hl-perks { margin: 16px 14px 0; padding: 12px; background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(201, 146, 47, 0.6); border-radius: 12px; }
+.hl-perks-title { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 1em; color: var(--brass-light); }
+.hl-perks-title img { width: 32px; height: 32px; object-fit: cover; border-radius: 6px; border: 1px solid var(--brass); }
+.hl-perks ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.hl-perks li { display: flex; align-items: center; gap: 8px; font-size: 0.9em; }
+.hl-perks li img { width: 26px; height: 26px; }
+.hl-perks li strong { margin-right: 6px; color: #fff6cf; }
+.hl-perks li.is-locked { opacity: 0.55; }
+.hl-perks li.is-locked img { filter: grayscale(1); }
+.hl-rules { margin: 12px 14px 0; font-size: 0.8em; line-height: 1.6; color: rgba(246, 232, 198, 0.75); }
+.hl-rules p { margin: 0 0 4px; }
+
+.hl-overlay-token { width: 120px; height: 120px; margin: 0 auto 6px; filter: drop-shadow(0 0 24px rgba(255, 210, 110, 0.95)); animation: hl-token-spin 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+    .hl-hero-token, .hl-overlay-token, .hl-board .bj-card { animation: none !important; }
+}
+
+/* HL 専用の絵 (assets/img/hl/)。game-hl.js が読めた絵だけ <html> に hl-art-<名前> を付ける。無いあいだは上の仮の見た目 */
+.hl-art-hero .hl-hero {
+    background: linear-gradient(180deg, rgba(10, 6, 2, 0.15), rgba(10, 6, 2, 0.8)), url('../img/hl/hero.jpeg') center / cover;
+}
+.hl-art-table .hl-table {
+    background: url('../img/hl/table.jpeg') center / 100% 100% no-repeat;
+    border: 0;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.6);
+}
+.hl-art-card-back .hl-deck span,
+.hl-art-card-back .hl-card-back {
+    background: url('../img/hl/card-back.png') center / 100% 100% no-repeat;
+    border: 0;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.55);
+}
+.hl-art-button-high .hl-button.is-high,
+.hl-art-button-low .hl-button.is-low,
+.hl-art-button-start .hl-start {
+    border: 0;
+    box-shadow: none;
+    background-position: center;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.55));
+}
+.hl-art-button-high .hl-button.is-high { background-image: url('../img/hl/button-high.png'); color: #2b1d06; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+.hl-art-button-low .hl-button.is-low { background-image: url('../img/hl/button-low.png'); color: #fff6ec; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+.hl-art-button-start .hl-start { background-image: url('../img/hl/button-start.png'); color: #2b1d06; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+.hl-art-button-high .hl-button.is-high:active,
+.hl-art-button-low .hl-button.is-low:active { transform: translateY(2px) scale(0.98); }
+.hl-art-frame .hl-dealer img { border: 0; box-shadow: none; }
+.hl-art-frame .hl-dealer-frame::after {
+    content: '';
+    position: absolute;
+    inset: -12px;
+    background: url('../img/hl/frame.png') center / contain no-repeat;
+    pointer-events: none;
+}
+.hl-art-tile .game-tile-art.is-hl { background: url('../img/hl/tile.jpeg') center / cover; }
+.hl-art-tile .game-tile-art.is-hl > .bj-card,
+.hl-art-tile .game-tile-art.is-hl > .hl-tile-token { display: none; }

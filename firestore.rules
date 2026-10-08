@@ -165,6 +165,11 @@ service cloud.firestore {
 
     // スロットのジャックポットタイムの状態 (残りの回数・天井までの回数・固定の賭け金)。
     // 書き換えられるとジャックポットタイムを偽れるので、読み書きとも Cloud Functions (casino) だけに限る。
+    // HL (ハイアンドロー。58.3〜) の山札と途中の状態。読めると次のカードがわかるので、Cloud Functions だけに限る。
+    match /hl_games/{userId} {
+      allow read, write: if false;
+    }
+
     match /slot_states/{userId} {
       allow read, write: if false;
     }

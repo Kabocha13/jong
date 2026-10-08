@@ -6,6 +6,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
 import { buySlotCeiling, normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
 import { SHOP_MAX_COUNT, SHOP_SLOT_BETS, ShopError, publicShopItems, quoteShopItem } from './shop.js';
+import { HL_COST, HL_ROUNDS, HL_WINS_FOR_TOKEN, HlError, guessHl, isHlFinished, newHlGame, publicHlGame } from './hilo.js';
 import { GAPPORI_JACKPOT_RATE, GapporiRuleError, settleGapporiStampCard } from './gappori.js';
 import { NARIAGARI_BETS, playNariagari } from './nariagari.js';
 import {
@@ -1701,10 +1702,16 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
           if (key === 'scores' && scoreWrites.scores.has(docId)) {
             payload.score = scoreWrites.scores.get(docId);
           }
-          // 永久Pro会員 (57.5〜。購入で買ったもの) は、印を消さず、一般に戻されても Pro のままにする
+          // 永久Pro会員 (57.5〜。購入で買ったもの・58.3〜はトークンを持つ人) は、印を消さず、一般に戻されても Pro のままにする
           if (key === 'scores' && existingById.get(docId)?.proForever === true) {
             payload.proForever = true;
             if (!payload.status || payload.status === 'none') payload.status = 'pro';
+          }
+          // トークン (58.3〜) は HL でだけ増える。画面から送り直された値では変えない
+          if (key === 'scores' && existingById.has(docId)) {
+            const tokens = Math.max(0, Math.floor(Number(existingById.get(docId).tokens) || 0));
+            if (tokens > 0) payload.tokens = tokens;
+            else delete payload.tokens;
           }
           if (Object.hasOwn(created, key) && !existingIds.has(docId)) {
             created[key].push(payload);
@@ -3190,6 +3197,110 @@ async function casinoShopBuy(uid, username, body) {
   };
 }
 
+// -----------------------------------------------------------------
+// HL (ハイアンドロー。58.3〜)。1回 300,000 のレートで、10回のうち5回以上当てたらトークンを1つ (ルールは hilo.js)。
+//   トークンは players の tokens に持ち、ランキングでレートの左に出す。トークンを1つ以上持つ人は永久Pro会員 (proForever)。
+//   山札は hl_games/{uid} (Cloud Functions だけが読み書きする) に持つ
+// -----------------------------------------------------------------
+const HL_GAMES = 'hl_games';
+const HL_SOURCE = 'casino_hl';
+
+/** トークンを1つ以上持つ人は永久Pro会員にする (ラグジュアリー会員は status をそのままにして印だけ付ける)。players に書く項目を返す */
+function tokenPerks(player, tokens) {
+  const update = { tokens };
+  if (tokens >= 1) {
+    update.proForever = true;
+    if (!player.status || player.status === 'none') update.status = 'pro';
+  }
+  return update;
+}
+
+function hlPayload(game, player, chips) {
+  return {
+    hl: publicHlGame(game),
+    tokens: Math.max(0, Math.floor(Number(player?.tokens) || 0)),
+    rules: { cost: HL_COST, rounds: HL_ROUNDS, need: HL_WINS_FOR_TOKEN },
+    chips: chips ?? null
+  };
+}
+
+async function casinoHlStatus(uid, username) {
+  const [gameDoc, playerSnapshot] = await Promise.all([
+    db.collection(HL_GAMES).doc(uid).get(),
+    playerQuery(username).get()
+  ]);
+  return hlPayload(gameDoc.exists ? gameDoc.data() : null, playerSnapshot.empty ? null : playerSnapshot.docs[0].data());
+}
+
+/** 1回始める。代金 (HL_COST) を使えるレート (レート − 結果待ちの賭け) から払い、その場でレートから引く */
+async function casinoHlStart(uid, username) {
+  const gameRef = db.collection(HL_GAMES).doc(uid);
+  const done = await db.runTransaction(async transaction => {
+    const tables = await readCasinoTables(transaction);
+    const gameDoc = await transaction.get(gameRef);
+    const loaded = await readCasinoWallets(transaction, new Map([[uid, username]]), tables, 'hl');
+    const wallet = loaded.wallets.get(uid);
+    const origin = loaded.origins.get(uid);
+    if (!wallet || !origin) throw new CasinoError(404, 'プレイヤーが見つかりません。');
+    const current = gameDoc.exists ? gameDoc.data() : null;
+    if (current && !isHlFinished(current)) throw new HlError(409, '遊んでいる途中の HL があります。続きから遊んでください。');
+    if (wallet.chips < HL_COST) {
+      throw new HlError(400, `HL は1回 ${HL_COST.toLocaleString('ja-JP')} です。使えるレート (${wallet.chips.toLocaleString('ja-JP')}) が足りません。`);
+    }
+    const playerData = (await transaction.get(origin.playerRef)).data();   // トークンの数を返すため (書き込みより先に読む)
+    const nowIso = new Date().toISOString();
+    const game = newHlGame(casinoRandom, nowIso);
+    const afterScore = origin.score - HL_COST;
+    transaction.update(origin.playerRef, { score: afterScore });
+    transaction.set(gameRef, { ...game, player: origin.name, updatedAt: nowIso });
+    const historyId = rateHistoryDocId(origin.name, nowIso);
+    const reason = `HL 1回 (トークン獲得のゲーム。代金 ${HL_COST.toLocaleString('ja-JP')})`;
+    transaction.set(db.collection('point_history').doc(historyId), {
+      id: historyId,
+      player: origin.name,
+      beforeScore: origin.score,
+      afterScore,
+      delta: -HL_COST,
+      source: HL_SOURCE,
+      reason,
+      actor: origin.name,
+      chartKey: `hl:${historyId}`,
+      createdAt: nowIso,
+      updatedAt: nowIso
+    });
+    const chart = [{ key: `hl:${historyId}`, at: nowIso, date: getJstDateKey(new Date(nowIso)), source: HL_SOURCE, reason, player: origin.name, afterScore }];
+    return { game, player: playerData, chips: wallet.chips - HL_COST, score: afterScore, chart };
+  });
+  await applyRateChartLive(done.chart);
+  return { ...hlPayload(done.game, done.player, done.chips), score: done.score };
+}
+
+/** 1回当てる。10回当て終わったら、5回以上当てていればトークンを1つ渡す */
+async function casinoHlGuess(uid, username, rawGuess) {
+  const gameRef = db.collection(HL_GAMES).doc(uid);
+  return db.runTransaction(async transaction => {
+    const [gameDoc, playerSnapshot] = await Promise.all([
+      transaction.get(gameRef),
+      transaction.get(playerQuery(username))
+    ]);
+    if (playerSnapshot.empty) throw new CasinoError(404, 'プレイヤーが見つかりません。');
+    const playerDoc = playerSnapshot.docs[0];
+    let player = playerDoc.data();
+    const nowIso = new Date().toISOString();
+    const game = guessHl(gameDoc.exists ? gameDoc.data() : null, rawGuess);
+    if (isHlFinished(game)) {
+      game.finishedAt = nowIso;
+      if (game.token) {
+        const update = tokenPerks(player, Math.max(0, Math.floor(Number(player.tokens) || 0)) + 1);
+        transaction.update(playerDoc.ref, update);
+        player = { ...player, ...update };
+      }
+    }
+    transaction.set(gameRef, { ...game, player: String(player.name || username), updatedAt: nowIso });
+    return hlPayload(game, player);
+  });
+}
+
 async function readPublicBlackjackTable() {
   const publicDoc = await blackjackTableRefs().publicRef.get();
   return publicDoc.exists ? publicDoc.data() : publicTable(emptyTable());
@@ -3874,6 +3985,9 @@ async function finalizeVoyage() {
 const CASINO_ACTIONS = {
   status: ({ uid, username }) => casinoStatus(uid, username),
   shopStatus: ({ uid, username }) => casinoShopStatus(uid, username),
+  hlStatus: ({ uid, username }) => casinoHlStatus(uid, username),
+  hlStart: ({ uid, username }) => casinoHlStart(uid, username),
+  hlGuess: ({ uid, username, body }) => casinoHlGuess(uid, username, body.guess),
   shopBuy: ({ uid, username, body }) => casinoShopBuy(uid, username, body),
   // 持ち込み・精算は 55.0 で無くした (開いたままの古い画面から呼ばれたときは読み込み直してもらう)
   enter: () => { throw new CasinoError(410, '55.0 で持ち込みは無くなりました (レートからそのまま賭けられます)。画面を読み込み直してください。'); },
@@ -3946,7 +4060,7 @@ async function handleCasinoRequest(req, res) {
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
     if (error instanceof CasinoError || error instanceof TableError || error instanceof GapporiTableError || error instanceof GapporiRuleError
-      || error instanceof SinkTableError || error instanceof ShopError) {
+      || error instanceof SinkTableError || error instanceof ShopError || error instanceof HlError) {
       res.status(error.status).json({ status: 'error', message: error.message });
       return;
     }
