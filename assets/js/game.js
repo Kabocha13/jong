@@ -204,6 +204,25 @@ function renderMenu() {
     renderGapporiTile();
     renderSinkTile();
     renderUndergroundTile();
+    placeHlTile();
+}
+
+/**
+ * HL (58.6〜): 使えるレートが1回の代金 (300,000) 以上の人には、ゲーム一覧のいちばん上に画面の幅いっぱいで出す。
+ * それより少ない人には、ふつうの大きさで購入の前に出す
+ */
+function placeHlTile() {
+    const tile = document.querySelector('.game-tile[data-game="hl"]');
+    if (!tile) return;
+    const tiles = tile.parentElement;
+    const rich = (casino.session?.chips ?? casino.score) >= 300000;
+    tile.classList.toggle('is-hl-featured', rich);
+    if (rich) {
+        if (tiles.firstElementChild !== tile) tiles.prepend(tile);
+        return;
+    }
+    const shop = tiles.querySelector('.game-tile[data-game="shop"]');
+    if (shop && tile.nextElementSibling !== shop) tiles.insertBefore(tile, shop);
 }
 
 // ------------------------------------------------------------------
