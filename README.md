@@ -1,4 +1,4 @@
-# jong　　Ver58.6
+# jong　　Ver58.7
 
 **1.1** 麻雀得点管理アプリリリース
 
@@ -513,3 +513,5 @@ iOS アプリは `app/` (Capacitor。中身は本番のサイト https://q-jong.
 **58.5** HL の専用の絵を3枚入れた (assets/img/hl/ の hero.jpeg・table.jpeg・token.png)。トークンの絵は背景に市松模様が描き込まれた JPEG だったので、コインの円で切り抜いて透過の PNG にした (元の絵は assets/img/src/hl/token-original.jpeg)。卓の絵は正方形の中に楕円の卓なので、卓の部分が横長の枠いっぱいになるよう縦に広げ、ディーラーとカードが緑のフェルトに乗るよう内側を空けた。まだ当てていない回の丸印に暗い下地を付けた (卓の模様で見えにくかったため)。デプロイは hosting
 
 **58.6** HL の絵を足した (assets/img/hl/ の button-low.png・button-start.png)。置かれた絵は背景 (白・市松模様) が描き込まれた JPEG だったので、周りからつながった背景を透明にして絵のある範囲で切り詰めた (tools/cutout-background.py。元の絵は assets/img/src/hl/)。ボタンの絵は引き伸ばさず、縦横の比を保って真ん中に置く。HL の「使えるレート」の絵を、オウムの足と羽が写り込んでいた航海のコインから、スロットの金貨を切り抜いたもの (assets/img/hl/rate-coin.png) にした。ゲーム一覧の HL のカードは、使えるレートが 300,000 以上の人にはいちばん上に画面の幅いっぱいで出し、それより少ない人にはふつうの大きさで購入の前に出す (game.js の placeHlTile)。デプロイは hosting
+
+**58.7** HL の残りの絵を入れた (assets/img/hl/ の button-high.png・card-back.png・frame.png・tile.jpeg)。button-high と card-back は市松模様、frame は濃い灰色の背景が描き込まれていたので、背景を抜いて切り詰めた (frame は輪の内側も抜く。tools/cutout-background.py に dark を足した。元の絵は assets/img/src/hl/)。tile はゲーム一覧の HL のカードの絵 (大きく出すときも同じ絵)。ディーラーの額縁は内側の穴に顔が収まる大きさにした。背の低い横向きのスマホでは High・Low のボタンを少し低くした。これで README の9枚がそろった。デプロイは hosting
