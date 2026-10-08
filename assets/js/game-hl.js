@@ -92,7 +92,6 @@ function renderHl() {
     const playing = Boolean(game && !game.finished);
     el('hl-tokens').textContent = state ? `${state.tokens}` : '—';
     el('hl-chips').textContent = formatRate(hlChips());
-    el('hl-rules-text').textContent = `1回 ${formatRate(rules.cost)}。次のカードが上 (High) か下 (Low) かを${rules.rounds}回当て、${rules.need}回以上当たればトークンを1つ。A がいちばん小さく K がいちばん大きい。同じ数字ははずれ。`;
     renderHlDealer();
 
     const board = el('hl-board');
