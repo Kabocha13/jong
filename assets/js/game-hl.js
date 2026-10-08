@@ -222,7 +222,7 @@ async function guessHl(guess) {
             if (data.hl.token) {
                 hl.mood = 'token';
                 renderHl();
-                showMessage(el('hl-message'), `🎉 ${data.hl.wins}回当たり！ トークンを1つ手に入れました (いま ${data.tokens}つ)。${before === 0 ? 'トークンを持っているあいだは永久Pro会員です。' : ''}`, 'success');
+                showMessage(el('hl-message'), `🎉 ${data.hl.wins}回当たり！ トークンを1つ手に入れました (いま ${data.tokens}つ)。${before === 0 ? 'トークンを持っているあいだは永久Pro会員です。' : before === 1 ? 'トークンが2つになったので、借金の信用が MAX になりました (いつでも上限まで借りられます)。' : ''}`, 'success');
                 await celebrateHlToken(data);
             } else {
                 hl.mood = 'miss';

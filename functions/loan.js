@@ -134,16 +134,18 @@ export function stabilityOf(volatility, config) {
  *   実績枠     = 基本枠 + 信用ポイント ÷ trustDivisor
  *   信用枠     = 実績枠 × 安定度   (minLimit〜maxLimit に収める)
  *   借入可能   = 信用枠 − いまの借金
+ * trustMax (59.0〜。トークンを2つ以上持つ人) なら、実績や変動によらず信用枠をいつも上限 (maxLimit) にする
  */
-export function computeLoanLimit(loan, volatility, config) {
+export function computeLoanLimit(loan, volatility, config, { trustMax = false } = {}) {
   const settings = config || loanSettingsFrom(null);
   const record = normalizeLoanRecord(loan);
   const trust = record.repaidCarriedPrincipal - record.interestTotal * settings.interestWeight;
   const historyLimit = settings.baseLimit + Math.round(trust / settings.trustDivisor);
   const stability = stabilityOf(volatility, settings);
-  const limit = clamp(Math.round(historyLimit * stability), settings.minLimit, settings.maxLimit);
+  const limit = trustMax ? settings.maxLimit : clamp(Math.round(historyLimit * stability), settings.minLimit, settings.maxLimit);
   return {
     limit,
+    trustMax: Boolean(trustMax),
     available: Math.max(0, limit - record.debt),
     breakdown: {
       base: settings.baseLimit,

@@ -432,14 +432,14 @@ function renderLoanStatus(data) {
             LOAN_DEBT_NOTE.textContent = '';
         }
     }
-    if (LOAN_LIMIT) LOAN_LIMIT.textContent = formatRate(data.limit);
+    if (LOAN_LIMIT) LOAN_LIMIT.textContent = data.trustMax ? `${formatRate(data.limit)} (信用 MAX)` : formatRate(data.limit);
     if (LOAN_AVAILABLE_NOTE) {
         LOAN_AVAILABLE_NOTE.textContent = available > 0
             ? `いま借りられる額: ${formatRate(available)}`
             : (debt > 0 ? '枠を使い切っています (返済すると空きます)' : '枠がありません');
     }
 
-    renderLoanBreakdown(data.breakdown || {});
+    renderLoanBreakdown(data.breakdown || {}, Boolean(data.trustMax));
     renderLoanRecent(loan.recent || []);
 
     // 借りるフォーム
@@ -469,7 +469,7 @@ function renderLoanStatus(data) {
     if (LOAN_REPAY_ALL_BUTTON) LOAN_REPAY_ALL_BUTTON.disabled = repayable < 1;
 }
 
-function renderLoanBreakdown(breakdown) {
+function renderLoanBreakdown(breakdown, trustMax = false) {
     if (!LOAN_BREAKDOWN_TABLE) return;
     const trust = normalizeRate(breakdown.trust);
     const interestWeight = toFiniteNumber(breakdown.interestWeight, 0.5);
@@ -484,7 +484,9 @@ function renderLoanBreakdown(breakdown) {
         ['実績枠', formatRate(breakdown.historyLimit), `基本枠 ${trust >= 0 ? '+' : '−'} ${formatRate(Math.abs(trust))} ÷ ${trustDivisor}`],
         ['変動の大きさ', formatRate(breakdown.volatility), `直近${breakdown.volatilityDays || 14}日の1日の増減の標準偏差 (日次補正・参加ボーナス・借金の出入りは除く)`],
         ['安定度', `× ${stabilityPercent}%`, `変動が大きいほど下がる (${formatRate(breakdown.volatilityScale || 500)} で 2/3、その2倍で半分、下限 ${stabilityMinPercent}%)`],
-        ['信用枠', formatRate(loanState ? loanState.limit : 0), `実績枠 × 安定度 (${formatRate(breakdown.min)}〜${formatRate(breakdown.max)})`],
+        trustMax
+            ? ['信用枠', `${formatRate(loanState ? loanState.limit : 0)} (信用 MAX)`, 'トークンを2つ以上持っているので、実績や変動によらず上限まで借りられる']
+            : ['信用枠', formatRate(loanState ? loanState.limit : 0), `実績枠 × 安定度 (${formatRate(breakdown.min)}〜${formatRate(breakdown.max)})`],
         ['借入可能', formatRate(loanState ? loanState.available : 0), `信用枠 − いまの借金 ${formatRate(debt)}`]
     ];
     LOAN_BREAKDOWN_TABLE.innerHTML = `<tbody>${rows.map(([label, value, note]) => `

@@ -6,7 +6,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
 import { buySlotCeiling, normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
 import { SHOP_MAX_COUNT, SHOP_SLOT_BETS, ShopError, publicShopItems, quoteShopItem } from './shop.js';
-import { HL_COST, HL_ROUNDS, HL_WINS_FOR_TOKEN, HlError, guessHl, isHlFinished, newHlGame, publicHlGame } from './hilo.js';
+import { HL_COST, HL_ROUNDS, HL_WINS_FOR_TOKEN, HlError, TOKEN_TRUST_MAX, guessHl, isHlFinished, newHlGame, playerTokens, publicHlGame } from './hilo.js';
 import { GAPPORI_JACKPOT_RATE, GapporiRuleError, settleGapporiStampCard } from './gappori.js';
 import { NARIAGARI_BETS, playNariagari } from './nariagari.js';
 import {
@@ -2473,6 +2473,11 @@ async function loanVolatilityOf(username, settings) {
   return volatilityOf(dailyDeltasFromEntries(entries, dateKeys));
 }
 
+/** トークンの特典 (59.0〜): トークンを TOKEN_TRUST_MAX (2) つ以上持つ人は、借金の信用 MAX (信用枠がいつも上限) */
+function loanTrustOptions(player) {
+  return { trustMax: playerTokens(player) >= TOKEN_TRUST_MAX };
+}
+
 /** 画面に返す共通の項目 (利率などの設定と、次に利息が付く時刻) */
 function loanEnvelope(settings) {
   return {
@@ -2490,11 +2495,12 @@ async function loanStatus(username) {
     loanVolatilityOf(username, settings)
   ]);
   const loan = normalizeLoanRecord(loanDoc.exists ? loanDoc.data() : null, username);
+  const player = playerSnapshot.empty ? null : playerSnapshot.docs[0].data();
   return {
     me: username,
-    score: playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score),
+    score: player ? normalizeRate(player.score) : 0,
     loan: publicLoanRecord(loan),
-    ...computeLoanLimit(loan, volatility, settings),
+    ...computeLoanLimit(loan, volatility, settings, loanTrustOptions(player)),
     ...loanEnvelope(settings)
   };
 }
@@ -2513,7 +2519,8 @@ async function loanBorrow(username, rawAmount) {
       throw new LoanError(404, 'プレイヤーが見つかりません。');
     }
     const loan = normalizeLoanRecord(loanDoc.exists ? loanDoc.data() : null, username);
-    const limit = computeLoanLimit(loan, volatility, settings);
+    const trustOptions = loanTrustOptions(playerSnapshot.docs[0].data());
+    const limit = computeLoanLimit(loan, volatility, settings, trustOptions);
     const amount = validateBorrowAmount(rawAmount, limit.available);
     const at = new Date().toISOString();
     const borrowed = applyBorrow(loan, amount, at);
@@ -2541,7 +2548,7 @@ async function loanBorrow(username, rawAmount) {
       amount,
       score: afterScore,
       loan: publicLoanRecord(borrowed.loan),
-      ...computeLoanLimit(borrowed.loan, volatility, settings)
+      ...computeLoanLimit(borrowed.loan, volatility, settings, trustOptions)
     };
   });
   await rebuildRateChartQuietly('loan_borrow');
@@ -2589,7 +2596,7 @@ async function loanRepay(username, rawAmount) {
       amount,
       score: afterScore,
       loan: publicLoanRecord(repaid.loan),
-      ...computeLoanLimit(repaid.loan, volatility, settings)
+      ...computeLoanLimit(repaid.loan, volatility, settings, loanTrustOptions(playerDoc.data()))
     };
   });
   await rebuildRateChartQuietly('loan_repay');
