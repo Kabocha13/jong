@@ -5018,7 +5018,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 .gp-stamps { margin: 0 0 10px; }
 .gp-stamps-title { margin: 0 0 4px; font-size: 0.86em; font-weight: 700; letter-spacing: 0.08em; color: var(--rum-dark); }
 .gp-stamps-title small { margin-left: 6px; font-weight: 400; color: var(--ink-soft); }
-.gp-stamps-card { display: grid; grid-template-columns: repeat(3, 34px); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.gp-stamps-card { display: grid; grid-template-columns: repeat(5, 30px); gap: 5px; margin: 0; padding: 0; list-style: none; }
 .gp-stamps-card li {
     display: grid; place-items: center; aspect-ratio: 1;
     font-size: 12px; color: var(--ink-soft);

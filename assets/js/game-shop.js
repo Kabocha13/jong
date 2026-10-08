@@ -15,8 +15,8 @@ const SHOP_ICONS = {
 };
 
 const SHOP_DESCRIPTIONS = {
-    chun: '宝探しで、どのお宝の球でもよい札を1回使える (3個以上の予想で)',
-    stamp: '宝探しのスタンプカードに1つ押す。3つでチュンを1回使える',
+    chun: '宝探しで、どのお宝の球でもよい札を1回使える (5個の予想で)',
+    stamp: '宝探しのスタンプカードに1つ押す。5つでチュンを1回使える',
     slotCeiling: 'スロットの天井まで進める。そこからは1回ごとに10%でジャックポットタイムに入り、入ったときの賭け金は選んだ額で固定',
     proForever: 'ずっとPro会員になる (1日のプレイは1,000回まで。ラグジュアリー会員は、ラグジュアリーが終わってもProのまま)'
 };
@@ -62,7 +62,7 @@ function shopItemStatus(id) {
     const state = shop.state;
     if (!state) return { owned: '', blocked: '読み込み中…' };
     if (id === 'chun') return { owned: `いま チュン 残り${state.chun}回`, blocked: '' };
-    if (id === 'stamp') return { owned: `いま スタンプカード ${state.stamps}/3`, blocked: '' };
+    if (id === 'stamp') return { owned: `いま スタンプカード ${state.stamps}/${GAPPORI_STAMPS_PER_CARD}`, blocked: '' };
     if (id === 'slotCeiling') {
         if (state.slotCeiling.jackpot) return { owned: 'いまジャックポットタイム中', blocked: 'ジャックポットタイムの途中は買えません' };
         if (state.slotCeiling.bought) {

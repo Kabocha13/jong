@@ -214,7 +214,7 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
     if (hakuOrders.length > 1 || table.tickets.some(ticket => ticket.uid === uid && ticket.haku)) {
       throw new GapporiTableError(409, 'チュンは1回の抽選で1枚の券にしか使えません。');
     }
-    if ((wallet.gpHaku || 0) < 1) throw new GapporiTableError(409, 'チュンを使える回数がありません (スタンプを3つ貯めると1回使えます)。');
+    if ((wallet.gpHaku || 0) < 1) throw new GapporiTableError(409, 'チュンを使える回数がありません (スタンプを5つ貯めると1回使えます)。');
   }
   const tickets = orders.map(order => {
     const raw = Array.isArray(order?.picks) ? order.picks.map(String) : [];
@@ -224,7 +224,9 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
     // ハク以外のお宝は、ハクの分も数えた個数 (2〜5) で検証する (ハクは盤面のどのお宝とも数える)
     const others = hakuCount ? raw.filter(kind => kind !== GAPPORI_HAKU) : null;
     if (hakuCount && (others.length + 1 < GAPPORI_HAKU_MIN_PICKS || others.length + 1 > 5)) {
-      throw new GapporiTableError(400, `チュンは${GAPPORI_HAKU_MIN_PICKS}個以上の予想でだけ使えます。チュンのほかにお宝を${GAPPORI_HAKU_MIN_PICKS - 1}〜4個選んでください。`);
+      throw new GapporiTableError(400, GAPPORI_HAKU_MIN_PICKS >= 5
+        ? 'チュンは5個の予想でだけ使えます。チュンのほかにお宝を4個選んでください。'
+        : `チュンは${GAPPORI_HAKU_MIN_PICKS}個以上の予想でだけ使えます。チュンのほかにお宝を${GAPPORI_HAKU_MIN_PICKS - 1}〜4個選んでください。`);
     }
     const picks = hakuCount
       ? [...normalizeGapporiPicksLoose(table.board, others), GAPPORI_HAKU]
@@ -466,7 +468,7 @@ function finishGapporiRound(ctx, start) {
     });
   }
 
-  // スタンプカードに1つ押す。3つ貯まったらハクを1回使えるようにして、カードは 0 から (56.3〜。55.19〜56.2 は10個で3回)。押せたら { uid, name, completed }
+  // スタンプカードに1つ押す。5つ貯まったらハクを1回使えるようにして、カードは 0 から (57.7〜。56.3〜57.6 は3つ、55.19〜56.2 は10個で3回)。押せたら { uid, name, completed }
   const pushStamp = (uid, name) => {
     const wallet = ctx.wallets.get(uid);
     if (!wallet) return null;

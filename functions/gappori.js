@@ -25,7 +25,7 @@
 //     もう3球 (57.4〜。55.17〜57.3 は もう1球): 盤面に6〜8球目を入れる (まだ入っていないマスから)。その回の全員の券に効く。
 //     JP+??? / JP−??? (55.17〜): ジャックポットに 100〜500 を足す / 引く (0 より下げない)。
 //     JP+?? / JP−?? (55.18〜55.20。55.21 でスタンプにした): ジャックポットに 10〜99 を足す / 引く。
-//     スタンプ (55.19〜。55.18 までのハズレ): その回に券を買った全員のスタンプカードに1つ押す。3つでハクを1回使える (56.3〜。56.2 までは10個で3回)。
+//     スタンプ (55.19〜。55.18 までのハズレ): その回に券を買った全員のスタンプカードに1つ押す。5つでハク (チュン) を1回使える (57.7〜。56.3〜57.6 は3つ、56.2 までは10個で3回)。
 //     ドクロ旗: ドクロ旗の券 (単品) が当たり。倍率は ×50〜×99 から引く。
 //     JP: ジャックポットが当たり、その回に券を買った人で均等に分ける (54.5 まで賭けた額に応じて分けていた)。
 //     お宝ゲット: 3球目のあとのお宝ゲットと同じで、その回の全員の券ごとに、まだ足りないお宝を1つ「1球入ったこと」にする
@@ -86,8 +86,8 @@ export const GAPPORI_JP_PLUS = 'plus';          // JP+??? のマス (55.17〜)�
 export const GAPPORI_JP_MINUS = 'minus';        // JP−??? のマス (55.17〜)。ジャックポットから 100〜500 を引く (0 より下げない)
 export const GAPPORI_JP_STAMP = 'stamp';        // スタンプのマス (55.19〜)。その回に券を買った全員のスタンプカードに1つ押す
 // スタンプカード (55.19〜): スタンプが GAPPORI_STAMPS_PER_CARD 貯まると、ハクを GAPPORI_HAKU_PER_CARD 回使える (カードは 0 からやり直し)。
-// 56.3 で「10個でハク3回」から「3つでハク1回」にした (貯まっていた分は口座を読むときに数え直す)
-export const GAPPORI_STAMPS_PER_CARD = 3;    // 56.3 で 10 → 3
+// 56.3 で「10個でハク3回」から「3つでハク1回」にした (貯まっていた分は口座を読むときに数え直す)。57.7 で「5つでハク (チュン) 1回」にした
+export const GAPPORI_STAMPS_PER_CARD = 5;    // 56.3 で 10 → 3、57.7 で 3 → 5
 export const GAPPORI_HAKU_PER_CARD = 1;      // 56.3 で 3 → 1
 
 /** スタンプカードを数え直す: GAPPORI_STAMPS_PER_CARD 貯まるごとにハクを GAPPORI_HAKU_PER_CARD 回にする (account を書き換える) */
@@ -106,9 +106,9 @@ export function settleGapporiStampCard(account) {
 }
 // ハク (55.19〜): 予想の1つとして選べる「どのお宝の球でもOK」の札。ほかのお宝がそろい、余った球 (船長以外) があれば当たりで、
 // 余った球のお宝のうち倍率がいちばん高くなるものに化ける。1枚の券に1つ・1回の抽選で1枚まで。値段は個数どおり。
-// ハクも1個に数えて GAPPORI_HAKU_MIN_PICKS 個以上の予想でだけ使える (55.24〜。2個の予想では使えない)
+// ハクも1個に数えて GAPPORI_HAKU_MIN_PICKS 個以上の予想でだけ使える (57.7〜は5個の予想だけ。55.24〜57.6 は3個以上)
 export const GAPPORI_HAKU = 'haku';
-export const GAPPORI_HAKU_MIN_PICKS = 3;
+export const GAPPORI_HAKU_MIN_PICKS = 5;
 // 5個の予想が当たった人へのスタンプ (57.1〜): この個数の予想の券が当たったら、その回にスタンプを1つ押す (何枚当たっても1回に1つ)
 export const GAPPORI_STAMP_WIN_PICKS = 5;
 export const GAPPORI_JP_PLUS_SMALL = 'plussmall';    // JP+?? のマス (55.18〜)。ジャックポットに 10〜99 を足す
@@ -121,16 +121,21 @@ export const GAPPORI_JP_SHIFT_RANGES = {
 // 56.6 で入れ替えた: 払い戻し2倍 → ドクロ旗、JP+???・JP−??? → もう1球・お宝ゲット、JP 1/2 の1つ → スタンプ
 // (55.17〜56.5 は JP 1・お宝ゲット 1・ドクロ旗 2・JP 2倍 1・JP 1/2 2・払い戻し2倍 1・もう1球 1・JP+??? 1・JP−??? 1・スタンプ 5)。
 // 払い戻し2倍・JP±??? の処理は残してある (マスを戻せばまた使える)
+// 57.7 で JP 1/2 (1マス) をお宝ゲットにした (お宝ゲット 3マス・JP 1/2 は無し)
 export const GAPPORI_JP_WHEEL_COUNTS = {
-  [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 2, [GAPPORI_JP_FLAG]: 3, [GAPPORI_JP_DOUBLE]: 1, [GAPPORI_JP_HALF]: 1,
+  [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 3, [GAPPORI_JP_FLAG]: 3, [GAPPORI_JP_DOUBLE]: 1,
   [GAPPORI_JP_EXTRA]: 2,
   [GAPPORI_JP_STAMP]: 6   // ハズレは 0
 };
 // JP 2倍・1/2 があると、ジャックポットは長い目で見て貯めた額の何倍が戻るか。止まる確率を JP a・2倍 d・1/2 h とすると
 // 船長の回ごとの増え方の期待値から a / (a − d + h/2) (2倍1マス・1/2 2マスなら釣り合って 1倍。1マスずつなら 2倍。tools/gappori-return.mjs で使う)
+// 57.7 で JP 1/2 を無くし、JP と JP 2倍が1マスずつになったので、この式は割る数が 0 になる (JP が当たる前に2倍が何回でも重なり、
+// 戻る額の期待値は限りなく大きい)。そのときは 56.6〜57.6 と同じ「積立の2倍が戻る」とみなす (配当の設計値は 57.6 のまま)
+export const GAPPORI_JP_FUND_FACTOR_FALLBACK = 2;
 export const GAPPORI_JP_FUND_FACTOR = (() => {
   const rate = kind => (GAPPORI_JP_WHEEL_COUNTS[kind] || 0) / GAPPORI_JP_WHEEL_POCKETS;
-  return rate(GAPPORI_JP_JACKPOT) / (rate(GAPPORI_JP_JACKPOT) - rate(GAPPORI_JP_DOUBLE) + rate(GAPPORI_JP_HALF) / 2);
+  const denominator = rate(GAPPORI_JP_JACKPOT) - rate(GAPPORI_JP_DOUBLE) + rate(GAPPORI_JP_HALF) / 2;
+  return denominator > 0 ? rate(GAPPORI_JP_JACKPOT) / denominator : GAPPORI_JP_FUND_FACTOR_FALLBACK;
 })();
 // ジャックポットが当たる確率 (JP のマスの数 / マスの数 = 1/16)。船長マスに球が入るのは 5/16 の回なので、約51回に1回当たる
 export const GAPPORI_JACKPOT_RATE = GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_JACKPOT] / GAPPORI_JP_WHEEL_POCKETS;

@@ -19,8 +19,8 @@ const GAPPORI_ORDER = ['anchor', 'parrot', 'helm', 'rum', 'telescope', 'map', 'c
 const GAPPORI_FLAG = 'flag';
 // ハク (55.19〜): スタンプカードで使える「どのお宝の球でもOK」の札。倍率は結果で決まる (いちばん高くなるお宝に化ける)
 const GAPPORI_HAKU = 'haku';
-const GAPPORI_HAKU_MIN_PICKS = 3;   // ハクも1個に数えて3個以上の予想でだけ使える (サーバーの GAPPORI_HAKU_MIN_PICKS と同じ)
-const GAPPORI_STAMPS_PER_CARD = 3;   // 3つでハク1回 (56.3〜。サーバーの GAPPORI_STAMPS_PER_CARD と同じ)
+const GAPPORI_HAKU_MIN_PICKS = 5;   // チュンも1個に数えて5個の予想でだけ使える (57.7〜。57.6 までは3個以上。サーバーの GAPPORI_HAKU_MIN_PICKS と同じ)
+const GAPPORI_STAMPS_PER_CARD = 5;   // 5つでチュン (中の名前はハク) 1回 (57.7〜。56.3〜57.6 は3つ。サーバーの GAPPORI_STAMPS_PER_CARD と同じ)
 const GAPPORI_PICKS_MIN = 2;
 const GAPPORI_PICKS_MAX = 5;
 // 口数の −・＋ で動く数 (55.20 で上限を無くした。最後より大きいときは2倍・半分ずつ動く。手で打てばいくつでも)
@@ -673,7 +673,7 @@ function renderGapporiControls() {
     const flagInfo = gapporiFlagInfo(table);
     el('gp-pick-info').textContent = haku
         ? (picks < GAPPORI_HAKU_MIN_PICKS
-            ? `チュンは${GAPPORI_HAKU_MIN_PICKS}個以上の予想でだけ使えます。チュンのほかにお宝をあと${GAPPORI_HAKU_MIN_PICKS - picks}個選んでください (チュンと合わせて${GAPPORI_HAKU_MIN_PICKS}〜5個)`
+            ? `チュンは${GAPPORI_HAKU_MIN_PICKS}個の予想でだけ使えます。チュンのほかにお宝をあと${GAPPORI_HAKU_MIN_PICKS - picks}個選んでください (チュンと合わせて${GAPPORI_HAKU_MIN_PICKS}個)`
             : !hakuRange ? 'この予想は次の回から買えます。'
                 : `${sortGapporiPicks(hakuOthers).map(gapporiKindName).join('・')}・チュン (1口 ${gapporiPrice()}) ・ 倍率 ×${hakuRange.min}〜×${hakuRange.max} (ほかのお宝がそろって余った球があれば、いちばん高い倍率のお宝に化けて当たり)`)
         : flag

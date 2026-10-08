@@ -2852,7 +2852,7 @@ async function readCasinoWallets(transaction, names, tables, game) {
     const playerDoc = snapshot.docs[0];
     const name = String(playerDoc.data().name || names.get(uid));
     const account = normalizeCasinoAccount(accountDocs[index].exists ? accountDocs[index].data() : null, name);
-    // スタンプカードの決まり (3つでハク1回) より多く貯まっていたら数え直す (56.3 で 10個 → 3つにしたため)。変われば書き戻される
+    // スタンプカードの決まり (57.7〜は5つでハク1回) より多く貯まっていたら数え直す (56.3 で 10個 → 3つにしたため)。変われば書き戻される
     const walletAccount = JSON.parse(JSON.stringify(account));
     settleGapporiStampCard(walletAccount);
     const score = normalizeRate(playerDoc.data().score);
