@@ -8177,3 +8177,6 @@ body.vg-story-open { overflow: hidden; }
 .hl-history .hl-mark { font-size: 0.66em; letter-spacing: 0.06em; color: rgba(246, 232, 198, 0.6); }
 .hl-history li.is-win .hl-mark { color: #ffe48a; text-shadow: 0 0 6px rgba(255, 196, 84, 0.8); }
 .hl-history li.is-lose .hl-mark { color: rgba(246, 232, 198, 0.35); }
+
+/* 使えるレートが 300,000 以上の人には、ゲーム一覧に HL だけを出す (59.1〜。game.js の placeHlTile) */
+.game-tile.is-hl-only-hidden { display: none !important; }

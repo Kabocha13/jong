@@ -122,8 +122,9 @@ function isWantedRoute() {
 
 function renderRoute() {
     if (!casino.ready) return;
-    // 船底と指名手配は、賞金首がいるあいだは指名手配だけ・いないあいだは船底だけ (58.0〜)。閉じているほうはゲーム一覧へ戻す
-    const closed = closedGameRouteMessage();
+    // 船底と指名手配は、賞金首がいるあいだは指名手配だけ・いないあいだは船底だけ (58.0〜)。閉じているほうはゲーム一覧へ戻す。
+    // 使えるレートが 300,000 以上の人は HL だけ (59.1〜。結果待ちの賭けがあるゲームは結果を見られるように開ける)
+    const closed = closedGameRouteMessage() || richClosedRouteMessage();
     if (closed) {
         history.replaceState(null, '', `${location.pathname}${location.search}`);
         showMessage(el('casino-message'), closed, 'info');
@@ -212,6 +213,20 @@ function renderMenu() {
  * それより少ない人には出さない (58.9〜。58.6〜58.8 はふつうの大きさで出していた)。
  * ただし遊んでいる途中の人 (始めて代金を払うと使えるレートが減る) には、続きに戻れるようにいちばん上に出す
  */
+/** 使えるレートが HL の1回の代金 (300,000) 以上か。そのあいだはゲーム一覧に HL だけを出す (59.1〜) */
+function isHlOnlyPlayer() {
+    return (casino.session?.chips ?? casino.score) >= 300000;
+}
+
+/** HL だけの人が、ほかのゲーム (や購入) を開いたら、その知らせの文。開いてよければ '' */
+function richClosedRouteMessage() {
+    const route = location.hash.slice(1);
+    if (!route || route === 'hl' || !isHlOnlyPlayer()) return '';
+    // 結果待ちの賭けがあるゲームは、結果を見られるように開ける
+    if ((route === 'blackjack' && isBlackjackLive()) || (route === 'gappori' && isGapporiLive()) || (route === 'sink' && isSinkLive())) return '';
+    return '使えるレートが 300,000 以上のあいだは、HL だけで遊べます。';
+}
+
 function placeHlTile() {
     const tile = document.querySelector('.game-tile[data-game="hl"]');
     if (!tile) return;
@@ -222,6 +237,12 @@ function placeHlTile() {
     tile.classList.toggle('hidden', !show);
     tile.classList.toggle('is-hl-featured', show);
     if (show && tiles.firstElementChild !== tile) tiles.prepend(tile);
+    // 使えるレートが 300,000 以上の人には、ほかのゲームと購入を出さない (59.1〜。結果待ちの賭けがあるゲームは出す)
+    const live = { blackjack: isBlackjackLive(), gappori: isGapporiLive(), sink: isSinkLive() };
+    tiles.querySelectorAll('.game-tile').forEach(other => {
+        if (other === tile) return;
+        other.classList.toggle('is-hl-only-hidden', rich && !live[other.dataset.game]);
+    });
 }
 
 // ------------------------------------------------------------------
