@@ -230,7 +230,8 @@ async function guessHl(guess) {
                 showMessage(el('hl-message'), `${data.hl.wins}回当たり… トークンには${data.hl.need}回以上の当たりが必要です。`, 'info');
             }
         } else {
-            showMessage(el('hl-message'), last?.win ? '当たり！' : 'はずれ…', last?.win ? 'success' : 'info');
+            // 1回ごとの当たり・はずれは卓の印とディーラーの表情で見せる (59.3〜。お知らせは出さない)
+            el('hl-message').classList.add('hidden');
         }
     } catch (error) {
         showMessage(el('hl-message'), error.message, 'error');
