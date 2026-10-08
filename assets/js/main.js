@@ -55,8 +55,10 @@ function renderWithData(allData, isStale = false) {
             : '';
         // トークン (58.3〜。HL で手に入れる) はレートの左に出す
         const tokens = Math.max(0, Math.floor(Number(player.tokens) || 0));
+        // 持っている数だけトークンの絵を並べる (59.4〜。58.3〜59.3 は1つの絵と「×N」)。少し重ねて、横に長くなりすぎないようにする
+        const tokenImage = `<img src="assets/img/hl/token.png" onerror="this.onerror=null;this.src='assets/img/token.svg'" alt="">`;
         const tokenHtml = tokens > 0
-            ? `<span class="player-tokens" title="トークン ${tokens}"><img src="assets/img/hl/token.png" onerror="this.onerror=null;this.src='assets/img/token.svg'" alt="トークン">${tokens > 1 ? `<span class="player-tokens-count">×${tokens}</span>` : ''}</span>`
+            ? `<span class="player-tokens" title="トークン ${tokens}つ" aria-label="トークン ${tokens}つ">${tokenImage.repeat(tokens)}</span>`
             : '';
         html += `
             <li class="ranking-item ${rankClass}${debt > 0 ? ' in-debt' : ''}">
