@@ -122,6 +122,12 @@ function isWantedRoute() {
 
 function renderRoute() {
     if (!casino.ready) return;
+    // 船底と指名手配は、賞金首がいるあいだは指名手配だけ・いないあいだは船底だけ (58.0〜)。閉じているほうはゲーム一覧へ戻す
+    const closed = closedGameRouteMessage();
+    if (closed) {
+        history.replaceState(null, '', `${location.pathname}${location.search}`);
+        showMessage(el('casino-message'), closed, 'info');
+    }
     const game = routeGame();
     let view = 'menu';
     if (isUndergroundRoute()) {
@@ -184,6 +190,10 @@ function renderMenu() {
         badge.textContent = text;
         badge.classList.toggle('hidden', !text);
     });
+    // 船底と指名手配は、賞金首がいるあいだは指名手配だけ・いないあいだは船底だけ出す (58.0〜。まだわからないあいだはどちらも出さない)
+    const mode = wantedOrUnderground();
+    document.querySelector('.game-tile[data-game="underground"]')?.classList.toggle('hidden', mode !== 'underground');
+    document.querySelector('.game-tile[data-game="wanted"]')?.classList.toggle('hidden', mode !== 'wanted');
     renderBlackjackTile();
     renderGapporiTile();
     renderSinkTile();

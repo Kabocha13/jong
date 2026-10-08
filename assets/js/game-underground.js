@@ -123,6 +123,8 @@ function renderUnderground() {
     const canWork = ugCanWork();
     el('ug-notice').textContent = !state
         ? '読み込み中...'
+        : state.closedByWanted
+            ? `指名手配の賞金首 (${state.closedByWanted.name}) がいるあいだは、船底は閉まっています。`
         : canWork
             ? `レートが${formatRate(settings.maxRate)}になるまで、何個でも仕分けられます。時間の制限はありません。`
             : `船底で仕分けできるのはレートが${formatRate(settings.maxRate)}未満の人だけです (いまのレート ${formatRate(state.score)})。`;
@@ -392,9 +394,10 @@ function receiveUgGrade(data, part, next) {
     // やめるときの送信なら、締めは stopUgWork がする
     if (!next || ug.stopping) return;
     if (!data.canWork) {
-        // 上限に届いた。いま仕分けている積荷はもうレートにならないので、ここで終える
+        // 上限に届いた (または賞金首が出て船底が閉まった。58.0〜)。いま仕分けている積荷はもうレートにならないので、ここで終える
         endUgRun();
-        showUgMessage(`レートが${formatRate(ugSettings().maxRate)}に届きました。お疲れさまでした！`, 'success');
+        if (data.closedByWanted) showUgMessage(`指名手配の賞金首 (${data.closedByWanted.name}) が出たので、船底は閉まりました。お疲れさまでした！`, 'info');
+        else showUgMessage(`レートが${formatRate(ugSettings().maxRate)}に届きました。お疲れさまでした！`, 'success');
         return;
     }
     const shipment = data.underground?.nextShipment;

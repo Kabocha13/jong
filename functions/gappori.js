@@ -110,7 +110,8 @@ export function settleGapporiStampCard(account) {
 export const GAPPORI_HAKU = 'haku';
 export const GAPPORI_HAKU_MIN_PICKS = 5;
 // 5個の予想が当たった人へのスタンプ (57.1〜): この個数の予想の券が当たったら、その回にスタンプを1つ押す (何枚当たっても1回に1つ)
-export const GAPPORI_STAMP_WIN_PICKS = 5;
+// 58.1 で止めた (0 = どの当たりでも押さない。57.1〜58.0 は 5)
+export const GAPPORI_STAMP_WIN_PICKS = 0;
 export const GAPPORI_JP_PLUS_SMALL = 'plussmall';    // JP+?? のマス (55.18〜)。ジャックポットに 10〜99 を足す
 export const GAPPORI_JP_MINUS_SMALL = 'minussmall';  // JP−?? のマス (55.18〜)。ジャックポットから 10〜99 を引く (0 より下げない)
 // JP±??? と JP±?? で動かす額の範囲 (均等)

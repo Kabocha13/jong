@@ -1948,11 +1948,20 @@ async function readUndergroundState(transaction, username) {
 }
 
 /** 画面に返す共通の形 */
-function undergroundPayload({ score, record }, settings) {
+/**
+ * 指名手配の賞金首 (58.0〜)。賞金首がいるあいだは船底を閉じて指名手配だけにし、いないあいだは船底だけにする
+ * (ゲーム一覧のカードも同じ。functions/wanted.js の pickWantedTarget)
+ */
+async function currentWantedTarget() {
+  return pickWantedTarget(wantedPlayersFrom(await db.collection('players').get()));
+}
+
+function undergroundPayload({ score, record }, settings, wantedTarget = null) {
   return {
     me: record.player,
     score,
-    canWork: canWorkUnderground(score, settings),
+    canWork: !wantedTarget && canWorkUnderground(score, settings),
+    closedByWanted: wantedTarget ? { name: wantedTarget.name, score: wantedTarget.score } : null,   // 賞金首がいて閉まっている (58.0〜)
     underground: publicUndergroundRecord(record),
     settings,
     now: new Date().toISOString()
@@ -1960,13 +1969,20 @@ function undergroundPayload({ score, record }, settings) {
 }
 
 async function undergroundStatus(username, settings) {
-  const state = await db.runTransaction(transaction => readUndergroundState(transaction, username));
-  return undergroundPayload(state, settings);
+  const [state, wantedTarget] = await Promise.all([
+    db.runTransaction(transaction => readUndergroundState(transaction, username)),
+    currentWantedTarget()
+  ]);
+  return undergroundPayload(state, settings, wantedTarget);
 }
 
 /** 仕分けを始める。途中の積荷があれば捨てて、いまの積荷と次の積荷を新しく渡す */
 async function undergroundStartShipment(username, settings) {
   const at = new Date().toISOString();
+  const wantedTarget = await currentWantedTarget();
+  if (wantedTarget) {
+    throw new UndergroundError(403, `指名手配の賞金首 (${wantedTarget.name}) がいるあいだは、船底は閉まっています。`);
+  }
   const state = await db.runTransaction(async transaction => {
     const current = await readUndergroundState(transaction, username);
     if (!canWorkUnderground(current.score, settings)) {
@@ -1986,6 +2002,8 @@ async function undergroundStartShipment(username, settings) {
  */
 async function undergroundSubmitShipment(username, body, settings) {
   const at = new Date().toISOString();
+  // 賞金首が出たら、いま仕分けている積荷までは数え、次の積荷には進ませない (58.0〜)
+  const wantedTarget = await currentWantedTarget();
   let grade = null;
   let change = null;
   let rejected = null;
@@ -2030,7 +2048,7 @@ async function undergroundSubmitShipment(username, body, settings) {
       });
     }
     // 繰り上げた積荷は、いまから仕分け始めたものとして速さを測る (先に渡してあった時間を数えない)
-    const keepGoing = body.next && canWorkUnderground(moved.afterScore, settings);
+    const keepGoing = body.next && !wantedTarget && canWorkUnderground(moved.afterScore, settings);
     const queued = current.record.nextShipment;
     const shipments = keepGoing
       ? { shipment: queued ? { ...queued, startedAt: at } : newShipment(settings, at), nextShipment: newShipment(settings, at) }
@@ -2045,7 +2063,7 @@ async function undergroundSubmitShipment(username, body, settings) {
   if (change && change.delta !== 0) {
     await rebuildRateChartQuietly(UNDERGROUND_WORK_SOURCE);
   }
-  return { ...undergroundPayload(state, settings), grade, change };
+  return { ...undergroundPayload(state, settings, wantedTarget), grade, change };
 }
 
 const UNDERGROUND_ACTIONS = {

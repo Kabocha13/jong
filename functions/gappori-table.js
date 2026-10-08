@@ -489,7 +489,7 @@ function finishGapporiRound(ctx, start) {
   // 5個の予想の券が当たった人にもスタンプを1つ押す (57.1〜。何枚当たっても1回に1つ。ハク入りの5個も数える。JP ルーレットのスタンプとは別に押す)
   const winStamped = [];
   costBy.forEach((item, uid) => {
-    if (!table.tickets.some(ticket => ticket.uid === uid && ticket.win && Array.isArray(ticket.picks) && ticket.picks.length === GAPPORI_STAMP_WIN_PICKS)) return;
+    if (!GAPPORI_STAMP_WIN_PICKS || !table.tickets.some(ticket => ticket.uid === uid && ticket.win && Array.isArray(ticket.picks) && ticket.picks.length === GAPPORI_STAMP_WIN_PICKS)) return;
     const stamped = pushStamp(uid, item.name);
     if (stamped) winStamped.push(stamped);
   });

@@ -37,7 +37,8 @@ const wd = {
     state: null,         // サーバーから最後に受け取った状態
     peek: null,          // はずれて見せている2枚: { cards: [{ index, face }], timer }
     flash: [],           // そろった直後に光らせるカード
-    session: null        // 開いてからの合計: { flips, pairs, delta }
+    session: null,       // 開いてからの合計: { flips, pairs, delta }
+    failed: false        // 状態を読めなかった (ゲーム一覧は船底だけにする)
 };
 
 async function callWanted(action, payload = {}) {
@@ -216,6 +217,7 @@ function showWdMessage(text, type = 'info') {
 }
 
 function receiveWanted(data) {
+    const before = wantedOrUnderground();
     wd.state = data;
     wd.loaded = true;
     if (Number.isFinite(Number(data.score))) casino.score = Number(data.score);
@@ -224,6 +226,26 @@ function receiveWanted(data) {
     renderWantedTile();
     // ゲーム一覧を出しているなら札も揃える
     if (casino.ready && !location.hash.slice(1)) renderMenu();
+    // 賞金首が出た・いなくなったときに、閉じたほう (船底か指名手配) を開いていたらゲーム一覧へ戻す
+    else if (casino.ready && before !== wantedOrUnderground() && closedGameRouteMessage()) renderRoute();
+}
+
+/**
+ * 船底と指名手配の出し分け (58.0〜): 賞金首がいれば 'wanted' (指名手配だけ)、いなければ 'underground' (船底だけ)。
+ * 指名手配の状態をまだ読んでいなければ null (どちらも出さない)。読めなかったときは船底だけにする
+ */
+function wantedOrUnderground() {
+    if (wd.loaded) return wd.state?.target ? 'wanted' : 'underground';
+    return wd.failed ? 'underground' : null;
+}
+
+/** いまの画面が閉じているほう (船底か指名手配) なら、その知らせの文。開いていてよければ '' */
+function closedGameRouteMessage() {
+    const mode = wantedOrUnderground();
+    const route = location.hash.slice(1);
+    if (route === 'underground' && mode === 'wanted') return `指名手配の賞金首 (${wd.state.target.name}) がいるあいだは、船底は閉まっています。`;
+    if (route === 'wanted' && mode === 'underground') return 'いまは賞金首がいないので、指名手配はお休みです (船底が開いています)。';
+    return '';
 }
 
 async function loadWantedStatus() {
@@ -232,7 +254,9 @@ async function loadWantedStatus() {
     try {
         receiveWanted(await callWanted('status'));
     } catch (error) {
+        wd.failed = true;
         if (wd.open) showWdMessage(error.message, 'error');
+        if (casino.ready && !location.hash.slice(1)) renderMenu();
     } finally {
         wd.loading = false;
     }
