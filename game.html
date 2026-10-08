@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="assets/js/no-zoom.js?v=57.5"></script>
+    <script src="assets/js/no-zoom.js?v=57.6"></script>
     <meta name="theme-color" content="#060d16">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,8 +12,8 @@
     <link rel="manifest" href="manifest.json">
     <link rel="apple-touch-icon" href="assets/icon.png?v=2" sizes="1024x1024">
     <link rel="icon" type="image/png" href="assets/icon.png?v=2">
-    <link rel="stylesheet" href="assets/css/style.css?v=57.5">
-    <script src="assets/js/treasure-rain.js?v=57.5" defer></script>
+    <link rel="stylesheet" href="assets/css/style.css?v=57.6">
+    <script src="assets/js/treasure-rain.js?v=57.6" defer></script>
 </head>
 <body>
     <header class="hero hero-compact" data-scene="tavern">
@@ -561,7 +561,7 @@
                 <li data-rules="gappori">3球目のあと、券ごとに「お宝ゲット」が来ることがある (2個 2.5%・3個 5%・4個 7.5%・5個 15%)。その券でまだ足りないお宝を1つ選ぶと「1球入ったこと」になる (その券だけ)。</li>
                 <li data-rules="gappori">「本日のおすすめ」は回ごとに 5・4・3・2個の予想が1つずつ選ばれ、倍率がふだんの約1.1倍になる (券を買う欄の上。押すとその予想を選ぶ)。</li>
                 <li data-rules="gappori">「ドクロ旗」は盤面には無く、単品でだけ賭けられる (いつでも選べる。1口 1,000)。船長チャンスの JP ルーレットでドクロ旗に止まったら当たりで、倍率はそのとき ×50〜×99 を抽選する (その回のドクロ旗の券はみな同じ倍率)。</li>
-                <li data-rules="gappori">JP ルーレットのスタンプに止まると、その回に券を買った全員のスタンプカードに1つ押される。5個の予想の券が当たった人にも、その回にスタンプが1つ押される (何枚当たっても1回に1つ)。3つ貯まると「チュン」を1回使える (カードは 0 から)。チュンは予想の1つとして選べ (チュンも1個に数えて3個以上の予想でだけ。2個の予想には使えない)、どのお宝の球でもよい札で、ほかのお宝がそろって余った球があれば、そのお宝のうち倍率がいちばん高いものに化けて当たり。1回の抽選で1枚の券に1つまで。チュンの券は1口だけで、値段は個数どおり (お宝ゲットは来ない。理想の賭け方には入らない)。チュンとスタンプはゲーム一覧の「購入」でも買える。</li>
+                <li data-rules="gappori">JP ルーレットのスタンプに止まると、その回に券を買った全員のスタンプカードに1つ押される。5個の予想の券が当たった人にも、その回にスタンプが1つ押される (何枚当たっても1回に1つ)。3つ貯まると「チュン」を1回使える (カードは 0 から)。チュンは予想の1つとして選べ (チュンも1個に数えて3個以上の予想でだけ。2個の予想には使えない)、どのお宝の球でもよい札で、ほかのお宝がそろって余った球があれば、そのお宝のうち倍率がいちばん高いものに化けて当たり。1回の抽選で1枚の券に1つまで。値段は個数どおりで、何口でも買える (お宝ゲットは来ない。理想の賭け方には入らない)。チュンとスタンプはゲーム一覧の「購入」でも買える。</li>
                 <li data-rules="gappori">受付中で、その回にまだ誰も券を買っていなければ「盤面をリセット」で新しい盤面にできる (みんなの盤面が変わる)。1人1回までで、宝探しの券を買うとまた使える。</li>
                 <li data-rules="gappori">券を買ったら「すぐ始める」で受付の30秒を飛ばせる (その回に券を買った人が全員押したら始まる)。</li>
                 <li data-rules="gappori">船長マスに球が入ると「船長チャンス」。5球のあと、盤面が JP ルーレット (JP・お宝ゲット・ドクロ旗・JP 2倍・JP 1/2・もう3球・スタンプのマス) に変わって1回回る。JP 2倍・JP 1/2 なら、貯まっているジャックポットが2倍・半分になる (持ち越し)。もう3球なら盤面にあと3球 (6〜8球目) が入る (全員の券に効く)。JP ならジャックポット (外れた券の代金の1割を貯めたもの) を、その回に券を買った人みんなで均等に山分けする。お宝ゲットなら、全員の券ごとに足りないお宝を1つ「1球入ったこと」にする (あと1球で当たりだった券が当たりになる)。</li>
@@ -680,18 +680,18 @@
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
     <script src="assets/js/firebase-config.js"></script>
-    <script src="assets/js/common.js?v=57.5"></script>
-    <script src="assets/js/game-sound.js?v=57.5"></script>
-    <script src="assets/js/game-blackjack.js?v=57.5"></script>
-    <script src="assets/js/game-slot.js?v=57.5"></script>
-    <script src="assets/js/game-gappori.js?v=57.5"></script>
-    <script src="assets/js/game-nariagari.js?v=57.5"></script>
-    <script src="assets/js/voyage-story.js?v=57.5"></script>
-    <script src="assets/js/game-voyage.js?v=57.5"></script>
-    <script src="assets/js/game-sink.js?v=57.5"></script>
-    <script src="assets/js/game-underground.js?v=57.5"></script>
-    <script src="assets/js/game-wanted.js?v=57.5"></script>
-    <script src="assets/js/game-shop.js?v=57.5"></script>
-    <script src="assets/js/game.js?v=57.5"></script>
+    <script src="assets/js/common.js?v=57.6"></script>
+    <script src="assets/js/game-sound.js?v=57.6"></script>
+    <script src="assets/js/game-blackjack.js?v=57.6"></script>
+    <script src="assets/js/game-slot.js?v=57.6"></script>
+    <script src="assets/js/game-gappori.js?v=57.6"></script>
+    <script src="assets/js/game-nariagari.js?v=57.6"></script>
+    <script src="assets/js/voyage-story.js?v=57.6"></script>
+    <script src="assets/js/game-voyage.js?v=57.6"></script>
+    <script src="assets/js/game-sink.js?v=57.6"></script>
+    <script src="assets/js/game-underground.js?v=57.6"></script>
+    <script src="assets/js/game-wanted.js?v=57.6"></script>
+    <script src="assets/js/game-shop.js?v=57.6"></script>
+    <script src="assets/js/game.js?v=57.6"></script>
 </body>
 </html>

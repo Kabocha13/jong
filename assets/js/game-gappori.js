@@ -646,9 +646,9 @@ function gapporiPrice(count = gp.picks.length) {
     return gp.table?.prices?.[count] ?? null;
 }
 
-/** 買う口数。チュンの券は1口だけ (57.5〜) */
+/** 買う口数 (チュンの券も何口でも。57.5 だけは1口だけだった) */
 function gapporiUnits() {
-    return isGapporiHaku(gp.picks) ? 1 : gp.units;
+    return gp.units;
 }
 
 function gapporiCost() {
@@ -667,8 +667,7 @@ function renderGapporiControls() {
         : picks >= GAPPORI_PICKS_MIN ? table.odds[gapporiKey(gp.picks)] ?? null : null;
     const cost = gapporiCost();
     // 打っている途中は書き換えない (空にしたときなど)。離れたときに change で直す
-    if (document.activeElement !== el('gp-units') || haku) el('gp-units').value = String(gapporiUnits());
-    el('gp-units').disabled = haku;   // チュンの券は1口だけ
+    if (document.activeElement !== el('gp-units')) el('gp-units').value = String(gapporiUnits());
     el('gp-cost').textContent = `${cost.toLocaleString('ja-JP')}`;
     const chosen = sortGapporiPicks(gp.picks).map(gapporiKindName).join('・');
     const flagInfo = gapporiFlagInfo(table);
@@ -676,7 +675,7 @@ function renderGapporiControls() {
         ? (picks < GAPPORI_HAKU_MIN_PICKS
             ? `チュンは${GAPPORI_HAKU_MIN_PICKS}個以上の予想でだけ使えます。チュンのほかにお宝をあと${GAPPORI_HAKU_MIN_PICKS - picks}個選んでください (チュンと合わせて${GAPPORI_HAKU_MIN_PICKS}〜5個)`
             : !hakuRange ? 'この予想は次の回から買えます。'
-                : `${sortGapporiPicks(hakuOthers).map(gapporiKindName).join('・')}・チュン (1口だけ ${gapporiPrice()}) ・ 倍率 ×${hakuRange.min}〜×${hakuRange.max} (ほかのお宝がそろって余った球があれば、いちばん高い倍率のお宝に化けて当たり)`)
+                : `${sortGapporiPicks(hakuOthers).map(gapporiKindName).join('・')}・チュン (1口 ${gapporiPrice()}) ・ 倍率 ×${hakuRange.min}〜×${hakuRange.max} (ほかのお宝がそろって余った球があれば、いちばん高い倍率のお宝に化けて当たり)`)
         : flag
         ? `ドクロ旗 (単品・1口 ${flagInfo.price.toLocaleString('ja-JP')}) ・ 船長チャンスの JP ルーレットでドクロ旗に止まったら当たり。倍率はそのとき ×${flagInfo.oddsMin}〜×${flagInfo.oddsMax} を抽選`
         : picks < GAPPORI_PICKS_MIN
@@ -687,8 +686,8 @@ function renderGapporiControls() {
                 + (gapporiFeaturedFor(gapporiKey(gp.picks)) ? ` (おすすめ。通常 ×${gapporiFeaturedFor(gapporiKey(gp.picks)).baseOdds})` : '')
                 + ` ・ 当たれば ${Math.round(cost * odds).toLocaleString('ja-JP')}`;
     el('gp-pick-info').classList.toggle('is-ready', Boolean(odds));
-    el('gp-units-down').disabled = haku || gp.units <= 1;
-    el('gp-units-up').disabled = haku;
+    el('gp-units-down').disabled = gp.units <= 1;
+    el('gp-units-up').disabled = false;
     el('gp-buy-button').disabled = casino.busy || !casino.session || !isGapporiOpen(table) || !odds || !gapporiPrice()
         || cost > slotChips() || myGapporiTickets(table).length >= GAPPORI_MAX_TICKETS;
     renderGapporiStart();

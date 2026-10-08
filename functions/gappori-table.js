@@ -234,8 +234,7 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
     if (!Number.isSafeInteger(units) || units < 1 || !Number.isSafeInteger(units * gapporiUnitPrice(picks))) {
       throw new GapporiTableError(400, '口数は1以上の整数で指定してください。');
     }
-    // チュン (中の名前はハク) の券は1口だけ (57.5〜。購入で買える札なので、口数を増やすほど得にならないように)
-    if (hakuCount && units !== 1) throw new GapporiTableError(400, 'チュンの券は1口だけです。');
+    // チュン (中の名前はハク) の券も何口でも買える (57.5 だけは1口だけだった)
     const key = gapporiPickKey(picks);
     const flag = isGapporiFlagPicks(picks);
     const haku = isGapporiHakuPicks(picks);
