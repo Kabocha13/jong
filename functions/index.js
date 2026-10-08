@@ -3318,14 +3318,15 @@ async function readPublicGapporiTable() {
 }
 
 async function casinoStatus(uid, username) {
-  const [wallet, table, gappori, autoSettled, slotStateDoc, voyage, sink] = await Promise.all([
+  const [wallet, table, gappori, autoSettled, slotStateDoc, voyage, sink, hlDoc] = await Promise.all([
     readCasinoSession(uid, username),
     readPublicBlackjackTable(),
     readPublicGapporiTable(),
     takeCasinoNotice(uid),
     db.collection(SLOT_STATES).doc(uid).get(),
     readVoyageStatus(uid),
-    readSinkStatus(uid)
+    readSinkStatus(uid),
+    db.collection(HL_GAMES).doc(uid).get()
   ]);
   return {
     me: username,
@@ -3338,6 +3339,8 @@ async function casinoStatus(uid, username) {
     sink: sink.sink,
     sinkMine: sink.sinkMine,
     sinkSea: sink.sinkSea,
+    // HL を遊んでいる途中か (58.9〜。使えるレートが 300,000 に届かなくても、途中ならゲーム一覧に HL を出して続きに戻れるようにする)
+    hlPlaying: hlDoc.exists && !isHlFinished(hlDoc.data()),
     autoSettled,
     now: new Date().toISOString()
   };

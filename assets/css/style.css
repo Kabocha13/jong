@@ -8164,3 +8164,16 @@ body.vg-story-open { overflow: hidden; }
 .game-tile.is-hl-featured .hl-tile-vip { bottom: 12px; font-size: 0.82em; padding: 3px 16px; }
 .game-tile.is-hl-featured .game-tile-name { font-size: 1.5em; letter-spacing: 0.1em; }
 .game-tile.is-hl-featured .game-tile-desc::before { content: '大勝ちした者だけが座れる VIP の卓。'; display: block; margin-bottom: 2px; font-weight: 700; color: var(--rum-dark); }
+
+/* 当たり・はずれの印 (58.9〜)。丸印は当たりなら光るトークン、はずれなら色を抜いたトークン。出たカードは当たりを金色に光らせ、はずれを沈める */
+.hl-pips li.is-win,
+.hl-pips li.is-lose { background: none; border: 0; }
+.hl-pips li img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.hl-pips li.is-win img { filter: drop-shadow(0 0 4px rgba(255, 214, 110, 0.95)) drop-shadow(0 0 10px rgba(255, 196, 84, 0.6)); animation: hl-pop 0.4s ease-out; }
+.hl-pips li.is-lose img { filter: grayscale(1) brightness(0.45) contrast(1.1); opacity: 0.85; }
+.hl-pips li:not(.is-win):not(.is-lose) { border: 1px solid rgba(242, 198, 80, 0.55); box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35); }
+.hl-history li.is-win .bj-card { box-shadow: 0 0 0 2px #f2c650, 0 0 10px rgba(255, 196, 84, 0.85); }
+.hl-history li.is-lose .bj-card { filter: grayscale(0.7) brightness(0.55); }
+.hl-history .hl-mark { font-size: 0.66em; letter-spacing: 0.06em; color: rgba(246, 232, 198, 0.6); }
+.hl-history li.is-win .hl-mark { color: #ffe48a; text-shadow: 0 0 6px rgba(255, 196, 84, 0.8); }
+.hl-history li.is-lose .hl-mark { color: rgba(246, 232, 198, 0.35); }

@@ -192,7 +192,7 @@ function renderMenu() {
         if (tile.dataset.game === 'underground' && casino.score < undergroundMaxRate()) text = '入れます';
         if (tile.dataset.game === 'wanted') text = wantedTileBadge();
         // HL (58.3〜) は使えるレートが1回の代金 (300,000) 以上の人だけが入れる VIP の卓
-        if (tile.dataset.game === 'hl' && (casino.session?.chips ?? casino.score) >= 300000) text = '入れます';
+        if (tile.dataset.game === 'hl') text = casino.hlPlaying || (hl.state?.hl && !hl.state.hl.finished) ? '続きから' : '入れます';
         badge.textContent = text;
         badge.classList.toggle('hidden', !text);
     });
@@ -209,20 +209,19 @@ function renderMenu() {
 
 /**
  * HL (58.6〜): 使えるレートが1回の代金 (300,000) 以上の人には、ゲーム一覧のいちばん上に画面の幅いっぱいで出す。
- * それより少ない人には、ふつうの大きさで購入の前に出す
+ * それより少ない人には出さない (58.9〜。58.6〜58.8 はふつうの大きさで出していた)。
+ * ただし遊んでいる途中の人 (始めて代金を払うと使えるレートが減る) には、続きに戻れるようにいちばん上に出す
  */
 function placeHlTile() {
     const tile = document.querySelector('.game-tile[data-game="hl"]');
     if (!tile) return;
     const tiles = tile.parentElement;
     const rich = (casino.session?.chips ?? casino.score) >= 300000;
-    tile.classList.toggle('is-hl-featured', rich);
-    if (rich) {
-        if (tiles.firstElementChild !== tile) tiles.prepend(tile);
-        return;
-    }
-    const shop = tiles.querySelector('.game-tile[data-game="shop"]');
-    if (shop && tile.nextElementSibling !== shop) tiles.insertBefore(tile, shop);
+    const playing = casino.hlPlaying || Boolean(hl.state?.hl && !hl.state.hl.finished);
+    const show = rich || playing;
+    tile.classList.toggle('hidden', !show);
+    tile.classList.toggle('is-hl-featured', show);
+    if (show && tiles.firstElementChild !== tile) tiles.prepend(tile);
 }
 
 // ------------------------------------------------------------------
@@ -284,6 +283,7 @@ async function refreshCasino() {
     const data = await callCasino('status');
     casino.score = data.score;
     casino.session = data.session;
+    casino.hlPlaying = Boolean(data.hlPlaying);
     if (data.me) casino.me = data.me;
     casino.ready = true;
     receiveBlackjackTable(data.table, data.now);

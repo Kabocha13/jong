@@ -47,6 +47,7 @@ async function openHl() {
     try {
         hl.state = await callCasino('hlStatus');
         const game = hl.state.hl;
+        casino.hlPlaying = Boolean(game && !game.finished);
         hl.mood = game && !game.finished ? 'start' : 'idle';
         renderHl();
     } catch (error) {
@@ -68,6 +69,15 @@ function hlCard(card, options = {}) {
     suit.textContent = `${HL_SUIT_MARKS[card.suit]}︎`;
     node.append(rank, suit);
     return node;
+}
+
+function hlTokenImage() {
+    const image = document.createElement('img');
+    image.alt = '';
+    image.draggable = false;
+    image.onerror = () => { image.onerror = null; image.src = HL_TOKEN_FALLBACK; };
+    image.src = HL_TOKEN_SRC;
+    return image;
 }
 
 function hlChips() {
@@ -109,11 +119,17 @@ function renderHl() {
 
     const pips = el('hl-pips');
     pips.innerHTML = '';
+    // 当たりは光るトークン、はずれは色を抜いたトークン、まだの回は番号 (58.9〜。58.8 までは ○・×)
     for (let i = 0; i < rules.rounds; i++) {
         const pip = document.createElement('li');
         const guess = game?.guesses?.[i];
         pip.className = guess ? (guess.win ? 'is-win' : 'is-lose') : '';
-        pip.textContent = guess ? (guess.win ? '○' : '×') : String(i + 1);
+        if (guess) {
+            pip.appendChild(hlTokenImage());
+            pip.title = guess.win ? `${i + 1}回目 当たり` : `${i + 1}回目 はずれ`;
+        } else {
+            pip.textContent = String(i + 1);
+        }
         pips.appendChild(pip);
     }
 
@@ -122,14 +138,14 @@ function renderHl() {
     if (game) {
         game.cards.forEach((card, index) => {
             const item = document.createElement('li');
-            item.appendChild(hlCard(card, { small: true }));
             const guess = game.guesses[index - 1];
-            if (guess) {
-                const mark = document.createElement('span');
-                mark.className = `hl-mark ${guess.win ? 'is-win' : 'is-lose'}`;
-                mark.textContent = `${guess.guess === 'high' ? '▲' : '▼'}${guess.win ? '○' : '×'}`;
-                item.appendChild(mark);
-            }
+            // 当てたカードは、当たりなら金色に光らせ、はずれなら暗く沈める。上・下の矢印だけを添える
+            if (guess) item.className = guess.win ? 'is-win' : 'is-lose';
+            item.appendChild(hlCard(card, { small: true }));
+            const mark = document.createElement('span');
+            mark.className = 'hl-mark';
+            mark.textContent = guess ? (guess.guess === 'high' ? '▲' : '▼') : '最初';
+            item.appendChild(mark);
             history.appendChild(item);
         });
     }
@@ -158,6 +174,7 @@ async function startHl() {
     try {
         const data = await callCasino('hlStart');
         hl.state = data;
+        casino.hlPlaying = true;
         hl.mood = 'start';
         if (Number.isFinite(Number(data.score))) casino.score = Number(data.score);
         if (casino.session && Number.isFinite(Number(data.chips))) casino.session = { ...casino.session, chips: data.chips, score: data.score };
@@ -196,6 +213,7 @@ async function guessHl(guess) {
         const data = await callCasino('hlGuess', { guess });
         const before = hl.state?.tokens || 0;
         hl.state = data;
+        casino.hlPlaying = !data.hl.finished;
         const last = data.hl.guesses[data.hl.guesses.length - 1];
         hl.lastGuess = last ? last.win : null;
         hl.mood = last?.win ? 'win' : 'lose';
