@@ -36,10 +36,12 @@ const GAPPORI_BIG_WIN = 10;        // 払い戻しが賭けた額のこの倍以
 const GAPPORI_RANKING_SIZE = 3;    // 結果のあとに見せる「理想の賭け方」の数
 const GAPPORI_RANKING_DELAY_MS = 1200;   // 結果の演出のあと、ランキングを出すまでの間 (当たりの金貨を見せてから)
 const GAPPORI_JP_SPIN_MS = 4200;         // JP ルーレットを回す長さ
+const GAPPORI_EXTRA_SPIN_MS = 2800;     // もう3球の1球ごとに盤面を回す長さ (3球なので、ふだんの球より短く)
+const GAPPORI_EXTRA_HOLD_MS = 700;      // もう3球の1球が止まってから次を回すまでの間
 const GAPPORI_JP_HOLD_MS = 1400;         // JP ルーレットが止まってから、結果 (JP・お宝ゲット・ハズレ) を見せておく間
 const GAPPORI_JP_LABELS = {
     jackpot: 'JP', treasure: 'お宝', miss: 'ハズレ', double: 'JP\n×2', half: 'JP\n½',
-    payout2: '払戻\n×2', extra: 'もう\n1球', plus: 'JP\n+???', minus: 'JP\n−???', plussmall: 'JP\n+??', minussmall: 'JP\n−??', stamp: 'スタンプ'
+    payout2: '払戻\n×2', extra: 'もう\n3球', plus: 'JP\n+???', minus: 'JP\n−???', plussmall: 'JP\n+??', minussmall: 'JP\n−??', stamp: 'スタンプ'
 };   // マスの字 (お宝ゲットは「お宝」。ドクロ旗とスタンプは絵)
 const GAPPORI_STAMP_IMAGE = 'assets/img/gappori/stamp.svg';
 
@@ -61,7 +63,8 @@ const gp = {
     rankClosed: 0,      // 「理想の賭け方」をタップで閉じた回
     jpShown: 0,         // JP ルーレットの結果 (お宝ゲットで当たりになった券) を見せてよくなった回
     drawSoundStop: null, // 抽選中に流している音 (gappori-drawing-loop.mp3) を止める関数
-    extraShown: 0,      // JP ルーレットの「もう1球」の6球目を見せた回
+    extraShown: 0,      // JP ルーレットの「もう3球」の球を見せた回
+    extraShownCount: 0, // その回に見せた「もう3球」の球の数 (1つずつ回して見せる)
     boostShown: 0,      // JP 2倍・1/2 で変わったジャックポットの額を見せてよくなった回 (回して止めるまでは前の額)
     choosing: false,    // チャンスの選択を送っている途中
     screen: 'buy',      // スマホで出している画面 ('buy' 券を買う / 'wheel' ルーレット)
@@ -136,11 +139,16 @@ function gapporiDueBalls(table = gp.table) {
 }
 
 /** 見せている球で入ったお宝の数 { kind: 個数 } */
-/** 見せている球のマス (JP ルーレットの「もう1球」の6球目は、回して見せたあとだけ足す) */
+/** JP ルーレットの「もう3球」で入った球 (57.4〜は extraBalls に3つ。57.3 までの「もう1球」は extraBall に1つ) */
+function gapporiExtraBalls(jackpot) {
+    if (Array.isArray(jackpot?.extraBalls) && jackpot.extraBalls.length) return jackpot.extraBalls;
+    return Number.isInteger(jackpot?.extraBall) ? [jackpot.extraBall] : [];
+}
+
+/** 見せている球のマス (JP ルーレットの「もう3球」の球は、回して見せたものだけ足す) */
 function gapporiVisibleBalls(table = gp.table) {
     const balls = table.balls.slice(0, gp.shownBalls);
-    const extra = table.result?.jackpot?.extraBall;
-    if (Number.isInteger(extra) && gp.extraShown === table.roundNo) balls.push(extra);
+    if (gp.extraShown === table.roundNo) balls.push(...gapporiExtraBalls(table.result?.jackpot).slice(0, gp.extraShownCount));
     return balls;
 }
 
@@ -182,6 +190,7 @@ function gapporiPickIcons(picks) {
 function buildGapporiWheel(table) {
     // 宝探しだけのお宝 (立体物の絵) は、盤面に出たときに読む
     table.board.kinds.forEach(kind => loadSlotSymbolImage(kind));
+    loadSlotSymbolImage(GAPPORI_HAKU);   // ハクの絵 (大きいので宝探しを開いたときに読む)
     const wheel = el('gp-wheel');
     wheel.innerHTML = '';
     // ゴールド盤 (5% の回。お宝4種類・1種類6マスまで) はルーレットと台を金色にする
@@ -252,15 +261,27 @@ function spinGapporiJpWheel(index) {
     });
 }
 
-/** もう1球: お宝の盤面に戻して回し、6球目のマスを針の下で止めて見せる */
-async function dropGapporiExtraBall(table, index) {
+/** もう3球: お宝の盤面に戻して、6〜8球目を1つずつ回して針の下で止めて見せる */
+async function dropGapporiExtraBalls(table, indexes) {
     restoreGapporiWheel(table);
-    const ms = prefersReducedMotion() ? 0 : GAPPORI_SPIN_MS;
+    for (const index of indexes) {
+        if (gp.table?.roundNo !== table.roundNo) return;
+        await dropGapporiExtraBall(table, index);
+    }
+}
+
+/** もう3球の1球: 盤面を回し、その球のマスを針の下で止めて見せる */
+async function dropGapporiExtraBall(table, index) {
+    const ms = prefersReducedMotion() ? 0 : GAPPORI_EXTRA_SPIN_MS;
     turnGapporiWheel(gapporiAngleFor(index, ms ? GAPPORI_SPIN_TURNS : 0), ms);
     if (ms) el('gp-wheel-wrap').classList.add('is-spinning');
     await new Promise(resolve => setTimeout(resolve, ms));
     el('gp-wheel-wrap').classList.remove('is-spinning');
-    gp.extraShown = table.roundNo;
+    if (gp.extraShown !== table.roundNo) {
+        gp.extraShown = table.roundNo;
+        gp.extraShownCount = 0;
+    }
+    gp.extraShownCount += 1;
     renderGapporiBalls();
     const pocket = el('gp-wheel').querySelector(`.gp-pocket[data-index="${index}"]`);
     if (pocket) restartClass(pocket, 'is-landing');
@@ -268,7 +289,7 @@ async function dropGapporiExtraBall(table, index) {
     const mine = new Set(myGapporiTickets(table).flatMap(ticket => ticket.picks));
     window.playGameSound?.(kind !== 'captain' && mine.has(kind) ? 'gpBallHit' : 'gpBall');
     if (mine.has(kind)) flashScreen('gold');
-    await new Promise(resolve => setTimeout(resolve, prefersReducedMotion() ? 300 : 900));
+    await new Promise(resolve => setTimeout(resolve, prefersReducedMotion() ? 300 : GAPPORI_EXTRA_HOLD_MS));
 }
 
 /** JP ルーレットからお宝の盤面に戻す (入った球もそのまま出す) */
@@ -327,6 +348,7 @@ function renderGapporiBalls() {
     const mine = new Set(myGapporiTickets(table).flatMap(ticket => ticket.picks));
     const list = el('gp-drawn');
     list.innerHTML = '';
+    list.classList.toggle('is-many', shown.length > 5);   // もう3球で8球まで並ぶときは小さくする
     for (let i = 0; i < Math.max(5, shown.length); i++) {
         const item = document.createElement('li');
         const kind = shown[i] === undefined ? null : table.board.pockets[shown[i]];
@@ -375,13 +397,24 @@ function revealGapporiBalls() {
 // ------------------------------------------------------------------
 // 状態の表示
 // ------------------------------------------------------------------
+/**
+ * 画面に出すジャックポットの額。JP ルーレットを回す回は、止めて見せるまで動く前の額を出す
+ * (JP が当たった回は当たった額 (卓はもう 0 から)、JP 2倍・1/2 の回は変わる前の額。先に出すと結果がわかってしまうため)
+ */
+function gapporiShownJackpot(table) {
+    const jackpot = table.phase === 'result' ? table.result?.jackpot : null;
+    if (jackpot?.kind && gp.jpShown !== table.roundNo) {
+        if (jackpot.won) return Math.floor(jackpot.amount);
+        const change = jackpot.boost || jackpot.shift;
+        if (change && gp.boostShown !== table.roundNo) return change.before;
+    }
+    return Math.floor(table.jackpot);
+}
+
 function renderGapporiStatus() {
     const table = gp.table;
     if (!table || !el('gp-status')) return;
-    // JP 2倍・1/2 の回は、JP ルーレットを回して止めるまで前の額を出す
-    const boost = table.phase === 'result' ? (table.result?.jackpot?.boost || table.result?.jackpot?.shift) : null;
-    const hideBoost = boost && gp.boostShown !== table.roundNo && gp.jpShown !== table.roundNo;
-    el('gp-jackpot').textContent = (hideBoost ? boost.before : Math.floor(table.jackpot)).toLocaleString('ja-JP');
+    el('gp-jackpot').textContent = gapporiShownJackpot(table).toLocaleString('ja-JP');
     let text = '';
     if (table.phase === 'betting') {
         const left = gapporiSecondsLeft(table.bettingEndsAt);
@@ -481,12 +514,12 @@ function renderGapporiKinds() {
         hakuButton.type = 'button';
         hakuButton.className = 'gp-kind is-haku';
         hakuButton.setAttribute('aria-pressed', String(hakuOn));
-        hakuButton.setAttribute('aria-label', `ハクを選ぶ (残り${haku}回)`);
+        hakuButton.setAttribute('aria-label', `チュンを選ぶ (残り${haku}回)`);
         hakuButton.disabled = !open || usedThisRound || (!hakuOn && gp.picks.length >= GAPPORI_PICKS_MAX);
         hakuButton.append(gapporiSymbol(GAPPORI_HAKU));
         const hakuName = document.createElement('span');
         hakuName.className = 'gp-kind-name';
-        hakuName.textContent = 'ハク';
+        hakuName.textContent = 'チュン';
         const hakuNote = document.createElement('span');
         hakuNote.className = 'gp-kind-count';
         hakuNote.textContent = usedThisRound ? 'この回は使用済み' : `残り${haku}回`;
@@ -508,14 +541,16 @@ function renderGapporiStamps() {
     const card = el('gp-stamps-card');
     if (!card) return;
     const { stamps, haku } = gapporiStampInfo();
-    el('gp-stamps-note').textContent = `${stamps}/${GAPPORI_STAMPS_PER_CARD}${haku ? ` ・ ハク残り${haku}回` : ''}`;
+    el('gp-stamps-note').textContent = `${stamps}/${GAPPORI_STAMPS_PER_CARD}${haku ? ` ・ チュン残り${haku}回` : ''}`;
     if (card.dataset.stamps === String(stamps)) return;
     card.dataset.stamps = String(stamps);
     card.innerHTML = '';
     for (let i = 0; i < GAPPORI_STAMPS_PER_CARD; i++) {
         const item = document.createElement('li');
         item.className = i < stamps ? 'is-stamped' : '';
-        item.textContent = i < stamps ? '⚓' : String(i + 1);
+        // 押したマスは JP ルーレットのスタンプと同じ絵 (57.4〜。57.3 までは ⚓ の字)
+        if (i < stamps) item.appendChild(gapporiStampImage());
+        else item.textContent = String(i + 1);
         card.appendChild(item);
     }
 }
@@ -594,7 +629,7 @@ function gapporiOddsLabel(table, ticket) {
     if (isGapporiHaku(ticket.picks)) {
         // ハクは結果で倍率が決まる。見せるまでは化けうる倍率の幅
         if (ticket.odds && isGapporiTicketSettled(table, ticket, table.phase === 'result')) {
-            return `×${ticket.odds}${ticket.hakuAs ? ` (ハク→${gapporiKindName(ticket.hakuAs)})` : ''}`;
+            return `×${ticket.odds}${ticket.hakuAs ? ` (チュン→${gapporiKindName(ticket.hakuAs)})` : ''}`;
         }
         const range = gapporiHakuRange(table, ticket.picks.filter(kind => kind !== GAPPORI_HAKU));
         return range ? `×${range.min}〜${range.max}` : '×?';
@@ -611,8 +646,13 @@ function gapporiPrice(count = gp.picks.length) {
     return gp.table?.prices?.[count] ?? null;
 }
 
+/** 買う口数。チュンの券は1口だけ (57.5〜) */
+function gapporiUnits() {
+    return isGapporiHaku(gp.picks) ? 1 : gp.units;
+}
+
 function gapporiCost() {
-    return gp.units * (gapporiPrice() || 0);
+    return gapporiUnits() * (gapporiPrice() || 0);
 }
 
 function renderGapporiControls() {
@@ -627,15 +667,16 @@ function renderGapporiControls() {
         : picks >= GAPPORI_PICKS_MIN ? table.odds[gapporiKey(gp.picks)] ?? null : null;
     const cost = gapporiCost();
     // 打っている途中は書き換えない (空にしたときなど)。離れたときに change で直す
-    if (document.activeElement !== el('gp-units')) el('gp-units').value = String(gp.units);
+    if (document.activeElement !== el('gp-units') || haku) el('gp-units').value = String(gapporiUnits());
+    el('gp-units').disabled = haku;   // チュンの券は1口だけ
     el('gp-cost').textContent = `${cost.toLocaleString('ja-JP')}`;
     const chosen = sortGapporiPicks(gp.picks).map(gapporiKindName).join('・');
     const flagInfo = gapporiFlagInfo(table);
     el('gp-pick-info').textContent = haku
         ? (picks < GAPPORI_HAKU_MIN_PICKS
-            ? `ハクは${GAPPORI_HAKU_MIN_PICKS}個以上の予想でだけ使えます。ハクのほかにお宝をあと${GAPPORI_HAKU_MIN_PICKS - picks}個選んでください (ハクと合わせて${GAPPORI_HAKU_MIN_PICKS}〜5個)`
+            ? `チュンは${GAPPORI_HAKU_MIN_PICKS}個以上の予想でだけ使えます。チュンのほかにお宝をあと${GAPPORI_HAKU_MIN_PICKS - picks}個選んでください (チュンと合わせて${GAPPORI_HAKU_MIN_PICKS}〜5個)`
             : !hakuRange ? 'この予想は次の回から買えます。'
-                : `${sortGapporiPicks(hakuOthers).map(gapporiKindName).join('・')}・ハク (1口 ${gapporiPrice()}) ・ 倍率 ×${hakuRange.min}〜×${hakuRange.max} (ほかのお宝がそろって余った球があれば、いちばん高い倍率のお宝に化けて当たり)`)
+                : `${sortGapporiPicks(hakuOthers).map(gapporiKindName).join('・')}・チュン (1口だけ ${gapporiPrice()}) ・ 倍率 ×${hakuRange.min}〜×${hakuRange.max} (ほかのお宝がそろって余った球があれば、いちばん高い倍率のお宝に化けて当たり)`)
         : flag
         ? `ドクロ旗 (単品・1口 ${flagInfo.price.toLocaleString('ja-JP')}) ・ 船長チャンスの JP ルーレットでドクロ旗に止まったら当たり。倍率はそのとき ×${flagInfo.oddsMin}〜×${flagInfo.oddsMax} を抽選`
         : picks < GAPPORI_PICKS_MIN
@@ -646,8 +687,8 @@ function renderGapporiControls() {
                 + (gapporiFeaturedFor(gapporiKey(gp.picks)) ? ` (おすすめ。通常 ×${gapporiFeaturedFor(gapporiKey(gp.picks)).baseOdds})` : '')
                 + ` ・ 当たれば ${Math.round(cost * odds).toLocaleString('ja-JP')}`;
     el('gp-pick-info').classList.toggle('is-ready', Boolean(odds));
-    el('gp-units-down').disabled = gp.units <= 1;
-    el('gp-units-up').disabled = false;
+    el('gp-units-down').disabled = haku || gp.units <= 1;
+    el('gp-units-up').disabled = haku;
     el('gp-buy-button').disabled = casino.busy || !casino.session || !isGapporiOpen(table) || !odds || !gapporiPrice()
         || cost > slotChips() || myGapporiTickets(table).length >= GAPPORI_MAX_TICKETS;
     renderGapporiStart();
@@ -710,7 +751,7 @@ function isGapporiJpRevealed(table) {
 
 /** この券の当たり・はずれを出してよいか (結果が出ていて、JP ルーレットのお宝ゲットの券なら回し終わっている) */
 function isGapporiTicketSettled(table, ticket, finished) {
-    // JP ルーレットを回す回は、どの券も回し終わるまで伏せる (お宝ゲット・ドクロ旗・払い戻し2倍・もう1球で結果が変わる)
+    // JP ルーレットを回す回は、どの券も回し終わるまで伏せる (お宝ゲット・ドクロ旗・払い戻し2倍・もう3球で結果が変わる)
     return finished && (!table.result?.jackpot?.kind || isGapporiJpRevealed(table));
 }
 
@@ -942,7 +983,7 @@ function renderGapporiTile() {
         return;
     }
     const players = new Set(table.tickets.map(ticket => ticket.name)).size;
-    live.textContent = `JP ${table.jackpot.toLocaleString('ja-JP')}${players ? ` ・ いま${players}人` : ''}`;
+    live.textContent = `JP ${gapporiShownJackpot(table).toLocaleString('ja-JP')}${players ? ` ・ いま${players}人` : ''}`;
     live.classList.toggle('is-busy', players > 0);
 }
 
@@ -957,8 +998,8 @@ function renderGapporiTile() {
  */
 function gapporiIdealRanking(table) {
     const jackpot = table.result?.jackpot || {};
-    // もう1球の回は6球目も入れて数える
-    const balls = Number.isInteger(jackpot.extraBall) ? [...table.balls, jackpot.extraBall] : table.balls;
+    // もう3球の回は6〜8球目も入れて数える
+    const balls = [...table.balls, ...gapporiExtraBalls(jackpot)];
     const hits = countGappori(balls.map(index => table.board.pockets[index]).filter(kind => kind !== 'captain'));
     const payout2 = jackpot.kind === 'payout2' ? 2 : 1;   // 払い戻し2倍の回は倍率も2倍で並べる
     const featured = new Set((table.featured || []).map(item => item.key));
@@ -1081,6 +1122,9 @@ async function celebrateGapporiResult() {
             // 止まったら、ハズレ以外 (JP・ドクロ旗・お宝ゲット・JP 2倍・JP 1/2) は当たりの球の音 (ハズレはハズレの音を下で鳴らす)
             if (jackpot.kind !== 'miss') window.playGameSound?.('gpBallHit');
             if (jackpot.kind === 'jackpot') {
+                gp.jpShown = table.roundNo;   // 止めて見せたので、JP の額を当たったあと (0 から) にする
+                renderGapporiStatus();
+                renderGapporiTile();
                 flashScreen('gold');
                 buzz([120, 60, 120]);
             } else if (jackpot.boost) {
@@ -1100,7 +1144,7 @@ async function celebrateGapporiResult() {
                 flashScreen('gold');
                 buzz([80, 40, 80]);
                 const completed = (jackpot.stamped || []).filter(item => item.completed).map(item => item.name);
-                showMessage(el('gp-message'), `📮 スタンプ！ この回に券を買った全員にスタンプを1つ押しました${completed.length ? ` (カードがいっぱいになってハク1回: ${completed.join('・')})` : ''}。`, 'success');
+                showMessage(el('gp-message'), `📮 スタンプ！ この回に券を買った全員にスタンプを1つ押しました${completed.length ? ` (カードがいっぱいになってチュン1回: ${completed.join('・')})` : ''}。`, 'success');
             } else if (jackpot.kind === 'payout2') {
                 flashScreen('gold');
                 buzz([80, 40, 80, 40, 200]);
@@ -1108,7 +1152,7 @@ async function celebrateGapporiResult() {
             } else if (jackpot.kind === 'extra') {
                 flashScreen('gold');
                 buzz([80, 40, 80]);
-                showMessage(el('gp-message'), '🎱 もう1球！ 盤面に6球目が入ります。', 'success');
+                showMessage(el('gp-message'), '🎱 もう3球！ 盤面にあと3球入ります。', 'success');
             } else if (jackpot.kind === GAPPORI_FLAG) {
                 flashScreen('red');
                 buzz([120, 60, 120, 60, 300]);
@@ -1123,7 +1167,7 @@ async function celebrateGapporiResult() {
                 showMessage(el('gp-message'), `ハズレ… ジャックポット ${table.jackpot.toLocaleString('ja-JP')} は持ち越しです。`, 'info');
             }
             await new Promise(resolve => setTimeout(resolve, prefersReducedMotion() ? 600 : GAPPORI_JP_HOLD_MS));
-            if (jackpot.kind === 'extra' && Number.isInteger(jackpot.extraBall) && sameRound()) await dropGapporiExtraBall(table, jackpot.extraBall);
+            if (jackpot.kind === 'extra' && gapporiExtraBalls(jackpot).length && sameRound()) await dropGapporiExtraBalls(table, gapporiExtraBalls(jackpot));
             gp.jpShown = table.roundNo;
             // 止めて見せたので、スタンプカード (とハクの回数) を新しい値で描き直す
             renderGapporiStamps();
@@ -1188,7 +1232,7 @@ async function celebrateGapporiResult() {
         }
         // 5個の予想が当たった回はスタンプも1つ (57.1〜。カードがいっぱいになったらハク1回)
         const winStamp = (table.result?.winStamped || []).find(item => item.name === myName());
-        const stampNote = winStamp ? ` ・ 📮 5個の予想が当たってスタンプ1つ${winStamp.completed ? ' (カードがいっぱいになってハク1回！)' : ''}` : '';
+        const stampNote = winStamp ? ` ・ 📮 5個の予想が当たってスタンプ1つ${winStamp.completed ? ' (カードがいっぱいになってチュン1回！)' : ''}` : '';
         showMessage(el('gp-message'), `🎉 当たり！ 払い戻し ${payout.toLocaleString('ja-JP')}${stampNote}`, 'success');
     } else if (mine.length && !jackpot.won) {
         showMessage(el('gp-message'), jackpot.kind === 'miss'
@@ -1231,6 +1275,8 @@ function receiveGapporiTable(table, now) {
             gp.celebrated = table.roundNo;
             gp.ranked = table.roundNo;
             gp.jpShown = table.roundNo;
+            gp.extraShown = table.roundNo;   // もう3球の球も入ったところから出す
+            gp.extraShownCount = gapporiExtraBalls(table.result?.jackpot).length;
         }
         // 誰かが盤面をリセットした回は知らせる (開いたときにもうリセットされていたときは出さない)
         if (!firstLook && table.resetBy && table.phase === 'betting' && el('gp-wheel')) {
@@ -1415,7 +1461,7 @@ async function resetGapporiBoard() {
 async function buyGapporiTicket() {
     const picks = sortGapporiPicks(gp.picks);
     if (casino.busy || !casino.session || !(isGapporiFlag(picks) || isGapporiHaku(picks) || gp.table?.odds[gapporiKey(picks)])) return;
-    const units = gp.units;
+    const units = gapporiUnits();
     const cost = gapporiCost();
     setCasinoBusy(true);
     try {

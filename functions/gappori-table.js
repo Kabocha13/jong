@@ -32,6 +32,7 @@ import {
   GAPPORI_FLAG_PRICE,
   GAPPORI_JP_DOUBLE,
   GAPPORI_JP_EXTRA,
+  GAPPORI_JP_EXTRA_BALLS,
   GAPPORI_JP_MINUS,
   GAPPORI_JP_MINUS_SMALL,
   GAPPORI_JP_PAYOUT2,
@@ -79,6 +80,7 @@ export const GAPPORI_CHANCE_MS = 10 * 1000;
 export const GAPPORI_RESULT_MS = 9 * 1000;
 export const GAPPORI_CAPTAIN_MS = 10 * 1000;   // 船長チャンス (カットイン + JP ルーレットを回す) の演出のぶん、結果を長く見せる
 export const GAPPORI_JACKPOT_MS = 4 * 1000;    // JP が当たったときのカットインのぶん、さらに長く見せる
+export const GAPPORI_EXTRA_MS = 9 * 1000;      // もう3球 (57.4〜) の3球を回して見せるぶん、さらに長く見せる
 // 結果の演出を始める時刻をそろえる間 (56.2〜)。どの人の画面も、結果を出した時刻 (result.at) からこれだけ置いて演出を始める
 export const GAPPORI_RESULT_SYNC_MS = 2 * 1000;
 const GAPPORI_RECENT_LIMIT = 12;
@@ -210,19 +212,19 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
   const hakuOrders = orders.filter(order => Array.isArray(order?.picks) && order.picks.map(String).includes(GAPPORI_HAKU));
   if (hakuOrders.length) {
     if (hakuOrders.length > 1 || table.tickets.some(ticket => ticket.uid === uid && ticket.haku)) {
-      throw new GapporiTableError(409, 'ハクは1回の抽選で1枚の券にしか使えません。');
+      throw new GapporiTableError(409, 'チュンは1回の抽選で1枚の券にしか使えません。');
     }
-    if ((wallet.gpHaku || 0) < 1) throw new GapporiTableError(409, 'ハクを使える回数がありません (スタンプを3つ貯めると1回使えます)。');
+    if ((wallet.gpHaku || 0) < 1) throw new GapporiTableError(409, 'チュンを使える回数がありません (スタンプを3つ貯めると1回使えます)。');
   }
   const tickets = orders.map(order => {
     const raw = Array.isArray(order?.picks) ? order.picks.map(String) : [];
     const hakuCount = raw.filter(kind => kind === GAPPORI_HAKU).length;
-    if (hakuCount > 1) throw new GapporiTableError(400, 'ハクは1枚の券に1つまでです。');
-    if (hakuCount && raw.includes('flag')) throw new GapporiTableError(400, 'ドクロ旗とハクは組み合わせられません。');
+    if (hakuCount > 1) throw new GapporiTableError(400, 'チュンは1枚の券に1つまでです。');
+    if (hakuCount && raw.includes('flag')) throw new GapporiTableError(400, 'ドクロ旗とチュンは組み合わせられません。');
     // ハク以外のお宝は、ハクの分も数えた個数 (2〜5) で検証する (ハクは盤面のどのお宝とも数える)
     const others = hakuCount ? raw.filter(kind => kind !== GAPPORI_HAKU) : null;
     if (hakuCount && (others.length + 1 < GAPPORI_HAKU_MIN_PICKS || others.length + 1 > 5)) {
-      throw new GapporiTableError(400, `ハクは${GAPPORI_HAKU_MIN_PICKS}個以上の予想でだけ使えます。ハクのほかにお宝を${GAPPORI_HAKU_MIN_PICKS - 1}〜4個選んでください。`);
+      throw new GapporiTableError(400, `チュンは${GAPPORI_HAKU_MIN_PICKS}個以上の予想でだけ使えます。チュンのほかにお宝を${GAPPORI_HAKU_MIN_PICKS - 1}〜4個選んでください。`);
     }
     const picks = hakuCount
       ? [...normalizeGapporiPicksLoose(table.board, others), GAPPORI_HAKU]
@@ -232,6 +234,8 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
     if (!Number.isSafeInteger(units) || units < 1 || !Number.isSafeInteger(units * gapporiUnitPrice(picks))) {
       throw new GapporiTableError(400, '口数は1以上の整数で指定してください。');
     }
+    // チュン (中の名前はハク) の券は1口だけ (57.5〜。購入で買える札なので、口数を増やすほど得にならないように)
+    if (hakuCount && units !== 1) throw new GapporiTableError(400, 'チュンの券は1口だけです。');
     const key = gapporiPickKey(picks);
     const flag = isGapporiFlagPicks(picks);
     const haku = isGapporiHakuPicks(picks);
@@ -400,7 +404,7 @@ function finishGapporiRound(ctx, start) {
 
   // 船長マスに球が入ったらチャンスタイム: JP ルーレットを1回回す (券を買った人がいる回だけ)
   const captain = table.balls.some(index => table.board.pockets[index] === GAPPORI_CAPTAIN);
-  const jackpot = { captain, rate: GAPPORI_JACKPOT_RATE, wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [], flagOdds: null, flagWinners: [], boost: null, extraBall: null, shift: null, stamped: [] };
+  const jackpot = { captain, rate: GAPPORI_JACKPOT_RATE, wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [], flagOdds: null, flagWinners: [], boost: null, extraBall: null, extraBalls: [], shift: null, stamped: [] };
   if (captain && costBy.size) {
     const wheel = generateGapporiJpWheel(ctx.randomInt);
     jackpot.wheel = wheel.pockets;
@@ -408,16 +412,22 @@ function finishGapporiRound(ctx, start) {
     jackpot.kind = wheel.kind;
   }
 
-  // もう1球: 盤面に6球目を入れる (まだ入っていないマスから。table.balls には足さず、jackpot.extraBall に持つ)
-  jackpot.extraBall = jackpot.kind === GAPPORI_JP_EXTRA ? drawGapporiBall(table.board, table.balls, ctx.randomInt) : null;
-  const balls = jackpot.extraBall === null ? table.balls : [...table.balls, jackpot.extraBall];
+  // もう3球 (57.4〜。57.3 までは もう1球で jackpot.extraBall に1つ): 盤面に6〜8球目を入れる
+  // (まだ入っていないマスから1つずつ。table.balls には足さず、jackpot.extraBalls に持つ)
+  if (jackpot.kind === GAPPORI_JP_EXTRA) {
+    for (let i = 0; i < GAPPORI_JP_EXTRA_BALLS; i++) {
+      jackpot.extraBalls.push(drawGapporiBall(table.board, [...table.balls, ...jackpot.extraBalls], ctx.randomInt));
+    }
+  }
+  const hasExtraBalls = jackpot.extraBalls.length > 0;
+  const balls = hasExtraBalls ? [...table.balls, ...jackpot.extraBalls] : table.balls;
 
-  // 当たり (5球と、もう1球の回は6球で)。もう1球で当たりになった券には印 (byExtra) を付ける
+  // 当たり (5球と、もう3球の回は8球で)。もう3球で当たりになった券には印 (byExtra) を付ける
   const settle = (ticket, index, extra = null) => {
     if (ticket.haku) {
       // ハク: ほかのお宝がそろい、余った球があれば、倍率がいちばん高くなるお宝に化けて当たり
       const result = gapporiHakuResult(table.board, balls, ticket.picks, table.odds);
-      const result5 = jackpot.extraBall === null ? result : gapporiHakuResult(table.board, table.balls, ticket.picks, table.odds);
+      const result5 = !hasExtraBalls ? result : gapporiHakuResult(table.board, table.balls, ticket.picks, table.odds);
       ticket.win = Boolean(result);
       ticket.hakuAs = result ? result.kind : null;
       ticket.odds = result ? result.odds : null;
@@ -428,7 +438,7 @@ function finishGapporiRound(ctx, start) {
     const flag = isGapporiFlagPicks(ticket.picks);
     const granted = [grantedBy.get(index) || null, extra];
     ticket.win = !flag && isGapporiWin(table.board, balls, ticket.picks, granted);
-    ticket.byExtra = ticket.win && jackpot.extraBall !== null && !isGapporiWin(table.board, table.balls, ticket.picks, granted);
+    ticket.byExtra = ticket.win && hasExtraBalls && !isGapporiWin(table.board, table.balls, ticket.picks, granted);
     ticket.payout = ticket.win ? Math.round(ticket.cost * ticket.odds) : 0;
   };
   table.tickets.forEach((ticket, index) => settle(ticket, index));
@@ -564,7 +574,7 @@ function finishGapporiRound(ctx, start) {
     syncMs: GAPPORI_RESULT_SYNC_MS
   };
   table.phase = 'result';
-  table.nextRoundAt = iso(start + GAPPORI_RESULT_SYNC_MS + GAPPORI_RESULT_MS + (jackpot.kind ? GAPPORI_CAPTAIN_MS : 0) + (jackpot.won || jackpot.flagWinners.length || jackpot.extraBall !== null ? GAPPORI_JACKPOT_MS : 0));
+  table.nextRoundAt = iso(start + GAPPORI_RESULT_SYNC_MS + GAPPORI_RESULT_MS + (jackpot.kind ? GAPPORI_CAPTAIN_MS : 0) + (jackpot.won || jackpot.flagWinners.length ? GAPPORI_JACKPOT_MS : 0) + (hasExtraBalls ? GAPPORI_EXTRA_MS : 0));
 }
 
 /**

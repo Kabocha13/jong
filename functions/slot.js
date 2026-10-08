@@ -132,8 +132,19 @@ export function normalizeSlotState(state) {
     jackpotBet: jackpotLeft > 0 ? Math.max(1, toCount(source.jackpotBet)) : 0,
     spinsSinceJackpot: toCount(source.spinsSinceJackpot),       // 前のジャックポットタイムから通常モードでまわした回数
     wageredSinceJackpot: toCount(source.wageredSinceJackpot),   // その間に賭けた合計
-    jackpots: toCount(source.jackpots)                          // これまでに入った回数
+    jackpots: toCount(source.jackpots),                         // これまでに入った回数
+    ceilingBet: toCount(source.ceilingBet)                      // 購入の「スロット天井到達」で選んだ賭け金 (57.5〜。入ったときの固定の賭け金。0 = 買っていない)
   };
+}
+
+/**
+ * 購入の「スロット天井到達」(57.5〜): 天井まで進め、次に入るジャックポットタイムの固定の賭け金を bet にする。
+ * ジャックポットタイムの途中と、もう天井到達を買っていて入っていないときは買えない (null を返す)
+ */
+export function buySlotCeiling(rawState, bet) {
+  const state = normalizeSlotState(rawState);
+  if (state.mode === 'jackpot' || state.ceilingBet > 0) return null;
+  return { ...state, spinsSinceJackpot: Math.max(state.spinsSinceJackpot, SLOT_JACKPOT.ceiling), ceilingBet: bet };
 }
 
 /** 次の通常モードの1回でジャックポットタイムに入る確率 (天井を過ぎていれば上がる) */
@@ -169,11 +180,12 @@ export function playSlotRound(rawState, requestedBet, chips, randomInt) {
   const rate = slotEnterRate(state);
   if (randomInt(RATE_SCALE) < Math.round(rate * RATE_SCALE)) {
     const spins = SLOT_JACKPOT.spinsMin + randomInt(SLOT_JACKPOT.spinsMax - SLOT_JACKPOT.spinsMin + 1);
-    const jackpotBet = Math.max(1, Math.round(wageredSinceJackpot / spinsSinceJackpot));
+    // 天井到達を買っていたら、そのとき選んだ賭け金で固定する (平均で決めると、買ったあとに大きく賭けて固定の額を上げられるため)
+    const jackpotBet = state.ceilingBet > 0 ? state.ceilingBet : Math.max(1, Math.round(wageredSinceJackpot / spinsSinceJackpot));
     return {
       outcome,
       bet,
-      state: { mode: 'jackpot', jackpotLeft: spins, jackpotBet, spinsSinceJackpot: 0, wageredSinceJackpot: 0, jackpots: state.jackpots + 1 },
+      state: { mode: 'jackpot', jackpotLeft: spins, jackpotBet, spinsSinceJackpot: 0, wageredSinceJackpot: 0, jackpots: state.jackpots + 1, ceilingBet: 0 },
       entered: { spins, bet: jackpotBet },
       finished: false
     };

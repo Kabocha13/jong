@@ -1412,13 +1412,13 @@ if (GAPPORI_HAKU_FORM) {
             showMessage(message, '1人あたりの回数は 1〜10 の整数で入力してください。', 'error');
             return;
         }
-        if (!confirm(`宝探しのハクを、全員に ${count}回ずつ配ります。よろしいですか？`)) return;
+        if (!confirm(`宝探しのチュンを、全員に ${count}回ずつ配ります。よろしいですか？`)) return;
         const submitButton = GAPPORI_HAKU_FORM.querySelector('button[type="submit"]');
         submitButton.disabled = true;
         showMessage(message, '配っています...', 'info');
         try {
             const result = await callGapporiAdmin('grantHaku', { count });
-            showMessage(message, `✅ ハクを ${result.granted.players.length}人に ${result.granted.count}回ずつ配りました (${result.granted.players.join('・')})。`, 'success');
+            showMessage(message, `✅ チュンを ${result.granted.players.length}人に ${result.granted.count}回ずつ配りました (${result.granted.players.join('・')})。`, 'success');
         } catch (error) {
             console.error(error);
             showMessage(message, `❌ ${error.message}`, 'error');
@@ -2121,13 +2121,16 @@ async function loadMemberStatusList() {
         MEMBER_STATUS_LIST.innerHTML = players.map(player => {
             const name = escapeAdminText(player.name);
             const current = player.status || 'none';
+            // 永久Pro会員 (57.5〜。購入で買った人) は一般に戻せない (サーバーも Pro のままにする)
+            const forever = player.proForever === true;
             const options = MEMBER_STATUS_OPTIONS.map(option => {
                 const selected = option.value === current ? ' selected' : '';
-                return `<option value="${option.value}"${selected}>${option.label}</option>`;
+                const disabled = forever && option.value === 'none' ? ' disabled' : '';
+                return `<option value="${option.value}"${selected}${disabled}>${option.label}</option>`;
             }).join('');
             return `
                 <label class="member-status-row">
-                    <span class="member-status-name">${name}</span>
+                    <span class="member-status-name">${name}${forever ? ' <small class="member-status-forever">永久Pro</small>' : ''}</span>
                     <select class="member-status-select" data-player="${name}">${options}</select>
                 </label>
             `;

@@ -3209,6 +3209,13 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     -webkit-user-drag: none;
 }
 
+/* 宝探しのハクの絵 (57.4〜。航海のチュンの上半身の絵) は、顔のあたりを大きくして見せる */
+.slot-symbol.is-haku img {
+    object-position: 50% 0;
+    transform: scale(1.75);
+    transform-origin: 47% 28%;
+}
+
 /* 宝探しだけのお宝 (舵輪・望遠鏡・大砲)。背景を抜いた立体物の絵なので、ほかのお宝の絵 (青緑の背景ごと描いてあり、
    枠の金の線が絵で隠れる) と見た目をそろえる: 枠の金の線を消し、背景の濃淡をほかの絵 (真ん中が明るく、外ほど暗い) に合わせる */
 .slot-symbol.is-helm,
@@ -4388,7 +4395,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 .gp-jp-pocket.is-minus,
 .gp-jp-pocket.is-minussmall { color: #dfe7ee; background: radial-gradient(circle at 50% 35%, #6d7f8e 0%, #3a4753 60%, #1d252c 100%); }
 /* スタンプ (56.6〜は絵。assets/img/gappori/stamp.svg) */
-.gp-jp-pocket.is-stamp { overflow: hidden; background: #ecd5a2; }
+.gp-jp-pocket.is-stamp { overflow: hidden; background: radial-gradient(circle at 50% 38%, #fbf0d4 0%, #ecd5a2 68%, #bf9a5a 100%); }
 .gp-jp-pocket.is-stamp img { display: block; width: 100%; height: 100%; pointer-events: none; }
 .gp-pocket .gp-jp-pocket.is-payout2,
 .gp-pocket .gp-jp-pocket.is-extra,
@@ -4619,6 +4626,8 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
+.gp-drawn.is-many { gap: 4px; }
+.gp-drawn.is-many li { width: clamp(34px, 9.6vw, 48px); font-size: clamp(34px, 9.6vw, 48px); }
 .gp-drawn li.is-mine .slot-symbol { box-shadow: 0 0 0 3px var(--lantern), 0 0 14px var(--lantern); }
 .gp-drawn li.is-captain .slot-symbol { box-shadow: 0 0 0 3px #ff5a4a, 0 0 14px #ff5a4a; }
 
@@ -5015,7 +5024,9 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     font-size: 12px; color: var(--ink-soft);
     border: 1px dashed var(--parchment-edge); border-radius: 50%;
 }
-.gp-stamps-card li.is-stamped { font-size: 19px; color: #fff; background: var(--rum); border: 1px solid var(--rum-dark); transform: rotate(-8deg); }
+/* 押したマスは JP ルーレットのスタンプと同じ絵 (57.4〜) */
+.gp-stamps-card li.is-stamped { border-color: transparent; }
+.gp-stamps-card li.is-stamped img { display: block; width: 100%; height: 100%; pointer-events: none; }
 
 /* ハク (スタンプカードで使える札)。縁を金にする */
 .gp-kinds button.gp-kind.is-haku { border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass-light); }
@@ -7657,3 +7668,61 @@ body.vg-story-open { overflow: hidden; }
     .vg-dice.is-rolling, .vg-story-bg.is-pan, .vg-flip-coin, .vg-clash, .vg-ship.is-hop img, .vg-pool strong.is-bump { animation: none; }
     .vg-ship { transition: none; }
 }
+
+/* -----------------------------------------------------------------
+   購入 (57.5〜。#shop)。ゲーム一覧のカードと、品物のカード
+   ----------------------------------------------------------------- */
+.game-tile-art.is-shop {
+    flex-direction: column;
+    gap: 6px;
+    background:
+        radial-gradient(ellipse 70% 60% at 50% 45%, rgba(255, 182, 72, 0.22), transparent 70%),
+        var(--img-wood),
+        linear-gradient(180deg, var(--timber), var(--pitch));
+    background-size: auto, 220px, auto;
+    background-blend-mode: normal, multiply, normal;
+}
+.shop-tile-sign {
+    padding: 2px 14px;
+    font-family: var(--font-display);
+    font-size: clamp(16px, 4.4vw, 22px);
+    letter-spacing: 0.24em;
+    color: #2b1d06;
+    background: linear-gradient(135deg, var(--brass-light), #96690f);
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.shop-tile-goods { display: flex; align-items: center; gap: 10px; }
+.shop-tile-goods img { width: clamp(40px, 11vw, 56px); height: auto; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
+.shop-tile-star { font-size: clamp(28px, 8vw, 40px); filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)); }
+
+.shop-rate { margin: 0 0 6px; font-size: 0.95em; color: var(--ink-soft); }
+.shop-rate strong { margin-left: 4px; font-family: var(--font-display); font-size: 1.3em; color: var(--rum-dark); }
+.shop-rate small { display: block; margin-top: 2px; font-size: 0.8em; }
+.shop-items { display: grid; gap: 12px; margin-top: 12px; }
+.shop-item {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-areas: "icon body" "controls controls";
+    gap: 8px 12px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid var(--parchment-edge);
+    border-radius: 12px;
+}
+.shop-item-icon { grid-area: icon; display: grid; place-items: center; width: 64px; height: 64px; font-size: 64px; }
+.shop-item-icon img { width: 100%; height: 100%; }
+.shop-pro-mark { font-size: 46px; line-height: 1; }
+.shop-item-body { grid-area: body; min-width: 0; }
+.shop-item-name { margin: 0 0 2px; font-size: 1.02em; color: var(--rum-dark); }
+.shop-item-desc { margin: 0; font-size: 0.82em; line-height: 1.4; color: var(--ink-soft); }
+.shop-item-owned { margin: 4px 0 0; font-size: 0.82em; font-weight: 700; color: var(--ink); }
+.shop-item-owned:empty { display: none; }
+.shop-item-controls { grid-area: controls; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.shop-step { width: 34px; height: 34px; padding: 0; border-radius: 50%; }
+.shop-count { min-width: 3em; font-weight: 700; text-align: center; }
+.shop-bet { display: flex; align-items: center; gap: 6px; font-size: 0.9em; white-space: nowrap; }
+.shop-bet select { width: auto; min-width: 5.5em; }
+.shop-bet select { padding: 4px 8px; }
+.shop-buy { width: auto; margin: 0; padding: 8px 16px; }
+.shop-item-blocked { flex-basis: 100%; margin: 0; font-size: 0.78em; text-align: right; color: var(--ink-soft); }

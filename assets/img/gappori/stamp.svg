@@ -1,11 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
-  <!-- 宝探しの JP ルーレットの「スタンプ」のマス (56.6〜)。羊皮紙に朱肉で押した錨の印 -->
+  <!-- 宝探しのスタンプ (朱肉で押した錨の印。背景は透明)。JP ルーレットのスタンプのマス (56.6〜) とスタンプカードの印 (57.4〜) に使う -->
   <defs>
-    <radialGradient id="paper" cx="50%" cy="38%" r="78%">
-      <stop offset="0" stop-color="#fbf0d4"/>
-      <stop offset="0.68" stop-color="#ecd5a2"/>
-      <stop offset="1" stop-color="#bf9a5a"/>
-    </radialGradient>
     <filter id="ink" x="-10%" y="-10%" width="120%" height="120%">
       <feTurbulence type="fractalNoise" baseFrequency="0.45" numOctaves="2" seed="7" result="noise"/>
       <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="rough"/>
@@ -14,7 +9,6 @@
       <feComposite in="rough" in2="mask" operator="in"/>
     </filter>
   </defs>
-  <rect width="200" height="200" fill="url(#paper)"/>
   <g filter="url(#ink)" transform="rotate(-12 100 100)" fill="none" stroke="#b01f1a" stroke-linecap="round" stroke-linejoin="round" opacity="0.92">
     <circle cx="100" cy="100" r="80" stroke-width="12"/>
     <circle cx="100" cy="100" r="64" stroke-width="5"/>

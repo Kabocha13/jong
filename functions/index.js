@@ -4,7 +4,8 @@ import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { onRequest } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
-import { normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
+import { buySlotCeiling, normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
+import { SHOP_MAX_COUNT, SHOP_SLOT_BETS, ShopError, publicShopItems, quoteShopItem } from './shop.js';
 import { GAPPORI_JACKPOT_RATE, GapporiRuleError, settleGapporiStampCard } from './gappori.js';
 import { NARIAGARI_BETS, playNariagari } from './nariagari.js';
 import {
@@ -1689,6 +1690,7 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
         const collectionRef = db.collection(collectionName);
         const nextIds = new Set();
         const existingIds = new Set(snapshots.get(key).docs.map(doc => doc.id));
+        const existingById = new Map(snapshots.get(key).docs.map(doc => [doc.id, doc.data()]));
 
         (Array.isArray(data[key]) ? data[key] : []).forEach((item, index) => {
           const docId = getItemDocId(key, item, index);
@@ -1698,6 +1700,11 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
           delete payload._baseScore;
           if (key === 'scores' && scoreWrites.scores.has(docId)) {
             payload.score = scoreWrites.scores.get(docId);
+          }
+          // 永久Pro会員 (57.5〜。購入で買ったもの) は、印を消さず、一般に戻されても Pro のままにする
+          if (key === 'scores' && existingById.get(docId)?.proForever === true) {
+            payload.proForever = true;
+            if (!payload.status || payload.status === 'none') payload.status = 'pro';
           }
           if (Object.hasOwn(created, key) && !existingIds.has(docId)) {
             created[key].push(payload);
@@ -2852,7 +2859,7 @@ async function readCasinoWallets(transaction, names, tables, game) {
     const held = casinoHeld(tables, uid);
     wallets.set(uid, { ...walletAccount, chips: score - held });
     const status = String(playerDoc.data().status || 'none');
-    origins.set(uid, { account, score, held, heldHere: tableHeld(game, tables[game], uid), playerRef: playerDoc.ref, name, status });
+    origins.set(uid, { account, score, held, heldHere: tableHeld(game, tables[game], uid), playerRef: playerDoc.ref, name, status, proForever: playerDoc.data().proForever === true });
   });
   return { wallets, origins };
 }
@@ -3036,6 +3043,133 @@ async function readCasinoSession(uid, username) {
   settleGapporiStampCard(account);   // 画面に出す分も数え直す (書き戻すのは次の操作のとき)
   const status = playerSnapshot.empty ? 'none' : String(playerSnapshot.docs[0].data().status || 'none');
   return { score, session: publicCasinoSession({ ...account, chips: score - held }, held, casinoDailyPlayLimit(status)) };
+}
+
+// -----------------------------------------------------------------
+// 購入 (57.5〜。ゲーム一覧の「購入」)。いまのレートを、ゲームで使える道具に交換する (品書きと値段は shop.js)。
+//   代金は「使えるレート (レート − 結果待ちの賭け)」から払い、その場でレートを下げる。増減ログは1回ごとに1件 (source: casino_shop)
+// -----------------------------------------------------------------
+const SHOP_SOURCE = 'casino_shop';
+
+/** 購入の画面に出すもの (品書き・いま持っているチュンとスタンプ・天井到達を買ってあるか・永久Pro か) */
+function publicShopState({ account, slotState, status, proForever }) {
+  const slot = normalizeSlotState(slotState);
+  return {
+    items: publicShopItems(),
+    slotBets: SHOP_SLOT_BETS,
+    maxCount: SHOP_MAX_COUNT,
+    chun: account.gpHaku || 0,
+    stamps: account.gpStamps || 0,
+    slotCeiling: { bought: slot.ceilingBet > 0, bet: slot.ceilingBet || null, jackpot: slot.mode === 'jackpot' },
+    status: status || 'none',
+    proForever: Boolean(proForever)
+  };
+}
+
+async function casinoShopStatus(uid, username) {
+  const [accountDoc, playerSnapshot, slotDoc] = await Promise.all([
+    casinoAccountRef(uid).get(),
+    playerQuery(username).get(),
+    db.collection(SLOT_STATES).doc(uid).get()
+  ]);
+  const account = normalizeCasinoAccount(accountDoc.exists ? accountDoc.data() : null, username);
+  settleGapporiStampCard(account);
+  const player = playerSnapshot.empty ? {} : playerSnapshot.docs[0].data();
+  return {
+    shop: publicShopState({
+      account,
+      slotState: slotDoc.exists ? slotDoc.data() : null,
+      status: String(player.status || 'none'),
+      proForever: player.proForever === true
+    })
+  };
+}
+
+/** 1つ買う。body は { item, count, bet } (shop.js の quoteShopItem) */
+async function casinoShopBuy(uid, username, body) {
+  const quote = quoteShopItem(body);
+  const slotStateRef = db.collection(SLOT_STATES).doc(uid);
+  const done = await db.runTransaction(async transaction => {
+    const tables = await readCasinoTables(transaction);
+    const slotDoc = await transaction.get(slotStateRef);
+    const loaded = await readCasinoWallets(transaction, new Map([[uid, username]]), tables, 'shop');
+    const wallet = loaded.wallets.get(uid);
+    const origin = loaded.origins.get(uid);
+    if (!wallet || !origin) throw new CasinoError(404, 'プレイヤーが見つかりません。');
+    if (quote.price > wallet.chips) {
+      throw new CasinoError(400, `使えるレート (${wallet.chips.toLocaleString('ja-JP')}) が足りません (代金 ${quote.price.toLocaleString('ja-JP')})。`);
+    }
+    const nowIso = new Date().toISOString();
+    const playerUpdate = {};
+    let slotState = normalizeSlotState(slotDoc.exists ? slotDoc.data() : null);
+    let status = origin.status;
+    let proForever = origin.proForever;
+    let note = '';
+    if (quote.item === 'chun') {
+      wallet.gpHaku = (wallet.gpHaku || 0) + quote.count;
+    } else if (quote.item === 'stamp') {
+      wallet.gpStamps = (wallet.gpStamps || 0) + quote.count;
+      const completed = settleGapporiStampCard(wallet);
+      if (completed) note = `カードがいっぱいになってチュン ${completed}回`;
+    } else if (quote.item === 'slotCeiling') {
+      const next = buySlotCeiling(slotState, quote.bet);
+      if (!next) {
+        throw new CasinoError(409, slotState.mode === 'jackpot'
+          ? 'ジャックポットタイムの途中は買えません。'
+          : 'スロット天井到達はもう買ってあります (ジャックポットタイムに入ったら、また買えます)。');
+      }
+      slotState = next;
+      transaction.set(slotStateRef, { ...slotState, updatedAt: nowIso });
+    } else if (quote.item === 'proForever') {
+      if (origin.proForever) throw new CasinoError(409, 'もう永久Pro会員です。');
+      proForever = true;
+      playerUpdate.proForever = true;
+      // ラグジュアリー会員はそのまま (ラグジュアリーが終わっても Pro に戻る)
+      if (status !== 'luxury') {
+        status = 'pro';
+        playerUpdate.status = 'pro';
+      }
+    }
+    wallet.chips -= quote.price;
+    const afterScore = origin.score - quote.price;
+    transaction.update(origin.playerRef, { score: afterScore, ...playerUpdate });
+    const { chips, ...next } = wallet;
+    transaction.set(casinoAccountRef(uid), { ...next, player: origin.name, updatedAt: nowIso });
+    const historyId = rateHistoryDocId(origin.name, nowIso);
+    const reason = quote.reason;
+    transaction.set(db.collection('point_history').doc(historyId), {
+      id: historyId,
+      player: origin.name,
+      beforeScore: origin.score,
+      afterScore,
+      delta: -quote.price,
+      source: SHOP_SOURCE,
+      reason,
+      actor: origin.name,
+      chartKey: `shop:${historyId}`,
+      createdAt: nowIso,
+      updatedAt: nowIso
+    });
+    const chart = [{ key: `shop:${historyId}`, at: nowIso, date: getJstDateKey(new Date(nowIso)), source: SHOP_SOURCE, reason, player: origin.name, afterScore }];
+    return {
+      chart,
+      wallet,
+      score: afterScore,
+      held: origin.held,
+      limit: casinoDailyPlayLimit(status),
+      shop: publicShopState({ account: next, slotState, status, proForever }),
+      slot: publicSlotState(slotState),
+      note
+    };
+  });
+  await applyRateChartLive(done.chart);
+  return {
+    bought: { ...quote, note: done.note },
+    score: done.score,
+    session: publicCasinoSession(done.wallet, done.held, done.limit),
+    shop: done.shop,
+    slot: done.slot
+  };
 }
 
 async function readPublicBlackjackTable() {
@@ -3721,6 +3855,8 @@ async function finalizeVoyage() {
 
 const CASINO_ACTIONS = {
   status: ({ uid, username }) => casinoStatus(uid, username),
+  shopStatus: ({ uid, username }) => casinoShopStatus(uid, username),
+  shopBuy: ({ uid, username, body }) => casinoShopBuy(uid, username, body),
   // 持ち込み・精算は 55.0 で無くした (開いたままの古い画面から呼ばれたときは読み込み直してもらう)
   enter: () => { throw new CasinoError(410, '55.0 で持ち込みは無くなりました (レートからそのまま賭けられます)。画面を読み込み直してください。'); },
   settle: () => { throw new CasinoError(410, '55.0 で精算は無くなりました (結果はそのままレートに入ります)。画面を読み込み直してください。'); },
@@ -3792,7 +3928,7 @@ async function handleCasinoRequest(req, res) {
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
     if (error instanceof CasinoError || error instanceof TableError || error instanceof GapporiTableError || error instanceof GapporiRuleError
-      || error instanceof SinkTableError) {
+      || error instanceof SinkTableError || error instanceof ShopError) {
       res.status(error.status).json({ status: 'error', message: error.message });
       return;
     }

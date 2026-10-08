@@ -29,6 +29,7 @@ import {
   GAPPORI_FLAG_ODDS_MIN,
   GAPPORI_JP_FLAG,
   GAPPORI_JP_EXTRA,
+  GAPPORI_JP_EXTRA_BALLS,
   GAPPORI_JP_FUND_FACTOR,
   GAPPORI_JP_PAYOUT2,
   GAPPORI_FIRST_BALLS,
@@ -47,7 +48,7 @@ import {
 
 const SIZES = [2, 3, 4, 5];
 const JP_TREASURE_RATE = GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_TREASURE] / GAPPORI_JP_WHEEL_POCKETS;
-const JP_EXTRA_RATE = (GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_EXTRA] || 0) / GAPPORI_JP_WHEEL_POCKETS;     // もう1球
+const JP_EXTRA_RATE = (GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_EXTRA] || 0) / GAPPORI_JP_WHEEL_POCKETS;     // もう3球
 const JP_PAYOUT2_RATE = (GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_PAYOUT2] || 0) / GAPPORI_JP_WHEEL_POCKETS; // 払い戻し2倍
 const JP_STAMP_RATE = (GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_STAMP] || 0) / GAPPORI_JP_WHEEL_POCKETS;     // スタンプ
 const CAPTAIN_RATE = GAPPORI_BALLS / (GAPPORI_COMPOSITIONS[0].reduce((sum, n) => sum + n, 0) + 1);      // 船長マスに球が入る回 (5/16)
@@ -92,10 +93,12 @@ function boardStats(sizes) {
   });
   hitVectors(caps, GAPPORI_FIRST_BALLS).forEach(first => {
     const rest = caps.map((cap, i) => cap - first.vector[i]);
-    const lasts = hitVectors(rest, GAPPORI_BALLS - GAPPORI_FIRST_BALLS).map(last => ({
-      sum: first.vector.map((h, i) => h + last.vector[i]),
-      weight: first.weight * last.weight
-    }));
+    const lasts = hitVectors(rest, GAPPORI_BALLS - GAPPORI_FIRST_BALLS).map(last => {
+      const sum = first.vector.map((h, i) => h + last.vector[i]);
+      // もう3球 (船長の回だけ): 残りのマスから GAPPORI_JP_EXTRA_BALLS 球を引いたときの「分類ごとの球の数」
+      const extras = sum[captain] > 0 ? hitVectors(caps.map((cap, i) => cap - sum[i]), GAPPORI_JP_EXTRA_BALLS) : [];
+      return { sum, weight: first.weight * last.weight, extras };
+    });
     tickets.forEach(ticket => {
       const short = [];
       for (let i = 0; i < kinds.length; i++) if (ticket.need[i] > first.vector[i]) short.push(i);
@@ -127,12 +130,10 @@ function boardStats(sizes) {
         // 払い戻し2倍: 船長マスに入って、5球で当たっている
         if (captainHit && shortN === 0) ticket.Wn += last.weight;
         if (captainHit && shortC === 0) ticket.Wc += last.weight;
-        // もう1球: あと1球だった券が、残りの11マスから引く6球目でそのお宝のマスに入る
-        const free = caps.reduce((sum, cap) => sum + cap, 0) - GAPPORI_BALLS;
+        // もう3球 (57.4〜。57.3 までは もう3球): 5球で外れていた券が、残りの11マスから引く3球 (6〜8球目) で足りる確率
         const extraHit = (short, have) => {
-          if (short !== 1) return 0;
-          const kind = ticket.need.findIndex((value, i) => value > have[i]);
-          return (caps[kind] - last.sum[kind]) / free;
+          if (short === 0 || short > GAPPORI_JP_EXTRA_BALLS) return 0;
+          return last.extras.reduce((p, draw) => (shortTotal(have.map((h, i) => h + draw.vector[i]), ticket.need) === 0 ? p + draw.weight : p), 0);
         };
         if (captainHit) {
           ticket.Xn += last.weight * extraHit(shortN, last.sum);
@@ -158,7 +159,7 @@ const GOLD_STATS = GAPPORI_GOLD_COMPOSITIONS.map(boardStats);   // ゴールド�
  * ハクの券 (値段は個数どおり) の払い戻しの期待値を5球の入り方の数え上げで出し、「期待値 − 値段」がいちばん大きい使い方の値を
  * その盤面のハクの値打ちにする (ただで1枚もらえる札なので、いちばん得な券に使うとして)。
  * ハクは、ほかのお宝がそろって余った球があれば、余った球のお宝のうち倍率がいちばん高いものに化ける (gapporiHakuResult と同じ)。
- * 3球目のあとのお宝ゲットと JP ルーレットのお宝ゲットは来ない。払い戻し2倍 (船長の回の 1/16) は入れ、もう1球は入れない (少しだけ低めに出る)
+ * 3球目のあとのお宝ゲットと JP ルーレットのお宝ゲットは来ない。払い戻し2倍 (船長の回の 1/16) は入れ、もう3球は入れない (少しだけ低めに出る)
  */
 function hakuValue(sizes, baseReturns) {
   const kinds = GAPPORI_SYMBOLS.slice(0, sizes.length);
@@ -205,7 +206,7 @@ function stampValue(baseReturns) {
 
 /**
  * 全部含めた還元率 (57.1〜): ふだんの盤面 (1 − GAPPORI_GOLD_RATE) とゴールド盤 (GAPPORI_GOLD_RATE) を混ぜ、
- * 配当・お宝ゲット (JP盤)・JP 積立に、おすすめ (その個数の予想を全部1口ずつ買って、うち1つがおすすめ)・払い戻し2倍・もう1球・
+ * 配当・お宝ゲット (JP盤)・JP 積立に、おすすめ (その個数の予想を全部1口ずつ買って、うち1つがおすすめ)・払い戻し2倍・もう3球・
  * スタンプの値打ち (JP ルーレットのスタンプと、5個の予想が当たったときのスタンプ。1回に1枚の券を買ったとして、1つ = ハク3/10回) を足す
  */
 function everything(baseReturns) {
@@ -218,9 +219,9 @@ function everything(baseReturns) {
     sizes: Object.fromEntries(SIZES.map(size => {
       const core = mix(size, 'total');                               // 配当 + お宝ゲット (JP盤) + JP 積立
       const featured = mix(size, 'withFeatured') - core;             // おすすめの分
-      const extras = mix(size, 'withExtras') - core;                 // 払い戻し2倍 + もう1球 (JP 積立の減りも込み)
+      const extras = mix(size, 'withExtras') - core;                 // 払い戻し2倍 + もう3球 (JP 積立の減りも込み)
       const price = GAPPORI_UNIT_PRICES[size];
-      // スタンプ: JP ルーレットのスタンプは回ごと (船長の回 × 5/16)。5個の予想が当たった回はもう1つ (当たる確率は もう1球の分も入れる)
+      // スタンプ: JP ルーレットのスタンプは回ごと (船長の回 × 5/16)。5個の予想が当たった回はもう1つ (当たる確率は もう3球の分も入れる)
       const stampRounds = CAPTAIN_RATE * JP_STAMP_RATE;
       const hitAll = size === GAPPORI_STAMP_WIN_PICKS ? mix(size, 'hitAll') : 0;
       const winStamp = hitAll * stamp.stamp / price;          // 5個の予想が当たったときのスタンプ (券の値段あたり)
@@ -249,7 +250,7 @@ function returnsFor(baseReturns, stats = STATS) {
       const pWin = (1 - c) * ticket.Pn + c * ticket.Pc;
       // JP ルーレットのお宝ゲットで当たりになる分 (あと1球だった券)。105% に入れる
       const pJp = JP_TREASURE_RATE * ((1 - c) * ticket.Jn + c * ticket.Jc);
-      // 105% に入れない分 (参考に出す): もう1球 (6球目で当たる) と払い戻し2倍 (5球で当たっていたら払い戻しがもう1回分)
+      // 105% に入れない分 (参考に出す): もう3球 (6球目で当たる) と払い戻し2倍 (5球で当たっていたら払い戻しがもう1回分)
       const pExtra = JP_EXTRA_RATE * ((1 - c) * ticket.Xn + c * ticket.Xc);
       const pDouble = JP_PAYOUT2_RATE * ((1 - c) * ticket.Wn + c * ticket.Wc);
       const s = sum[ticket.size];
@@ -260,7 +261,7 @@ function returnsFor(baseReturns, stats = STATS) {
       s.fundFull += GAPPORI_JACKPOT_LOST_RATE * GAPPORI_JP_FUND_FACTOR * (1 - pWin - pJp - pExtra);
       s.fund += GAPPORI_JACKPOT_LOST_RATE * GAPPORI_JP_FUND_FACTOR * (1 - pWin - pJp);
       s.hit += pWin + pJp;
-      s.hitAll += pWin + pJp + pExtra;   // もう1球で当たる分も入れた当たる確率 (5個の予想のスタンプに使う)
+      s.hitAll += pWin + pJp + pExtra;   // もう3球で当たる分も入れた当たる確率 (5個の予想のスタンプに使う)
       // おすすめに選ばれたとき (どの予想も同じ確率で選ばれるので、平均がおすすめの券の還元率になる)
       s.featured += gapporiBoostedOdds(odds[ticket.key], ticket.size) * (pWin + pJp) + GAPPORI_JACKPOT_LOST_RATE * GAPPORI_JP_FUND_FACTOR * (1 - pWin - pJp);
     });
@@ -285,7 +286,7 @@ function print(baseReturns) {
   console.log('参考 (105% に含めないもの):');
   const gold = returnsFor(baseReturns, GOLD_STATS);
   console.log(`  ゴールド盤 (${(GAPPORI_GOLD_RATE * 100).toFixed(0)}% の回。4種類・6マスまで): ${SIZES.map(size => `${size}個 ${pct(gold[size].total).trim()}`).join('・')}`);
-  SIZES.forEach(size => console.log(`  ${size}個  おすすめの券だけ ${pct(result[size].featured)}  ・ ${size}個の予想を全部1口ずつ (うち1つがおすすめ) ${pct(result[size].withFeatured)}  ・ 払い戻し2倍ともう1球を入れると ${pct(result[size].withExtras)}`));
+  SIZES.forEach(size => console.log(`  ${size}個  おすすめの券だけ ${pct(result[size].featured)}  ・ ${size}個の予想を全部1口ずつ (うち1つがおすすめ) ${pct(result[size].withFeatured)}  ・ 払い戻し2倍ともう3球を入れると ${pct(result[size].withExtras)}`));
   // ドクロ旗 (単品): 船長マスに球が入り (5/16)、JP ルーレットがドクロ旗に止まったら (1/16) 当たり。倍率は ×最小〜×最大 から均等
   const captain = GAPPORI_BALLS / (GAPPORI_COMPOSITIONS[0].reduce((sum, n) => sum + n, 0) + 1);
   const flagHit = captain * (GAPPORI_JP_WHEEL_COUNTS[GAPPORI_JP_FLAG] / GAPPORI_JP_WHEEL_POCKETS);
@@ -294,12 +295,12 @@ function print(baseReturns) {
   console.log(`  ドクロ旗 (単品)  倍率 ×${GAPPORI_FLAG_ODDS_MIN}〜×${GAPPORI_FLAG_ODDS_MAX} (平均 ×${flagOdds})  配当 ${pct(flagHit * flagOdds)}  JP積立 ${pct(flagFund)}  合計 ${pct(flagHit * flagOdds + flagFund)}  当たる確率 ${pct(flagHit)}`);
   // 全部含めた還元率 (57.1〜)
   const all = everything(baseReturns);
-  console.log(`全部含めた還元率 (ゴールド盤 ${(GAPPORI_GOLD_RATE * 100).toFixed(0)}% を混ぜ、おすすめ (全部1口ずつでうち1つ)・払い戻し2倍・もう1球・スタンプを入れる。ドクロ旗は別):`);
+  console.log(`全部含めた還元率 (ゴールド盤 ${(GAPPORI_GOLD_RATE * 100).toFixed(0)}% を混ぜ、おすすめ (全部1口ずつでうち1つ)・払い戻し2倍・もう3球・スタンプを入れる。ドクロ旗は別):`);
   console.log(`  ハク1回の値打ち ${all.stamp.haku.toFixed(1)} (ふだん ${all.stamp.hakuNormal.toFixed(1)}・ゴールド盤 ${all.stamp.hakuGold.toFixed(1)})・スタンプ1つ ${all.stamp.stamp.toFixed(1)} (${GAPPORI_STAMPS_PER_CARD}個でハク${GAPPORI_HAKU_PER_CARD}回)`);
   console.log(`  JP ルーレットのスタンプは ${pct(CAPTAIN_RATE * JP_STAMP_RATE).trim()} の回に、券を買った人みんなに1つ (賭けた額によらず 1回 ${(CAPTAIN_RATE * JP_STAMP_RATE * all.stamp.stamp).toFixed(2)} の値打ち)`);
   SIZES.forEach(size => {
     const r = all.sizes[size];
-    console.log(`  ${size}個  配当+お宝ゲット+JP積立 ${pct(r.core)}  おすすめ ${pct(r.featured)}  2倍・もう1球 ${pct(r.extras)}  スタンプ以外の合計 ${pct(r.noStamp)}`
+    console.log(`  ${size}個  配当+お宝ゲット+JP積立 ${pct(r.core)}  おすすめ ${pct(r.featured)}  2倍・もう3球 ${pct(r.extras)}  スタンプ以外の合計 ${pct(r.noStamp)}`
       + (size === GAPPORI_STAMP_WIN_PICKS ? `  5個の当たりのスタンプ ${pct(r.winStamp)} (当たる確率 ${pct(r.hitAll).trim()})  合計 ${pct(r.noStamp + r.winStamp)}` : '')
       + `  (1口1枚なら JP盤のスタンプ ${pct(r.wheelStamp).trim()} も)`);
   });

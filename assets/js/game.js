@@ -132,6 +132,10 @@ function renderRoute() {
         // 指名手配もチップを持ち込まずに入る (レートがその場で動く)
         view = 'wanted';
         openWanted();
+    } else if (isShopRoute()) {
+        // 購入 (57.5〜)。レートを道具に交換する
+        view = 'shop';
+        openShop();
     } else if (!game) {
         renderMenu();
     } else {
