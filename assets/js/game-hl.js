@@ -167,7 +167,7 @@ function renderHl() {
 
 async function startHl() {
     const cost = hl.state?.rules?.cost || 300000;
-    if (hl.busy || !window.confirm(`HL を ${formatRate(cost)} で始めますか？\nレートから ${formatRate(cost)} 引かれます (戻りません)。`)) return;
+    if (hl.busy || !window.confirm(`High&Low を ${formatRate(cost)} で始めますか？\nレートから ${formatRate(cost)} 引かれます (戻りません)。`)) return;
     hl.busy = true;
     hl.lastGuess = null;
     renderHl();

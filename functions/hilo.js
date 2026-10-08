@@ -57,7 +57,7 @@ export function isHlFinished(game) {
 
 /** 1回当てる。guess は 'high' か 'low'。戻り値は進めたあとの game (元の game は書き換えない) */
 export function guessHl(game, rawGuess) {
-  if (!game || isHlFinished(game)) throw new HlError(409, 'いま遊んでいる HL がありません。');
+  if (!game || isHlFinished(game)) throw new HlError(409, 'いま遊んでいる High&Low がありません。');
   const guess = String(rawGuess || '');
   if (guess !== 'high' && guess !== 'low') throw new HlError(400, '「High」か「Low」を選んでください。');
   const current = game.deck[game.round];

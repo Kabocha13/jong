@@ -7813,10 +7813,11 @@ body.vg-story-open { overflow: hidden; }
 }
 .hl-title {
     margin: 0;
-    font-family: var(--font-display);
-    font-size: 3.2em;
-    line-height: 1;
-    letter-spacing: 0.12em;
+    font-family: var(--font-title);   /* 飾り文字のフォントは「&」が G のように見えるので使わない */
+    font-weight: 700;
+    font-size: clamp(2em, 4.4vw, 2.8em);
+    line-height: 1.05;
+    letter-spacing: 0.04em;
     color: transparent;
     background: linear-gradient(180deg, #fff6cf, #f2c650 45%, #a87418);
     -webkit-background-clip: text;
@@ -7824,7 +7825,7 @@ body.vg-story-open { overflow: hidden; }
     filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.6));
 }
 .hl-subtitle { margin: 2px 0 8px; font-family: var(--font-display); letter-spacing: 0.3em; color: var(--brass-light); }
-.hl-tagline { margin: 0; font-size: 0.84em; line-height: 1.6; color: #f6e8c6; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
+.hl-tagline { margin: 8px 0 0; font-size: 0.84em; line-height: 1.6; color: #f6e8c6; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
 
 .hl-purse { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 14px 0; }
 .hl-purse-item {
@@ -8118,7 +8119,7 @@ body.vg-story-open { overflow: hidden; }
     .hl-view:not(.hidden) { grid-template-columns: minmax(200px, 32%) minmax(0, 1fr); margin-bottom: 8px; }
     .hl-hero { padding: 10px 10px 10px; }
     .hl-hero-token { width: 54px; height: 54px; margin: 6px 0 2px; }
-    .hl-title { font-size: 2.2em; }
+    .hl-title { font-size: 1.7em; }
     .hl-subtitle { margin-bottom: 4px; font-size: 0.8em; }
     .hl-tagline { display: none; }
     .hl-purse { grid-template-columns: 1fr; gap: 6px; padding: 8px 10px 0; }
@@ -8163,7 +8164,6 @@ body.vg-story-open { overflow: hidden; }
 .game-tile.is-hl-featured .hl-tile-token { width: clamp(90px, 25vw, 150px); }
 .game-tile.is-hl-featured .hl-tile-vip { bottom: 12px; font-size: 0.82em; padding: 3px 16px; }
 .game-tile.is-hl-featured .game-tile-name { font-size: 1.5em; letter-spacing: 0.1em; }
-.game-tile.is-hl-featured .game-tile-desc::before { content: '大勝ちした者だけが座れる VIP の卓。'; display: block; margin-bottom: 2px; font-weight: 700; color: var(--rum-dark); }
 
 /* 当たり・はずれの印 (58.9〜)。丸印は当たりなら光るトークン、はずれなら色を抜いたトークン。出たカードは当たりを金色に光らせ、はずれを沈める */
 .hl-pips li.is-win,
@@ -8180,3 +8180,6 @@ body.vg-story-open { overflow: hidden; }
 
 /* 使えるレートが 300,000 以上の人には、ゲーム一覧に HL だけを出す (59.1〜。game.js の placeHlTile) */
 .game-tile.is-hl-only-hidden { display: none !important; }
+
+/* High&Low のカード (59.2〜): 名前と説明を真ん中に寄せる */
+.game-tile[data-game="hl"] .game-tile-body { justify-items: center; text-align: center; }

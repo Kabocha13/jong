@@ -224,7 +224,7 @@ function richClosedRouteMessage() {
     if (!route || route === 'hl' || !isHlOnlyPlayer()) return '';
     // 結果待ちの賭けがあるゲームは、結果を見られるように開ける
     if ((route === 'blackjack' && isBlackjackLive()) || (route === 'gappori' && isGapporiLive()) || (route === 'sink' && isSinkLive())) return '';
-    return '使えるレートが 300,000 以上のあいだは、HL だけで遊べます。';
+    return '使えるレートが 300,000 以上のあいだは、High&Low だけで遊べます。';
 }
 
 function placeHlTile() {

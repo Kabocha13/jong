@@ -3250,9 +3250,9 @@ async function casinoHlStart(uid, username) {
     const origin = loaded.origins.get(uid);
     if (!wallet || !origin) throw new CasinoError(404, 'プレイヤーが見つかりません。');
     const current = gameDoc.exists ? gameDoc.data() : null;
-    if (current && !isHlFinished(current)) throw new HlError(409, '遊んでいる途中の HL があります。続きから遊んでください。');
+    if (current && !isHlFinished(current)) throw new HlError(409, '遊んでいる途中の High&Low があります。続きから遊んでください。');
     if (wallet.chips < HL_COST) {
-      throw new HlError(400, `HL は1回 ${HL_COST.toLocaleString('ja-JP')} です。使えるレート (${wallet.chips.toLocaleString('ja-JP')}) が足りません。`);
+      throw new HlError(400, `High&Low は1回 ${HL_COST.toLocaleString('ja-JP')} です。使えるレート (${wallet.chips.toLocaleString('ja-JP')}) が足りません。`);
     }
     const playerData = (await transaction.get(origin.playerRef)).data();   // トークンの数を返すため (書き込みより先に読む)
     const nowIso = new Date().toISOString();
@@ -3261,7 +3261,7 @@ async function casinoHlStart(uid, username) {
     transaction.update(origin.playerRef, { score: afterScore });
     transaction.set(gameRef, { ...game, player: origin.name, updatedAt: nowIso });
     const historyId = rateHistoryDocId(origin.name, nowIso);
-    const reason = `HL 1回 (トークン獲得のゲーム。代金 ${HL_COST.toLocaleString('ja-JP')})`;
+    const reason = `High&Low 1回 (トークン獲得のゲーム。代金 ${HL_COST.toLocaleString('ja-JP')})`;
     transaction.set(db.collection('point_history').doc(historyId), {
       id: historyId,
       player: origin.name,
