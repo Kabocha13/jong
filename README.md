@@ -1,4 +1,4 @@
-# jong　　Ver59.5
+# jong　　Ver59.6
 
 **1.1** 麻雀得点管理アプリリリース
 
@@ -531,3 +531,5 @@ iOS アプリは `app/` (Capacitor。中身は本番のサイト https://q-jong.
 **59.4** ランキングのトークンを、1つの絵と「×N」から、持っている数だけトークンの絵を並べる形にした (2つ目からは少し重ねる)。デプロイは hosting
 
 **59.5** 航海のコインの絵 (assets/img/voyage/coin.png。ゲーム一覧の航海のカードと、盤の「呪いの金貨」のマス) に、切り出したときのオウムの足と羽が写り込んでいたのを直した。コインの楕円の外を透明にし、上のふちにかかっていた足の部分は、下のふちを上下に折り返した模様で埋めた (直す前の絵は assets/img/src/voyage/original-coin.png)。デプロイは hosting
+
+**59.6** トークンを3つ以上持つ人を永久ラグジュアリー会員にした (3つ目を手に入れたときに players の status をラグジュアリーにし、luxForever を付ける。functions/hilo.js の TOKEN_LUX_FOREVER、index.js の tokenPerks)。updateAllData は luxForever の人をラグジュアリーから下げない。管理画面の会員の欄に「永久Lux」と出し、ラグジュアリー以外を選べなくした。High&Low で3つ目を手に入れたときの知らせにも出す。トークンの特典は 1つ: 永久Pro・2つ: 借金の信用 MAX・3つ: 永久Lux。デプロイは hosting, functions

@@ -2121,16 +2121,18 @@ async function loadMemberStatusList() {
         MEMBER_STATUS_LIST.innerHTML = players.map(player => {
             const name = escapeAdminText(player.name);
             const current = player.status || 'none';
-            // 永久Pro会員 (57.5〜。購入で買った人) は一般に戻せない (サーバーも Pro のままにする)
+            // 永久Pro会員 (57.5〜。購入で買った人・トークンを持つ人) は一般に戻せない (サーバーも Pro のままにする)。
+            // 永久ラグジュアリー会員 (59.6〜。トークンを3つ以上持つ人) はラグジュアリーから下げられない
             const forever = player.proForever === true;
+            const luxForever = player.luxForever === true;
             const options = MEMBER_STATUS_OPTIONS.map(option => {
                 const selected = option.value === current ? ' selected' : '';
-                const disabled = forever && option.value === 'none' ? ' disabled' : '';
+                const disabled = (luxForever && option.value !== 'luxury') || (forever && option.value === 'none') ? ' disabled' : '';
                 return `<option value="${option.value}"${selected}${disabled}>${option.label}</option>`;
             }).join('');
             return `
                 <label class="member-status-row">
-                    <span class="member-status-name">${name}${forever ? ' <small class="member-status-forever">永久Pro</small>' : ''}</span>
+                    <span class="member-status-name">${name}${luxForever ? ' <small class="member-status-forever">永久Lux</small>' : forever ? ' <small class="member-status-forever">永久Pro</small>' : ''}</span>
                     <select class="member-status-select" data-player="${name}">${options}</select>
                 </label>
             `;

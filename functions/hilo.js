@@ -19,9 +19,11 @@ export class HlError extends Error {
 export const HL_COST = 300000;
 export const HL_ROUNDS = 10;
 export const HL_WINS_FOR_TOKEN = 5;
-// トークンの特典 (持っている数で増える): 1つで永久Pro会員 (58.3〜)、2つで借金の信用 MAX (59.0〜。信用枠がいつも上限)
+// トークンの特典 (持っている数で増える): 1つで永久Pro会員 (58.3〜)、2つで借金の信用 MAX (59.0〜。信用枠がいつも上限)、
+// 3つで永久ラグジュアリー会員 (59.6〜)
 export const TOKEN_PRO_FOREVER = 1;
 export const TOKEN_TRUST_MAX = 2;
+export const TOKEN_LUX_FOREVER = 3;
 
 /** players のトークンの数 */
 export function playerTokens(player) {

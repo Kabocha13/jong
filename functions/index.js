@@ -6,7 +6,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { BlackjackRuleError } from './blackjack.js';
 import { buySlotCeiling, normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
 import { SHOP_MAX_COUNT, SHOP_SLOT_BETS, ShopError, publicShopItems, quoteShopItem } from './shop.js';
-import { HL_COST, HL_ROUNDS, HL_WINS_FOR_TOKEN, HlError, TOKEN_TRUST_MAX, guessHl, isHlFinished, newHlGame, playerTokens, publicHlGame } from './hilo.js';
+import { HL_COST, HL_ROUNDS, HL_WINS_FOR_TOKEN, HlError, TOKEN_LUX_FOREVER, TOKEN_PRO_FOREVER, TOKEN_TRUST_MAX, guessHl, isHlFinished, newHlGame, playerTokens, publicHlGame } from './hilo.js';
 import { GAPPORI_JACKPOT_RATE, GapporiRuleError, settleGapporiStampCard } from './gappori.js';
 import { NARIAGARI_BETS, playNariagari } from './nariagari.js';
 import {
@@ -1707,6 +1707,11 @@ export const updateAllData = onRequest({ region: 'asia-northeast1' }, async (req
             payload.proForever = true;
             if (!payload.status || payload.status === 'none') payload.status = 'pro';
           }
+          // 永久ラグジュアリー会員 (59.6〜。トークンを3つ以上持つ人) は、ラグジュアリーから下げない
+          if (key === 'scores' && existingById.get(docId)?.luxForever === true) {
+            payload.luxForever = true;
+            payload.status = 'luxury';
+          }
           // トークン (58.3〜) は HL でだけ増える。画面から送り直された値では変えない
           if (key === 'scores' && existingById.has(docId)) {
             const tokens = Math.max(0, Math.floor(Number(existingById.get(docId).tokens) || 0));
@@ -3212,12 +3217,20 @@ async function casinoShopBuy(uid, username, body) {
 const HL_GAMES = 'hl_games';
 const HL_SOURCE = 'casino_hl';
 
-/** トークンを1つ以上持つ人は永久Pro会員にする (ラグジュアリー会員は status をそのままにして印だけ付ける)。players に書く項目を返す */
+/**
+ * トークンの数で付く会員の特典。players に書く項目を返す。
+ *   1つ以上: 永久Pro会員 (ラグジュアリー会員は status をそのままにして印だけ付ける)
+ *   3つ以上: 永久ラグジュアリー会員 (59.6〜。luxForever を付けて status をラグジュアリーに)
+ */
 function tokenPerks(player, tokens) {
   const update = { tokens };
-  if (tokens >= 1) {
+  if (tokens >= TOKEN_PRO_FOREVER) {
     update.proForever = true;
     if (!player.status || player.status === 'none') update.status = 'pro';
+  }
+  if (tokens >= TOKEN_LUX_FOREVER) {
+    update.luxForever = true;
+    update.status = 'luxury';
   }
   return update;
 }
