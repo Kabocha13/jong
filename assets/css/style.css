@@ -7899,7 +7899,7 @@ body.vg-story-open { overflow: hidden; }
 .hl-board .bj-card.is-lose { box-shadow: 0 0 0 4px #9aa3ab, 0 8px 18px rgba(0, 0, 0, 0.55); animation: hl-shake 0.35s ease-out; }
 @keyframes hl-pop { from { transform: scale(0.85); } to { transform: scale(1); } }
 @keyframes hl-shake { 0%, 100% { transform: translateX(0); } 30% { transform: translateX(-6px); } 70% { transform: translateX(6px); } }
-.hl-pips { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; margin: 12px 0 6px; padding: 0; list-style: none; }
+.hl-pips { display: grid; grid-template-columns: repeat(10, minmax(0, 32px)); justify-content: center; gap: 4px; margin: 12px 0 6px; padding: 0; list-style: none; }
 .hl-pips li {
     display: grid;
     place-items: center;
@@ -8018,3 +8018,110 @@ body.vg-story-open { overflow: hidden; }
 .hl-art-tile .game-tile-art.is-hl { background: url('../img/hl/tile.jpeg') center / cover; }
 .hl-art-tile .game-tile-art.is-hl > .bj-card,
 .hl-art-tile .game-tile-art.is-hl > .hl-tile-token { display: none; }
+
+/* -----------------------------------------------------------------
+   HL は横画面専用 (58.4〜)。左に見出し・財布・特典、右に卓とボタン。
+   縦向きのスマホ・タブレットでは「横向きにしてください」だけを出す
+   ----------------------------------------------------------------- */
+.hl-rotate { display: none; }
+.hl-view:not(.hidden) {
+    display: grid;
+    grid-template-columns: minmax(240px, 36%) minmax(0, 1fr);
+    align-items: start;
+}
+.hl-side { align-self: stretch; padding-bottom: 14px; border-right: 1px solid rgba(201, 146, 47, 0.5); }
+.hl-main { padding-top: 2px; }
+
+@media (orientation: portrait) and (max-width: 1024px) {
+    .hl-view:not(.hidden) {
+        display: block;
+        background:
+            linear-gradient(180deg, rgba(10, 6, 2, 0.1), rgba(10, 6, 2, 0.72)),
+            var(--img-treasure) center / cover,
+            linear-gradient(180deg, #1c1208, #0b0703);
+        background-blend-mode: normal;
+    }
+    .hl-art-hero .hl-view:not(.hidden) {
+        background: linear-gradient(180deg, rgba(10, 6, 2, 0.3), rgba(10, 6, 2, 0.85)), url('../img/hl/hero.jpeg') center / cover;
+    }
+    .hl-view > .hl-side,
+    .hl-view > .hl-main { display: none; }
+    .hl-rotate {
+        display: grid;
+        justify-items: center;
+        align-content: center;
+        gap: 10px;
+        min-height: 68vh;
+        padding: 28px 20px;
+        text-align: center;
+    }
+    .hl-rotate-phone {
+        width: 44px;
+        height: 76px;
+        margin-bottom: 8px;
+        border: 4px solid var(--brass-light);
+        border-radius: 10px;
+        box-shadow: 0 0 18px rgba(255, 210, 110, 0.6), inset 0 -10px 0 -6px var(--brass-light);
+        animation: hl-rotate-phone 2.4s ease-in-out infinite;
+    }
+    @keyframes hl-rotate-phone {
+        0%, 25% { transform: rotate(0deg); }
+        55%, 100% { transform: rotate(-90deg); }
+    }
+    .hl-rotate-vip {
+        margin: 0;
+        padding: 3px 14px;
+        font-family: var(--font-display);
+        font-size: 0.78em;
+        letter-spacing: 0.32em;
+        color: #2b1d06;
+        background: linear-gradient(135deg, #fff1b8, #c9922f 55%, #7a5310);
+        border-radius: 999px;
+    }
+    .hl-rotate-title {
+        margin: 4px 0 0;
+        font-family: var(--font-title);
+        font-size: 1.5em;
+        font-weight: 700;
+        color: transparent;
+        background: linear-gradient(180deg, #fff6cf, #f2c650 50%, #a87418);
+        -webkit-background-clip: text;
+        background-clip: text;
+    }
+    .hl-rotate-text { margin: 0; font-size: 0.9em; line-height: 1.7; color: #f6e8c6; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8); }
+}
+
+/* 横向きのスマホ (背が低い): ページの見出しと下のメニューを隠し、卓を大きく使う */
+@media (orientation: landscape) and (max-height: 540px) {
+    body[data-casino-view="hl"] header.hero,
+    body[data-casino-view="hl"] .footer-nav { display: none; }
+    body[data-casino-view="hl"] main { margin-top: 6px; padding-bottom: 12px; }
+    body[data-casino-view="hl"] .casino-back { margin-bottom: 6px; }
+    .hl-view:not(.hidden) { grid-template-columns: minmax(200px, 32%) minmax(0, 1fr); margin-bottom: 8px; }
+    .hl-hero { padding: 10px 10px 10px; }
+    .hl-hero-token { width: 54px; height: 54px; margin: 6px 0 2px; }
+    .hl-title { font-size: 2.2em; }
+    .hl-subtitle { margin-bottom: 4px; font-size: 0.8em; }
+    .hl-tagline { display: none; }
+    .hl-purse { grid-template-columns: 1fr; gap: 6px; padding: 8px 10px 0; }
+    .hl-purse-item { padding: 5px 8px; grid-template-columns: 30px minmax(0, 1fr); }
+    .hl-purse-item img { width: 30px; height: 30px; }
+    .hl-purse-item strong { font-size: 1.05em; }
+    .hl-perks { margin: 8px 10px 0; padding: 8px; }
+    .hl-perks li { font-size: 0.8em; }
+    .hl-rules { margin: 8px 10px 0; font-size: 0.72em; }
+    .hl-table { margin: 8px 10px 8px; padding: 10px 10px 8px; }
+    .hl-dealer { margin-bottom: 2px; }
+    .hl-dealer img { width: 44px; height: 44px; }
+    .hl-dealer figcaption { font-size: 0.74em; padding: 4px 8px; }
+    .hl-cards { min-height: 104px; gap: 14px; }
+    .hl-deck { width: 48px; height: 67px; }
+    .hl-board { --card-w: 70px; }
+    .hl-card-back.is-big { width: 70px; height: 98px; }
+    .hl-pips { grid-template-columns: repeat(10, minmax(0, 24px)); margin: 6px 0 2px; }
+    .hl-pips li { font-size: 0.62em; }
+    .hl-guess { margin: 0 10px 8px; }
+    .hl-button { padding: 10px 8px; font-size: 1.1em; }
+    .hl-start { width: calc(100% - 20px); margin: 0 10px 6px; padding: 10px; }
+    .hl-history { margin: 4px 10px 0; --card-w: 26px; }
+}
