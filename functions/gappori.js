@@ -41,7 +41,7 @@
 export const GAPPORI_SYMBOLS = ['anchor', 'parrot', 'helm', 'rum', 'telescope', 'map', 'compass', 'cannon', 'coin', 'chest'];
 // ドクロ旗 (盤面には出さず、単品でだけ賭ける。JP ルーレットのドクロ旗のマスで当たり)
 export const GAPPORI_FLAG = 'flag';
-export const GAPPORI_FLAG_PRICE = 1000;      // 1口の値段
+export const GAPPORI_FLAG_PRICE = 5000;      // 1口の値段 (58.2 で 1,000 → 5,000)
 export const GAPPORI_FLAG_ODDS_MIN = 50;     // 当たったときに引く倍率の範囲 (均等。55.7 で ×1〜 → ×50〜)
 export const GAPPORI_FLAG_ODDS_MAX = 99;
 export const GAPPORI_CAPTAIN = 'captain';
@@ -67,8 +67,9 @@ export const GAPPORI_MAX_TICKETS = 20;       // 1回に1人が買える券 (セ�
 // 配当の設計値 (予想の個数ごと。3球目のあとのお宝ゲットも含めた、払い戻しの期待値 ÷ 賭けた額)。
 // 配当 + JP ルーレットのお宝ゲット + JP 積立 (外れた券の代金の1割) が、どの個数でもちょうど GAPPORI_TARGET_RETURN に
 // なるよう tools/gappori-return.mjs で決めた値 (本日のおすすめの倍率アップは含めない)
-export const GAPPORI_TARGET_RETURN = 1.05;
-export const GAPPORI_BASE_RETURNS = { 2: 0.8717, 3: 0.7963, 4: 0.7418, 5: 0.7166 };   // 合計 2個 105.17%・3個 105.01%・4個 105.00%・5個 105.00% (おすすめ・ドクロ旗・もう3球は含めない。倍率の刻みで、これがいちばん近い)
+export const GAPPORI_TARGET_RETURN = 1.00;   // 58.2 で 1.05 → 1.00
+export const GAPPORI_BASE_RETURNS = { 2: 0.7958, 3: 0.7156, 4: 0.653, 5: 0.6244 };   // 合計 2個 100.06%・3個 100.01%・4個 100.01%・5個 100.00% (58.2〜。おすすめ・ドクロ旗・もう3球は含めない)
+// (58.2 で目標を 105% → 100% にした。57.7〜58.1 は 0.8717・0.7963・0.7418・0.7166 で、お宝ゲット3マスのぶん 108〜112% になっていた)
 // (56.6 で JP ルーレットを入れ替えて、お宝ゲット 2マス・JP 1/2 1マス (JP 積立が長い目で2倍戻る) になったので下げた。56.5 までは 0.9607・0.9155・0.8835・0.8685)
 export const GAPPORI_JACKPOT_LOST_RATE = 0.1;  // 外れた券の代金のうち、ジャックポットに貯める割合
 // JP ルーレット (船長マスに球が入った回の最後に、盤面が変わって1回だけ回る)。16マスのうち JP 1マス・お宝ゲット 1マス、残りはハズレ

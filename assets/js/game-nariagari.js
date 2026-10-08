@@ -13,9 +13,9 @@ const NR_SHOWN_STORAGE_KEY = 'nariagariShown';       // 最後まで見せた回
 // 弾ごとのマス (サーバーの NARIAGARI_STAGES と同じ)。q はその弾の ×? の範囲
 const NR_STAGES = [
     { pockets: ['up', 'up', 'up', 'up', 'up', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end', 'end'] },
-    { pockets: ['up', 'up', 'up', 'end', 'end', 'end', 'x1', 'x2', 'x2', 'x3', 'q', 'q'], q: [1, 6] },
-    { pockets: ['up', 'x3', 'x3', 'x6', 'x6', 'q'], q: [3, 12] },
-    { pockets: ['up', 'x6', 'x6', 'x12', 'q'], q: [6, 20] },
+    { pockets: ['up', 'up', 'up', 'end', 'end', 'end', 'x1', 'x2', 'x2', 'x3', 'q', 'q'], q: [1, 5] },
+    { pockets: ['up', 'x3', 'x3', 'x6', 'x6', 'q'], q: [3, 10] },
+    { pockets: ['up', 'x6', 'x6', 'x12', 'q'], q: [6, 16] },
     { pockets: ['x100', 'x15', 'x30', 'q'], q: [15, 50] }
 ];
 const NR_STAGE_NAMES = ['第1弾', '第2弾', '第3弾', 'JP 第4弾', 'SJP 第5弾'];
