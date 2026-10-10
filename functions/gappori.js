@@ -68,7 +68,8 @@ export const GAPPORI_MAX_TICKETS = 20;       // 1回に1人が買える券 (セ�
 // 配当 + JP ルーレットのお宝ゲット + JP 積立 (外れた券の代金の1割) が、どの個数でもちょうど GAPPORI_TARGET_RETURN に
 // なるよう tools/gappori-return.mjs で決めた値 (本日のおすすめの倍率アップは含めない)
 export const GAPPORI_TARGET_RETURN = 1.00;   // 58.2 で 1.05 → 1.00
-export const GAPPORI_BASE_RETURNS = { 2: 0.7958, 3: 0.7156, 4: 0.653, 5: 0.6244 };   // 合計 2個 100.06%・3個 100.01%・4個 100.01%・5個 100.00% (58.2〜。おすすめ・ドクロ旗・もう3球は含めない)
+export const GAPPORI_BASE_RETURNS = { 2: 0.7909, 3: 0.7161, 4: 0.653, 5: 0.6243 };   // 合計 2個 99.96%・3個 99.99%・4個 100.00%・5個 100.00% (59.7〜。おすすめ・ドクロ旗・もう3球は含めない)
+// (59.7 で倍率を小数第1位までにし、×1.2 未満の予想を売らなくしたので合わせ直した。58.2〜59.6 は 0.7958・0.7156・0.653・0.6244)
 // (58.2 で目標を 105% → 100% にした。57.7〜58.1 は 0.8717・0.7963・0.7418・0.7166 で、お宝ゲット3マスのぶん 108〜112% になっていた)
 // (56.6 で JP ルーレットを入れ替えて、お宝ゲット 2マス・JP 1/2 1マス (JP 積立が長い目で2倍戻る) になったので下げた。56.5 までは 0.9607・0.9155・0.8835・0.8685)
 export const GAPPORI_JACKPOT_LOST_RATE = 0.1;  // 外れた券の代金のうち、ジャックポットに貯める割合
@@ -370,29 +371,27 @@ export function gapporiProbabilities(board) {
 }
 
 /**
- * 倍率の刻み。1口あたりの払い戻し (値段 × 倍率) が必ず整数になる細かさで四捨五入する。
- * 10倍未満は 1/値段 (ただし 0.01 より細かくしない)、10倍以上は 0.1。
- * 例: 2個 (1口 10) は 0.1 刻み、3個 (1口 50) は 0.02 刻み、4個・5個 (1口 100・200) は 0.01 刻み
+ * 倍率の刻み (59.7〜)。どの倍率も小数第1位までにして四捨五入する。
+ * 1口の値段 (10・50・100・200) は10の倍数なので、1口あたりの払い戻し (値段 × 倍率) は必ず整数になる
+ * (59.6 までは 10倍未満を 1/値段 刻み (3個は 0.02・4個・5個は 0.01) にしていた)
  */
-function oddsStep(value, price) {
-  return value < 10 ? Math.max(0.01, 1 / price) : 0.1;
+const GAPPORI_ODDS_STEP = 0.1;
+// これより低い倍率になる予想 (当たりやすすぎる予想) は売らない (59.7〜。59.6 までは ×1.0 に切り上げて売っていた)
+export const GAPPORI_MIN_ODDS = 1.2;
+
+function roundOdds(value) {
+  return Math.round(value * 10) / 10;
 }
 
-function roundOdds(value, price) {
-  const step = oddsStep(value, price);
-  return Math.round(Math.round(value / step) * step * 100) / 100;
-}
-
-/** 配当の倍率 (賭けた額に対する払い戻し。賭け金込み)。baseReturns は予想の個数ごとの配当の設計値 (試算用に差し替えられる) */
+/** 配当の倍率 (賭けた額に対する払い戻し。賭け金込み)。×GAPPORI_MIN_ODDS 未満の予想は配当表に入れない (売らない)。baseReturns は予想の個数ごとの配当の設計値 (試算用に差し替えられる) */
 export function gapporiOdds(board, baseReturns = GAPPORI_BASE_RETURNS) {
   const probabilities = gapporiProbabilities(board);
   return Object.fromEntries(Object.entries(probabilities).map(([key, p]) => {
     const size = key.split('-').length;
     const chanceShare = GAPPORI_CHANCE_RATES[size];
     const effective = (1 - chanceShare) * p.normal + chanceShare * p.chance;
-    const price = GAPPORI_UNIT_PRICES[size];
-    return [key, Math.max(1, roundOdds(baseReturns[size] / effective, price))];
-  }));
+    return [key, roundOdds(baseReturns[size] / effective)];
+  }).filter(([, odds]) => odds >= GAPPORI_MIN_ODDS));
 }
 
 /** 入った球の絵柄 (船長を除く。同じ絵柄に2球なら2つ並ぶ) */
@@ -509,10 +508,9 @@ export function normalizeGapporiPicks(board, rawPicks) {
 }
 
 /** おすすめの倍率 (ふだんの倍率 × GAPPORI_FEATURED_BOOST を刻みで丸め、少なくとも1刻みは上げる) */
-export function gapporiBoostedOdds(baseOdds, size) {
-  const price = GAPPORI_UNIT_PRICES[size];
-  const raised = roundOdds(baseOdds * GAPPORI_FEATURED_BOOST, price);
-  return raised > baseOdds ? raised : roundOdds(baseOdds + oddsStep(baseOdds, price), price);
+export function gapporiBoostedOdds(baseOdds) {
+  const raised = roundOdds(baseOdds * GAPPORI_FEATURED_BOOST);
+  return raised > baseOdds ? raised : roundOdds(baseOdds + GAPPORI_ODDS_STEP);
 }
 
 /**
@@ -528,7 +526,7 @@ export function gapporiFeatured(board, odds, randomInt) {
     if (!keys.length) return;
     const key = keys[randomInt(keys.length)];
     const baseOdds = odds[key];
-    const next = gapporiBoostedOdds(baseOdds, size);
+    const next = gapporiBoostedOdds(baseOdds);
     boosted[key] = next;
     featured.push({ size, key, picks: key.split('-'), baseOdds, odds: next });
   });

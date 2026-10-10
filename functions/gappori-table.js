@@ -47,6 +47,7 @@ import {
   GAPPORI_JP_JACKPOT,
   GAPPORI_JP_TREASURE,
   GAPPORI_MAX_TICKETS,
+  GAPPORI_MIN_ODDS,
   GAPPORI_UNIT_PRICES,
   drawGapporiBall,
   gapporiCaptainWeight,
@@ -107,8 +108,9 @@ const GAPPORI_RECENT_LIMIT = 12;
 //  21: 56.6 の JP ルーレットの入れ替え (払い戻し2倍・JP±??? を外し、ドクロ旗 3・お宝ゲット 2・もう1球 2・JP 1/2 1・スタンプ 6。配当の設計値も直した)。
 //      57.1 (ゴールド盤 5% と、5個の予想が当たった人へのスタンプ) も別の作業で 21 にしていた /
 //  22: 57.3 で 56.6 と 57.1 を合わせた /
-//  23: 58.2 の 配当の設計値 (還元率 100%) とドクロ旗 1口 5,000)
-export const GAPPORI_RULES_VERSION = 23;
+//  23: 58.2 の 配当の設計値 (還元率 100%) とドクロ旗 1口 5,000 /
+//  24: 59.7 の 倍率を小数第1位までにし、×1.2 未満の予想は売らない (配当の設計値も合わせ直した))
+export const GAPPORI_RULES_VERSION = 24;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -242,7 +244,7 @@ export function buyGapporiTickets(ctx, uid, name, rawOrders) {
     const flag = isGapporiFlagPicks(picks);
     const haku = isGapporiHakuPicks(picks);
     // ドクロ旗 (単品) とハクの券は倍率を結果で決めるので、配当表には無い
-    if (!flag && !haku && !table.odds[key]) throw new GapporiTableError(409, 'この予想は次の回から買えます。');
+    if (!flag && !haku && !table.odds[key]) throw new GapporiTableError(409, `この予想は当たりやすすぎるので売っていません (倍率が ×${GAPPORI_MIN_ODDS} 未満)。`);
     const price = gapporiUnitPrice(picks);
     const featured = !flag && !haku && (table.featured || []).some(item => item.key === key);
     return { uid, name, picks, key, units, price, cost: units * price, odds: flag || haku ? null : table.odds[key], featured, haku, at: ctx.nowIso };

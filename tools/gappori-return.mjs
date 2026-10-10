@@ -234,15 +234,17 @@ function everything(baseReturns) {
 /** baseReturns のときの、予想の個数ごとの { bet, base, treasure, fund } (賭けた額あたり) */
 function returnsFor(baseReturns, stats = STATS) {
   const sum = Object.fromEntries(SIZES.map(size => [size, { n: 0, base: 0, treasure: 0, fund: 0, hit: 0, hitAll: 0, featured: 0, withFeatured: 0, extras: 0, fundFull: 0 }]));
-  stats.forEach(({ board, tickets }) => {
+  stats.forEach(({ board, tickets: all }) => {
     const odds = gapporiOdds(board, baseReturns);
+    // 倍率が ×GAPPORI_MIN_ODDS 未満の予想は売らないので数えない (59.7〜)
+    const tickets = all.filter(ticket => odds[ticket.key]);
     // この盤面で、個数ごとの「おすすめに選ばれたときに増える分」の平均 (全部1口ずつ買ったとき、そのうち1つがおすすめ)
     const lift = Object.fromEntries(SIZES.map(size => [size, { n: 0, extra: 0 }]));
     tickets.forEach(ticket => {
       const c = GAPPORI_CHANCE_RATES[ticket.size];
       const p = (1 - c) * ticket.Pn + c * ticket.Pc + JP_TREASURE_RATE * ((1 - c) * ticket.Jn + c * ticket.Jc);
       lift[ticket.size].n += 1;
-      lift[ticket.size].extra += (gapporiBoostedOdds(odds[ticket.key], ticket.size) - odds[ticket.key]) * p;
+      lift[ticket.size].extra += (gapporiBoostedOdds(odds[ticket.key]) - odds[ticket.key]) * p;
     });
     SIZES.forEach(size => { if (lift[size].n) sum[size].withFeatured += lift[size].extra / lift[size].n; });
     tickets.forEach(ticket => {
@@ -263,7 +265,7 @@ function returnsFor(baseReturns, stats = STATS) {
       s.hit += pWin + pJp;
       s.hitAll += pWin + pJp + pExtra;   // もう3球で当たる分も入れた当たる確率 (5個の予想のスタンプに使う)
       // おすすめに選ばれたとき (どの予想も同じ確率で選ばれるので、平均がおすすめの券の還元率になる)
-      s.featured += gapporiBoostedOdds(odds[ticket.key], ticket.size) * (pWin + pJp) + GAPPORI_JACKPOT_LOST_RATE * GAPPORI_JP_FUND_FACTOR * (1 - pWin - pJp);
+      s.featured += gapporiBoostedOdds(odds[ticket.key]) * (pWin + pJp) + GAPPORI_JACKPOT_LOST_RATE * GAPPORI_JP_FUND_FACTOR * (1 - pWin - pJp);
     });
   });
   return Object.fromEntries(SIZES.map(size => {

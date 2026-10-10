@@ -681,7 +681,7 @@ function renderGapporiControls() {
         : picks < GAPPORI_PICKS_MIN
         ? `お宝をあと${GAPPORI_PICKS_MIN - picks}個選んでください (${GAPPORI_PICKS_MIN}〜${GAPPORI_PICKS_MAX}個。同じお宝を重ねてもよい)`
         : !odds || !gapporiPrice()
-            ? 'この予想は次の回から買えます。'
+            ? 'この予想は当たりやすすぎるので売っていません (倍率が ×1.2 未満)。'
             : `${chosen} (1口 ${gapporiPrice()}) ・ 倍率 ×${odds}`
                 + (gapporiFeaturedFor(gapporiKey(gp.picks)) ? ` (おすすめ。通常 ×${gapporiFeaturedFor(gapporiKey(gp.picks)).baseOdds})` : '')
                 + ` ・ 当たれば ${Math.round(cost * odds).toLocaleString('ja-JP')}`;

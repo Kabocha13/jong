@@ -31,7 +31,7 @@ for (let r = 0; r < rounds; r++) {
     const key = gapporiPickKey(picks);
     const cost = GAPPORI_UNIT_PRICES[picks.length];
     return { picks, key, cost, odds: odds[key], chance: null, jp: null };
-  });
+  }).filter(ticket => ticket.odds);   // 倍率が ×1.2 未満の予想は売らない (59.7〜)
   const balls = [];
   for (let i = 0; i < GAPPORI_FIRST_BALLS; i++) balls.push(drawGapporiBall(board, balls, randomInt));
   // 3球目のあとのお宝ゲット (券ごと。選ぶのは本番の自動選択と同じ)
