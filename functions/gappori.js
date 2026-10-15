@@ -126,7 +126,7 @@ export const GAPPORI_JP_SHIFT_RANGES = {
 // 払い戻し2倍・JP±??? の処理は残してある (マスを戻せばまた使える)
 // 57.7 で JP 1/2 (1マス) をお宝ゲットにした (お宝ゲット 3マス・JP 1/2 は無し)
 export const GAPPORI_JP_WHEEL_COUNTS = {
-  [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 3, [GAPPORI_JP_FLAG]: 3, [GAPPORI_JP_DOUBLE]: 1,
+  [GAPPORI_JP_JACKPOT]: 1, [GAPPORI_JP_TREASURE]: 3, [GAPPORI_JP_FLAG]: 1, [GAPPORI_JP_DOUBLE]: 3,
   [GAPPORI_JP_EXTRA]: 2,
   [GAPPORI_JP_STAMP]: 6   // ハズレは 0
 };
