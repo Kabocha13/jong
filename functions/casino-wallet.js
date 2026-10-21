@@ -1,11 +1,10 @@
 // カジノの財布 (55.0 から)。Firestore や HTTP には触らず、数の計算だけをここに置く (index.js から呼ぶ)。
 //
 //   持ち込み・精算は 55.0 で無くした。賭けられるのは「使えるレート = レート − 結果待ちの賭け (押さえている額)」まで。
-//   押さえている額は、3つの卓 (ブラックジャック・宝探し・沈没) に置いている賭けを、そのつど卓から数える
+//   押さえている額は、2つの卓 (ブラックジャック・宝探し) に置いている賭けを、そのつど卓から数える
 //   (財布の残高を別に持たないので、卓とずれない)。
 //     ブラックジャック: 席に置いた賭け金 + 勝負の途中の手の賭け金 (ダブル・スプリットのぶんも)
 //     宝探し: 結果が出る前の回に買った券の代金
-//     沈没: 結果が出る前の便の運賃
 //   レートは結果が出たときに差し引き (払い戻し − 賭け) だけ動かす。スロット・成り上がり・航海は1回ごとにその場で。
 //   卓の進め方 (blackjack-table.js など) は今までどおり財布の chips を増減するので、
 //   index.js は「chips の増減 + その卓で押さえている額の増減」をレートの増減にする (賭けたときは 0、決着で差し引き)。
@@ -25,6 +24,7 @@ export const CASINO_LOG_GAMES = {
   gappori: { source: 'casino_gappori', name: '宝探し', plays: 'gpRounds' },
   nariagari: { source: 'casino_nariagari', name: '成り上がり', plays: 'nrSpins' },
   voyage: { source: 'casino_voyage', name: '航海', plays: 'vgRolls' },
+  // 沈没は 60.0 で廃止。過去の増減ログ (レート推移グラフの作り直し) の名前のために残す
   sink: { source: 'casino_sink', name: '沈没', plays: 'skRounds' }
 };
 
@@ -51,20 +51,14 @@ export function gapporiHeld(table, uid) {
   return (table.tickets || []).filter(ticket => ticket.uid === uid).reduce((sum, ticket) => sum + toInt(ticket.cost), 0);
 }
 
-/** 沈没の船で uid が押さえている額 (結果が出る前の便の運賃) */
-export function sinkHeld(table, uid) {
-  if (!table || table.phase === 'result' || !table.fare) return 0;
-  return (table.players || []).some(player => player.uid === uid) ? toInt(table.fare) : 0;
-}
+const HELD_BY_TABLE = { blackjack: blackjackHeld, gappori: gapporiHeld };
 
-const HELD_BY_TABLE = { blackjack: blackjackHeld, gappori: gapporiHeld, sink: sinkHeld };
-
-/** その卓で押さえている額。game がその3つ以外 (スロットなど) なら 0 */
+/** その卓で押さえている額。game がその2つ以外 (スロットなど) なら 0 */
 export function tableHeld(game, table, uid) {
   return HELD_BY_TABLE[game] ? HELD_BY_TABLE[game](table, uid) : 0;
 }
 
-/** 3つの卓 (tables: { blackjack, gappori, sink }) で押さえている額の合計 */
+/** 2つの卓 (tables: { blackjack, gappori }) で押さえている額の合計 */
 export function casinoHeld(tables, uid) {
   return Object.keys(HELD_BY_TABLE).reduce((sum, game) => sum + tableHeld(game, tables[game], uid), 0);
 }

@@ -1,4 +1,4 @@
-# jong　　Ver59.7
+# jong　　Ver60.0
 
 **1.1** 麻雀得点管理アプリリリース
 
@@ -535,3 +535,5 @@ iOS アプリは `app/` (Capacitor。中身は本番のサイト https://q-jong.
 **59.6** トークンを3つ以上持つ人を永久ラグジュアリー会員にした (3つ目を手に入れたときに players の status をラグジュアリーにし、luxForever を付ける。functions/hilo.js の TOKEN_LUX_FOREVER、index.js の tokenPerks)。updateAllData は luxForever の人をラグジュアリーから下げない。管理画面の会員の欄に「永久Lux」と出し、ラグジュアリー以外を選べなくした。High&Low で3つ目を手に入れたときの知らせにも出す。トークンの特典は 1つ: 永久Pro・2つ: 借金の信用 MAX・3つ: 永久Lux。デプロイは hosting, functions
 
 **59.7** 宝探しの倍率を小数第1位までにした (これまでは 10倍未満を 3個 0.02・4個と5個 0.01 刻みにしていた。1口の値段は10の倍数なので、1口の払い戻しは今までどおり整数。functions/gappori.js の roundOdds)。倍率が ×1.2 未満になる当たりやすすぎる予想は売らないことにした (これまでは ×1.0 に切り上げて売っていた。配当表に入れず、選ぶと「当たりやすすぎるので売っていません」と出す。GAPPORI_MIN_ODDS)。本日のおすすめの倍率も 0.1 刻み (少なくとも ×0.1 は上げる)。還元率 100% に合わせて配当の設計値を直した (GAPPORI_BASE_RETURNS 0.7909・0.7161・0.653・0.6243。合計 2個 99.96%・3個 99.99%・4個 100.00%・5個 100.00%)。倍率は 2個 ×1.2〜8.6 / 3個 ×1.2〜28.2 / 4個 ×1.7〜110.3 / 5個 ×3.9〜485.2。tools/gappori-return.mjs と tools/gappori-sim.mjs も売らない予想を数えないようにした。ルールの版は 24。デプロイは hosting, functions
+
+**60.0** 沈没 (#sink。54.7〜) を廃止した。ゲーム一覧のタイル・船の画面・ルールの説明 (game.html)、画面の処理 (assets/js/game-sink.js)、サーバーの船の進め方 (functions/sink-table.js と casino の skBoard・skLeave・skReady・skJump・skTick・10分ごとの船の時間切れ処理)、押さえている額の数え方 (casino-wallet.js の sinkHeld。押さえている額はブラックジャック・宝探しの2つの卓から数える)、1日のプレイ回数の結果待ちの数え方、Firestore のルール (sink_tables・sink_public。ルールを置かないので誰も読み書きできない)、スタイルをなくした。運賃は結果が出るまでレートから引いていないので、廃止の時点で結果待ちの便があっても、その運賃は使えるレートに戻るだけで誰のチップも減らない (海の底の財宝の持ち越しは消える)。口座の skRounds・skRecent は使わなくなり、次にその人の口座を書くときに消える。過去の増減ログ (casino_sink) は参加ボーナスで引き続き数え、レート推移グラフの「沈没 (N人)」の名前も残す (CASINO_LOG_GAMES の sink は名前のためだけに残す)。sink_* のドキュメントは Firestore に残っている。開いたままの古い画面から沈没を操作すると「不明な操作です。」になる。コードは 60.0 より前の git の履歴にある。デプロイは hosting, functions, firestore

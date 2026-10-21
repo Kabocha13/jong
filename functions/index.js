@@ -113,21 +113,6 @@ import {
   tableHeld
 } from './casino-wallet.js';
 import {
-  SinkTableError,
-  advanceSinkTable,
-  boardSink,
-  createSinkContext,
-  emptySinkTable,
-  isInLiveSinkRound,
-  jumpSink,
-  leaveSink,
-  publicSinkTable,
-  readySink,
-  sinkMine,
-  sinkSeaState,
-  sinkTableUids
-} from './sink-table.js';
-import {
   TableError,
   createTableContext,
   emptyTable,
@@ -632,7 +617,7 @@ async function rebuildRateChartQuietly(context) {
  * 人ごとの結果待ちのくじ・賭けの額 (日次レート補正で、レートに足して計算する分)。
  *   宝くじ: 発表前の券は買ったときの代金 (ラグジュアリーは 0.8倍で買っている)。発表後で受け取っていない当たり券は当たりの額
  *   スポーツくじ: 結果が出ていない投票 (isWin が null) の額
- *   カジノ: ブラックジャック・宝探し・沈没の結果待ちの賭け (押さえている額)
+ *   カジノ: ブラックジャック・宝探しの結果待ちの賭け (押さえている額)
  * 当たりの額は発表前には数えない (徴収の増え方で当たりがわかってしまうため)
  */
 function pendingStakesByPlayer({ lotteries, sportsBets, statusByPlayer, casinoTables, now }) {
@@ -2655,10 +2640,10 @@ export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) =>
 });
 
 // -----------------------------------------------------------------
-// カジノ (ブラックジャック・スロット・宝探し・成り上がり・航海・沈没。ルーレットとテキサスホールデムは 52.0 で廃止)
+// カジノ (ブラックジャック・スロット・宝探し・成り上がり・航海。ルーレットとテキサスホールデムは 52.0、沈没は 60.0 で廃止)
 //   55.0 で持ち込み・精算を無くした。賭けはレートから直接で、賭けられるのは
 //   「使えるレート = レート − 結果待ちの賭け (押さえている額)」まで (計算は casino-wallet.js)。
-//   スロット・成り上がり・航海は1回ごとに、ブラックジャック・宝探し・沈没は結果が出たときに、
+//   スロット・成り上がり・航海は1回ごとに、ブラックジャック・宝探しは結果が出たときに、
 //   差し引き (払い戻し − 賭け) だけをレートに反映する (賭けたときはレートを動かさず、押さえておく)。
 //   増減ログは同じゲームを続けているあいだ1件に書き足し (casinoLogStep)、レート推移グラフは1回ごとに
 //   今日の分 (rate_chart/today) のその点だけを動かす (applyRateChartLive)。同じ回の卓の人は同じ点で動く。
@@ -2677,7 +2662,6 @@ export const loan = onRequest({ region: 'asia-northeast1' }, async (req, res) =>
 //   画面は順に回して見せる。
 //
 //   宝探しも全員共通の1卓。ルールは gappori.js、卓の進め方は gappori-table.js。
-//   沈没も全員共通の1卓 (2人以上で出港するチキンレース)。ルールと進め方は sink-table.js。
 //   卓の中身は gappori_tables/main、誰でも読める形は gappori_public/main に置く。
 // -----------------------------------------------------------------
 const CASINO_SESSIONS = 'casino_sessions';   // 54.x までの持ち込みの財布。55.0 で廃止 (残っていたら精算して消す)
@@ -2688,12 +2672,11 @@ const CASINO_RECENT_LIMIT = 12;
 const CASINO_NOTICES = 'casino_notices';     // 持ち込みの財布を精算した結果を、本人の次の画面で1回だけ見せる
 const BJ_TABLE_ID = 'main';                  // ブラックジャックの卓は1つだけ
 const GAPPORI_TABLE_ID = 'main';             // 宝探しの卓も1つだけ
-const SINK_TABLE_ID = 'main';                // 沈没の船も1つだけ
-// 口座に持つ、遊んだ回数と直近の結果の項目
+// 口座に持つ、遊んだ回数と直近の結果の項目 (沈没の skRounds・skRecent は 60.0 で廃止)
 // gpStamps・gpHaku は宝探しのスタンプカード (押したスタンプの数・ハクを使える回数。55.19〜)
 // gpResetUsed は宝探しの盤面のリセットを使ったか (1 = 使った。券を買うと 0 に戻る。56.4〜)
-const CASINO_ACCOUNT_COUNTS = ['bjHands', 'slotSpins', 'gpRounds', 'nrSpins', 'vgRolls', 'skRounds', 'wagered', 'gpStamps', 'gpHaku', 'gpResetUsed'];
-const CASINO_ACCOUNT_RECENTS = ['bjRecent', 'slotRecent', 'gpRecent', 'nrRecent', 'vgRecent', 'skRecent'];
+const CASINO_ACCOUNT_COUNTS = ['bjHands', 'slotSpins', 'gpRounds', 'nrSpins', 'vgRolls', 'wagered', 'gpStamps', 'gpHaku', 'gpResetUsed'];
+const CASINO_ACCOUNT_RECENTS = ['bjRecent', 'slotRecent', 'gpRecent', 'nrRecent', 'vgRecent'];
 
 class CasinoError extends Error {
   constructor(status, message) {
@@ -2703,7 +2686,7 @@ class CasinoError extends Error {
 }
 
 // 1日のプレイ回数の上限 (55.26〜)。スロット1回転・成り上がり1回・航海1回・ブラックジャック1ハンド・
-// 宝探し1回 (券を買った回)・沈没1便を、どれも1回と数える。会員の種類 (players の status) で決まる (ラグジュアリーは上限なし)
+// 宝探し1回 (券を買った回) を、どれも1回と数える。会員の種類 (players の status) で決まる (ラグジュアリーは上限なし)
 const CASINO_DAILY_PLAY_LIMITS = { none: 100, pro: 1000, luxury: Infinity };
 
 function casinoDailyPlayLimit(status) {
@@ -2717,11 +2700,11 @@ function casinoPlaysToday(account, todayKey = getJstDateKey()) {
 
 /**
  * 新しく遊び始めてよいか確かめる。今日遊んだ回数 + いま結果待ちの卓の数 (game の卓は除く。同じ卓で賭け足すのは同じ1回) が
- * 上限に届いていたら断る。tables は3つの卓 (操作の前)
+ * 上限に届いていたら断る。tables は2つの卓 (操作の前)
  */
 function assertCasinoPlayAllowed(origin, tables, game, uid) {
   if (!origin) return;
-  const pending = ['blackjack', 'gappori', 'sink']
+  const pending = ['blackjack', 'gappori']
     .filter(name => name !== game && tableHeld(name, tables[name], uid) > 0).length;
   const limit = casinoDailyPlayLimit(origin.status);
   if (casinoPlaysToday(origin.account) + pending >= limit) {
@@ -2774,7 +2757,6 @@ function publicCasinoSession(wallet, held, limit = casinoDailyPlayLimit('none'))
     gpRounds: wallet.gpRounds || 0,
     nrSpins: wallet.nrSpins || 0,
     vgRolls: wallet.vgRolls || 0,
-    skRounds: wallet.skRounds || 0,
     startedAt: null,
     lastActionAt: wallet.updatedAt || null,
     expiresAt: null,
@@ -2786,8 +2768,7 @@ function publicCasinoSession(wallet, held, limit = casinoDailyPlayLimit('none'))
       // 最後の1回 (第4弾以上まで行った回を、画面を開き直したときに続きから見せるため)
       last: wallet.nrLast || null
     },
-    voyage: { recent: wallet.vgRecent || [] },
-    sink: { recent: wallet.skRecent || [] }
+    voyage: { recent: wallet.vgRecent || [] }
   };
 }
 
@@ -2823,25 +2804,17 @@ function gapporiTableRefs() {
   };
 }
 
-function sinkTableRefs() {
-  return {
-    tableRef: db.collection('sink_tables').doc(SINK_TABLE_ID),
-    publicRef: db.collection('sink_public').doc(SINK_TABLE_ID)
-  };
-}
-
 /** 卓の進め方が財布を触ったときに呼ぶ関数。55.0 で期限を無くしたので何もしない */
 function touchCasinoWallet() {}
 
 /**
- * 3つの卓 (押さえている額を数えるため) をトランザクションの中で読む。
+ * 2つの卓 (押さえている額を数えるため) をトランザクションの中で読む。
  * known は読み済みの卓 ({ blackjack: 卓 } など)。無い卓は null
  */
 async function readCasinoTables(transaction, known = {}) {
   const refs = {
     blackjack: blackjackTableRefs().tableRef,
-    gappori: gapporiTableRefs().tableRef,
-    sink: sinkTableRefs().tableRef
+    gappori: gapporiTableRefs().tableRef
   };
   const games = Object.keys(refs).filter(game => !Object.hasOwn(known, game));
   const docs = games.length ? await transaction.getAll(...games.map(game => refs[game])) : [];
@@ -2850,7 +2823,7 @@ async function readCasinoTables(transaction, known = {}) {
   return tables;
 }
 
-/** 卓に関わる人の uid → 名前 (席・勝負・券・船の人と、操作した本人) */
+/** 卓に関わる人の uid → 名前 (席・勝負・券の人と、操作した本人) */
 function casinoTableNames(game, table, actorUid, actorName) {
   const names = new Map();
   const add = (uid, name) => { if (uid && name && !names.has(uid)) names.set(uid, String(name)); };
@@ -2859,15 +2832,13 @@ function casinoTableNames(game, table, actorUid, actorName) {
     (table.round?.players || []).forEach(player => add(player.uid, player.name));
   } else if (game === 'gappori') {
     (table.tickets || []).forEach(ticket => add(ticket.uid, ticket.name));
-  } else if (game === 'sink') {
-    (table.players || []).forEach(player => add(player.uid, player.name));
   }
   add(actorUid, actorName);
   return names;
 }
 
 /**
- * 財布を読む (トランザクションの中)。names は uid → 名前、tables は3つの卓 (操作の前)、game はこの操作のゲーム。
+ * 財布を読む (トランザクションの中)。names は uid → 名前、tables は2つの卓 (操作の前)、game はこの操作のゲーム。
  * 口座と players のレートを読み、卓に渡す財布 (口座の中身 + chips = 使えるレート) と、書き戻しに使う元の値を返す。
  * プレイヤーが見つからない人の財布は null (卓の進め方はその人へのお金を orphanPayouts に回すが、渡す先が無いので捨てる)
  */
@@ -3062,18 +3033,16 @@ async function takeCasinoNotice(uid) {
 
 /** いまの財布 (トランザクションの外で読む。画面を開いたとき用) */
 async function readCasinoSession(uid, username) {
-  const [accountDoc, playerSnapshot, bjDoc, gpDoc, skDoc] = await Promise.all([
+  const [accountDoc, playerSnapshot, bjDoc, gpDoc] = await Promise.all([
     casinoAccountRef(uid).get(),
     playerQuery(username).get(),
     blackjackTableRefs().tableRef.get(),
-    gapporiTableRefs().tableRef.get(),
-    sinkTableRefs().tableRef.get()
+    gapporiTableRefs().tableRef.get()
   ]);
   const score = playerSnapshot.empty ? 0 : normalizeRate(playerSnapshot.docs[0].data().score);
   const tables = {
     blackjack: bjDoc.exists ? bjDoc.data() : null,
-    gappori: gpDoc.exists ? gpDoc.data() : null,
-    sink: skDoc.exists ? skDoc.data() : null
+    gappori: gpDoc.exists ? gpDoc.data() : null
   };
   const held = casinoHeld(tables, uid);
   const account = normalizeCasinoAccount(accountDoc.exists ? accountDoc.data() : null, username);
@@ -3338,14 +3307,13 @@ async function readPublicGapporiTable() {
 }
 
 async function casinoStatus(uid, username) {
-  const [wallet, table, gappori, autoSettled, slotStateDoc, voyage, sink, hlDoc] = await Promise.all([
+  const [wallet, table, gappori, autoSettled, slotStateDoc, voyage, hlDoc] = await Promise.all([
     readCasinoSession(uid, username),
     readPublicBlackjackTable(),
     readPublicGapporiTable(),
     takeCasinoNotice(uid),
     db.collection(SLOT_STATES).doc(uid).get(),
     readVoyageStatus(uid),
-    readSinkStatus(uid),
     db.collection(HL_GAMES).doc(uid).get()
   ]);
   return {
@@ -3356,9 +3324,6 @@ async function casinoStatus(uid, username) {
     table,
     gappori,
     voyage,
-    sink: sink.sink,
-    sinkMine: sink.sinkMine,
-    sinkSea: sink.sinkSea,
     // HL を遊んでいる途中か (58.9〜。使えるレートが 300,000 に届かなくても、途中ならゲーム一覧に HL を出して続きに戻れるようにする)
     hlPlaying: hlDoc.exists && !isHlFinished(hlDoc.data()),
     autoSettled,
@@ -3564,75 +3529,6 @@ async function runGapporiTable(actorUid, mutate, actorName = null) {
   warnCasinoOrphans('gappori', done.context.orphanPayouts);
   await applyRateChartLive(done.written.chart);
   return { ...done.context, heldAfter: done.written.held, limits: done.written.limits };
-}
-
-// -----------------------------------------------------------------
-// 沈没 (全員共通の1卓のチキンレース)。ルールと卓の進め方は sink-table.js。
-//   卓の中身 (沈む時刻・誰が飛び降りたか) は sink_tables/main (Cloud Functions だけ)、
-//   誰でも読める形は sink_public/main に置く。飛び降りたときは公開の写しを書き直さない
-//   (書き直すと seq の変化で誰かが飛び降りたことがわかってしまうため)。
-//   画面は航海のあいだ skTick を送り続け、沈む時刻を過ぎたらその場で結果を出す。
-//   skTick の返事には、いまの浸水 (水位と、いまの区間の速さ) だけを入れる (sinkSeaState)。
-//   運賃は押さえておき、結果が出たとき (と、降りた・片付けたときに戻すとき) に差し引きでレートを動かす。
-// -----------------------------------------------------------------
-async function runSinkTable(actorUid, mutate, actorName = null) {
-  const { tableRef, publicRef } = sinkTableRefs();
-  const done = await db.runTransaction(async transaction => {
-    const tableDoc = await transaction.get(tableRef);
-    const table = tableDoc.exists ? tableDoc.data() : emptySinkTable();
-    const tables = await readCasinoTables(transaction, { sink: tableDoc.exists ? table : null });
-    const loaded = await readCasinoWallets(transaction, casinoTableNames('sink', table, actorUid, actorName), tables, 'sink');
-    const context = createSinkContext({ table, wallets: loaded.wallets, now: Date.now(), randomInt: casinoRandom, touchWallet: touchCasinoWallet });
-    if (!tableDoc.exists) {
-      context.changed = true;
-      context.publicChanged = true;
-    }
-    // 沈む時刻を過ぎていれば、操作より先に沈める (沈んだあとの「飛び降りる」は受け付けない)
-    advanceSinkTable(context);
-    // 新しく遊び始める操作 (賭ける・券を買う・乗る) の前に、1日のプレイ回数を確かめる (この卓で賭け足すのは同じ1回)
-    context.assertPlayAllowed = uid => {
-      if (tableHeld('sink', context.table, uid) > 0) return;
-      assertCasinoPlayAllowed(loaded.origins.get(uid), tables, 'sink', uid);
-    };
-    mutate(context);
-    advanceSinkTable(context);
-
-    if (context.changed) {
-      if (context.publicChanged) context.table.seq = (context.table.seq || 0) + 1;
-      context.table.updatedAt = context.nowIso;
-      transaction.set(tableRef, context.table);
-      if (context.publicChanged) transaction.set(publicRef, publicSinkTable(context.table));
-    }
-    const written = writeCasinoWallets(transaction, loaded, 'sink', context.table, context.nowIso);
-    return { context, written };
-  });
-  warnCasinoOrphans('sink', done.context.orphanPayouts);
-  await applyRateChartLive(done.written.chart);
-  return { ...done.context, heldAfter: done.written.held, limits: done.written.limits };
-}
-
-/** 沈没の操作の返事: 船の様子と、本人の分 (乗っているか・飛び降りた時刻) と財布 */
-async function sinkTableAction(uid, username, mutate) {
-  const ctx = await runSinkTable(uid, mutate, username);
-  const wallet = ctx.wallets.get(uid);
-  return {
-    me: username,
-    sink: publicSinkTable(ctx.table),
-    sinkMine: sinkMine(ctx.table, uid),
-    sinkSea: sinkSeaState(ctx.table, Date.now()),
-    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0, ctx.limits?.get(uid)) : null,
-    now: new Date().toISOString()
-  };
-}
-
-/** 画面を開いたときの船の様子と本人の分 (船がまだ無ければ作る) */
-async function readSinkStatus(uid) {
-  const tableDoc = await sinkTableRefs().tableRef.get();
-  if (!tableDoc.exists) {
-    const ctx = await runSinkTable(null, () => {});
-    return { sink: publicSinkTable(ctx.table), sinkMine: sinkMine(ctx.table, uid), sinkSea: sinkSeaState(ctx.table, Date.now()) };
-  }
-  return { sink: publicSinkTable(tableDoc.data()), sinkMine: sinkMine(tableDoc.data(), uid), sinkSea: sinkSeaState(tableDoc.data(), Date.now()) };
 }
 
 /** 宝探しの操作の返事: 卓の様子と本人の財布 */
@@ -4037,15 +3933,7 @@ const CASINO_ACTIONS = {
   gpStart: ({ uid, username }) => gapporiTableAction(uid, username, ctx => startGapporiNow(ctx, uid)),
   // 盤面のリセット (1人1回。券を買うとまた使える)
   gpReset: ({ uid, username }) => gapporiTableAction(uid, username, ctx => resetGapporiBoard(ctx, uid, username)),
-  gpTick: ({ uid, username }) => gapporiTableAction(uid, username, () => {}),
-  skBoard: ({ uid, username, body }) => sinkTableAction(uid, username, ctx => {
-    ctx.assertPlayAllowed(uid);
-    boardSink(ctx, uid, username, body.fare);
-  }),
-  skLeave: ({ uid, username }) => sinkTableAction(uid, username, ctx => leaveSink(ctx, uid)),
-  skReady: ({ uid, username }) => sinkTableAction(uid, username, ctx => readySink(ctx, uid)),
-  skJump: ({ uid, username }) => sinkTableAction(uid, username, ctx => jumpSink(ctx, uid)),
-  skTick: ({ uid, username }) => sinkTableAction(uid, username, () => {})
+  gpTick: ({ uid, username }) => gapporiTableAction(uid, username, () => {})
 };
 
 async function handleCasinoRequest(req, res) {
@@ -4082,8 +3970,7 @@ async function handleCasinoRequest(req, res) {
     const payload = await CASINO_ACTIONS[action]({ uid: decoded.uid, username, body, admin: Boolean(decoded.admin) });
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
-    if (error instanceof CasinoError || error instanceof TableError || error instanceof GapporiTableError || error instanceof GapporiRuleError
-      || error instanceof SinkTableError || error instanceof ShopError || error instanceof HlError) {
+    if (error instanceof CasinoError || error instanceof TableError || error instanceof GapporiTableError || error instanceof GapporiRuleError || error instanceof ShopError || error instanceof HlError) {
       res.status(error.status).json({ status: 'error', message: error.message });
       return;
     }
@@ -4102,7 +3989,7 @@ export const casino = onRequest({ region: 'asia-northeast1' }, handleCasinoReque
 // 更新前から開いたままのタブでも精算できるよう、同じ処理のまま残している
 export const casinoRoulette = onRequest({ region: 'asia-northeast1' }, handleCasinoRequest);
 
-// 10分ごと。ブラックジャック・宝探し・沈没の卓が、誰も画面を開いていないまま時間切れで止まっていれば先へ進める。
+// 10分ごと。ブラックジャック・宝探しの卓が、誰も画面を開いていないまま時間切れで止まっていれば先へ進める。
 // 指名手配でこの10分にめくられた賞金首がいれば、レート推移グラフもここで作り直す。AIカンカク (55.1 で削除) の残りの BET も返す。
 // 関数名は 54.x (持ち込みの財布の自動精算) のまま (変えると Cloud Scheduler のジョブが作り直されるため)
 export const settleIdleCasinoSessions = onSchedule({
@@ -4126,11 +4013,6 @@ export const settleIdleCasinoSessions = onSchedule({
     await runGapporiTable(null, () => {});
   } catch (error) {
     console.error('宝探しの卓の時間切れ処理に失敗しました:', error);
-  }
-  try {
-    await runSinkTable(null, () => {});
-  } catch (error) {
-    console.error('沈没の船の時間切れ処理に失敗しました:', error);
   }
   try {
     await rebuildRateChartAfterWanted(10 * 60 * 1000);

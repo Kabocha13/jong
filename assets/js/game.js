@@ -2,8 +2,8 @@
 //   ログイン、ゲームの選択 (ブロックのタイル)、財布 (使えるレート) の表示、画面の切り替え。
 //   55.0 で持ち込み・精算を無くした。賭けはレートから直接で、賭けられるのは「使えるレート = レート − 結果待ちの賭け」まで。
 //   casino.session はサーバーが返す財布 (chips = 使えるレート、held = 結果待ちの賭け、score = レート)。
-//   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js / game-voyage.js / game-sink.js
-//   (ルーレットとテキサスホールデムは 52.0 で廃止)。
+//   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js / game-voyage.js
+//   (ルーレットとテキサスホールデムは 52.0、沈没は 60.0 で廃止)。
 //   船底 (#underground) と指名手配 (#wanted) はチップを使わない別の遊び場で、中身は game-underground.js と game-wanted.js。
 //   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
 //   画面は #blackjack / #slot / #gappori / #nariagari のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
@@ -15,9 +15,7 @@ const CASINO_GAMES = {
     gappori:   { name: '宝探し', playsLabel: '回', plays: 'gpRounds' },
     nariagari: { name: '成り上がり', playsLabel: '回', plays: 'nrSpins' },
     // 航海 (2026/10/5〜12/21 の期間限定)。ゲーム一覧のカードは 10/4 0:00 に Coming soon から切り替わる (game-voyage.js の showVoyageTile)
-    voyage:    { name: '航海', playsLabel: '回', plays: 'vgRolls' },
-    // 沈没 (2人以上で出港するチキンレース。全員共通の1卓)
-    sink:      { name: '沈没', playsLabel: '回', plays: 'skRounds' }
+    voyage:    { name: '航海', playsLabel: '回', plays: 'vgRolls' }
 };
 
 const casino = {
@@ -156,7 +154,6 @@ function renderRoute() {
         else if (game === 'slot') openSlotTable();
         else if (game === 'gappori') openGapporiTable();
         else if (game === 'voyage') openVoyageTable();
-        else if (game === 'sink') openSinkTable();
         else openNariagariTable();
     }
     if (view !== 'blackjack') closeBlackjackTable();
@@ -164,7 +161,6 @@ function renderRoute() {
     if (view !== 'gappori') closeGapporiTable();
     if (view !== 'nariagari') closeNariagariTable();
     if (view !== 'voyage') closeVoyageTable();
-    if (view !== 'sink') closeSinkTable();
     if (view !== 'underground') closeUnderground();
     if (view !== 'wanted') closeWanted();
     showView(view);
@@ -187,8 +183,7 @@ function renderMenu() {
         const badge = tile.querySelector('.game-tile-badge');
         let text = tile.dataset.game === 'blackjack' && isBlackjackLive() ? '勝負の途中'
             : tile.dataset.game === 'gappori' && isGapporiLive() ? '抽選の途中'
-                : tile.dataset.game === 'nariagari' ? nariagariTileBadge()
-                    : tile.dataset.game === 'sink' ? sinkTileBadge() : '';
+                : tile.dataset.game === 'nariagari' ? nariagariTileBadge() : '';
         // 船底はレートが上限 (既定1000) 未満のときだけ仕分けできる
         if (tile.dataset.game === 'underground' && casino.score < undergroundMaxRate()) text = '入れます';
         if (tile.dataset.game === 'wanted') text = wantedTileBadge();
@@ -203,7 +198,6 @@ function renderMenu() {
     document.querySelector('.game-tile[data-game="wanted"]')?.classList.toggle('hidden', mode !== 'wanted');
     renderBlackjackTile();
     renderGapporiTile();
-    renderSinkTile();
     renderUndergroundTile();
     placeHlTile();
 }
@@ -223,7 +217,7 @@ function richClosedRouteMessage() {
     const route = location.hash.slice(1);
     if (!route || route === 'hl' || !isHlOnlyPlayer()) return '';
     // 結果待ちの賭けがあるゲームは、結果を見られるように開ける
-    if ((route === 'blackjack' && isBlackjackLive()) || (route === 'gappori' && isGapporiLive()) || (route === 'sink' && isSinkLive())) return '';
+    if ((route === 'blackjack' && isBlackjackLive()) || (route === 'gappori' && isGapporiLive())) return '';
     return '使えるレートが 300,000 以上のあいだは、High&Low だけで遊べます。';
 }
 
@@ -238,7 +232,7 @@ function placeHlTile() {
     tile.classList.toggle('is-hl-featured', show);
     if (show && tiles.firstElementChild !== tile) tiles.prepend(tile);
     // 使えるレートが 300,000 以上の人には、ほかのゲームと購入を出さない (59.1〜。結果待ちの賭けがあるゲームは出す)
-    const live = { blackjack: isBlackjackLive(), gappori: isGapporiLive(), sink: isSinkLive() };
+    const live = { blackjack: isBlackjackLive(), gappori: isGapporiLive() };
     tiles.querySelectorAll('.game-tile').forEach(other => {
         if (other === tile) return;
         other.classList.toggle('is-hl-only-hidden', rich && !live[other.dataset.game]);
@@ -277,8 +271,7 @@ function renderWallet() {
 
 /** 結果待ちの賭けがあれば、その説明を添える (名前は 54.x の精算ボタンのころのまま。ほかのゲームの画面からも呼ぶ) */
 function renderSettleButton() {
-    const pending = isBlackjackLive() ? 'ブラックジャックの勝負' : isGapporiLive() ? '宝探しの抽選'
-        : isSinkLive() ? '沈没の航海' : '';
+    const pending = isBlackjackLive() ? 'ブラックジャックの勝負' : isGapporiLive() ? '宝探しの抽選' : '';
     const note = el('casino-held-note');
     note.classList.toggle('hidden', !(casino.session?.held > 0));
     note.textContent = pending
@@ -294,7 +287,6 @@ function setCasinoBusy(busy) {
     renderGapporiControls();
     renderNariagariControls();
     renderVoyageControls();
-    renderSinkControlsIfReady();
 }
 
 // ------------------------------------------------------------------
@@ -311,7 +303,6 @@ async function refreshCasino() {
     receiveGapporiTable(data.gappori, data.now);
     receiveSlotState(data.slot);
     receiveVoyage(data.voyage);
-    receiveSinkTable(data.sink, data.now, data.sinkMine, data.sinkSea);
     renderRoute();
     if (data.autoSettled) {
         showMessage(el('casino-message'), settledMessage(data.autoSettled), 'info');
@@ -331,7 +322,6 @@ async function initCasino() {
     initGappori();
     initNariagari();
     initVoyage();
-    initSink();
     initUnderground();
     initWanted();
     initHl();
