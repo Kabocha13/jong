@@ -4,7 +4,6 @@
 
 | ファイル | 使い道 |
 |---|---|
-| captain.png | ハクの全身 (物語の予備。いまは使っていない) |
 | face-smile.png / face-laugh.png / face-surprise.png / face-angry.png / face-sad.png | ハクの表情 (盤の真ん中・物語・船長チャンス) |
 | parrot.png | ポン (盤のコマ・物語) |
 | coin.png | 金貨 1715 (呪いの金貨のマスの演出) |
@@ -105,3 +104,5 @@ CSS がその上に章の色を半分くらい重ね、周りを少し暗くす�
 > to read. Square 1:1 image, rich painterly game-art illustration for a pirate treasure board game, no ships,
 > no land, no islands, no people, no animals, no text, no letters, no numbers, no watermark
 
+
+ハクの全身 (captain.png。物語の予備で、いまは使っていない) は、Hosting の容量を空けるため assets/img/src/voyage/captain.png に移した (src は Hosting に上げない)。
