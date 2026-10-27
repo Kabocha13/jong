@@ -7,6 +7,12 @@ service cloud.firestore {
       allow write: if request.auth != null && request.auth.token.admin == true;
     }
 
+    // 最新のログイン・プレイの時刻 (管理画面用)。読めるのは管理者だけ、書き込みは Cloud Functions だけ。
+    match /player_activity/{userId} {
+      allow read: if request.auth != null && request.auth.token.admin == true;
+      allow write: if false;
+    }
+
     // 公開ページ表示用に読み取りは許可する。
     // 書き込みは Firebase Auth または Cloud Functions 経由で行う。
     match /players/{playerId} {

@@ -170,6 +170,7 @@ async function attemptMasterLogin(username, password, isAuto = false) {
         initializeLotteryForm();
         loadAttendanceAccessStatus();
         loadMemberStatusList();
+        loadPlayerActivityList();
         loadRateReversionSettings();
         loadLoanSettings();
         loadUndergroundSettingsForm();
@@ -2104,6 +2105,61 @@ const MEMBER_STATUS_OPTIONS = [
     { value: 'pro',     label: 'プロ ⭐' },
     { value: 'luxury',  label: 'ラグジュアリー 💎' }
 ];
+
+// --- ログイン・プレイ時間 (player_activity は Cloud Functions が書く。読めるのは管理者だけ) ---
+const PLAYER_ACTIVITY_LIST = document.getElementById('player-activity-list');
+const PLAYER_ACTIVITY_RELOAD = document.getElementById('player-activity-reload');
+
+function formatActivityTime(iso) {
+    const time = Date.parse(iso || '');
+    if (!Number.isFinite(time)) return '—';
+    return new Date(time).toLocaleString('ja-JP', {
+        timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+    });
+}
+
+async function loadPlayerActivityList() {
+    if (!PLAYER_ACTIVITY_LIST) return;
+
+    PLAYER_ACTIVITY_LIST.innerHTML = '<p>読み込み中...</p>';
+    try {
+        const [currentData, snapshot] = await Promise.all([
+            fetchAllData(),
+            getFirestoreDb().collection('player_activity').get()
+        ]);
+        const activityByName = new Map(snapshot.docs.map(doc => {
+            const data = doc.data();
+            return [data.username, data];
+        }));
+        const rows = (currentData.scores || []).map(player => ({ name: player.name, ...activityByName.get(player.name) }));
+        if (rows.length === 0) {
+            PLAYER_ACTIVITY_LIST.innerHTML = '<p>プレイヤーが見つかりません。</p>';
+            return;
+        }
+
+        // 最近ログインかプレイをした人から並べる
+        const latestOf = row => Math.max(Date.parse(row.lastLoginAt || '') || 0, Date.parse(row.lastPlayAt || '') || 0);
+        rows.sort((a, b) => latestOf(b) - latestOf(a));
+        PLAYER_ACTIVITY_LIST.innerHTML = `
+            <table class="career-table">
+                <thead><tr><th>ユーザー</th><th>最新ログイン</th><th>最新プレイ</th></tr></thead>
+                <tbody>${rows.map(row => `
+                    <tr>
+                        <td>${escapeAdminText(row.name)}</td>
+                        <td>${formatActivityTime(row.lastLoginAt)}</td>
+                        <td>${formatActivityTime(row.lastPlayAt)}${row.lastPlayAt && row.lastPlayGame ? ` (${escapeAdminText(row.lastPlayGame)})` : ''}</td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (error) {
+        PLAYER_ACTIVITY_LIST.innerHTML = `<p>読み込みに失敗しました: ${escapeAdminText(error.message)}</p>`;
+    }
+}
+
+if (PLAYER_ACTIVITY_RELOAD) {
+    PLAYER_ACTIVITY_RELOAD.addEventListener('click', loadPlayerActivityList);
+}
 
 async function loadMemberStatusList() {
     if (!MEMBER_STATUS_LIST) return;

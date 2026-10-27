@@ -213,6 +213,23 @@ async function hasWriteAccess(req, body = {}) {
   return Boolean(await getVerifiedAuthToken(req));
 }
 
+// 管理画面の「ログイン・プレイ時間」用。player_activity/{uid} に最新のログイン・プレイの時刻を残す。
+// 読めるのは管理者だけ、書き込みは Cloud Functions だけ (firestore.rules)。失敗しても本来の処理は止めない
+const PLAYER_ACTIVITY_COLLECTION = 'player_activity';
+
+async function recordPlayerActivity(username, fields) {
+  try {
+    await db.collection(PLAYER_ACTIVITY_COLLECTION).doc(authUidFromUsername(username))
+      .set({ username, ...fields }, { merge: true });
+  } catch (error) {
+    console.warn('ログイン・プレイ時間の記録に失敗しました:', error.message);
+  }
+}
+
+function recordPlayerPlay(username, game) {
+  return recordPlayerActivity(username, { lastPlayAt: new Date().toISOString(), lastPlayGame: game });
+}
+
 function normalizeReversionRate(value) {
   const rate = Number(value);
   if (!Number.isFinite(rate)) return RATE_REVERSION_RATE_DEFAULT;
@@ -2099,6 +2116,7 @@ export const underground = onRequest({ region: 'asia-northeast1' }, async (req, 
     }
     const settings = await loadUndergroundSettings();
     const payload = await UNDERGROUND_ACTIONS[action]({ username, body, settings });
+    if (action !== 'status') await recordPlayerPlay(username, '船底');
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
     if (error instanceof UndergroundError) {
@@ -2328,6 +2346,7 @@ export const wanted = onRequest({ region: 'asia-northeast1' }, async (req, res) 
       throw new WantedError(400, '不明な操作です。');
     }
     const payload = await WANTED_ACTIONS[action]({ uid: decoded.uid, username, body });
+    if (action === 'flip') await recordPlayerPlay(username, '指名手配');
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
     if (error instanceof WantedError) {
@@ -3936,6 +3955,19 @@ const CASINO_ACTIONS = {
   gpTick: ({ uid, username }) => gapporiTableAction(uid, username, () => {})
 };
 
+// 遊んだとみなす操作と、管理画面に出すゲーム名 (状態の読み込み・席を立つ・時間切れの確認は数えない)
+const CASINO_PLAY_GAMES = {
+  hlStart: 'HL',
+  hlGuess: 'HL',
+  slotSpin: 'スロット',
+  nrSpin: '成り上がり',
+  vgRoll: '航海',
+  bjBet: 'ブラックジャック',
+  bjMove: 'ブラックジャック',
+  gpBuy: '宝探し',
+  gpChance: '宝探し'
+};
+
 async function handleCasinoRequest(req, res) {
   setCors(req, res);
   if (req.method === 'OPTIONS') {
@@ -3968,6 +4000,7 @@ async function handleCasinoRequest(req, res) {
     await migrateLegacyCasinoSessions();
     await refundAikankakuBets();
     const payload = await CASINO_ACTIONS[action]({ uid: decoded.uid, username, body, admin: Boolean(decoded.admin) });
+    if (Object.hasOwn(CASINO_PLAY_GAMES, action)) await recordPlayerPlay(username, CASINO_PLAY_GAMES[action]);
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
     if (error instanceof CasinoError || error instanceof TableError || error instanceof GapporiTableError || error instanceof GapporiRuleError || error instanceof ShopError || error instanceof HlError) {
@@ -4115,6 +4148,7 @@ export const qjongLogin = onRequest({ region: 'asia-northeast1' }, async (req, r
       username: cleanUsername,
       admin: isAdmin
     });
+    await recordPlayerActivity(cleanUsername, { lastLoginAt: new Date().toISOString() });
 
     res.status(200).json({
       status: 'success',
