@@ -53,3 +53,5 @@
 ### tile.jpeg — ゲーム一覧のカード (1200×675)
 
 > A close-up of a luxurious crimson velvet and gold card table in a pirate captain's private salon at night. Two playing cards are fanned out on the table, an ace of spades and a king of hearts, next to a glowing stack of gold coins and one large legendary gold coin engraved with a star in the center. A crystal chandelier and candles glow softly out of focus in the background. Wide horizontal composition with the cards and coin in the middle. Painterly oil-painting style, dramatic chiaroscuro lighting, warm candlelight, opulent gold and deep crimson palette, luxurious atmosphere, highly detailed, no extra text, no watermark.
+
+61.9 から、配信する画像は WebP (.webp) にした。元の PNG・JPEG は assets/img/src/original/ にある (Hosting では配らない)。差し替えるときは元の画像から WebP を作り、ファイル名を変える (画像は7日キャッシュ)。

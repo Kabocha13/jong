@@ -106,3 +106,5 @@ CSS がその上に章の色を半分くらい重ね、周りを少し暗くす�
 
 
 ハクの全身 (captain.png。物語の予備で、いまは使っていない) は、Hosting の容量を空けるため assets/img/src/voyage/captain.png に移した (src は Hosting に上げない)。
+
+61.9 から、配信する画像は WebP (.webp) にした。元の PNG・JPEG は assets/img/src/original/ にある (Hosting では配らない)。差し替えるときは元の画像から WebP を作り、ファイル名を変える (画像は7日キャッシュ)。

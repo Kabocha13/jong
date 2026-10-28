@@ -160,8 +160,8 @@ function gapporiShownHits(table = gp.table) {
 // 絵
 // ------------------------------------------------------------------
 /**
- * お宝の絵 (スロットと同じ)。船長は公式キャラの顔 (assets/img/captain/face.jpeg)、無ければ帽子の絵
- * (assets/img/slot/captain.jpeg)。どちらも読めないあいだは札で出す
+ * お宝の絵 (スロットと同じ)。船長は公式キャラの顔 (assets/img/captain/face.webp)、無ければ帽子の絵
+ * (assets/img/slot/captain.webp)。どちらも読めないあいだは札で出す
  * (札にも data-symbol を付けておくので、あとから画像が読めたら game-slot.js の loadSlotImages が絵に差し替える)
  */
 function gapporiSymbol(kind) {

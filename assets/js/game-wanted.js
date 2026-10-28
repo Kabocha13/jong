@@ -10,12 +10,12 @@ const WANTED_FACES = [
     ...['chest', 'coin', 'compass', 'map', 'rum', 'parrot', 'anchor', 'wild'].map(key => ({
         name: SLOT_SYMBOLS[key].name, src: `${SLOT_IMAGE_DIR}${key}${SLOT_IMAGE_EXT}`, emoji: SLOT_SYMBOLS[key].emoji
     })),
-    { name: '船長の帽子', src: 'assets/img/slot/captain.jpeg', emoji: '🎩' },
-    { name: '船長 (笑顔)', src: 'assets/img/voyage/face-smile.png', emoji: '😊' },
-    { name: '船長 (大笑い)', src: 'assets/img/voyage/face-laugh.png', emoji: '😆' },
-    { name: '船長 (怒り)', src: 'assets/img/voyage/face-angry.png', emoji: '😠' },
-    { name: '船長 (しょんぼり)', src: 'assets/img/voyage/face-sad.png', emoji: '😢' },
-    { name: '船長 (びっくり)', src: 'assets/img/voyage/face-surprise.png', emoji: '😲' },
+    { name: '船長の帽子', src: 'assets/img/slot/captain.webp', emoji: '🎩' },
+    { name: '船長 (笑顔)', src: 'assets/img/voyage/face-smile.webp', emoji: '😊' },
+    { name: '船長 (大笑い)', src: 'assets/img/voyage/face-laugh.webp', emoji: '😆' },
+    { name: '船長 (怒り)', src: 'assets/img/voyage/face-angry.webp', emoji: '😠' },
+    { name: '船長 (しょんぼり)', src: 'assets/img/voyage/face-sad.webp', emoji: '😢' },
+    { name: '船長 (びっくり)', src: 'assets/img/voyage/face-surprise.webp', emoji: '😲' },
     ...[
         ['🐙', 'タコ'], ['🦈', 'サメ'], ['🐳', 'クジラ'], ['🐬', 'イルカ'], ['🦀', 'カニ'], ['🐚', '貝'],
         ['🐢', 'カメ'], ['🦑', 'イカ'], ['🐠', '熱帯魚'], ['🦞', 'ロブスター'], ['⛵', '帆船'], ['🏝️', '無人島'],

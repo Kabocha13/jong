@@ -1,6 +1,6 @@
 // assets/js/home-captain.js
 // ホームの見出しに公式キャラ (船長) を立たせ、吹き出しでひとこと言わせる。
-//   絵は assets/img/captain/stand.png (背景透過。ハロウィンのあいだは halloween.png)。読めないあいだは何も出さない (見出しは今のまま)。
+//   絵は assets/img/captain/stand.webp (背景透過。ハロウィンのあいだは halloween.png)。読めないあいだは何も出さない (見出しは今のまま)。
 //   時計は真ん中のまま、船長は右下に時計にかからない大きさで立ち、吹き出しは船長の左上 (時計の上の空き) に出す。
 //   言うことは main.js が渡すデータ (ランキング・借金・くじ) と manaba の未提出課題の数から作る。
 //   航海 (大海賊の航海日誌) の出港の前日〜当日と、新しい章が始まってから VOYAGE_NOTICE_DAYS 日は、その知らせをいちばん先に言う
@@ -141,7 +141,7 @@
     });
     art.addEventListener('error', () => wrap.remove());
     art.src = STAND_SRC;
-    import('./voyage-rules.js')
+    import('./voyage-rules.js?v=61.9')
         .then(rules => {
             state.voyage = voyageLine(rules);
             if (state.voyage && !wrap.hidden) refresh();

@@ -8,16 +8,16 @@ const HL_SUIT_MARKS = ['♠', '♥', '♦', '♣'];
 const HL_RANK_LABELS = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
 const HL_DEALER = {
     idle: { face: 'assets/img/captain/icon.png', line: 'ようこそ、VIP席へ。運命の10枚、読み切れるか？' },
-    start: { face: 'assets/img/captain/surprised.png', line: 'さあ、勝負だ。次は上か、下か？' },
-    win: { face: 'assets/img/captain/laugh.png', line: 'お見事！ その調子だ。' },
-    lose: { face: 'assets/img/captain/disappointed.png', line: 'おっと、外れだ…まだ取り返せる。' },
-    token: { face: 'assets/img/captain/laugh.png', line: 'トークンはお前のものだ。さすがだな！' },
-    miss: { face: 'assets/img/captain/disappointed.png', line: '今回は海の神に嫌われたな…。' }
+    start: { face: 'assets/img/captain/surprised.webp', line: 'さあ、勝負だ。次は上か、下か？' },
+    win: { face: 'assets/img/captain/laugh.webp', line: 'お見事！ その調子だ。' },
+    lose: { face: 'assets/img/captain/disappointed.webp', line: 'おっと、外れだ…まだ取り返せる。' },
+    token: { face: 'assets/img/captain/laugh.webp', line: 'トークンはお前のものだ。さすがだな！' },
+    miss: { face: 'assets/img/captain/disappointed.webp', line: '今回は海の神に嫌われたな…。' }
 };
 
 // HL 専用の絵 (assets/img/hl/。README.md に一覧と生成プロンプト)。読めた絵だけ <html> に hl-art-<名前> を付けて CSS で使う
-const HL_ART = ['hero.jpeg', 'table.jpeg', 'card-back.png', 'button-high.png', 'button-low.png', 'button-start.png', 'frame.png', 'tile.jpeg'];
-const HL_TOKEN_SRC = 'assets/img/hl/token.png';
+const HL_ART = ['hero.webp', 'table.webp', 'card-back.webp', 'button-high.webp', 'button-low.webp', 'button-start.webp', 'frame.webp', 'tile.webp'];
+const HL_TOKEN_SRC = 'assets/img/hl/token.webp';
 const HL_TOKEN_FALLBACK = 'assets/img/token.svg';
 
 function loadHlArt() {

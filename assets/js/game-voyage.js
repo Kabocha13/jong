@@ -20,22 +20,22 @@ const VG_FACES = ['smile', 'laugh', 'surprise', 'angry', 'sad'];
 
 // マスの絵 (スロットの絵柄・船長の顔・呪いの金貨を使う)。sq-*.jpeg はまだ無ければ icon (絵文字) で出す (assets/img/voyage/README.md)
 const VG_ART = {
-    anchor: 'assets/img/slot/anchor.jpeg',
-    coin: 'assets/img/slot/coin.jpeg',
-    chest: 'assets/img/slot/chest.jpeg',
-    rum: 'assets/img/slot/rum.jpeg',
-    map: 'assets/img/slot/map.jpeg',
-    parrot: 'assets/img/slot/parrot.jpeg',
-    compass: 'assets/img/slot/compass.jpeg',
-    flag: 'assets/img/slot/wild.jpeg',
-    curse: 'assets/img/voyage/coin.png',
-    storm: 'assets/img/voyage/sq-storm.jpeg',
-    loss: 'assets/img/voyage/sq-loss.jpeg'
+    anchor: 'assets/img/slot/anchor.webp',
+    coin: 'assets/img/slot/coin.webp',
+    chest: 'assets/img/slot/chest.webp',
+    rum: 'assets/img/slot/rum.webp',
+    map: 'assets/img/slot/map.webp',
+    parrot: 'assets/img/slot/parrot.webp',
+    compass: 'assets/img/slot/compass.webp',
+    flag: 'assets/img/slot/wild.webp',
+    curse: 'assets/img/voyage/coin.webp',
+    storm: 'assets/img/voyage/sq-storm.webp',
+    loss: 'assets/img/voyage/sq-loss.webp'
 };
 
 /** 公式キャラ (船長) の顔。出し始める日 (common.js の CAPTAIN_REVEAL_AT) より前は帽子の絵 */
 function vgCaptainArt() {
-    return isCaptainRevealed() ? 'assets/img/captain/face.jpeg' : 'assets/img/slot/captain.jpeg';
+    return isCaptainRevealed() ? 'assets/img/captain/face.webp' : 'assets/img/slot/captain.webp';
 }
 
 // マスの見た目。label は章で上書きできる (VG_FLAVOR)。art は VG_ART のキー
@@ -398,7 +398,7 @@ function setVoyageFace(name) {
     const face = el('vg-face');
     if (!face) return;
     const safe = VG_FACES.includes(name) ? name : 'smile';
-    if (!face.src.endsWith(`face-${safe}.png`)) face.src = `assets/img/voyage/face-${safe}.png`;
+    if (!face.src.endsWith(`face-${safe}.webp`)) face.src = `assets/img/voyage/face-${safe}.webp`;
     restartClass(face, 'is-pop');
 }
 
@@ -489,7 +489,7 @@ async function drawVoyageCaptain(effect, play) {
     await showSlotOverlay('is-start vg-overlay-captain', body => {
         const face = document.createElement('img');
         face.className = 'vg-overlay-face';
-        face.src = 'assets/img/voyage/face-surprise.png';
+        face.src = 'assets/img/voyage/face-surprise.webp';
         face.alt = '';
         body.append(
             face,

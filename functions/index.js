@@ -2130,8 +2130,9 @@ export const underground = onRequest({ region: 'asia-northeast1' }, async (req, 
       throw new UndergroundError(400, action === 'chinchiro' ? 'チンチロは休止中です。' : '不明な操作です。');
     }
     const settings = await loadUndergroundSettings();
+    const played = action !== 'status' ? recordPlayerPlay(username, '船底') : null;
     const payload = await UNDERGROUND_ACTIONS[action]({ username, body, settings });
-    if (action !== 'status') await recordPlayerPlay(username, '船底');
+    await played;
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
     if (error instanceof UndergroundError) {
@@ -2360,8 +2361,9 @@ export const wanted = onRequest({ region: 'asia-northeast1' }, async (req, res) 
     if (!Object.hasOwn(WANTED_ACTIONS, action)) {
       throw new WantedError(400, '不明な操作です。');
     }
+    const played = action === 'flip' ? recordPlayerPlay(username, '指名手配') : null;
     const payload = await WANTED_ACTIONS[action]({ uid: decoded.uid, username, body });
-    if (action === 'flip') await recordPlayerPlay(username, '指名手配');
+    await played;
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
     if (error instanceof WantedError) {
@@ -4091,10 +4093,12 @@ async function handleCasinoRequest(req, res) {
       throw new CasinoError(400, '不明な操作です。');
     }
     // 54.x の持ち込みの財布が残っていれば、操作より先に精算して消す (卓の賭けを二重に数えないため)
-    await migrateLegacyCasinoSessions();
-    await refundAikankakuBets();
+    // (AIカンカクの BET の返却はそれとは関係ないので同時に進める。どちらもインスタンスごとに最初の1回だけ読む)
+    await Promise.all([migrateLegacyCasinoSessions(), refundAikankakuBets()]);
+    // 遊んだ時刻の記録 (管理画面用) は操作と同時に書く (61.9〜。順番に待つと返事が1往復ぶん遅れる。失敗しても操作は止めない)
+    const played = Object.hasOwn(CASINO_PLAY_GAMES, action) ? recordPlayerPlay(username, CASINO_PLAY_GAMES[action]) : null;
     const payload = await CASINO_ACTIONS[action]({ uid: decoded.uid, username, body, admin: Boolean(decoded.admin) });
-    if (Object.hasOwn(CASINO_PLAY_GAMES, action)) await recordPlayerPlay(username, CASINO_PLAY_GAMES[action]);
+    await played;
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
     if (error instanceof CasinoError || error instanceof TableError || error instanceof GapporiTableError || error instanceof GapporiRuleError || error instanceof ShopError || error instanceof HlError || error instanceof QuizError) {

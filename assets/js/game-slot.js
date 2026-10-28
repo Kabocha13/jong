@@ -1,7 +1,7 @@
 // ゲームタブ: スロット (3リール × 3段、5ライン)
 // 止まる位置・当たり・払い戻しは Cloud Function (casino の slotSpin) が決める。
 // この画面は賭け金を送り、返ってきた絵柄の並びにリールを止めて見せるだけ。
-// 絵柄の画像は assets/img/slot/<絵柄>.jpeg。まだ置かれていない絵柄は絵文字で代わりに出す。
+// 絵柄の画像は assets/img/slot/<絵柄>.webp。まだ置かれていない絵柄は絵文字で代わりに出す。
 // 大当たりのカットインには公式キャラ (船長) の絵を添える (assets/img/captain/。置かれていなければ出さない)。
 // 財布 (使えるレート) の表示と画面の切り替えは game.js。
 
@@ -18,17 +18,17 @@ const SLOT_SYMBOLS = {
     // 宝探しの船長マス (スロットには出ない)。公式キャラの顔の絵を先に探し、無ければ帽子の絵。
     // どちらも無いあいだは game-gappori.js が札で出す
     // 公式キャラの顔は出し始める日 (common.js の CAPTAIN_REVEAL_AT) から。それまでは帽子の絵
-    captain: { name: '船長', emoji: '🎩', src: [...(isCaptainRevealed() ? ['assets/img/captain/face.jpeg'] : []), 'assets/img/slot/captain.jpeg'] },
+    captain: { name: '船長', emoji: '🎩', src: [...(isCaptainRevealed() ? ['assets/img/captain/face.webp'] : []), 'assets/img/slot/captain.webp'] },
     // 宝探しだけのお宝 (54.19。スロットには出ない)。絵はスロットのジャックポットの立体物とドクロ旗を使う。
     // flag (ドクロ旗) は 55.5 から盤面に出さず、単品で賭けて JP ルーレットのドクロ旗のマスで当たる
     // 立体物は1枚が大きいので、ゲームを開いたときには読まず、宝探しの盤面に出たときに読む (lazy)
-    helm:      { name: '舵輪', emoji: '☸️', src: ['assets/img/slot/props/left-3.png'], lazy: true },
-    telescope: { name: '望遠鏡', emoji: '🔭', src: ['assets/img/slot/props/right-3.png'], lazy: true },
-    cannon:    { name: '大砲', emoji: '💣', src: ['assets/img/slot/props/left-2.png'], lazy: true },
-    flag:      { name: 'ドクロ旗', emoji: '🏴‍☠️', src: ['assets/img/slot/wild.jpeg'] },
+    helm:      { name: '舵輪', emoji: '☸️', src: ['assets/img/slot/props/left-3.webp'], lazy: true },
+    telescope: { name: '望遠鏡', emoji: '🔭', src: ['assets/img/slot/props/right-3.webp'], lazy: true },
+    cannon:    { name: '大砲', emoji: '💣', src: ['assets/img/slot/props/left-2.webp'], lazy: true },
+    flag:      { name: 'ドクロ旗', emoji: '🏴‍☠️', src: ['assets/img/slot/wild.webp'] },
     // 宝探しのハク (55.19〜。スタンプカードで使える「どのお宝の球でもOK」の札)。絵は航海のチュン (57.4〜。57.3 までは公式キャラ (ハク) の顔)。
     // 上半身の絵なので、CSS (.slot-symbol.is-haku img) で顔のあたりを大きく見せる。大きい絵なので使うときに読む (lazy)
-    haku:      { name: 'チュン', emoji: '🀄', src: ['assets/img/voyage/chun.png'], lazy: true }
+    haku:      { name: 'チュン', emoji: '🀄', src: ['assets/img/voyage/chun.webp'], lazy: true }
 };
 const SLOT_PAYS = { chest: 100, coin: 30, compass: 15, map: 12, rum: 5, parrot: 3, anchor: 2 };
 const SLOT_LINES = [[1, 1, 1], [0, 0, 0], [2, 2, 2], [0, 1, 2], [2, 1, 0]];
@@ -36,7 +36,7 @@ const SLOT_LINE_NAMES = ['中段', '上段', '下段', '右下がり', '右上�
 const SLOT_BETS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];   // 55.25 で 200・500・1,000 を足した (サーバーに上限は無い。使えるレートまで)
 const SLOT_BET_STORAGE_KEY = 'slotBet';
 const SLOT_IMAGE_DIR = 'assets/img/slot/';
-const SLOT_IMAGE_EXT = '.jpeg';
+const SLOT_IMAGE_EXT = '.webp';
 // 公式キャラ (船長) の演出用の絵 (背景透過の PNG)。表情ごとに stand / surprised / laugh / disappointed
 const CAPTAIN_ART_DIR = 'assets/img/captain/';
 // 回っている間に流す絵柄。通常モードの左右のリールの枚数の割合に合わせる (錨8 オウム6 ラム3 地図3 羅針盤3 金貨3 宝箱2)。
@@ -238,7 +238,7 @@ function loadSlotProps() {
     slot.props = [];
     SLOT_PROP_SIDES.forEach(side => {
         for (let no = 1; no <= SLOT_PROP_MAX_PER_SIDE; no++) {
-            const src = `${SLOT_PROP_DIR}${side}-${no}.png`;
+            const src = `${SLOT_PROP_DIR}${side}-${no}.webp`;
             const img = new Image();
             img.onload = () => slot.props.push({ src, side });
             img.src = src;
@@ -464,7 +464,7 @@ function createSymbol(symbol) {
     return node;
 }
 
-/** 絵柄の画像の候補 (先に書いたものから探す)。ふつうは assets/img/slot/<絵柄>.jpeg だけ */
+/** 絵柄の画像の候補 (先に書いたものから探す)。ふつうは assets/img/slot/<絵柄>.webp だけ */
 function slotImageSources(symbol) {
     return SLOT_SYMBOLS[symbol].src || [`${SLOT_IMAGE_DIR}${symbol}${SLOT_IMAGE_EXT}`];
 }
@@ -505,7 +505,7 @@ function captainArt(expression) {
     img.draggable = false;
     img.decoding = 'async';
     img.addEventListener('error', () => img.remove());
-    img.src = expression === 'stand' ? captainStandSrc() : `${CAPTAIN_ART_DIR}${expression}.png`;
+    img.src = expression === 'stand' ? captainStandSrc() : `${CAPTAIN_ART_DIR}${expression}.webp`;
     return img;
 }
 

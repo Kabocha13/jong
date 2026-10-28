@@ -457,7 +457,7 @@ function isHalloweenSeason(date = new Date()) {
 
 /** 公式キャラ (船長) の立ち絵。ハロウィンのあいだは halloween.png */
 function captainStandSrc() {
-    return isHalloweenSeason() ? 'assets/img/captain/halloween.png' : 'assets/img/captain/stand.png';
+    return isHalloweenSeason() ? 'assets/img/captain/halloween.webp' : 'assets/img/captain/stand.webp';
 }
 
 function toFiniteNumber(value, fallback = 0) {
@@ -625,6 +625,9 @@ function createFirestoreRestDb(config) {
             get id() {
                 return decodeURIComponent(path.split('/').pop());
             },
+            onSnapshot(onNext, onError) {
+                return watchDoc(this, onNext, onError);
+            },
             async get() {
                 const document = await request(docUrl(path));
                 return {
@@ -663,6 +666,37 @@ function createFirestoreRestDb(config) {
             async delete() {
                 await commitWrites([{ delete: documentName(path) }]);
             }
+        };
+    }
+
+    // SDK の onSnapshot の代わり (61.9〜。REST なので押し寄せては来ない)。画面が見えているあいだだけ
+    // REST_WATCH_MS ごとに読み直し、更新時刻が変わったら onNext を呼ぶ。止める関数を返す
+    const REST_WATCH_MS = 15000;
+    function watchDoc(doc, onNext, onError) {
+        let last = null;
+        let stopped = false;
+        const tick = async () => {
+            if (stopped || document.hidden) return;
+            try {
+                const snapshot = await doc.get();
+                const data = snapshot.exists ? snapshot.data() : null;
+                const key = JSON.stringify(data && (data.updatedAt ?? data));
+                if (key !== last) {
+                    last = key;
+                    onNext(snapshot);
+                }
+            } catch (error) {
+                if (onError) onError(error);
+            }
+        };
+        tick();
+        const timer = setInterval(tick, REST_WATCH_MS);
+        const onVisible = () => { if (!document.hidden) tick(); };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => {
+            stopped = true;
+            clearInterval(timer);
+            document.removeEventListener('visibilitychange', onVisible);
         };
     }
 
@@ -758,22 +792,47 @@ async function fetchAllData() {
     return _fetchInFlight;
 }
 
+// ホーム用 (61.9〜)。ホームで出さないコレクション (スピードストームの記録・ギフトコード・キャリアの投稿) を読まない。
+// 全部のデータ (fetchAllData) が新しければそれを使う
+const HOME_SKIPPED_COLLECTIONS = new Set(['speedstorm_records', 'gift_codes', 'career_posts']);
+let _homeFetchCache = null;
+let _homeFetchCacheTime = 0;
+let _homeFetchInFlight = null;
+
+async function fetchHomeData() {
+    if (_fetchCache && (Date.now() - _fetchCacheTime) < FETCH_CACHE_TTL) return _fetchCache;
+    if (_homeFetchCache && (Date.now() - _homeFetchCacheTime) < FETCH_CACHE_TTL) return _homeFetchCache;
+    if (_homeFetchInFlight) return _homeFetchInFlight;
+    _homeFetchInFlight = _fetchAllDataRaw(HOME_SKIPPED_COLLECTIONS).then(data => {
+        _homeFetchCache = data;
+        _homeFetchCacheTime = Date.now();
+        _homeFetchInFlight = null;
+        return data;
+    }).catch(err => {
+        _homeFetchInFlight = null;
+        throw err;
+    });
+    return _homeFetchInFlight;
+}
+
 /**
  * キャッシュを破棄して強制的に最新データを取得する
  */
 function invalidateFetchCache() {
     _fetchCache = null;
     _fetchCacheTime = 0;
+    _homeFetchCache = null;
+    _homeFetchCacheTime = 0;
 }
 
-async function _fetchAllDataRaw() {
+async function _fetchAllDataRaw(skip) {
     const MAX_RETRIES = 3;
     let attempt = 0;
     let delayMs = 1000;
 
     while (attempt < MAX_RETRIES) {
         try {
-            return await fetchAllDataFromFirebase();
+            return await fetchAllDataFromFirebase(skip);
         } catch (error) {
             if (attempt < MAX_RETRIES - 1) {
                 attempt++;
@@ -818,9 +877,11 @@ async function fetchLoansQuietly(db) {
     }
 }
 
-async function fetchAllDataFromFirebase() {
+/** skip に入れたコレクションは読まずに空にする */
+async function fetchAllDataFromFirebase(skip = new Set()) {
     const db = getFirestoreDb();
     if (!db) return createEmptyData();
+    const collection = key => (skip.has(key) ? Promise.resolve([]) : fetchCollection(db, key));
 
     const [
         scores,
@@ -832,12 +893,12 @@ async function fetchAllDataFromFirebase() {
         settingsDoc,
         loans,
     ] = await Promise.all([
-        fetchCollection(db, 'scores'),
-        fetchCollection(db, 'sports_bets'),
-        fetchCollection(db, 'speedstorm_records'),
-        fetchCollection(db, 'lotteries'),
-        fetchCollection(db, 'gift_codes'),
-        fetchCollection(db, 'career_posts'),
+        collection('scores'),
+        collection('sports_bets'),
+        collection('speedstorm_records'),
+        collection('lotteries'),
+        collection('gift_codes'),
+        collection('career_posts'),
         db.collection('settings').doc('app').get(),
         fetchLoansQuietly(db),
     ]);

@@ -56,7 +56,7 @@ function renderWithData(allData, isStale = false) {
         // トークン (58.3〜。HL で手に入れる) はレートの左に出す
         const tokens = Math.max(0, Math.floor(Number(player.tokens) || 0));
         // 持っている数だけトークンの絵を並べる (59.4〜。58.3〜59.3 は1つの絵と「×N」)。少し重ねて、横に長くなりすぎないようにする
-        const tokenImage = `<img src="assets/img/hl/token.png" onerror="this.onerror=null;this.src='assets/img/token.svg'" alt="">`;
+        const tokenImage = `<img src="assets/img/hl/token.webp" onerror="this.onerror=null;this.src='assets/img/token.svg'" alt="">`;
         const tokenHtml = tokens > 0
             ? `<span class="player-tokens" title="トークン ${tokens}つ" aria-label="トークン ${tokens}つ">${tokenImage.repeat(tokens)}</span>`
             : '';
@@ -142,7 +142,7 @@ async function renderScores() {
     }
 
     // 2. 最新データを取得して更新
-    const allData = await fetchAllData();
+    const allData = await fetchHomeData();
     if (!allData.scores || allData.scores.length === 0) {
         if (!cached) SCORES_CONTAINER.innerHTML = '<p class="error">データ取得に失敗しました。</p>';
         return;
@@ -755,7 +755,7 @@ loadCafeteriaMenu();
     async function loadAttendanceSettings() {
         if (attendanceSettings) return attendanceSettings;
         try {
-            const allData = await fetchAllData();
+            const allData = await fetchHomeData();
             attendanceSettings = {
                 allowedUsers: Array.isArray(allData.attendance_allowed_users) ? allData.attendance_allowed_users : [],
                 minRate: normalizeAttendanceMinRate(allData.attendance_min_rate)
@@ -776,7 +776,7 @@ loadCafeteriaMenu();
         let player = homeLatestScores.find(p => p.name === loginName);
         if (!player) {
             try {
-                const allData = await fetchAllData();
+                const allData = await fetchHomeData();
                 player = (allData.scores || []).find(p => p.name === loginName);
             } catch (error) {
                 console.error('レートの取得に失敗:', error);

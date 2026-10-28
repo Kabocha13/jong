@@ -5,7 +5,6 @@
    モバイルファースト。720px でタブレット、1040px で PC に拡張。
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Pirata+One&family=IM+Fell+English:ital@0;1&family=EB+Garamond:wght@400;500;600;700;800&family=Zen+Antique&family=Shippori+Mincho:wght@400;600;700;800&display=swap');
 
 /* ------------------------------------------------------------
    1. デザイントークン
@@ -79,15 +78,15 @@
     --font-body:    'EB Garamond', 'Shippori Mincho', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
 
     /* 画像スロット (assets/img/ に置くと自動で反映。無い間は下地のグラデーションが見える) */
-    --img-battle:   url('../img/hero-battle.jpg');
-    --img-cave:     url('../img/bg-cave.jpg');
-    --img-treasure: url('../img/scene-treasure.jpg');
-    --img-jail:     url('../img/scene-jail.jpg');
-    --img-tavern:   url('../img/scene-tavern.jpg');
-    --img-auction:  url('../img/scene-auction.jpg');
-    --img-parchment:url('../img/texture-parchment.jpeg');
-    --img-wood:     url('../img/texture-wood.jpeg');
-    --img-voyage-board: url('../img/voyage/board.jpeg');   /* 航海の盤の真ん中 (サイコロを振るところ)。無いあいだは章の色だけ */
+    --img-battle:   url('../img/hero-battle.webp');
+    --img-cave:     url('../img/bg-cave.webp');
+    --img-treasure: url('../img/scene-treasure.webp');
+    --img-jail:     url('../img/scene-jail.webp');
+    --img-tavern:   url('../img/scene-tavern.webp');
+    --img-auction:  url('../img/scene-auction.webp');
+    --img-parchment:url('../img/texture-parchment.webp');
+    --img-wood:     url('../img/texture-wood.webp');
+    --img-voyage-board: url('../img/voyage/board.webp');   /* 航海の盤の真ん中 (サイコロを振るところ)。無いあいだは章の色だけ */
     --img-nav-home:   url('../img/nav-home.png');
     --img-nav-mypage: url('../img/nav-mypage.png');
     --img-nav-admin:  url('../img/nav-admin.png');
@@ -3459,7 +3458,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     z-index: 4;
     width: 46%;
     aspect-ratio: 1;
-    background: url('../img/slot/wild.jpeg') center / cover;
+    background: url('../img/slot/wild.webp') center / cover;
     border-radius: 14%;
     box-shadow: 0 0 0 3px #ff5a4a, 0 0 40px 10px rgba(255, 74, 52, 0.8);
     animation: slot-heartbeat 0.42s ease-in-out infinite;
@@ -6072,7 +6071,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     aspect-ratio: 1;
     /* 絵が読めないあいだは、下の赤い玉 (第5弾は七色の玉) だけで出る */
     background:
-        url('../img/nariagari/jp-button.jpeg') center / contain no-repeat,
+        url('../img/nariagari/jp-button.webp') center / contain no-repeat,
         radial-gradient(circle at 50% 50%, #ff8a74 0%, #b3201c 30%, #3a0908 40%, transparent 41%);
     -webkit-mask-image: radial-gradient(circle, #000 58%, transparent 71%);
     mask-image: radial-gradient(circle, #000 58%, transparent 71%);
@@ -6083,7 +6082,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
 
 .nr-big-button.is-sjp .nr-big-face {
     background:
-        url('../img/nariagari/sjp-button.jpeg') center / contain no-repeat,
+        url('../img/nariagari/sjp-button.webp') center / contain no-repeat,
         radial-gradient(circle at 50% 50%, #fffbe8 0%, #ffd34d 22%, #c86bff 34%, transparent 41%);
     -webkit-mask-image: radial-gradient(circle, #000 60%, transparent 72%);
     mask-image: radial-gradient(circle, #000 60%, transparent 72%);
@@ -6448,7 +6447,7 @@ button.loan-quick-button:disabled { opacity: 0.4; }
     gap: 3px;
     aspect-ratio: calc(var(--vg-cols, 10) / var(--vg-rows, 7));
     padding: 6px;
-    /* 上から: 周りを沈める影 → 章の色 (半分透かして絵に重ねる) → 盤の絵 (assets/img/voyage/board.jpeg) → 絵が無いときの章の色 */
+    /* 上から: 周りを沈める影 → 章の色 (半分透かして絵に重ねる) → 盤の絵 (assets/img/voyage/board.webp) → 絵が無いときの章の色 */
     background:
         radial-gradient(ellipse at 50% 45%, transparent 40%, rgba(6, 13, 22, 0.55) 100%),
         linear-gradient(180deg, color-mix(in srgb, var(--vg-sea) 40%, transparent), color-mix(in srgb, var(--vg-sea-deep) 55%, transparent)),
@@ -7728,13 +7727,13 @@ body.vg-story-open { overflow: hidden; }
 
 /* HL 専用の絵 (assets/img/hl/)。game-hl.js が読めた絵だけ <html> に hl-art-<名前> を付ける。無いあいだは上の仮の見た目 */
 .hl-art-hero .hl-hero {
-    background: linear-gradient(180deg, rgba(10, 6, 2, 0.15), rgba(10, 6, 2, 0.8)), url('../img/hl/hero.jpeg') center / cover;
+    background: linear-gradient(180deg, rgba(10, 6, 2, 0.15), rgba(10, 6, 2, 0.8)), url('../img/hl/hero.webp') center / cover;
 }
 .hl-art-table .hl-table {
     /* 絵は正方形の中に楕円の卓 (上下に暗い余白)。卓の部分 (縦の約65%) が枠いっぱいになるよう縦に広げ、
        ディーラーやカードが木のふちではなく緑のフェルトに乗るよう内側を空ける */
     padding: 5.5% 10% 5%;
-    background: url('../img/hl/table.jpeg') center / 102% 158% no-repeat, #0b0703;
+    background: url('../img/hl/table.webp') center / 102% 158% no-repeat, #0b0703;
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -7742,7 +7741,7 @@ body.vg-story-open { overflow: hidden; }
 }
 .hl-art-card-back .hl-deck span,
 .hl-art-card-back .hl-card-back {
-    background: url('../img/hl/card-back.png') center / 100% 100% no-repeat;
+    background: url('../img/hl/card-back.webp') center / 100% 100% no-repeat;
     border: 0;
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.55);
 }
@@ -7767,9 +7766,9 @@ body.vg-story-open { overflow: hidden; }
     .hl-art-table .hl-table { padding: 4.5% 10% 4%; }
 }
 .hl-art-button-start .hl-start:disabled { opacity: 0.55; filter: grayscale(0.6); }
-.hl-art-button-high .hl-button.is-high { background-image: url('../img/hl/button-high.png'); color: #2b1d06; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
-.hl-art-button-low .hl-button.is-low { background-image: url('../img/hl/button-low.png'); color: #fff6ec; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
-.hl-art-button-start .hl-start { background-image: url('../img/hl/button-start.png'); color: #ffe9a3; text-shadow: 0 1px 2px #000, 0 0 10px rgba(0, 0, 0, 0.8); }
+.hl-art-button-high .hl-button.is-high { background-image: url('../img/hl/button-high.webp'); color: #2b1d06; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+.hl-art-button-low .hl-button.is-low { background-image: url('../img/hl/button-low.webp'); color: #fff6ec; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+.hl-art-button-start .hl-start { background-image: url('../img/hl/button-start.webp'); color: #ffe9a3; text-shadow: 0 1px 2px #000, 0 0 10px rgba(0, 0, 0, 0.8); }
 .hl-art-button-high .hl-button.is-high:active,
 .hl-art-button-low .hl-button.is-low:active { transform: translateY(2px) scale(0.98); }
 .hl-art-frame .hl-dealer img { border: 0; box-shadow: none; }
@@ -7778,10 +7777,10 @@ body.vg-story-open { overflow: hidden; }
     content: '';
     position: absolute;
     inset: -34%;   /* 額縁の絵の内側の穴 (幅の約6割) に顔が収まる大きさ */
-    background: url('../img/hl/frame.png') center / contain no-repeat;
+    background: url('../img/hl/frame.webp') center / contain no-repeat;
     pointer-events: none;
 }
-.hl-art-tile .game-tile-art.is-hl { background: url('../img/hl/tile.jpeg') center / cover; }
+.hl-art-tile .game-tile-art.is-hl { background: url('../img/hl/tile.webp') center / cover; }
 .hl-art-tile .game-tile-art.is-hl > .bj-card,
 .hl-art-tile .game-tile-art.is-hl > .hl-tile-token { display: none; }
 
@@ -7808,7 +7807,7 @@ body.vg-story-open { overflow: hidden; }
         background-blend-mode: normal;
     }
     .hl-art-hero .hl-view:not(.hidden) {
-        background: linear-gradient(180deg, rgba(10, 6, 2, 0.3), rgba(10, 6, 2, 0.85)), url('../img/hl/hero.jpeg') center / cover;
+        background: linear-gradient(180deg, rgba(10, 6, 2, 0.3), rgba(10, 6, 2, 0.85)), url('../img/hl/hero.webp') center / cover;
     }
     .hl-view > .hl-side,
     .hl-view > .hl-main { display: none; }
@@ -7904,10 +7903,10 @@ body.vg-story-open { overflow: hidden; }
     --card-w: clamp(62px, 17vw, 104px);
     background:
         linear-gradient(180deg, rgba(10, 6, 2, 0.05), rgba(10, 6, 2, 0.55)),
-        url('../img/hl/hero.jpeg') center 40% / cover,
+        url('../img/hl/hero.webp') center 40% / cover,
         var(--img-treasure) center / cover;
 }
-.hl-art-tile .game-tile.is-hl-featured .game-tile-art.is-hl { background: url('../img/hl/tile.jpeg') center / cover; }
+.hl-art-tile .game-tile.is-hl-featured .game-tile-art.is-hl { background: url('../img/hl/tile.webp') center / cover; }
 .game-tile.is-hl-featured .hl-tile-token { width: clamp(90px, 25vw, 150px); }
 .game-tile.is-hl-featured .hl-tile-vip { bottom: 12px; font-size: 0.82em; padding: 3px 16px; }
 .game-tile.is-hl-featured .game-tile-name { font-size: 1.5em; letter-spacing: 0.1em; }

@@ -228,3 +228,5 @@ Gemini は背景透過の画像を出せないので、**明るい無地 (羊皮
 - surprised: `eyes wide open and mouth open in shock and excitement, leaning forward, one hand raised in amazement`
 - laugh: `laughing out loud with a huge open-mouthed grin, eyes squeezed shut with joy, holding up a gold doubloon triumphantly`
 - disappointed: `slumped shoulders, frowning with a heavy sigh, looking down at an empty open palm, the parrot drooping too`
+
+61.9 から、配信する画像は WebP (.webp) にした。元の PNG・JPEG は assets/img/src/original/ にある (Hosting では配らない)。差し替えるときは元の画像から WebP を作り、ファイル名を変える (画像は7日キャッシュ)。

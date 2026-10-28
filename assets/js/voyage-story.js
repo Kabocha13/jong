@@ -1,8 +1,8 @@
 // 航海 (大海賊の航海日誌) の物語。章ごとのアニメ風の寸劇と、それを見せる仕組み。
 //   台本 (VG_EPISODES) は「拍 (beat)」の並び。背景・人物の出入り・効果は自動で進み、台詞・字幕・題字はタップで進む。
-//   登場人物: ハク (船長。公式キャラの船長と同じ人物。表情は assets/img/voyage/face-*.png)、ポン (オウム parrot.png)、
+//   登場人物: ハク (船長。公式キャラの船長と同じ人物。表情は assets/img/voyage/face-*.webp)、ポン (オウム parrot.webp)、
 //   チュン (赤ひげの前船長 = 海軍提督)、ハツ (緑旗の女海賊 = ハクの姉)、酒場の男 (第1章)。チュン・ハツ・酒場の男は絵が無いあいだは影 (シルエット) で出し、
-//   assets/img/voyage/chun.png・hatsu.png・mob.png を置けばそれを使う。背景は bg-01.jpeg〜bg-12.jpeg (無いあいだは章ごとの色)。
+//   assets/img/voyage/chun.webp・hatsu.webp・mob.webp を置けばそれを使う。背景は bg-01.webp〜bg-12.webp (無いあいだは章ごとの色)。
 //   拍の書き方:
 //     { title, sub }            題字 (章の名前)
 //     { bg: 1 }                 背景を章 n のものに
@@ -16,10 +16,10 @@
 
 const VG_CAST = {
     haku: { name: 'ハク', kind: 'face', tone: 'gold' },
-    pon: { name: 'ポン', kind: 'img', src: 'assets/img/voyage/parrot.png', tone: 'red' },
-    chun: { name: 'チュン', kind: 'silhouette', src: 'assets/img/voyage/chun.png', tile: '中', tone: 'red' },
-    hatsu: { name: 'ハツ', kind: 'silhouette', src: 'assets/img/voyage/hatsu.png', tile: '發', tone: 'green' },
-    mob: { name: '酒場の男', kind: 'silhouette', src: 'assets/img/voyage/mob.png', tile: '', tone: 'grey' }
+    pon: { name: 'ポン', kind: 'img', src: 'assets/img/voyage/parrot.webp', tone: 'red' },
+    chun: { name: 'チュン', kind: 'silhouette', src: 'assets/img/voyage/chun.webp', tile: '中', tone: 'red' },
+    hatsu: { name: 'ハツ', kind: 'silhouette', src: 'assets/img/voyage/hatsu.webp', tile: '發', tone: 'green' },
+    mob: { name: '酒場の男', kind: 'silhouette', src: 'assets/img/voyage/mob.webp', tile: '', tone: 'grey' }
 };
 const VG_TYPE_MS = 34;   // 台詞を1文字ずつ出す速さ
 
@@ -306,7 +306,7 @@ function vgCreateActor(id) {
     if (cast.kind === 'face') {
         const img = document.createElement('img');
         img.className = 'vg-actor-img';
-        img.src = 'assets/img/voyage/face-smile.png';
+        img.src = 'assets/img/voyage/face-smile.webp';
         img.alt = cast.name;
         figure.appendChild(img);
     } else if (cast.kind === 'img') {
@@ -392,7 +392,7 @@ function playVoyageEpisode(no) {
             bgImg.classList.remove('is-ready');
             bgImg.onload = () => bgImg.classList.add('is-ready');
             bgImg.onerror = () => bgImg.classList.remove('is-ready');
-            bgImg.src = `assets/img/voyage/bg-${String(n).padStart(2, '0')}.jpeg`;
+            bgImg.src = `assets/img/voyage/bg-${String(n).padStart(2, '0')}.webp`;
             restartClass(root.querySelector('.vg-story-bg'), 'is-pan');
         };
 
@@ -400,7 +400,7 @@ function playVoyageEpisode(no) {
             const actor = actors.get(id);
             if (!actor || VG_CAST[id].kind !== 'face' || !face) return;
             const img = actor.querySelector('.vg-actor-img');
-            if (!img.src.endsWith(`face-${face}.png`)) img.src = `assets/img/voyage/face-${face}.png`;
+            if (!img.src.endsWith(`face-${face}.webp`)) img.src = `assets/img/voyage/face-${face}.webp`;
         };
 
         const enter = (id, side = 'left', face = null) => {
