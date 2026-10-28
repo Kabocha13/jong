@@ -5,6 +5,7 @@
 //   各テーブルの中身は game-blackjack.js / game-slot.js / game-gappori.js / game-nariagari.js / game-voyage.js
 //   (ルーレットとテキサスホールデムは 52.0、沈没は 60.0 で廃止)。
 //   船底 (#underground) と指名手配 (#wanted) はチップを使わない別の遊び場で、中身は game-underground.js と game-wanted.js。
+//   早押しクイズ (#quiz。61.0〜) も賭けの無い卓で、中身は game-quiz.js。
 //   出目・配られるカード・リールの止まる位置・配当・残高はすべて Cloud Function (casino) が決める。
 //   画面は #blackjack / #slot / #gappori / #nariagari のハッシュで切り替えるので、ブラウザの「戻る」でゲーム一覧に戻れる。
 
@@ -145,6 +146,10 @@ function renderRoute() {
         // HL (58.3〜)。トークンを手に入れるハイアンドロー
         view = 'hl';
         openHl();
+    } else if (isQuizRoute()) {
+        // 早押しクイズ (61.0〜)。賭けは無く、1問ごとにレートが動く
+        view = 'quiz';
+        openQuiz();
     } else if (!game) {
         renderMenu();
     } else {
@@ -163,6 +168,7 @@ function renderRoute() {
     if (view !== 'voyage') closeVoyageTable();
     if (view !== 'underground') closeUnderground();
     if (view !== 'wanted') closeWanted();
+    if (view !== 'quiz') closeQuiz();
     showView(view);
     // 画面ごとの見た目の切り替えに使う (宝探しと成り上がりはスマホで見出しを消し、1画面に収める)
     document.body.dataset.casinoView = view;
@@ -187,6 +193,7 @@ function renderMenu() {
         // 船底はレートが上限 (既定1000) 未満のときだけ仕分けできる
         if (tile.dataset.game === 'underground' && casino.score < undergroundMaxRate()) text = '入れます';
         if (tile.dataset.game === 'wanted') text = wantedTileBadge();
+        if (tile.dataset.game === 'quiz') text = quizTileBadge();
         // HL (58.3〜) は使えるレートが1回の代金 (300,000) 以上の人だけが入れる VIP の卓
         if (tile.dataset.game === 'hl') text = casino.hlPlaying || (hl.state?.hl && !hl.state.hl.finished) ? '続きから' : '入れます';
         badge.textContent = text;
@@ -198,6 +205,7 @@ function renderMenu() {
     document.querySelector('.game-tile[data-game="wanted"]')?.classList.toggle('hidden', mode !== 'wanted');
     renderBlackjackTile();
     renderGapporiTile();
+    renderQuizTile();
     renderUndergroundTile();
     placeHlTile();
 }
@@ -215,7 +223,8 @@ function isHlOnlyPlayer() {
 /** HL だけの人が、ほかのゲーム (や購入) を開いたら、その知らせの文。開いてよければ '' */
 function richClosedRouteMessage() {
     const route = location.hash.slice(1);
-    if (!route || route === 'hl' || !isHlOnlyPlayer()) return '';
+    // 早押しクイズ (中間テスト対策) は誰でも入れる
+    if (!route || route === 'hl' || route === 'quiz' || !isHlOnlyPlayer()) return '';
     // 結果待ちの賭けがあるゲームは、結果を見られるように開ける
     if ((route === 'blackjack' && isBlackjackLive()) || (route === 'gappori' && isGapporiLive())) return '';
     return '使えるレートが 300,000 以上のあいだは、High&Low だけで遊べます。';
@@ -232,7 +241,8 @@ function placeHlTile() {
     tile.classList.toggle('is-hl-featured', show);
     if (show && tiles.firstElementChild !== tile) tiles.prepend(tile);
     // 使えるレートが 300,000 以上の人には、ほかのゲームと購入を出さない (59.1〜。結果待ちの賭けがあるゲームは出す)
-    const live = { blackjack: isBlackjackLive(), gappori: isGapporiLive() };
+    // 早押しクイズ (中間テスト対策) はいつも出す
+    const live = { blackjack: isBlackjackLive(), gappori: isGapporiLive(), quiz: true };
     tiles.querySelectorAll('.game-tile').forEach(other => {
         if (other === tile) return;
         other.classList.toggle('is-hl-only-hidden', rich && !live[other.dataset.game]);
@@ -303,6 +313,7 @@ async function refreshCasino() {
     receiveGapporiTable(data.gappori, data.now);
     receiveSlotState(data.slot);
     receiveVoyage(data.voyage);
+    receiveQuizTable(data.quiz, data.now);
     renderRoute();
     if (data.autoSettled) {
         showMessage(el('casino-message'), settledMessage(data.autoSettled), 'info');
@@ -325,6 +336,7 @@ async function initCasino() {
     initUnderground();
     initWanted();
     initHl();
+    initQuiz();
     bindCasinoEvents();
     showView('loading');
 

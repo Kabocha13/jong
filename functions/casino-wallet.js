@@ -24,6 +24,8 @@ export const CASINO_LOG_GAMES = {
   gappori: { source: 'casino_gappori', name: '宝探し', plays: 'gpRounds' },
   nariagari: { source: 'casino_nariagari', name: '成り上がり', plays: 'nrSpins' },
   voyage: { source: 'casino_voyage', name: '航海', plays: 'vgRolls' },
+  // 早押しクイズ (61.0〜)。賭けは無く (noWager)、1日のプレイ回数にも数えない (noLimit)。plays は参加した問題の数
+  quiz: { source: 'casino_quiz', name: '早押しクイズ', plays: 'qzRounds', noWager: true, noLimit: true },
   // 沈没は 60.0 で廃止。過去の増減ログ (レート推移グラフの作り直し) の名前のために残す
   sink: { source: 'casino_sink', name: '沈没', plays: 'skRounds' }
 };
@@ -115,6 +117,7 @@ function signed(value) {
 /** 増減ログの reason。「スロット 120回 (賭け 1,200・収支 +340)」 */
 export function casinoLogReason(game, log) {
   const info = CASINO_LOG_GAMES[game];
+  if (info.noWager) return `${info.name} ${log.plays}問 (収支 ${signed(log.afterScore - log.beforeScore)})`;
   return `${info.name} ${log.plays}回 (賭け ${log.wagered.toLocaleString('ja-JP')}・収支 ${signed(log.afterScore - log.beforeScore)})`;
 }
 

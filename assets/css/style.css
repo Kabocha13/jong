@@ -7930,3 +7930,969 @@ body.vg-story-open { overflow: hidden; }
 
 /* High&Low のカード (59.2〜): 名前と説明を真ん中に寄せる */
 .game-tile[data-game="hl"] .game-tile-body { justify-items: center; text-align: center; }
+
+/* =================================================================
+   早押しクイズ (61.0〜。#quiz。中身は game-quiz.js)
+   見た目は testsite.html (適応型試験プラットフォーム) の日本茶・和紙・青海波を引き継ぐ。
+   掛軸に問題、座布団の席、湯呑みの時計。正解は茶柱と「正解」の落款、不正解は水面の波紋。
+   ================================================================= */
+.qz-room {
+    --qz-bg: #f4efe3;
+    --qz-card: #fbf8f1;
+    --qz-ink: #2b2a22;
+    --qz-muted: #7a7466;
+    --qz-line: #e2dccb;
+    --qz-primary: #5b7b3a;
+    --qz-primary-dark: #3f5a26;
+    --qz-soft: #eef1e2;
+    --qz-ok: #6b8e23;
+    --qz-ok-bg: #f0f5e1;
+    --qz-ng: #8f3b2b;
+    --qz-ng-bg: #f7ebe6;
+    --qz-warn: #a0742a;
+    --qz-vermilion: #b5442f;
+    --qz-on-primary: #ffffff;
+    --qz-shadow: 0 12px 40px rgba(60, 45, 20, 0.10);
+    --qz-wood: #6b4a2b;
+    --qz-wood-dark: #4a321c;
+    --qz-pattern-opacity: 0.06;
+    --qz-seigaiha: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20' viewBox='0 0 40 20'%3E%3Cdefs%3E%3Cg id='w' stroke='%235b7b3a' stroke-width='1'%3E%3Ccircle r='19.5' fill='%23f4efe3'/%3E%3Ccircle r='14' fill='none'/%3E%3Ccircle r='8.5' fill='none'/%3E%3Ccircle r='3' fill='none'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23w' x='20' y='0'/%3E%3Cuse href='%23w' x='0' y='10'/%3E%3Cuse href='%23w' x='40' y='10'/%3E%3Cuse href='%23w' x='20' y='20'/%3E%3C/svg%3E");
+    --qz-washi: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .28 0 0 0 0 .15 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+    --qz-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 20C4 10 10 4 20 4c0 10-6 16-16 16Z'/%3E%3Cpath d='M4 20 14 10' stroke='%23fff' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    --qz-steam: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='40' viewBox='0 0 60 40' fill='none' stroke='%236b8e23' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M14 38c-6-6 6-10 0-18s4-12 0-18'/%3E%3Cpath d='M30 38c-6-6 6-10 0-18s4-12 0-18'/%3E%3Cpath d='M46 38c-6-6 6-10 0-18s4-12 0-18'/%3E%3C/svg%3E");
+    --qz-mincho: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --qz-gothic: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: grid;
+    gap: 16px;
+    padding: clamp(16px, 3.5vw, 30px);
+    color: var(--qz-ink);
+    font-family: var(--qz-gothic);
+    background: var(--qz-bg) var(--qz-washi);
+    border: 1px solid var(--qz-line);
+    border-radius: 14px;
+    box-shadow: var(--qz-shadow), 0 0 0 6px rgba(244, 239, 227, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+    .qz-room {
+        --qz-bg: #1d1c17;
+        --qz-card: #26251f;
+        --qz-ink: #ece6d6;
+        --qz-muted: #a59f8e;
+        --qz-line: #3a382f;
+        --qz-primary: #9bb86a;
+        --qz-primary-dark: #b9d08e;
+        --qz-soft: #2e3226;
+        --qz-ok: #9bb86a;
+        --qz-ok-bg: #2a3222;
+        --qz-ng: #d98a76;
+        --qz-ng-bg: #3a2621;
+        --qz-warn: #d0a35a;
+        --qz-vermilion: #c75a43;
+        --qz-on-primary: #1d1c17;
+        --qz-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+        --qz-pattern-opacity: 0.03;
+        --qz-seigaiha: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20' viewBox='0 0 40 20'%3E%3Cdefs%3E%3Cg id='w' stroke='%239bb86a' stroke-width='1'%3E%3Ccircle r='19.5' fill='%231d1c17'/%3E%3Ccircle r='14' fill='none'/%3E%3Ccircle r='8.5' fill='none'/%3E%3Ccircle r='3' fill='none'/%3E%3C/g%3E%3C/defs%3E%3Cuse href='%23w' x='20' y='0'/%3E%3Cuse href='%23w' x='0' y='10'/%3E%3Cuse href='%23w' x='40' y='10'/%3E%3Cuse href='%23w' x='20' y='20'/%3E%3C/svg%3E");
+    }
+}
+
+/* 青海波の地紋 */
+.qz-room::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background-image: var(--qz-seigaiha);
+    background-size: 40px 20px;
+    opacity: var(--qz-pattern-opacity);
+    pointer-events: none;
+}
+
+.qz-room button {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 11px 16px;
+    font-family: var(--qz-gothic);
+    font-size: 0.95em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--qz-ink);
+    background: var(--qz-soft);
+    border: 1px solid var(--qz-line);
+    border-radius: 10px;
+    box-shadow: none;
+    filter: none;
+}
+.qz-room button:hover { filter: none; box-shadow: none; transform: translateY(-1px); }
+.qz-room button:active { transform: translateY(1px); }
+.qz-room button:focus-visible { outline: 2px solid var(--qz-primary); outline-offset: 2px; }
+.qz-room button:disabled { cursor: not-allowed; transform: none; opacity: 0.55; }
+
+.qz-room .qz-primary {
+    position: relative;
+    overflow: hidden;
+    color: var(--qz-on-primary);
+    background: var(--qz-primary);
+    border-color: transparent;
+    box-shadow: 0 5px 0 var(--qz-primary-dark), 0 10px 20px rgba(60, 45, 20, 0.15);
+}
+.qz-room .qz-primary:hover { background: var(--qz-primary-dark); box-shadow: 0 5px 0 var(--qz-primary-dark), 0 10px 20px rgba(60, 45, 20, 0.15); }
+.qz-room .qz-primary:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--qz-primary-dark); }
+/* 主ボタン: お茶の水面に光が走る */
+.qz-room .qz-primary::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -60%;
+    width: 40%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    transform: skewX(-20deg);
+    animation: qz-sheen 4.5s ease-in-out infinite;
+}
+.qz-room .qz-secondary { color: var(--qz-primary-dark); background: var(--qz-soft); }
+@keyframes qz-sheen { 0%, 70% { left: -60%; } 100% { left: 130%; } }
+
+/* 舞い落ちる茶葉 */
+.qz-leaves { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.qz-leaves span {
+    position: absolute;
+    top: -40px;
+    left: var(--x);
+    width: var(--s, 18px);
+    height: var(--s, 18px);
+    background: var(--qz-primary);
+    opacity: 0.3;
+    -webkit-mask: var(--qz-leaf) center / contain no-repeat;
+    mask: var(--qz-leaf) center / contain no-repeat;
+    animation: qz-leaf-fall var(--d, 16s) linear var(--delay, 0s) infinite;
+}
+.qz-leaves span:nth-child(1) { --x: 6%;  --d: 17s; --delay: -2s;  --s: 16px; }
+.qz-leaves span:nth-child(2) { --x: 18%; --d: 21s; --delay: -11s; --s: 22px; }
+.qz-leaves span:nth-child(3) { --x: 31%; --d: 15s; --delay: -6s;  --s: 14px; }
+.qz-leaves span:nth-child(4) { --x: 47%; --d: 23s; --delay: -16s; --s: 20px; }
+.qz-leaves span:nth-child(5) { --x: 62%; --d: 18s; --delay: -4s;  --s: 15px; }
+.qz-leaves span:nth-child(6) { --x: 74%; --d: 20s; --delay: -13s; --s: 24px; }
+.qz-leaves span:nth-child(7) { --x: 86%; --d: 16s; --delay: -8s;  --s: 17px; }
+.qz-leaves span:nth-child(8) { --x: 95%; --d: 25s; --delay: -19s; --s: 13px; }
+.qz-leaves span:nth-child(even) { background: var(--qz-warn); opacity: 0.22; }
+@keyframes qz-leaf-fall {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    25%  { transform: translate(40px, 300px) rotate(90deg); }
+    50%  { transform: translate(-30px, 600px) rotate(200deg); }
+    75%  { transform: translate(35px, 900px) rotate(290deg); }
+    100% { transform: translate(-10px, 1250px) rotate(380deg); }
+}
+
+/* 見出し: 落款を押す・題字を筆で書く */
+.qz-head { text-align: center; }
+.qz-eyebrow {
+    display: inline-block;
+    margin: 0 0 8px;
+    padding: 4px 9px;
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: #fff;
+    background: var(--qz-vermilion);
+    border-radius: 3px;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+    animation: qz-hanko 0.7s cubic-bezier(0.2, 1.6, 0.4, 1) both 0.1s;
+}
+.qz-title {
+    margin: 0;
+    font-family: var(--qz-mincho);
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--qz-ink);
+    text-shadow: none;
+    animation: qz-brush 1.2s cubic-bezier(0.6, 0, 0.3, 1) both 0.3s;
+}
+.qz-title::after { display: none; }
+.qz-lead { margin: 6px 0 0; font-size: 0.86rem; color: var(--qz-muted); animation: qz-rise 0.8s ease both 0.8s; }
+@keyframes qz-hanko {
+    0%   { opacity: 0; transform: scale(1.8) rotate(-12deg); }
+    60%  { opacity: 1; transform: scale(0.94) rotate(2deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+@keyframes qz-brush {
+    from { clip-path: inset(0 100% 0 0); opacity: 0.3; filter: blur(2px); }
+    to   { clip-path: inset(0 0 0 0); opacity: 1; filter: blur(0); }
+}
+@keyframes qz-rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* 卓: ブラックジャックの卓のような半円の座卓。奥に掛軸、手前の弧に座布団が並ぶ */
+.qz-table {
+    position: relative;
+    display: grid;
+    gap: 14px;
+    padding: clamp(14px, 3vw, 26px) clamp(10px, 3vw, 26px) clamp(18px, 4vw, 34px);
+    background:
+        radial-gradient(ellipse 70% 60% at 50% 30%, rgba(255, 255, 255, 0.16), transparent 70%),
+        linear-gradient(180deg, #7f9c55, #5b7b3a 60%, #4c6a2f);
+    border: 10px solid var(--qz-wood);
+    border-top-width: 8px;
+    border-radius: 26px 26px 50% 50% / 26px 26px 120px 120px;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, 0.12),
+        inset 0 -18px 40px rgba(0, 0, 0, 0.25),
+        0 0 0 2px var(--qz-wood-dark),
+        0 18px 30px rgba(60, 45, 20, 0.25);
+    animation: qz-rise 0.8s ease both 0.4s;
+}
+@media (prefers-color-scheme: dark) {
+    .qz-table { background: radial-gradient(ellipse 70% 60% at 50% 30%, rgba(255, 255, 255, 0.08), transparent 70%), linear-gradient(180deg, #4b5f33, #3a4c27 60%, #2f3e20); }
+}
+
+/* 掛軸 (問題) */
+.qz-scroll {
+    position: relative;
+    margin: 0 auto;
+    width: min(760px, 100%);
+    padding: 18px clamp(14px, 3vw, 26px) 20px;
+    background: var(--qz-card) var(--qz-washi);
+    border: 1px solid var(--qz-line);
+    border-radius: 6px;
+    box-shadow: 0 0 0 6px rgba(107, 74, 43, 0.85), 0 10px 26px rgba(0, 0, 0, 0.25);
+}
+.qz-scroll::before,
+.qz-scroll::after {
+    content: "";
+    position: absolute;
+    left: -14px;
+    right: -14px;
+    height: 10px;
+    background: linear-gradient(180deg, #8a6236, #4a321c);
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+.qz-scroll::before { top: -14px; }
+.qz-scroll::after { bottom: -14px; }
+
+.qz-scroll-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qz-progress {
+    margin: 0;
+    padding: 4px 9px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--qz-primary-dark);
+    background: var(--qz-soft);
+    border: 1px solid var(--qz-line);
+    border-radius: 999px;
+}
+.qz-lecture { flex: 1; min-width: 0; margin: 0; font-size: 0.8rem; color: var(--qz-muted); }
+
+/* 湯呑みの時計: お茶が減っていく */
+.qz-timer {
+    position: relative;
+    width: 46px;
+    height: 46px;
+    margin-left: auto;
+    overflow: hidden;
+    border: 3px solid var(--qz-primary-dark);
+    border-top-width: 2px;
+    border-radius: 6px 6px 20px 20px;
+    background: var(--qz-card);
+    transition: opacity 0.3s ease;
+}
+.qz-timer.is-hidden { opacity: 0; }
+.qz-timer-tea {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, #a8bf7a, var(--qz-primary));
+    transform-origin: 50% 100%;
+    transition: transform 0.2s linear;
+}
+.qz-timer-tea::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(110deg, rgba(255, 255, 255, 0) 0 8px, rgba(255, 255, 255, 0.22) 8px 12px);
+    background-size: 30px 100%;
+    animation: qz-flow 1.2s linear infinite;
+}
+.qz-timer strong {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 100%;
+    font-size: 1.05rem;
+    font-weight: 900;
+    color: var(--qz-ink);
+    text-shadow: 0 0 4px var(--qz-card), 0 0 2px var(--qz-card);
+}
+.qz-timer.is-hurry { animation: qz-wobble 0.5s ease infinite; }
+.qz-timer.is-hurry .qz-timer-tea { background: linear-gradient(180deg, #d9a36a, var(--qz-vermilion)); }
+@keyframes qz-flow { to { background-position: 30px 0; } }
+
+/* 湯気 */
+.qz-steam {
+    position: absolute;
+    right: 18px;
+    top: -52px;
+    width: 60px;
+    height: 40px;
+    background: var(--qz-steam) center / contain no-repeat;
+    opacity: 0;
+    pointer-events: none;
+}
+.qz-scroll[data-phase="question"] .qz-steam,
+.qz-scroll[data-phase="answering"] .qz-steam { animation: qz-steam 3.2s ease-in-out infinite; }
+@keyframes qz-steam {
+    0%   { opacity: 0; transform: translateY(16px) scaleY(0.6); }
+    40%  { opacity: 0.75; }
+    100% { opacity: 0; transform: translateY(-14px) scaleY(1.15) skewX(-6deg); }
+}
+
+.qz-question {
+    margin: 16px 0 10px;
+    min-height: 2.6em;
+    font-family: var(--qz-mincho);
+    font-size: clamp(1.05rem, 3.4vw, 1.4rem);
+    font-weight: 700;
+    line-height: 1.6;
+    letter-spacing: 0.03em;
+    color: var(--qz-ink);
+    text-shadow: none;
+    text-align: left;
+}
+.qz-question.is-brush { animation: qz-brush 1s cubic-bezier(0.6, 0, 0.3, 1) both; }
+.qz-question.is-waiting { color: var(--qz-muted); animation: qz-breath 1.2s ease-in-out infinite; }
+@keyframes qz-breath { 50% { opacity: 0.45; } }
+
+.qz-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.qz-tag {
+    padding: 4px 9px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--qz-primary-dark);
+    background: var(--qz-soft);
+    border-radius: 999px;
+    animation: qz-unfurl 0.5s ease both;
+}
+.qz-tag:nth-child(2) { animation-delay: 0.08s; }
+.qz-tag:nth-child(3) { animation-delay: 0.16s; }
+@keyframes qz-unfurl {
+    from { opacity: 0; transform: scale(0.6) rotate(-8deg); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* 選択肢: 茶葉がひらくように順に現れ、水面に波紋 */
+.qz-choices { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 720px) { .qz-choices { grid-template-columns: 1fr 1fr; } }
+.qz-choices li { animation: qz-steep 0.5s ease both; }
+.qz-choices li:nth-child(1) { animation-delay: 0.05s; }
+.qz-choices li:nth-child(2) { animation-delay: 0.12s; }
+.qz-choices li:nth-child(3) { animation-delay: 0.19s; }
+.qz-choices li:nth-child(4) { animation-delay: 0.26s; }
+@keyframes qz-steep {
+    from { opacity: 0; transform: translateX(-14px); filter: blur(3px); }
+    to   { opacity: 1; transform: none; filter: blur(0); }
+}
+.qz-room .qz-choice {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 100%;
+    padding: 12px 14px;
+    overflow: hidden;
+    font-weight: 500;
+    text-align: left;
+    color: var(--qz-ink);
+    background: var(--qz-bg);
+    border: 1px solid var(--qz-line);
+    border-radius: 10px;
+}
+.qz-room .qz-choice:disabled { opacity: 1; cursor: default; }
+.qz-choice-key {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 30px;
+    font-weight: 900;
+    color: var(--qz-primary-dark);
+    background: var(--qz-soft);
+    border: 1px solid var(--qz-line);
+    border-radius: 8px;
+    transition: transform 0.3s ease;
+}
+.qz-choice-text { position: relative; z-index: 1; line-height: 1.5; }
+.qz-choice::before {
+    content: "";
+    position: absolute;
+    left: 30px;
+    top: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(107, 142, 35, 0.16), rgba(107, 142, 35, 0.08) 60%, transparent 70%);
+    transform: scale(0);
+    opacity: 0;
+    transition: transform 0.7s ease, opacity 0.7s ease;
+}
+.qz-choices.is-answering .qz-choice:not(:disabled) { border-color: var(--qz-primary); box-shadow: 0 0 0 2px rgba(91, 123, 58, 0.25); cursor: pointer; }
+.qz-choices.is-answering .qz-choice:not(:disabled):hover::before { transform: scale(40); opacity: 1; }
+.qz-choices.is-answering .qz-choice:not(:disabled):hover .qz-choice-key { transform: rotate(-8deg) scale(1.08); }
+.qz-choices.is-answering { animation: qz-glow-ring 1.4s ease-in-out infinite; border-radius: 12px; }
+@keyframes qz-glow-ring {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(107, 142, 35, 0); }
+    50% { box-shadow: 0 0 0 6px rgba(107, 142, 35, 0.18); }
+}
+.qz-room .qz-choice.is-pending { border-color: var(--qz-warn); }
+.qz-room .qz-choice.is-correct {
+    color: var(--qz-ink);
+    background: var(--qz-ok-bg);
+    border-color: var(--qz-ok);
+    animation: qz-glow 1s ease both;
+}
+.qz-room .qz-choice.is-correct .qz-choice-key { color: #fff; background: var(--qz-ok); border-color: var(--qz-ok); animation: qz-cup-up 0.6s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.qz-room .qz-choice.is-wrong {
+    background: var(--qz-ng-bg);
+    border-color: var(--qz-ng);
+    animation: qz-wobble 0.5s ease both;
+}
+.qz-room .qz-choice.is-wrong .qz-choice-text { text-decoration: line-through; text-decoration-color: var(--qz-ng); }
+.qz-room .qz-choice:has(.qz-choice-who) { padding-top: 26px; }
+.qz-choice-who {
+    position: absolute;
+    right: 8px;
+    top: 6px;
+    z-index: 1;
+    padding: 1px 7px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: #fff;
+    border-radius: 999px;
+}
+.qz-choice-who.is-correct { background: var(--qz-ok); }
+.qz-choice-who.is-wrong { background: var(--qz-ng); }
+@keyframes qz-glow {
+    0%   { box-shadow: 0 0 0 0 rgba(107, 142, 35, 0.55); }
+    100% { box-shadow: 0 0 0 14px rgba(107, 142, 35, 0); }
+}
+@keyframes qz-cup-up { from { transform: scale(0.6); } to { transform: scale(1); } }
+@keyframes qz-wobble {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px) rotate(-0.5deg); }
+    40% { transform: translateX(5px) rotate(0.4deg); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(2px); }
+}
+
+/* 解説 */
+.qz-explain {
+    margin-top: 14px;
+    padding: 14px 16px;
+    background: var(--qz-ok-bg);
+    border: 1px solid var(--qz-line);
+    border-left: 4px solid var(--qz-ok);
+    border-radius: 10px;
+    animation: qz-rise 0.45s ease both;
+}
+.qz-explain strong { display: block; color: var(--qz-ink); }
+.qz-explain p { margin: 6px 0 0; font-size: 0.88rem; line-height: 1.6; color: var(--qz-muted); }
+
+/* 正解: 茶柱が立つ */
+.qz-scroll.is-chabashira .qz-explain strong::before {
+    content: "";
+    display: inline-block;
+    width: 5px;
+    height: 22px;
+    margin-right: 10px;
+    vertical-align: -5px;
+    border-radius: 3px;
+    background: linear-gradient(#c9b27a, #8a6d3b);
+    transform-origin: 50% 100%;
+    animation: qz-chabashira 1.1s cubic-bezier(0.3, 1.8, 0.5, 1) both 0.25s;
+}
+.qz-scroll.is-chabashira .qz-explain strong::after {
+    content: "　茶柱が立ちました";
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--qz-muted);
+    animation: qz-rise 0.5s ease both 1s;
+}
+@keyframes qz-chabashira {
+    0%   { transform: rotate(90deg); opacity: 0.4; }
+    100% { transform: rotate(0); opacity: 1; }
+}
+
+/* 落款の印 (正解・不正解・時間切れ) */
+.qz-stamp {
+    position: absolute;
+    right: clamp(10px, 4vw, 30px);
+    top: clamp(40px, 8vw, 60px);
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    width: clamp(86px, 20vw, 120px);
+    height: clamp(86px, 20vw, 120px);
+    font-family: var(--qz-mincho);
+    font-size: clamp(1.25rem, 4.6vw, 1.75rem);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--qz-vermilion);
+    border: 4px double var(--qz-vermilion);
+    border-radius: 50%;
+    background: rgba(255, 250, 240, 0.7);
+    pointer-events: none;
+    opacity: 0;
+}
+.qz-stamp.is-wrong { color: var(--qz-ng); border-color: var(--qz-ng); border-radius: 12px; }
+.qz-stamp.is-timeout { color: var(--qz-warn); border-color: var(--qz-warn); border-radius: 12px; font-size: clamp(1rem, 3.6vw, 1.35rem); }
+.qz-stamp.is-show { animation: qz-stamp 2.6s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes qz-stamp {
+    0%   { opacity: 0; transform: scale(2) rotate(-18deg); }
+    14%  { opacity: 0.95; transform: scale(0.92) rotate(-8deg); }
+    22%  { transform: scale(1) rotate(-10deg); }
+    80%  { opacity: 0.95; transform: scale(1) rotate(-10deg); }
+    100% { opacity: 0; transform: scale(1.05) rotate(-10deg); }
+}
+.qz-stamp.is-wrong::after,
+.qz-stamp.is-timeout::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    animation: qz-ripple 1.6s ease-out 0.2s 2;
+    opacity: 0;
+}
+@keyframes qz-ripple {
+    0%   { opacity: 0.7; transform: scale(0.3); }
+    100% { opacity: 0; transform: scale(8); }
+}
+
+/* 状態の行 */
+.qz-status {
+    margin: 0;
+    padding: 8px 14px;
+    text-align: center;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.22);
+    border-radius: 999px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.qz-status[data-tone="mine"] { background: var(--qz-vermilion); animation: qz-breath 1s ease-in-out infinite; }
+.qz-status[data-tone="open"] { background: rgba(255, 255, 255, 0.18); }
+
+/* 座布団の席 */
+.qz-seats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+@media (min-width: 720px) {
+    .qz-seats { grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 0 8px; }
+    /* 弧に沿って並べる (端ほど手前) */
+    .qz-seat:nth-child(1), .qz-seat:nth-child(6) { transform: translateY(-26px) rotate(var(--tilt, 0deg)); }
+    .qz-seat:nth-child(2), .qz-seat:nth-child(5) { transform: translateY(-6px); }
+    .qz-seat:nth-child(3), .qz-seat:nth-child(4) { transform: translateY(6px); }
+    .qz-seat:nth-child(1) { --tilt: 6deg; }
+    .qz-seat:nth-child(6) { --tilt: -6deg; }
+}
+.qz-seat {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 3px;
+    min-width: 0;
+    min-height: 104px;
+    padding: 14px 6px 10px;
+    text-align: center;
+    color: var(--qz-ink);
+    background:
+        radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.35), transparent 60%),
+        linear-gradient(135deg, #c96f55, #9b4a35);
+    border-radius: 16px;
+    box-shadow: inset 0 0 0 3px rgba(255, 230, 200, 0.35), inset 0 -6px 10px rgba(0, 0, 0, 0.2), 0 6px 12px rgba(0, 0, 0, 0.25);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+/* 座布団の房 */
+.qz-seat::before,
+.qz-seat::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #e7c27a;
+}
+.qz-seat::before { left: 8px; }
+.qz-seat::after { right: 8px; }
+.qz-seat.is-empty {
+    align-content: center;
+    background: rgba(0, 0, 0, 0.12);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+    border: 2px dashed rgba(255, 255, 255, 0.35);
+}
+.qz-seat.is-empty::before,
+.qz-seat.is-empty::after { display: none; }
+.qz-seat-empty { font-size: 0.78rem; color: rgba(255, 255, 255, 0.85); }
+.qz-room .qz-seat-sit {
+    margin-top: 6px;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    color: var(--qz-primary-dark);
+    background: var(--qz-card);
+}
+.qz-seat-name,
+.qz-seat-rate,
+.qz-seat-state,
+.qz-seat-delta { position: relative; z-index: 1; max-width: 100%; }
+.qz-seat-name {
+    overflow: hidden;
+    font-weight: 900;
+    color: #fff;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.qz-seat-rate { font-size: 0.74rem; color: rgba(255, 240, 225, 0.9); }
+.qz-seat-state {
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--qz-primary-dark);
+    background: var(--qz-card);
+    border-radius: 999px;
+}
+.qz-seat-delta { font-size: 0.8rem; font-weight: 900; color: #fff; }
+.qz-seat-delta.is-plus { color: #e9ffc4; }
+.qz-seat-delta.is-minus { color: #ffd2c6; }
+.qz-seat.is-me { box-shadow: inset 0 0 0 3px rgba(255, 230, 200, 0.35), 0 0 0 3px #f6e3b2, 0 6px 16px rgba(0, 0, 0, 0.3); }
+.qz-seat[data-tone="ready"] .qz-seat-state { color: #fff; background: var(--qz-primary); }
+.qz-seat[data-tone="answering"] { background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.45), transparent 60%), linear-gradient(135deg, #e0a04a, #b5442f); }
+.qz-seat[data-tone="answering"] .qz-seat-state { color: #fff; background: var(--qz-vermilion); animation: qz-breath 0.8s ease-in-out infinite; }
+.qz-seat[data-tone="correct"] .qz-seat-state { color: #fff; background: var(--qz-ok); }
+.qz-seat[data-tone="wrong"] .qz-seat-state { color: #fff; background: var(--qz-ng); }
+.qz-seat[data-tone="wrong"] { filter: saturate(0.6); }
+.qz-seat[data-tone="idle"] { filter: saturate(0.55) brightness(0.92); }
+
+/* 押したときの灯り (湯呑みの縁のように光る) と波紋 */
+.qz-seat-lamp {
+    position: absolute;
+    left: 50%;
+    top: -9px;
+    width: 18px;
+    height: 18px;
+    margin-left: -9px;
+    border-radius: 50%;
+    background: #d8d0bc;
+    box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.25);
+}
+.qz-seat[data-tone="answering"] .qz-seat-lamp { background: #ffcf5a; box-shadow: 0 0 12px 4px rgba(255, 207, 90, 0.85); }
+.qz-seat.is-buzzed { animation: qz-buzzed 0.6s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.qz-seat.is-buzzed .qz-seat-lamp::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 2px solid #ffcf5a;
+    border-radius: 50%;
+    animation: qz-ripple 1.2s ease-out both;
+}
+@keyframes qz-buzzed {
+    0% { scale: 1; }
+    40% { scale: 1.08; }
+    100% { scale: 1; }
+}
+
+/* 増減を浮かべる */
+.qz-float {
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    z-index: 4;
+    font-size: 1.3rem;
+    font-weight: 900;
+    pointer-events: none;
+    transform: translateX(-50%);
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+    animation: qz-float 1.8s ease-out both;
+}
+.qz-float.is-plus { color: #e9ffc4; }
+.qz-float.is-minus { color: #ffd2c6; }
+@keyframes qz-float {
+    0%   { opacity: 0; transform: translate(-50%, 10px) scale(0.6); }
+    20%  { opacity: 1; transform: translate(-50%, -6px) scale(1.15); }
+    100% { opacity: 0; transform: translate(-50%, -48px) scale(1); }
+}
+
+/* 操作 */
+.qz-controls { display: grid; justify-items: center; gap: 12px; }
+.qz-lobby { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.qz-lobby button { min-width: 140px; }
+.qz-controls #qz-message { width: 100%; }
+
+/* 早押しボタン: 朱の落款のような丸い大きなボタン */
+.qz-room .qz-buzz {
+    position: relative;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    width: clamp(120px, 34vw, 150px);
+    height: clamp(120px, 34vw, 150px);
+    padding: 0;
+    font-family: var(--qz-mincho);
+    color: #fff;
+    background: radial-gradient(circle at 38% 30%, #e06a4e, var(--qz-vermilion) 55%, #7d2a1b);
+    border: 4px solid #f6e3b2;
+    border-radius: 50%;
+    box-shadow: 0 8px 0 #6e2416, 0 14px 24px rgba(60, 20, 10, 0.35), inset 0 0 0 3px rgba(255, 255, 255, 0.2);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+.qz-buzz-face { font-size: clamp(1.5rem, 6vw, 1.9rem); font-weight: 700; letter-spacing: 0.1em; }
+.qz-buzz small { font-family: var(--qz-gothic); font-size: 0.7rem; opacity: 0.8; }
+.qz-room .qz-buzz:hover { transform: translateY(-1px); box-shadow: 0 9px 0 #6e2416, 0 16px 26px rgba(60, 20, 10, 0.35), inset 0 0 0 3px rgba(255, 255, 255, 0.2); }
+.qz-room .qz-buzz:active,
+.qz-room .qz-buzz.is-pressed { transform: translateY(7px); box-shadow: 0 1px 0 #6e2416, 0 4px 10px rgba(60, 20, 10, 0.35), inset 0 0 0 3px rgba(255, 255, 255, 0.2); }
+.qz-room .qz-buzz:disabled { filter: grayscale(0.75) brightness(0.9); opacity: 0.7; }
+.qz-buzz.is-live { animation: qz-buzz-pulse 1.2s ease-in-out infinite; }
+.qz-buzz.is-live::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border: 3px solid rgba(181, 68, 47, 0.55);
+    border-radius: 50%;
+    animation: qz-ripple-soft 1.4s ease-out infinite;
+}
+@keyframes qz-buzz-pulse { 50% { scale: 1.04; } }
+@keyframes qz-ripple-soft {
+    0%   { opacity: 0.8; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.35); }
+}
+
+/* 1戦の結果 (番付) */
+.qz-ranking {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: rgba(29, 28, 23, 0.45);
+    backdrop-filter: blur(2px);
+    animation: qz-fade 0.3s ease both;
+}
+.qz-ranking.hidden { display: none !important; }
+@keyframes qz-fade { from { opacity: 0; } to { opacity: 1; } }
+.qz-ranking-card {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    width: min(420px, 100%);
+    padding: 64px 20px 18px;
+    background: var(--qz-card) var(--qz-washi);
+    border: 1px solid var(--qz-line);
+    border-radius: 14px;
+    box-shadow: var(--qz-shadow);
+    animation: qz-cup-up 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+/* 茶碗が満ちて湯気が立つ */
+.qz-ranking-cup {
+    position: absolute;
+    top: -34px;
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: conic-gradient(var(--qz-primary), var(--qz-soft));
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+}
+.qz-ranking-cup::before {
+    content: "";
+    position: absolute;
+    inset: 9px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 50% 50%, transparent 52%, rgba(107, 142, 35, 0.18) 53%, transparent 62%),
+        conic-gradient(from 0deg, rgba(107, 142, 35, 0.3), rgba(168, 191, 122, 0.08), rgba(107, 142, 35, 0.3), rgba(168, 191, 122, 0.08), rgba(107, 142, 35, 0.3)),
+        var(--qz-card);
+    animation: qz-swirl 10s linear infinite;
+}
+.qz-ranking-cup::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -46px;
+    width: 64px;
+    height: 46px;
+    margin-left: -32px;
+    background: var(--qz-steam) center / contain no-repeat;
+    animation: qz-steam 3.2s ease-in-out infinite 0.6s;
+}
+@keyframes qz-swirl { to { transform: rotate(360deg); } }
+.qz-ranking-list { display: grid; gap: 8px; width: 100%; margin: 0; padding: 0; list-style: none; }
+.qz-ranking-list li {
+    display: grid;
+    grid-template-columns: 30px 1fr auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    background: var(--qz-bg);
+    border: 1px solid var(--qz-line);
+    border-radius: 10px;
+    animation: qz-rise 0.5s ease both;
+}
+.qz-ranking-list li.is-me { border-color: var(--qz-primary); box-shadow: 0 0 0 2px rgba(91, 123, 58, 0.2); }
+.qz-rank-no {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    font-weight: 900;
+    color: #fff;
+    background: var(--qz-muted);
+    border-radius: 50%;
+}
+.qz-ranking-list li:first-child .qz-rank-no { background: var(--qz-vermilion); }
+.qz-rank-name { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.qz-rank-score { font-size: 0.74rem; color: var(--qz-muted); }
+.qz-ranking-list strong.is-plus { color: var(--qz-ok); }
+.qz-ranking-list strong.is-minus { color: var(--qz-ng); }
+
+/* ルールと最近の1戦 */
+.qz-info {
+    padding: 16px 18px;
+    background: var(--qz-card) var(--qz-washi);
+    border: 1px solid var(--qz-line);
+    border-radius: 12px;
+}
+.qz-info-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    font-family: var(--qz-mincho);
+    font-size: 1rem;
+    color: var(--qz-ink);
+}
+.qz-info-title::before {
+    content: "";
+    width: 18px;
+    height: 18px;
+    background: var(--qz-primary);
+    -webkit-mask: var(--qz-leaf) center / contain no-repeat;
+    mask: var(--qz-leaf) center / contain no-repeat;
+    transform-origin: 20% 80%;
+    animation: qz-sway 3.2s ease-in-out infinite;
+}
+@keyframes qz-sway { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(12deg); } }
+.qz-rules { margin: 0 0 14px; padding-left: 1.2em; font-size: 0.86rem; line-height: 1.7; color: var(--qz-ink); }
+.qz-recent { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.qz-recent li {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--qz-ink);
+    background: var(--qz-soft);
+    border: 1px solid var(--qz-line);
+    border-radius: 999px;
+}
+.qz-recent li.is-plus { color: var(--qz-ok); }
+.qz-recent li.is-minus { color: var(--qz-ng); }
+.qz-recent li.qz-recent-empty { color: var(--qz-muted); font-weight: 500; }
+
+/* ゲーム一覧のタイル: 湯呑みと早押しボタン */
+.game-tile-art.is-quiz {
+    position: relative;
+    gap: clamp(14px, 4vw, 26px);
+    overflow: hidden;
+    background:
+        radial-gradient(ellipse 80% 70% at 50% 30%, rgba(255, 255, 255, 0.18), transparent 70%),
+        linear-gradient(180deg, #7f9c55, #4c6a2f);
+}
+.qz-tile-cup {
+    position: relative;
+    width: clamp(44px, 12vw, 58px);
+    height: clamp(40px, 11vw, 52px);
+    background: linear-gradient(180deg, #f4efe3, #d9cfb8);
+    border-radius: 6px 6px 22px 22px;
+    box-shadow: inset 0 6px 0 #8fae5a, 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+.qz-tile-steam {
+    position: absolute;
+    left: 50%;
+    top: -34px;
+    width: 46px;
+    height: 32px;
+    margin-left: -23px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='40' viewBox='0 0 60 40' fill='none' stroke='%23f4efe3' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M14 38c-6-6 6-10 0-18s4-12 0-18'/%3E%3Cpath d='M30 38c-6-6 6-10 0-18s4-12 0-18'/%3E%3Cpath d='M46 38c-6-6 6-10 0-18s4-12 0-18'/%3E%3C/svg%3E") center / contain no-repeat;
+    animation: qz-steam 3.2s ease-in-out infinite;
+}
+.qz-tile-buzzer {
+    display: grid;
+    place-items: center;
+    width: clamp(46px, 13vw, 62px);
+    height: clamp(46px, 13vw, 62px);
+    font-family: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+    font-size: clamp(1.2rem, 4vw, 1.6rem);
+    font-weight: 700;
+    color: #fff;
+    background: radial-gradient(circle at 38% 30%, #e06a4e, #b5442f 55%, #7d2a1b);
+    border: 3px solid #f6e3b2;
+    border-radius: 50%;
+    box-shadow: 0 4px 0 #6e2416, 0 8px 14px rgba(0, 0, 0, 0.3);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.game-tile:hover .qz-tile-buzzer { transform: translateY(3px); box-shadow: 0 1px 0 #6e2416, 0 4px 8px rgba(0, 0, 0, 0.3); }
+.qz-tile-leaf {
+    position: absolute;
+    top: -20px;
+    width: 16px;
+    height: 16px;
+    background: #d9e8b8;
+    opacity: 0.6;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 20C4 10 10 4 20 4c0 10-6 16-16 16Z'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M4 20C4 10 10 4 20 4c0 10-6 16-16 16Z'/%3E%3C/svg%3E") center / contain no-repeat;
+    animation: qz-tile-leaf 7s linear infinite;
+}
+.qz-tile-leaf:nth-of-type(3) { left: 18%; }
+.qz-tile-leaf:nth-of-type(4) { left: 78%; animation-delay: -3.5s; }
+@keyframes qz-tile-leaf {
+    0%   { transform: translate(0, 0) rotate(0); }
+    50%  { transform: translate(16px, 90px) rotate(180deg); }
+    100% { transform: translate(-6px, 190px) rotate(360deg); }
+}
+
+@media (max-width: 560px) {
+    .qz-room { padding: 14px 10px; }
+    .qz-table { border-width: 7px; border-radius: 20px 20px 40% 40% / 20px 20px 60px 60px; }
+    .qz-seat { min-height: 96px; }
+    .qz-lobby button { min-width: 0; flex: 1 1 40%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .qz-room *,
+    .qz-room *::before,
+    .qz-room *::after,
+    .game-tile-art.is-quiz * { animation: none !important; transition: none !important; }
+    .qz-leaves, .qz-steam { display: none; }
+    .qz-stamp.is-show { opacity: 0.95; transform: rotate(-10deg); }
+}

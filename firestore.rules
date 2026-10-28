@@ -104,6 +104,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 早押しクイズの卓 (61.0〜)。中身 (答えと uid を含む) は Cloud Functions だけに限る。
+    match /quiz_tables/{tableId} {
+      allow read, write: if false;
+    }
+
+    // 卓を誰でも読める形に直したもの (uid を含まず、答えは結果が出てから)。書き込みは Cloud Functions (casino) だけ。
+    match /quiz_public/{tableId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // 航海 (大海賊の航海日誌。2026/10/5〜12/21) のみんなで共有する分 (ジャックポット・最終秘宝・取り分の合計・直近の JP)。
     // 画面はこれを読んで JP を出す。書き込みは Cloud Functions (casino) だけ。
     match /voyage_public/{docId} {

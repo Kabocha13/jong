@@ -130,6 +130,20 @@ import {
   tickTable,
   vacateSeat
 } from './blackjack-table.js';
+import {
+  QuizError,
+  advanceQuiz,
+  answerQuiz,
+  buzzQuiz,
+  createQuizContext,
+  emptyQuizTable,
+  joinQuizSeat,
+  leaveQuizSeat,
+  publicQuizTable,
+  quizTableNames,
+  readyQuiz,
+  sweepQuizSeats
+} from './quiz-table.js';
 
 const app = admin.initializeApp();
 const db = getFirestore(app, 'q-jong');
@@ -2691,11 +2705,13 @@ const CASINO_RECENT_LIMIT = 12;
 const CASINO_NOTICES = 'casino_notices';     // 持ち込みの財布を精算した結果を、本人の次の画面で1回だけ見せる
 const BJ_TABLE_ID = 'main';                  // ブラックジャックの卓は1つだけ
 const GAPPORI_TABLE_ID = 'main';             // 宝探しの卓も1つだけ
+const QUIZ_TABLE_ID = 'main';                // 早押しクイズの卓も1つだけ (61.0〜)
 // 口座に持つ、遊んだ回数と直近の結果の項目 (沈没の skRounds・skRecent は 60.0 で廃止)
 // gpStamps・gpHaku は宝探しのスタンプカード (押したスタンプの数・ハクを使える回数。55.19〜)
 // gpResetUsed は宝探しの盤面のリセットを使ったか (1 = 使った。券を買うと 0 に戻る。56.4〜)
-const CASINO_ACCOUNT_COUNTS = ['bjHands', 'slotSpins', 'gpRounds', 'nrSpins', 'vgRolls', 'wagered', 'gpStamps', 'gpHaku', 'gpResetUsed'];
-const CASINO_ACCOUNT_RECENTS = ['bjRecent', 'slotRecent', 'gpRecent', 'nrRecent', 'vgRecent'];
+// qzRounds・qzCorrect・qzRecent は早押しクイズ (61.0〜。参加した問題の数・正解した数・直近の1戦の成績)
+const CASINO_ACCOUNT_COUNTS = ['bjHands', 'slotSpins', 'gpRounds', 'nrSpins', 'vgRolls', 'wagered', 'gpStamps', 'gpHaku', 'gpResetUsed', 'qzRounds', 'qzCorrect'];
+const CASINO_ACCOUNT_RECENTS = ['bjRecent', 'slotRecent', 'gpRecent', 'nrRecent', 'vgRecent', 'qzRecent'];
 
 class CasinoError extends Error {
   constructor(status, message) {
@@ -2787,7 +2803,8 @@ function publicCasinoSession(wallet, held, limit = casinoDailyPlayLimit('none'))
       // 最後の1回 (第4弾以上まで行った回を、画面を開き直したときに続きから見せるため)
       last: wallet.nrLast || null
     },
-    voyage: { recent: wallet.vgRecent || [] }
+    voyage: { recent: wallet.vgRecent || [] },
+    quiz: { recent: wallet.qzRecent || [], rounds: wallet.qzRounds || 0, correct: wallet.qzCorrect || 0 }
   };
 }
 
@@ -2813,6 +2830,13 @@ function blackjackTableRefs() {
   return {
     tableRef: db.collection('bj_tables').doc(BJ_TABLE_ID),
     publicRef: db.collection('bj_public').doc(BJ_TABLE_ID)
+  };
+}
+
+function quizTableRefs() {
+  return {
+    tableRef: db.collection('quiz_tables').doc(QUIZ_TABLE_ID),
+    publicRef: db.collection('quiz_public').doc(QUIZ_TABLE_ID)
   };
 }
 
@@ -2851,6 +2875,8 @@ function casinoTableNames(game, table, actorUid, actorName) {
     (table.round?.players || []).forEach(player => add(player.uid, player.name));
   } else if (game === 'gappori') {
     (table.tickets || []).forEach(ticket => add(ticket.uid, ticket.name));
+  } else if (game === 'quiz') {
+    quizTableNames(table).forEach((name, uid) => add(uid, name));
   }
   add(actorUid, actorName);
   return names;
@@ -2913,7 +2939,8 @@ function writeCasinoWallets(transaction, { wallets, origins }, game, tableAfter,
     const plays = (wallet[info.plays] || 0) - (origin.account[info.plays] || 0);
     const wagered = (wallet.wagered || 0) - (origin.account.wagered || 0);
     const { chips, ...next } = wallet;
-    if (plays > 0) {
+    // 早押しクイズ (noLimit) は1日のプレイ回数に数えない
+    if (plays > 0 && !info.noLimit) {
       // 今日 (JST) の回数を足す (日付が変わっていたら 0 から)
       next.playCount = (next.playDate === date ? next.playCount || 0 : 0) + plays;
       next.playDate = date;
@@ -3326,14 +3353,15 @@ async function readPublicGapporiTable() {
 }
 
 async function casinoStatus(uid, username) {
-  const [wallet, table, gappori, autoSettled, slotStateDoc, voyage, hlDoc] = await Promise.all([
+  const [wallet, table, gappori, autoSettled, slotStateDoc, voyage, hlDoc, quiz] = await Promise.all([
     readCasinoSession(uid, username),
     readPublicBlackjackTable(),
     readPublicGapporiTable(),
     takeCasinoNotice(uid),
     db.collection(SLOT_STATES).doc(uid).get(),
     readVoyageStatus(uid),
-    db.collection(HL_GAMES).doc(uid).get()
+    db.collection(HL_GAMES).doc(uid).get(),
+    readPublicQuizTable()
   ]);
   return {
     me: username,
@@ -3343,6 +3371,7 @@ async function casinoStatus(uid, username) {
     table,
     gappori,
     voyage,
+    quiz,
     // HL を遊んでいる途中か (58.9〜。使えるレートが 300,000 に届かなくても、途中ならゲーム一覧に HL を出して続きに戻れるようにする)
     hlPlaying: hlDoc.exists && !isHlFinished(hlDoc.data()),
     autoSettled,
@@ -3557,6 +3586,57 @@ async function gapporiTableAction(uid, username, mutate) {
   return {
     me: username,
     gappori: publicGapporiTable(ctx.table),
+    session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0, ctx.limits?.get(uid)) : null,
+    now: new Date().toISOString()
+  };
+}
+
+// -----------------------------------------------------------------
+// 早押しクイズ (61.0〜。testsite.html のデータベース工学の問題で中間テストの対策)
+//   全員共通の1卓 (最大6席)。進め方は quiz-table.js、問題は quiz-bank.js。
+//   卓の中身 (答えと uid を含む) は quiz_tables/main、誰でも読める形は quiz_public/main に置く。
+//   賭けは無く、1問ごとに正解・不正解・打ち切りでレートがその場で動く (増減ログは casino_quiz)。
+//   1日のプレイ回数には数えない。
+// -----------------------------------------------------------------
+async function readPublicQuizTable() {
+  const publicDoc = await quizTableRefs().publicRef.get();
+  return publicDoc.exists ? publicDoc.data() : publicQuizTable(emptyQuizTable());
+}
+
+/** 卓を1回動かす。卓・卓に関わる人 (と操作した本人) の財布を読み、mutate(ctx) のあと締め切りを過ぎた段階を進めて書き戻す */
+async function runQuizTable(actorUid, mutate, actorName = null) {
+  const { tableRef, publicRef } = quizTableRefs();
+  const done = await db.runTransaction(async transaction => {
+    const tableDoc = await transaction.get(tableRef);
+    const table = tableDoc.exists ? tableDoc.data() : emptyQuizTable();
+    const tables = await readCasinoTables(transaction);
+    const loaded = await readCasinoWallets(transaction, casinoTableNames('quiz', table, actorUid, actorName), tables, 'quiz');
+    const context = createQuizContext({ table, wallets: loaded.wallets, now: Date.now(), randomInt: casinoRandom });
+    if (!tableDoc.exists) context.changed = true;
+    sweepQuizSeats(context);
+    mutate(context);
+    advanceQuiz(context);
+
+    if (context.changed) {
+      context.table.seq = (context.table.seq || 0) + 1;
+      context.table.updatedAt = context.nowIso;
+      transaction.set(tableRef, context.table);
+      transaction.set(publicRef, publicQuizTable(context.table));
+    }
+    const written = writeCasinoWallets(transaction, loaded, 'quiz', context.table, context.nowIso);
+    return { context, written };
+  });
+  await applyRateChartLive(done.written.chart);
+  return { ...done.context, heldAfter: done.written.held, limits: done.written.limits };
+}
+
+/** 卓の操作の返事: 卓の様子と本人の財布 */
+async function quizTableAction(uid, username, mutate) {
+  const ctx = await runQuizTable(uid, mutate, username);
+  const wallet = ctx.wallets.get(uid);
+  return {
+    me: username,
+    quiz: publicQuizTable(ctx.table),
     session: wallet ? publicCasinoSession(wallet, ctx.heldAfter.get(uid) || 0, ctx.limits?.get(uid)) : null,
     now: new Date().toISOString()
   };
@@ -3952,7 +4032,15 @@ const CASINO_ACTIONS = {
   gpStart: ({ uid, username }) => gapporiTableAction(uid, username, ctx => startGapporiNow(ctx, uid)),
   // 盤面のリセット (1人1回。券を買うとまた使える)
   gpReset: ({ uid, username }) => gapporiTableAction(uid, username, ctx => resetGapporiBoard(ctx, uid, username)),
-  gpTick: ({ uid, username }) => gapporiTableAction(uid, username, () => {})
+  gpTick: ({ uid, username }) => gapporiTableAction(uid, username, () => {}),
+  // 早押しクイズ (61.0〜)
+  qzStatus: ({ uid, username }) => quizTableAction(uid, username, () => {}),
+  qzJoin: ({ uid, username, body }) => quizTableAction(uid, username, ctx => joinQuizSeat(ctx, uid, username, body.seat)),
+  qzLeave: ({ uid, username }) => quizTableAction(uid, username, ctx => leaveQuizSeat(ctx, uid)),
+  qzReady: ({ uid, username, body }) => quizTableAction(uid, username, ctx => readyQuiz(ctx, uid, body.ready !== false)),
+  qzBuzz: ({ uid, username, body }) => quizTableAction(uid, username, ctx => buzzQuiz(ctx, uid, body.no)),
+  qzAnswer: ({ uid, username, body }) => quizTableAction(uid, username, ctx => answerQuiz(ctx, uid, body.no, body.choice)),
+  qzTick: ({ uid, username }) => quizTableAction(uid, username, () => {})
 };
 
 // 遊んだとみなす操作と、管理画面に出すゲーム名 (状態の読み込み・席を立つ・時間切れの確認は数えない)
@@ -3965,7 +4053,10 @@ const CASINO_PLAY_GAMES = {
   bjBet: 'ブラックジャック',
   bjMove: 'ブラックジャック',
   gpBuy: '宝探し',
-  gpChance: '宝探し'
+  gpChance: '宝探し',
+  qzReady: '早押しクイズ',
+  qzBuzz: '早押しクイズ',
+  qzAnswer: '早押しクイズ'
 };
 
 async function handleCasinoRequest(req, res) {
@@ -4003,7 +4094,7 @@ async function handleCasinoRequest(req, res) {
     if (Object.hasOwn(CASINO_PLAY_GAMES, action)) await recordPlayerPlay(username, CASINO_PLAY_GAMES[action]);
     res.status(200).json({ status: 'success', ...payload });
   } catch (error) {
-    if (error instanceof CasinoError || error instanceof TableError || error instanceof GapporiTableError || error instanceof GapporiRuleError || error instanceof ShopError || error instanceof HlError) {
+    if (error instanceof CasinoError || error instanceof TableError || error instanceof GapporiTableError || error instanceof GapporiRuleError || error instanceof ShopError || error instanceof HlError || error instanceof QuizError) {
       res.status(error.status).json({ status: 'error', message: error.message });
       return;
     }
@@ -4022,7 +4113,7 @@ export const casino = onRequest({ region: 'asia-northeast1' }, handleCasinoReque
 // 更新前から開いたままのタブでも精算できるよう、同じ処理のまま残している
 export const casinoRoulette = onRequest({ region: 'asia-northeast1' }, handleCasinoRequest);
 
-// 10分ごと。ブラックジャック・宝探しの卓が、誰も画面を開いていないまま時間切れで止まっていれば先へ進める。
+// 10分ごと。ブラックジャック・宝探し・早押しクイズの卓が、誰も画面を開いていないまま時間切れで止まっていれば先へ進める。
 // 指名手配でこの10分にめくられた賞金首がいれば、レート推移グラフもここで作り直す。AIカンカク (55.1 で削除) の残りの BET も返す。
 // 関数名は 54.x (持ち込みの財布の自動精算) のまま (変えると Cloud Scheduler のジョブが作り直されるため)
 export const settleIdleCasinoSessions = onSchedule({
@@ -4046,6 +4137,11 @@ export const settleIdleCasinoSessions = onSchedule({
     await runGapporiTable(null, () => {});
   } catch (error) {
     console.error('宝探しの卓の時間切れ処理に失敗しました:', error);
+  }
+  try {
+    await runQuizTable(null, () => {});
+  } catch (error) {
+    console.error('早押しクイズの卓の時間切れ処理に失敗しました:', error);
   }
   try {
     await rebuildRateChartAfterWanted(10 * 60 * 1000);
