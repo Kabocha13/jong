@@ -632,9 +632,13 @@ function renderQuizControls() {
     skipButton.classList.toggle('hidden', !canSkip);
     skipButton.disabled = locked;
     skipButton.classList.toggle('is-on', skipped);
-    skipButton.textContent = skipped
+    // アイコンのボタンなので、説明は aria-label と title に、押した人数は小さな札に出す
+    const skipLabel = skipped
         ? `スキップを取り消す (${votes}/${voters.length})`
         : `ジャンルをスキップ${other ? ` → ${other.name}` : ''} (${votes}/${voters.length})`;
+    skipButton.setAttribute('aria-label', skipLabel);
+    skipButton.title = skipLabel;
+    el('qz-skip-count').textContent = votes ? `${votes}/${voters.length}` : '';
     el('qz-leave-button').classList.toggle('hidden', !seat);
     el('qz-leave-button').disabled = locked || isMyQuizAnswer(view);
     document.querySelectorAll('#qz-seats [data-qz-sit]').forEach(button => { button.disabled = locked; });

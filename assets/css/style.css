@@ -9189,3 +9189,42 @@ body[data-casino-view="quiz"] .casino-back a { min-height: 30px; padding: 2px 12
 }
 .qz-seat[data-tone="queued"] .qz-seat-state { color: #fff; background: var(--qz-warn); }
 .qz-seat[data-tone="queued"] .qz-seat-lamp { background: #ffe39a; box-shadow: 0 0 8px 2px rgba(255, 207, 90, 0.6); }
+
+/* アイコンのボタン (61.6〜): スキップ・席を立つ・ルールを見出しの右に小さく並べ、問題の枠を広げる */
+.qz-icons { display: flex; flex: none; gap: 6px; margin-left: auto; }
+.qz-room .qz-icon-button {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    color: var(--qz-primary-dark);
+    background: var(--qz-soft);
+    border: 1px solid var(--qz-line);
+    border-radius: 50%;
+}
+.qz-room .qz-icon-button svg { width: 18px; height: 18px; }
+.qz-room .qz-icon-button.is-on { color: #fff; background: var(--qz-warn); border-color: transparent; }
+.qz-icon-count {
+    position: absolute;
+    right: -6px;
+    top: -6px;
+    min-width: 18px;
+    padding: 0 4px;
+    font-size: 0.6rem;
+    font-weight: 800;
+    line-height: 16px;
+    color: #fff;
+    background: var(--qz-vermilion);
+    border-radius: 999px;
+}
+.qz-icon-count:empty { display: none; }
+.qz-head .qz-info-button { margin: 0; }
+.qz-room .qz-buzz { width: clamp(62px, 9vh, 104px); height: clamp(62px, 9vh, 104px); }
+.qz-controls { gap: 8px 12px; }
+.qz-lobby:empty, .qz-lobby:not(:has(> :not(.hidden))) { display: none; }
+@media (max-height: 560px) {
+    .qz-icons { margin-left: 0; justify-content: center; }
+    .qz-room .qz-buzz { width: 64px; height: 64px; }
+}
