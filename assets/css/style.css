@@ -8280,6 +8280,18 @@ body.vg-story-open { overflow: hidden; }
     animation: qz-caret 0.6s steps(1) infinite;
 }
 @keyframes qz-caret { 50% { opacity: 0; } }
+/* 押されて止めたところ: 朱の縦線 */
+.qz-question.is-paused::after {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 1.2em;
+    margin-left: 4px;
+    vertical-align: -0.2em;
+    background: var(--qz-vermilion);
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(181, 68, 47, 0.6);
+}
 .qz-stamp.is-skip { color: var(--qz-primary-dark); border-color: var(--qz-primary-dark); border-radius: 12px; }
 .qz-room .qz-skip-button.is-on { color: var(--qz-on-primary); background: var(--qz-warn); border-color: transparent; }
 .qz-question.is-waiting { color: var(--qz-muted); animation: qz-breath 1.2s ease-in-out infinite; }

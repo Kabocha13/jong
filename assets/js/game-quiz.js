@@ -4,7 +4,8 @@
 // 締め切り (受付・早押し・解答・結果の表示) を過ぎたら、画面を開いている人が qzTick を送って先へ進める。
 // 見た目は testsite.html (日本茶・和紙・青海波) を引き継ぐ: 掛軸に問題、座布団の席、湯呑みの時計、
 // 正解は茶柱が立って「正解」の印、不正解は水面の波紋と「不正解」の印。
-// 問題文は openAt から charMs (0.1秒) ごとに1文字ずつ出す (サーバーの時刻で数えるので全員そろう)。誰かが押したら全文を出す。
+// 選択肢は最初から出し、問題文は openAt から charMs (0.1秒) ごとに1文字ずつ出す (サーバーの時刻で数えるので全員そろう)。
+// 誰かが押したら、その時点で問題文を止める (サーバーが shown に残す)。間違えて次の人が押せるようになったら続きから出す。
 // ジャンルは1戦ごとにデータベース工学と雑学を交互に出し、全員が「スキップ」を押すと次のジャンルへ移る (61.1〜)。
 
 const QUIZ_POLL_MS = 900;           // 卓を読み直す間隔 (早押しなのでブラックジャックより短く)
@@ -192,15 +193,30 @@ function renderQuizSeats(view) {
     });
 }
 
-/** 問題文をいま何文字まで出すか (出題前は -1。誰かが押したら・結果では全文) */
+/**
+ * 問題文をいま何文字まで出すか (出題前は -1)。サーバー (quiz-table.js の quizTypedCount) と同じ数え方。
+ * 押されて止めているあいだと結果では shown の文字数
+ */
 function quizTypedCount(view) {
     const question = view?.question;
     if (!question) return 0;
-    const length = [...question.text].length;
-    if (view.phase !== 'question' || question.buzzes.length) return length;
-    const elapsed = quizServerNow() - Date.parse(question.openAt);
-    if (elapsed < 0) return -1;
-    return Math.min(length, Math.floor(elapsed / (view.charMs || 100)) + 1);
+    const length = question.chars ?? [...question.text].length;
+    if (question.shown !== null && question.shown !== undefined) return question.shown;
+    const from = Date.parse(question.typeFrom || question.openAt);
+    const base = question.typeBase || 0;
+    const now = quizServerNow();
+    if (now < from) return base > 0 ? base : -1;
+    return Math.min(length, base + Math.floor((now - from) / (view.charMs || 100)) + 1);
+}
+
+/** 問題文を count 文字まで書く。止めているあいだは止めた印を付ける */
+function writeQuizText(question, count) {
+    const text = el('qz-question');
+    const length = question.chars ?? [...question.text].length;
+    const paused = question.shown !== null && question.shown !== undefined && count < length;
+    text.textContent = [...question.text].slice(0, Math.max(0, count)).join('');
+    text.classList.toggle('is-typing', !paused && count < length);
+    text.classList.toggle('is-paused', paused);
 }
 
 /** 問題文を1文字ずつ出す (こまめに数え直し、増えたときだけ書き換える) */
@@ -210,16 +226,9 @@ function typeQuizQuestion() {
     if (!question || !isQuizRoute()) return;
     const count = quizTypedCount(view);
     if (count === quiz.typed || count < 0) return;
-    const length = [...question.text].length;
-    const wasFull = quiz.typed >= length;
     quiz.typed = count;
-    const text = el('qz-question');
-    text.classList.remove('is-waiting');
-    text.textContent = [...question.text].slice(0, count).join('');
-    const done = count >= length;
-    text.classList.toggle('is-typing', !done);
-    // 全部出たら選択肢を出す
-    if (done && !wasFull) renderQuizQuestion(view, false);
+    el('qz-question').classList.remove('is-waiting');
+    writeQuizText(question, count);
 }
 
 function renderQuizQuestion(view, fresh) {
@@ -244,16 +253,13 @@ function renderQuizQuestion(view, fresh) {
         explain.classList.add('hidden');
         return;
     }
-    const length = [...question.text].length;
     const typed = quizTypedCount(view);
-    const full = typed >= length;
     text.classList.remove('is-brush');
     if (waiting) {
         text.textContent = '出題します…';
-        text.classList.remove('is-typing');
+        text.classList.remove('is-typing', 'is-paused');
     } else {
-        text.textContent = [...question.text].slice(0, typed).join('');
-        text.classList.toggle('is-typing', !full);
+        writeQuizText(question, typed);
     }
     text.classList.toggle('is-waiting', Boolean(waiting));
     quiz.typed = typed;
@@ -271,8 +277,8 @@ function renderQuizQuestion(view, fresh) {
     const revealed = view.phase === 'result' && question.answer !== null;
     choices.innerHTML = '';
     choices.classList.toggle('is-answering', mine);
-    // 選択肢は問題文が全部出てから
-    if (!waiting && full) {
+    // 選択肢は出題の最初から出す (問題文は1文字ずつ)
+    {
         question.choices.forEach((choice, index) => {
             const li = document.createElement('li');
             const button = document.createElement('button');
@@ -590,7 +596,8 @@ function renderQuizRules() {
         '「参加する」を押さないまま1戦が始まった人は、席から外れる (座ったままいなくなった人が残らないように)。',
         `問題が出たら早押し。押した人だけが4択から選べる (10秒)。1番目の正解 ${quizSigned(rewards.first)}・2番目の正解 ${quizSigned(rewards.second)}・不正解 (時間切れも) ${quizSigned(rewards.wrong)}。`,
         '1番目が間違えたら、まだ押していない人がもう1人だけ解答できる。',
-        '問題文は0.1秒ごとに1文字ずつ出る。出ている途中でも早押しでき、押すと全文と選択肢が出る。',
+        '選択肢は最初から出て、問題文は0.1秒ごとに1文字ずつ出る。出ている途中でも早押しでき、押した時点で問題文は止まる (解答する人も、止まったところまでで答える)。',
+        '1番目が間違えたら、止まったところから問題文の続きが出る。全文は結果のときに出る。',
         `問題文が全部出てから20秒たっても誰も押さなければ打ち切りで、参加者全員 ${quizSigned(rewards.timeout)}。`,
         'レートは1問ごとにその場で動く。1日のプレイ回数には数えない。',
         'ジャンルは1戦ごとに「データベース工学」(第1〜6回の理解確認問題) と「雑学」(200問) を交互に出す。',

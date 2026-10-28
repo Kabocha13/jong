@@ -29,7 +29,7 @@ export const QUIZ_QUESTIONS = [
       "データベース",
       "ファイルの限界"
     ],
-    "question": "データの永続化に普通のファイルを使う場合の限界として、資料で挙げられているものはどれか。",
+    "question": "データの永続化に普通のファイルを使う場合の限界として正しいものはどれか。",
     "choices": [
       "ファイルには文字列しか保存できない",
       "電源を切るとファイルの内容が消える",
@@ -463,7 +463,7 @@ export const QUIZ_QUESTIONS = [
     "tags": [
       "主キー"
     ],
-    "question": "課題2の関係 wallet(money, num)（金種と枚数）の主キーはどれか。",
+    "question": "財布の中身を表す関係 wallet(money, num)（money は金種、num はその枚数。同じ金種は1行にまとめる）の主キーはどれか。",
     "choices": [
       "主キーは存在しない",
       "money",
@@ -792,7 +792,7 @@ export const QUIZ_QUESTIONS = [
       "結合",
       "結合条件"
     ],
-    "question": "FROM departments d JOIN employees e ON d.manager_id=e.manager_id の結果が表すものはどれか。",
+    "question": "departments(id, name, store_id, floor, manager_id)（manager_id はその売場を担当するマネージャの社員番号） と employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） で、FROM departments d JOIN employees e ON d.manager_id = e.manager_id の結果が表すものはどれか。",
     "choices": [
       "各売場のマネージャ本人",
       "マネージャのいない売場",
@@ -1156,7 +1156,7 @@ export const QUIZ_QUESTIONS = [
       "結合",
       "演習"
     ],
-    "question": "cities(name, population, prefecture) と products(…, origin) を ON c.name = p.origin で結合する。部品C（在庫30、生産地 名古屋市）の行で出力される prefecture はどれか。",
+    "question": "cities(name, population, prefecture) に（名古屋市, 229.6, 愛知県）（八王子市, 57.8, 東京都）（横浜市, 372.5, 神奈川県）（千葉市, 97.2, 千葉県）（船橋市, 62.3, 千葉県）（川崎市, 147.5, 神奈川県）がある。products の部品C は在庫数 30・生産地（origin）名古屋市である。SELECT p.inventory, c.prefecture FROM cities c JOIN products p ON c.name = p.origin; で部品C の行に出力される prefecture はどれか。",
     "choices": [
       "東京都",
       "愛知県",
@@ -1241,7 +1241,7 @@ export const QUIZ_QUESTIONS = [
       "非冗長性",
       "オーソリティ"
     ],
-    "question": "非冗長性の原則の目的として資料で述べられているものはどれか。",
+    "question": "非冗長性の原則（同じ情報を2ヶ所以上に記録しない）の目的として最も適切なものはどれか。",
     "choices": [
       "検索を高速化すること",
       "テーブル数を減らすこと",
@@ -1257,7 +1257,7 @@ export const QUIZ_QUESTIONS = [
     "tags": [
       "設計原則"
     ],
-    "question": "科目(科目番号, 科目名, 担当, 単位数)で同じ教員名が複数出現し、教員の住所などがない。指摘されている不備の組み合わせとして正しいものはどれか。",
+    "question": "科目(科目番号, 科目名, 担当, 単位数) の表で、担当に同じ教員名が何度も出てきて、教員の住所など氏名以外の情報はどこにもない。設計の4原則（非冗長性・統合性・分離性・充足性）のうち、不備がある原則の組み合わせはどれか。",
     "choices": [
       "主キーの不備のみ",
       "非冗長性・統合性・分離性の不備",
@@ -1291,15 +1291,15 @@ export const QUIZ_QUESTIONS = [
       "ゴルフDB",
       "業界知識"
     ],
-    "question": "ゴルフ成績DBで、メンバのHDCPとは別にscoresにもhdcpを記録する理由はどれか。",
+    "question": "ゴルフ同好会の成績DBで、メンバのHDCP（ハンディキャップ）は人にひもづく数字だが、コンペごとに調整されて異なる数字になることがある。このときの設計として適切なものはどれか。",
     "choices": [
-      "HDCPはINとOUTから計算できるから",
-      "メンバテーブルにHDCPを置けないから",
-      "主キーにするため",
-      "HDCPはコンペ毎に調整されて異なる数字になることがあるから"
+      "メンバ個人のHDCPとは別に、各コンペの成績にもそのコンペで使ったHDCPを記録する",
+      "HDCPはメンバのテーブルにだけ記録する",
+      "HDCPはINとOUTから計算できるので記録しない",
+      "コンペごとにメンバのテーブルを作り直す"
     ],
-    "answer": 3,
-    "explanation": "業界知識に基づく要件の詳細化の例です。"
+    "answer": 0,
+    "explanation": "メンバ個人のHDCPはメンバの情報、コンペで使ったHDCPは各コンペ参加メンバの情報として別々に記録します。"
   },
   {
     "id": "DB03-09",
@@ -1375,7 +1375,7 @@ export const QUIZ_QUESTIONS = [
       "ER図",
       "実体"
     ],
-    "question": "実体(entity)を見分けるポイントとして資料で挙げられているものはどれか。",
+    "question": "実体(entity)を見分けるポイントとして適切なものはどれか。",
     "choices": [
       "他の実体の属性である",
       "1つしか存在しない",
@@ -1460,7 +1460,7 @@ export const QUIZ_QUESTIONS = [
       "ER図",
       "記法"
     ],
-    "question": "この授業のER図の記法で、関連の矢印の付け方として正しいものはどれか。",
+    "question": "この科目で使うER図（Chen記法ベース）で、関連の矢印の付け方として正しいものはどれか。",
     "choices": [
       "矢印は使わずNや1の文字で書く",
       "多の方に矢印あり、1の方は矢印なし",
@@ -1527,7 +1527,7 @@ export const QUIZ_QUESTIONS = [
       "論理設計",
       "中間テーブル"
     ],
-    "question": "中間テーブル take(student_id, course_id, grade) の主キーの決め方として資料の方針はどれか。",
+    "question": "中間テーブル take(student_id, course_id, grade) の主キーの決め方として適切なものはどれか（student_id・course_id はそれぞれ学生・科目のテーブルの主キーを参照する）。",
     "choices": [
       "主キーは設定しない",
       "参照先テーブルの主キーを組み合わせたもの {student_id, course_id}",
@@ -1594,7 +1594,7 @@ export const QUIZ_QUESTIONS = [
     "tags": [
       "エンティティ化"
     ],
-    "question": "多対多関連がキー以外の属性（カラム）をいくつも持つ場合のモデル化の基準として資料が示すものはどれか。",
+    "question": "多対多の関連が、キー以外の属性（カラム）をいくつも持つ場合のモデル化の考え方として適切なものはどれか。",
     "choices": [
       "属性を別DBに移す",
       "関連をエンティティ化する",
@@ -1810,7 +1810,7 @@ export const QUIZ_QUESTIONS = [
     "tags": [
       "SQL作成"
     ],
-    "question": "例題2(1)「1988年生まれの社員の名前を出力する」SQL文はどれか。",
+    "question": "employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） から「1988年生まれの社員の名前」を出力するSQL文はどれか。",
     "choices": [
       "SELECT birth_year FROM employees WHERE name=1988;",
       "SELECT name FROM employees WHERE start_year=1988;",
@@ -1844,7 +1844,7 @@ export const QUIZ_QUESTIONS = [
       "SQL作成",
       "手順"
     ],
-    "question": "資料の解答例で示されたSQL文を組み立てる順番はどれか。",
+    "question": "複数のテーブルを使う問合せのSQL文を組み立てるとき、この科目の解答例で使われている考える順番はどれか。",
     "choices": [
       "ORDER BY→FROM→SELECT",
       "使用するテーブル（FROM）→選択条件（WHERE）→出力内容（SELECT）",
@@ -1895,7 +1895,7 @@ export const QUIZ_QUESTIONS = [
       "自己結合",
       "読解"
     ],
-    "question": "上の自己結合に WHERE m.salary < e.salary を加えたSQL文が検索するものはどれか。",
+    "question": "employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） で、SELECT m.name, e.name FROM employees m JOIN employees e ON m.id = e.manager_id WHERE m.salary < e.salary; が検索するものはどれか。",
     "choices": [
       "給料が同じ上司と部下",
       "マネージャでない社員",
@@ -1946,7 +1946,7 @@ export const QUIZ_QUESTIONS = [
       "結合",
       "SQL作成"
     ],
-    "question": "例題3(1)「store_id=5の売場の名前と、その売場のマネージャの氏名」を出力するSQL文はどれか。",
+    "question": "departments(id, name, store_id, floor, manager_id)（manager_id はその売場を担当するマネージャの社員番号） と employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） で、「store_id=5 の売場の名前と、その売場のマネージャの氏名」を出力するSQL文はどれか。",
     "choices": [
       "SELECT d.name, m.name FROM departments d JOIN employees m ON d.manager_id = m.manager_id WHERE d.store_id = 5;",
       "SELECT d.name FROM departments d WHERE d.manager_id = 5;",
@@ -1963,7 +1963,7 @@ export const QUIZ_QUESTIONS = [
       "結合",
       "選択条件"
     ],
-    "question": "例題3(2)「salaryが20000以上のマネージャと担当の売場名」で使うWHERE句はどれか（マネージャのエイリアスはm）。",
+    "question": "departments(id, name, store_id, floor, manager_id)（manager_id はその売場を担当するマネージャの社員番号） と employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） を FROM departments d JOIN employees m ON d.manager_id = m.id で結合し、「salary が 20000 以上のマネージャと担当の売場名」を出力する。使う WHERE 句はどれか。",
     "choices": [
       "WHERE m.salary > 20000",
       "WHERE salary = 20000",
@@ -1980,7 +1980,7 @@ export const QUIZ_QUESTIONS = [
       "結合",
       "3テーブル"
     ],
-    "question": "例題3(3)「20000円以上の商品名、扱う売場名、店舗の住所」を出力するときに結合するテーブルの組み合わせはどれか。",
+    "question": "items(id, name, department_id, price, qoh, supplier_id)・departments(id, name, store_id, floor, manager_id)・stores(id, name, address)・employees・suppliers がある。「20000円以上の商品の名前と、その商品を扱う売場の名前と、店舗の住所」を出力するときに結合するテーブルの組み合わせはどれか。",
     "choices": [
       "items, suppliers, stores",
       "items, departments, stores",
@@ -1997,7 +1997,7 @@ export const QUIZ_QUESTIONS = [
       "選択条件",
       "演習"
     ],
-    "question": "課題3(4)「23歳以上で入社した社員」を表すWHERE句はどれか。",
+    "question": "employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） で「23歳以上で入社した社員」を表す WHERE 句はどれか（年齢は年の差で考える）。",
     "choices": [
       "WHERE start_year - birth_year >= 23",
       "WHERE birth_year - start_year >= 23",
@@ -2031,7 +2031,7 @@ export const QUIZ_QUESTIONS = [
       "結合",
       "CDジャケットDB"
     ],
-    "question": "「椎名林檎のCDに含まれる曲の曲名をすべて表示」で結合する経路として正しいものはどれか。",
+    "question": "cds(id, title, artist_id, …)・tracks(cd_id, track_number, music_id, length)・music(id, title, composer_id, lyricist_id)・artists(id, name, …) がある（cds.artist_id はそのCDのアーティスト）。「椎名林檎のCDに含まれる曲の曲名をすべて表示」するときに結合する経路として正しいものはどれか。",
     "choices": [
       "artists → play → music",
       "cds → companies → music",
@@ -2065,7 +2065,7 @@ export const QUIZ_QUESTIONS = [
       "読解",
       "CDジャケットDB"
     ],
-    "question": "artists・play・tracks・music を結合し WHERE p.role='vocal' で a.name, m.title を出力するSQL文の意味はどれか。",
+    "question": "artists(id, name, …)・play(cd_id, track_number, artist_id, role)・tracks(cd_id, track_number, music_id, length)・music(id, title, …) を結合し、WHERE p.role = 'vocal' として a.name, m.title を出力するSQL文の意味はどれか。",
     "choices": [
       "ボーカル名と曲タイトルの対応表",
       "作曲者名と曲タイトルの対応表",
@@ -2115,7 +2115,7 @@ export const QUIZ_QUESTIONS = [
       "関係代数",
       "SQL"
     ],
-    "question": "関係代数とSQLの関係として資料で述べられているものはどれか。",
+    "question": "関係代数とSQLの関係として正しいものはどれか。",
     "choices": [
       "SQLと関係代数は無関係",
       "関係代数はSQLを実装したもの",
@@ -2346,7 +2346,7 @@ export const QUIZ_QUESTIONS = [
       "差集合",
       "演習"
     ],
-    "question": "上と同じRa, Rbで、Ra − Rb はどれか。",
+    "question": "Ra = {R001, C001, H002, M001, M005}、Rb = {R001, C003, H001, M002, M005}（同じ商品番号は同じタプル）のとき Ra − Rb はどれか。",
     "choices": [
       "空集合",
       "C001, H002, M001",
@@ -2495,7 +2495,7 @@ export const QUIZ_QUESTIONS = [
     "tags": [
       "集約関数"
     ],
-    "question": "SQLの集約関数として資料に挙げられていないものはどれか。",
+    "question": "SQLの集約関数ではないものはどれか。",
     "choices": [
       "DISTINCT",
       "COUNT",
@@ -2528,7 +2528,7 @@ export const QUIZ_QUESTIONS = [
     "tags": [
       "GROUP BY"
     ],
-    "question": "emp(id, name, dept, salary) に 田中 家具1000、山田 食品1200、高橋 食品900、山下 家具1100、田中 玩具700、大田 食品800 がある。SELECT dept, COUNT(*), SUM(salary) FROM emp GROUP BY dept; の家具の行はどれか。",
+    "question": "emp(id, name, dept, salary) に 田中 家具 1000、山田 食品 1200、高橋 食品 900、山下 家具 1100、田中 玩具 700、大田 食品 800 の6行がある。SELECT dept, COUNT(*), SUM(salary) FROM emp GROUP BY dept; の家具の行はどれか。",
     "choices": [
       "家具 2 1050",
       "家具 3 2900",
@@ -2545,7 +2545,7 @@ export const QUIZ_QUESTIONS = [
       "GROUP BY",
       "WHERE"
     ],
-    "question": "上のempに対し WHERE salary>900 GROUP BY dept としたときの食品の行はどれか。",
+    "question": "emp(id, name, dept, salary) に 田中 家具 1000、山田 食品 1200、高橋 食品 900、山下 家具 1100、田中 玩具 700、大田 食品 800 の6行がある。SELECT dept, COUNT(*), SUM(salary) FROM emp WHERE salary > 900 GROUP BY dept; の食品の行はどれか。",
     "choices": [
       "食品 0 0",
       "食品 1 1200",
@@ -2562,7 +2562,7 @@ export const QUIZ_QUESTIONS = [
       "GROUP BY",
       "HAVING"
     ],
-    "question": "上のempに対し GROUP BY dept HAVING AVG(salary)>900 としたとき、結果に現れない部門はどれか。",
+    "question": "emp(id, name, dept, salary) に 田中 家具 1000、山田 食品 1200、高橋 食品 900、山下 家具 1100、田中 玩具 700、大田 食品 800 の6行がある。SELECT dept FROM emp GROUP BY dept HAVING AVG(salary) > 900; の結果に現れない部門はどれか。",
     "choices": [
       "玩具",
       "家具",
@@ -2645,7 +2645,7 @@ export const QUIZ_QUESTIONS = [
       "外部結合",
       "NULL"
     ],
-    "question": "外部結合を使うべき場面として資料で挙げられているものはどれか。",
+    "question": "外部結合を使うべき場面として適切なものはどれか。",
     "choices": [
       "主キーで結合する場合",
       "必ず相手が存在する場合",
@@ -2662,7 +2662,7 @@ export const QUIZ_QUESTIONS = [
       "外部結合",
       "演習"
     ],
-    "question": "販売リストR（8件、うち商品番号H002とC001はSに存在しない）と商品リストS（5件、うちM005はRから参照されない）を商品番号で完全外部結合したときの行数はどれか。",
+    "question": "販売リストR（8行。そのうち商品番号が H002 の1行と C001 の1行は、Sに同じ商品番号が無い）と取り扱い商品リストS（5行。商品番号は重複せず、そのうち M005 はRのどの行からも参照されない）を、商品番号が等しいことを条件に完全外部結合したときの行数はどれか。",
     "choices": [
       "6行",
       "7行",
@@ -2679,7 +2679,7 @@ export const QUIZ_QUESTIONS = [
       "集約関数",
       "演習"
     ],
-    "question": "shipping の quantity が 3, 2, 1, 2（NP200: 3と1）のとき、最も大きな値が得られるものはどれか。",
+    "question": "shipping(product_id, shipped_on, quantity) に（NP200, 2025-10-10, 3）（FP233, 2025-10-10, 2）（NP200, 2025-10-11, 1）（FP233, 2025-10-11, 2）の4行があるとき、最も大きな値が得られるものはどれか。",
     "choices": [
       "SELECT SUM(quantity) FROM shipping WHERE shipped_on='2025-10-11';",
       "SELECT COUNT(*) FROM shipping;",
@@ -2687,7 +2687,7 @@ export const QUIZ_QUESTIONS = [
       "SELECT MAX(quantity) FROM shipping;"
     ],
     "answer": 1,
-    "explanation": "COUNT=4、AVG=2、MAX=3、SUM=3です。"
+    "explanation": "COUNT(*)=4、MAX=3、NP200のAVG=(3+1)/2=2、2025-10-11のSUM=1+2=3 です。"
   },
   {
     "id": "DB05-37",
@@ -2862,7 +2862,7 @@ export const QUIZ_QUESTIONS = [
       "無損失分解",
       "非キー属性"
     ],
-    "question": "共通属性KがRの非キー属性である場合、{R1, R2}が無損失分解となる条件として資料が示すものはどれか。",
+    "question": "関係Rを射影R1, R2に分解する。共通属性KがRの非キー属性である場合、{R1, R2} が無損失分解となる条件として正しいものはどれか。",
     "choices": [
       "KがR1またはR2のどちらかで主キーになる",
       "KがR1とR2の両方で外部キーになる",
@@ -2894,7 +2894,7 @@ export const QUIZ_QUESTIONS = [
     "tags": [
       "関数的"
     ],
-    "question": "「関数的」である関係の例として資料で挙げられているものはどれか。",
+    "question": "「関数的」である（Xを決めるとYがただ1つに決まる）関係の例はどれか。",
     "choices": [
       "兄弟(X, Y)：XとYは兄弟",
       "同僚(X, Y)",
@@ -2976,7 +2976,7 @@ export const QUIZ_QUESTIONS = [
       "候補キー",
       "演習"
     ],
-    "question": "R(A,B,C) のタプルが (a,x,1), (b,y,1), (c,y,2), (d,z,3) のとき、候補キーの組み合わせはどれか。",
+    "question": "R(A,B,C) のタプルが (a,x,1), (b,y,1), (c,y,2), (d,z,3) の4つのとき、候補キーの組み合わせはどれか。",
     "choices": [
       "{A, B, C} のみ",
       "{A} と {B, C}",
@@ -2993,7 +2993,7 @@ export const QUIZ_QUESTIONS = [
       "スーパーキー",
       "演習"
     ],
-    "question": "上と同じR(A,B,C)で、{A, B} について正しいものはどれか。",
+    "question": "R(A,B,C) のタプルが (a,x,1), (b,y,1), (c,y,2), (d,z,3) の4つのとき、{A, B} について正しいものはどれか。",
     "choices": [
       "スーパーキーだが候補キーではない",
       "候補キーである",
@@ -3010,7 +3010,7 @@ export const QUIZ_QUESTIONS = [
       "スーパーキー",
       "演習"
     ],
-    "question": "上と同じR(A,B,C)で、スーパーキーではないものはどれか。",
+    "question": "R(A,B,C) のタプルが (a,x,1), (b,y,1), (c,y,2), (d,z,3) の4つのとき、スーパーキーではないものはどれか。",
     "choices": [
       "{A}",
       "{B, C}",
@@ -3093,7 +3093,7 @@ export const QUIZ_QUESTIONS = [
       "無損失分解",
       "定理7"
     ],
-    "question": "定理7：関係R(αβγ)で FD: α → β が成立するとき、無損失分解となる射影の組はどれか。",
+    "question": "関係 R(αβγ) で FD: α → β が成立するとき、無損失分解となる射影の組はどれか。",
     "choices": [
       "R1(α) と R2(βγ)",
       "R1(β) と R2(γ)",
@@ -3242,7 +3242,7 @@ export const QUIZ_QUESTIONS = [
       "関数従属性",
       "演習"
     ],
-    "question": "受注表で成立する自明でないFDとして正しいものはどれか。",
+    "question": "受注(受注No., 受注日, 顧客コード, 顧客名, 商品コード, 商品名, 単価, 数量)（1回の受注に複数の商品がありうる）で成立する、自明でない関数従属性として正しいものはどれか。",
     "choices": [
       "数量 → 商品名",
       "顧客コード → 顧客名",
@@ -3276,7 +3276,7 @@ export const QUIZ_QUESTIONS = [
       "UPDATE",
       "演習"
     ],
-    "question": "テーブルstudents(id, name, grade, department, faculty, score, result)で、得点60点以上の学生の合否を「合格」にするSQL文はどれか。",
+    "question": "students(id, name, grade, department, faculty, score, result) で、得点(score)が60点以上の学生の合否(result)を「合格」にするSQL文はどれか。",
     "choices": [
       "UPDATE students SET result='合格' WHERE score>60;",
       "UPDATE students SET score='合格' WHERE result>=60;",
@@ -3293,7 +3293,7 @@ export const QUIZ_QUESTIONS = [
       "UPDATE",
       "演習"
     ],
-    "question": "同じstudentsテーブルで、X学部の学生全員に3点加点するSQL文はどれか。",
+    "question": "students(id, name, grade, department, faculty, score, result) で、X学部(faculty)の学生全員の得点(score)に3点加点するSQL文はどれか。",
     "choices": [
       "UPDATE students SET score+3 WHERE faculty='X学部';",
       "SELECT score+3 FROM students WHERE faculty='X学部';",
@@ -3310,7 +3310,7 @@ export const QUIZ_QUESTIONS = [
       "集約関数",
       "演習"
     ],
-    "question": "同じstudentsテーブルで、X学部の平均点を計算するSQL文はどれか。",
+    "question": "students(id, name, grade, department, faculty, score, result) で、X学部(faculty)の学生の平均点を計算するSQL文はどれか。",
     "choices": [
       "SELECT score FROM students GROUP BY AVG;",
       "SELECT AVG(score) FROM students WHERE faculty='X学部';",

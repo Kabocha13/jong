@@ -11,7 +11,9 @@
 //   受付中に座っている全員、1戦の途中なら参加者全員が「スキップ」を押すと、次のジャンルへ移る
 //   (1戦の途中なら、まだ決着していない問題は採点せずに捨て、残りの問題を次のジャンルから出す)。
 //   出題 (question): 問題を出し、QUIZ_INTRO_MS のあと問題文を QUIZ_CHAR_MS ごとに1文字ずつ出す (画面が openAt から数える)。
-//     出している途中から早押しを受け付ける。全部出てから QUIZ_QUESTION_MS 誰も押さなければ打ち切りで、
+//     選択肢は最初から出す。出している途中から早押しを受け付け、押された時点で問題文を止める (shown にその文字数を残す)。
+//     押した人が間違えて次の人が押せるようになったら、止めたところから続きを出す (typeFrom・typeBase)。
+//     全部出てから QUIZ_QUESTION_MS 誰も押さなければ打ち切りで、
 //     参加者全員 QUIZ_REWARDS.timeout。
 //   解答 (answering): 押した人が QUIZ_ANSWER_MS のうちに4択から選ぶ (時間切れは不正解)。
 //     1番目の正解 QUIZ_REWARDS.first・2番目の正解 QUIZ_REWARDS.second・不正解 QUIZ_REWARDS.wrong。
@@ -98,6 +100,15 @@ function genreAt(index) {
 
 function genreIndexOf(key) {
   return Math.max(0, QUIZ_GENRES.findIndex(genre => genre.key === key));
+}
+
+/** 問題文をいま何文字まで出しているか (サーバーの時刻で数える。画面も同じ数え方) */
+export function quizTypedCount(question, now) {
+  if (question.shown !== null && question.shown !== undefined) return question.shown;
+  const from = Date.parse(question.typeFrom || question.openAt);
+  const base = question.typeBase || 0;
+  if (now < from) return base;
+  return Math.min(question.chars, base + Math.floor((now - from) / QUIZ_CHAR_MS) + 1);
 }
 
 function iso(ms) {
@@ -217,6 +228,10 @@ function openQuestion(ctx) {
     explanation: source.explanation || '',
     openAt: iso(openAt),
     endsAt: iso(openAt + [...source.question].length * QUIZ_CHAR_MS + QUIZ_QUESTION_MS),
+    chars: [...source.question].length,
+    typeFrom: iso(openAt),   // いま1文字ずつ出している区間の始まり
+    typeBase: 0,             // その区間の始まりに出ていた文字数
+    shown: null,             // 押されて止めたときの文字数 (出している途中は null)
     answerer: null,
     answerEndsAt: null,
     buzzes: [],
@@ -270,6 +285,8 @@ function resolveQuestion(ctx, outcome) {
   question.outcome = outcome;
   question.answerer = null;
   question.answerEndsAt = null;
+  // 結果では全文を見せる (解説と一緒に読み直せるように)
+  question.shown = question.chars;
   if (outcome === 'timeout') {
     question.timeout = QUIZ_REWARDS.timeout;
     activePlayers(table).forEach(player => {
@@ -342,10 +359,14 @@ function judgeAnswer(ctx, uid, choice) {
     resolveQuestion(ctx, 'wrong');
     return;
   }
-  // もう1人だけ押せる。残りが短ければ少し延ばす
+  // もう1人だけ押せる。止めたところから問題文の続きを出し、締め切りは残りの文字ぶんと QUIZ_REOPEN_MIN_MS を待つ
   question.answerer = null;
   question.answerEndsAt = null;
-  question.endsAt = iso(Math.max(Date.parse(question.endsAt), ctx.now + QUIZ_REOPEN_MIN_MS));
+  question.typeBase = question.shown;
+  question.typeFrom = ctx.nowIso;
+  question.shown = null;
+  const rest = (question.chars - question.typeBase) * QUIZ_CHAR_MS;
+  question.endsAt = iso(Math.max(Date.parse(question.endsAt), ctx.now + rest + QUIZ_REOPEN_MIN_MS));
   table.phase = 'question';
 }
 
@@ -418,7 +439,9 @@ export function buzzQuiz(ctx, uid, rawNo) {
   if (passed(question.endsAt, ctx.now)) throw new QuizError(409, 'この問題はもう締め切りました。');
   if (question.buzzes.some(item => item.uid === uid)) throw new QuizError(409, 'この問題ではもう解答しました。');
   if (question.buzzes.length >= QUIZ_MAX_BUZZES) throw new QuizError(409, 'この問題はもう締め切りました。');
-  question.buzzes.push({ uid, name: participantOf(table, uid).name, choice: null, correct: null, delta: 0, at: ctx.nowIso });
+  // 押された時点で問題文を止める
+  question.shown = quizTypedCount(question, ctx.now);
+  question.buzzes.push({ uid, name: participantOf(table, uid).name, choice: null, correct: null, delta: 0, at: ctx.nowIso, chars: question.shown });
   question.answerer = uid;
   question.answerEndsAt = iso(ctx.now + QUIZ_ANSWER_MS);
   table.phase = 'answering';
@@ -514,9 +537,13 @@ export function publicQuizTable(table) {
       choices: question.choices,
       openAt: question.openAt,
       endsAt: question.endsAt,
+      chars: question.chars,
+      typeFrom: question.typeFrom,
+      typeBase: question.typeBase,
+      shown: question.shown,
       answerer: question.answerer ? nameOf(question.answerer) : null,
       answerEndsAt: question.answerEndsAt,
-      buzzes: question.buzzes.map(({ name, choice, correct, delta }) => ({ name, choice, correct, delta })),
+      buzzes: question.buzzes.map(({ name, choice, correct, delta, chars }) => ({ name, choice, correct, delta, chars: chars ?? null })),
       outcome: question.outcome,
       timeout: question.timeout,
       answer: revealed ? question.answer : null,
