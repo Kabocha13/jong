@@ -74,9 +74,16 @@ function quizSigned(value) {
 /** いま押せるか (参加者で、早押しの受付中で、まだこの問題で押していない) */
 function canQuizBuzz(table = quiz.table) {
     const question = table?.question;
-    if (!question || table.phase !== 'question' || !isQuizPlayer(table)) return false;
+    // 1番目の人が解答しているあいだも、2番目として押せる (61.5〜)
+    if (!question || !['question', 'answering'].includes(table.phase) || !isQuizPlayer(table)) return false;
     if (quizServerNow() < Date.parse(question.openAt)) return false;
     return !question.buzzes.some(buzz => buzz.name === quizMe()) && question.buzzes.length < 2;
+}
+
+/** 押して、前の人の解答を待っている (2番目) */
+function isQuizQueued(table = quiz.table, name = quizMe()) {
+    return Boolean(table?.phase === 'answering' && table.question?.answerer !== name
+        && table.question.buzzes.some(buzz => buzz.name === name && buzz.correct === null && !buzz.skipped));
 }
 
 function isMyQuizAnswer(table = quiz.table) {
@@ -132,6 +139,7 @@ function quizSeatState(view, seat) {
     const question = view.question;
     if (!seat.inMatch) return view.match ? { label: '次の1戦から', tone: 'idle' } : seat.ready ? { label: '参加', tone: 'ready' } : { label: '待機', tone: 'idle' };
     if (question?.answerer === seat.name) return { label: '解答中', tone: 'answering' };
+    if (isQuizQueued(view, seat.name)) return { label: '2番目', tone: 'queued' };
     const buzz = question?.buzzes.find(item => item.name === seat.name);
     if (buzz && buzz.correct === true) return { label: '正解', tone: 'correct' };
     if (buzz && buzz.correct === false) return { label: '不正解', tone: 'wrong' };
@@ -426,7 +434,7 @@ function animateQuizChanges(view, previous) {
         quiz.seenSkip = view.lastSkip.at;
         const genre = (view.genres || []).find(item => item.key === view.lastSkip.genre);
         stampQuiz('skip', '次へ');
-        showMessage(el('qz-message'), `全員がスキップしたので、ジャンルを「${genre ? genre.name : ''}」に変えました。`, 'info');
+        showQuizToast(`全員がスキップしたので、ジャンルを「${genre ? genre.name : ''}」に変えました。`);
     }
     if (view.lastMatch && quiz.seenMatch !== view.lastMatch.no && !view.match) {
         const played = view.lastMatch.ranking.some(item => item.name === quizMe());
@@ -558,7 +566,11 @@ function renderQuizStatus() {
     } else if (view.phase === 'answering') {
         left = quizMsLeft(question.answerEndsAt);
         total = timing.answerMs;
-        text = isMyQuizAnswer(view) ? `あなたの解答です — ${Math.ceil(left / 1000)}秒以内に選んでください (A〜D)` : `${question.answerer} さんが解答中…`;
+        const queued = question.buzzes.find(buzz => buzz.correct === null && !buzz.skipped && buzz.name !== question.answerer);
+        text = isMyQuizAnswer(view) ? `あなたの解答です — ${Math.ceil(left / 1000)}秒以内に選んでください (A〜D)`
+            : isQuizQueued(view) ? `2番目に押しました。${question.answerer} さんが間違えたら解答できます`
+                : canQuizBuzz(view) ? `${question.answerer} さんが解答中 — 2番目として押せます`
+                    : `${question.answerer} さんが解答中…${queued ? ` (2番目: ${queued.name} さん)` : ''}`;
         tone = isMyQuizAnswer(view) ? 'mine' : 'answering';
     } else if (view.phase === 'result') {
         left = quizMsLeft(view.resultEndsAt);
@@ -635,7 +647,7 @@ function renderQuizRules() {
         '最大4人。席に座って「参加する」を押した人で1戦 (5問) を行う。全員が押すとすぐ、誰かが押してから15秒で始まる。',
         '「参加する」を押さないまま1戦が始まった人は、席から外れる (座ったままいなくなった人が残らないように)。',
         `問題が出たら早押し。押した人だけが4択から選べる (10秒)。1番目の正解 ${quizSigned(rewards.first)}・2番目の正解 ${quizSigned(rewards.second)}・不正解 (時間切れも) ${quizSigned(rewards.wrong)}。`,
-        '1番目が間違えたら、まだ押していない人がもう1人だけ解答できる。',
+        '押せるのは2番目の人まで。1番目の人が解答しているあいだも押せて、1番目が間違えたら2番目の人がすぐ解答する (1番目が正解なら2番目の人は答えず、レートも動かない)。2番目がいなければ、まだ押していない人がもう1人だけ押せる。',
         '選択肢は最初から出て、問題文は0.1秒ごとに1文字ずつ出る。出ている途中でも早押しでき、押した時点で問題文は止まる (解答する人も、止まったところまでで答える)。',
         '1番目が間違えたら、止まったところから問題文の続きが出る。全文は結果のときに出る。',
         `問題文が全部出てから20秒たっても誰も押さなければ打ち切りで、参加者全員 ${quizSigned(rewards.timeout)}。`,
@@ -722,6 +734,15 @@ async function pollQuizTable() {
 // ------------------------------------------------------------------
 // 操作
 // ------------------------------------------------------------------
+/** 卓の上に短く重ねて出す知らせ (レイアウトを動かさない) */
+function showQuizToast(message) {
+    const toast = el('qz-message');
+    toast.textContent = message;
+    toast.className = 'qz-toast';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => toast.classList.add('hidden'), 2600);
+}
+
 async function sendQuiz(action, payload = {}) {
     if (quiz.busy) return null;
     quiz.busy = true;
@@ -733,7 +754,8 @@ async function sendQuiz(action, payload = {}) {
         receiveQuizTable(data.quiz, data.now);
         return data;
     } catch (error) {
-        showMessage(el('qz-message'), error.message, 'error');
+        // 押し負けなどは画面の形を変えないよう、短く重ねて知らせるだけにする
+        showQuizToast(error.message);
         // 表示が古いせいで断られたときに備えて読み直す
         pollQuizTable();
         return null;

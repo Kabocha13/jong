@@ -17,7 +17,9 @@
 //     参加者全員 QUIZ_REWARDS.timeout。
 //   解答 (answering): 押した人が QUIZ_ANSWER_MS のうちに4択から選ぶ (時間切れは不正解)。
 //     1番目の正解 QUIZ_REWARDS.first・2番目の正解 QUIZ_REWARDS.second・不正解 QUIZ_REWARDS.wrong。
-//     1番目が不正解なら、まだ押していない人がもう1回だけ押せる (残りの時間が短ければ QUIZ_REOPEN_MIN_MS まで延ばす)。
+//     押せるのは2番目の人まで (61.5〜)。1番目の人が解答しているあいだも2番目の人は押せて、押した順に並ぶ。
+//     1番目が不正解なら、並んでいる2番目の人がすぐ解答する (1番目が正解なら2番目の人は答えず、増減も無い)。
+//     2番目がまだいなければ、まだ押していない人がもう1回だけ押せる (止めたところから問題文の続きを出す)。
 //   結果 (result): 正解と解説を QUIZ_RESULT_MS 見せてから次の問題へ。最後の問題のあとは受付に戻る (全員もう一度「参加する」)。
 //   レートは1問ごとにその場で動く (賭けは無いので押さえている額は無い)。
 //   サーバーは常駐しないので、締め切りの判定は画面を開いている誰かの qzTick と定期処理で行う。
@@ -172,8 +174,8 @@ export function joinQuizSeat(ctx, uid, name, rawSeat) {
 /** 席を立つ。1戦の途中なら、そのあとの問題には参加しない (打ち切りの減点も受けない) */
 export function leaveQuizSeat(ctx, uid) {
   const { table } = ctx;
-  if (table.phase === 'answering' && table.question?.answerer === uid) {
-    throw new QuizError(409, '解答中は席を立てません。');
+  if (['question', 'answering'].includes(table.phase) && table.question?.buzzes.some(item => item.uid === uid && item.correct === null)) {
+    throw new QuizError(409, '押した問題の解答が終わるまで席を立てません。');
   }
   const index = seatIndexOf(table, uid);
   if (index >= 0) table.seats[index] = null;
@@ -334,9 +336,10 @@ function judgeAnswer(ctx, uid, choice) {
   const question = table.question;
   const player = participantOf(table, uid);
   const correct = choice !== null && choice === question.answer;
-  const order = question.buzzes.length;
+  const index = question.buzzes.findIndex(item => item.uid === uid && item.correct === null);
+  const order = index + 1;
   const delta = correct ? (order === 1 ? QUIZ_REWARDS.first : QUIZ_REWARDS.second) : QUIZ_REWARDS.wrong;
-  const buzz = question.buzzes[order - 1];
+  const buzz = question.buzzes[index];
   buzz.choice = choice;
   buzz.correct = correct;
   buzz.delta = delta;
@@ -350,7 +353,17 @@ function judgeAnswer(ctx, uid, choice) {
   if (wallet && correct) wallet.qzCorrect = (wallet.qzCorrect || 0) + 1;
   ctx.changed = true;
   if (correct) {
+    // 並んでいた2番目の人は答えない
+    question.buzzes.forEach(item => { if (item.correct === null) item.skipped = true; });
     resolveQuestion(ctx, 'correct');
+    return;
+  }
+  // 2番目の人が並んでいれば、すぐその人の解答に移る (問題文は止めたまま)
+  const next = question.buzzes[index + 1];
+  if (next && next.correct === null) {
+    question.answerer = next.uid;
+    question.answerEndsAt = iso(ctx.now + QUIZ_ANSWER_MS);
+    table.phase = 'answering';
     return;
   }
   const buzzed = new Set(question.buzzes.map(item => item.uid));
@@ -432,13 +445,18 @@ export function buzzQuiz(ctx, uid, rawNo) {
   const { table } = ctx;
   assertQuestion(table, rawNo);
   if (!participantOf(table, uid)) throw new QuizError(409, 'この1戦には参加していません。次の1戦で「参加する」を押してください。');
-  if (table.phase === 'answering') throw new QuizError(409, 'ほかの人が先に押しました。');
-  if (table.phase !== 'question') throw new QuizError(409, 'この問題はもう締め切りました。');
+  if (!['question', 'answering'].includes(table.phase)) throw new QuizError(409, 'この問題はもう締め切りました。');
   const question = table.question;
   if (ctx.now < Date.parse(question.openAt)) throw new QuizError(409, 'まだ押せません。');
-  if (passed(question.endsAt, ctx.now)) throw new QuizError(409, 'この問題はもう締め切りました。');
-  if (question.buzzes.some(item => item.uid === uid)) throw new QuizError(409, 'この問題ではもう解答しました。');
-  if (question.buzzes.length >= QUIZ_MAX_BUZZES) throw new QuizError(409, 'この問題はもう締め切りました。');
+  if (table.phase === 'question' && passed(question.endsAt, ctx.now)) throw new QuizError(409, 'この問題はもう締め切りました。');
+  if (question.buzzes.some(item => item.uid === uid)) throw new QuizError(409, 'この問題ではもう押しています。');
+  if (question.buzzes.length >= QUIZ_MAX_BUZZES) throw new QuizError(409, '2人が押したので締め切りました。');
+  if (table.phase === 'answering') {
+    // 1番目の人が解答中: 2番目として並ぶ (1番目が間違えたら解答する)
+    question.buzzes.push({ uid, name: participantOf(table, uid).name, choice: null, correct: null, delta: 0, at: ctx.nowIso, chars: question.shown });
+    ctx.changed = true;
+    return;
+  }
   // 押された時点で問題文を止める
   question.shown = quizTypedCount(question, ctx.now);
   question.buzzes.push({ uid, name: participantOf(table, uid).name, choice: null, correct: null, delta: 0, at: ctx.nowIso, chars: question.shown });
@@ -543,7 +561,7 @@ export function publicQuizTable(table) {
       shown: question.shown,
       answerer: question.answerer ? nameOf(question.answerer) : null,
       answerEndsAt: question.answerEndsAt,
-      buzzes: question.buzzes.map(({ name, choice, correct, delta, chars }) => ({ name, choice, correct, delta, chars: chars ?? null })),
+      buzzes: question.buzzes.map(({ name, choice, correct, delta, chars, skipped }) => ({ name, choice, correct, delta, chars: chars ?? null, skipped: Boolean(skipped) })),
       outcome: question.outcome,
       timeout: question.timeout,
       answer: revealed ? question.answer : null,
