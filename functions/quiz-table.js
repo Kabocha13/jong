@@ -7,7 +7,11 @@
 //   受付 (lobby): 座っている人が「参加する」を押す。全員が押したらすぐ、誰かが押してから QUIZ_LOBBY_MS たったら
 //     押した人だけで1戦 (QUIZ_MATCH_QUESTIONS 問) を始める。押さなかった人 (一戦参加しなかった人) は席を空ける。
 //     押さないまま QUIZ_SEAT_IDLE_MS 座っている人も席を空ける (画面を閉じたまま席が残らないように)。
-//   出題 (question): 問題を出し、QUIZ_INTRO_MS のあと早押しを受け付ける。QUIZ_QUESTION_MS 誰も押さなければ打ち切りで、
+//   ジャンルは1戦ごとに QUIZ_GENRES を順に交互 (データベース工学 → 雑学 → …)。
+//   受付中に座っている全員、1戦の途中なら参加者全員が「スキップ」を押すと、次のジャンルへ移る
+//   (1戦の途中なら、まだ決着していない問題は採点せずに捨て、残りの問題を次のジャンルから出す)。
+//   出題 (question): 問題を出し、QUIZ_INTRO_MS のあと問題文を QUIZ_CHAR_MS ごとに1文字ずつ出す (画面が openAt から数える)。
+//     出している途中から早押しを受け付ける。全部出てから QUIZ_QUESTION_MS 誰も押さなければ打ち切りで、
 //     参加者全員 QUIZ_REWARDS.timeout。
 //   解答 (answering): 押した人が QUIZ_ANSWER_MS のうちに4択から選ぶ (時間切れは不正解)。
 //     1番目の正解 QUIZ_REWARDS.first・2番目の正解 QUIZ_REWARDS.second・不正解 QUIZ_REWARDS.wrong。
@@ -17,12 +21,20 @@
 //   サーバーは常駐しないので、締め切りの判定は画面を開いている誰かの qzTick と定期処理で行う。
 
 import { QUIZ_QUESTIONS, QUIZ_SUBJECT } from './quiz-bank.js';
+import { QUIZ_TRIVIA } from './quiz-trivia.js';
+
+// 1戦ごとに順に出すジャンル
+export const QUIZ_GENRES = [
+  { key: 'database', name: QUIZ_SUBJECT, questions: QUIZ_QUESTIONS },
+  { key: 'trivia', name: '雑学', questions: QUIZ_TRIVIA }
+];
 
 export const QUIZ_SEATS = 6;
 export const QUIZ_MATCH_QUESTIONS = 5;
 export const QUIZ_LOBBY_MS = 15 * 1000;
 export const QUIZ_INTRO_MS = 3 * 1000;
-export const QUIZ_QUESTION_MS = 20 * 1000;
+export const QUIZ_QUESTION_MS = 20 * 1000;   // 問題文が全部出てから
+export const QUIZ_CHAR_MS = 100;              // 問題文を1文字出す間隔
 export const QUIZ_ANSWER_MS = 10 * 1000;
 export const QUIZ_REOPEN_MIN_MS = 8 * 1000;
 export const QUIZ_RESULT_MS = 6 * 1000;
@@ -47,6 +59,7 @@ export function emptyQuizTable() {
     resultEndsAt: null,
     matchNo: 0,
     questionNo: 0,
+    nextGenre: 0,
     match: null,
     question: null,
     lastMatch: null,
@@ -76,6 +89,15 @@ function activePlayers(table) {
 
 function participantOf(table, uid) {
   return activePlayers(table).find(player => player.uid === uid) || null;
+}
+
+function genreAt(index) {
+  const n = QUIZ_GENRES.length;
+  return QUIZ_GENRES[((Number(index) || 0) % n + n) % n];
+}
+
+function genreIndexOf(key) {
+  return Math.max(0, QUIZ_GENRES.findIndex(genre => genre.key === key));
 }
 
 function iso(ms) {
@@ -175,9 +197,10 @@ function shuffled(items, randomInt) {
 /** 次の問題を出す (最近出した問題は避ける。選択肢の並びは毎回変える) */
 function openQuestion(ctx) {
   const { table } = ctx;
+  const bank = genreAt(genreIndexOf(table.match.genre)).questions;
   const recent = new Set(table.recentIds);
-  const pool = QUIZ_QUESTIONS.filter(item => !recent.has(item.id));
-  const source = (pool.length ? pool : QUIZ_QUESTIONS)[ctx.randomInt(pool.length || QUIZ_QUESTIONS.length)];
+  const pool = bank.filter(item => !recent.has(item.id));
+  const source = (pool.length ? pool : bank)[ctx.randomInt(pool.length || bank.length)];
   const order = shuffled(source.choices.map((_, index) => index), ctx.randomInt);
   const openAt = ctx.now + QUIZ_INTRO_MS;
   table.questionNo = (table.questionNo || 0) + 1;
@@ -185,6 +208,7 @@ function openQuestion(ctx) {
   table.question = {
     no: table.questionNo,
     id: source.id,
+    genre: table.match.genre,
     lecture: source.lecture,
     tags: source.tags || [],
     text: source.question,
@@ -192,7 +216,7 @@ function openQuestion(ctx) {
     answer: order.indexOf(source.answer),
     explanation: source.explanation || '',
     openAt: iso(openAt),
-    endsAt: iso(openAt + QUIZ_QUESTION_MS),
+    endsAt: iso(openAt + [...source.question].length * QUIZ_CHAR_MS + QUIZ_QUESTION_MS),
     answerer: null,
     answerEndsAt: null,
     buzzes: [],
@@ -220,8 +244,11 @@ function maybeStartMatch(ctx) {
   // 一戦参加しなかった人は席を空ける (座ったままオフラインになった人が残らないように)
   seated.forEach(({ seat, index }) => { if (!seat.ready) table.seats[index] = null; });
   table.matchNo = (table.matchNo || 0) + 1;
+  const genre = genreAt(table.nextGenre);
+  table.nextGenre = (genreIndexOf(genre.key) + 1) % QUIZ_GENRES.length;
   table.match = {
     no: table.matchNo,
+    genre: genre.key,
     index: 0,
     total: QUIZ_MATCH_QUESTIONS,
     startedAt: ctx.nowIso,
@@ -230,6 +257,7 @@ function maybeStartMatch(ctx) {
     }))
   };
   ready.forEach(({ seat }) => { seat.ready = false; });
+  table.seats.forEach(seat => { if (seat) seat.skip = false; });
   table.lobbyEndsAt = null;
   table.lastMatch = null;
   openQuestion(ctx);
@@ -279,7 +307,7 @@ function finishMatch(ctx) {
   table.phase = 'lobby';
   table.lobbyEndsAt = null;
   table.resultEndsAt = null;
-  table.seats.forEach(seat => { if (seat) { seat.ready = false; seat.idleSince = ctx.nowIso; } });
+  table.seats.forEach(seat => { if (seat) { seat.ready = false; seat.skip = false; seat.idleSince = ctx.nowIso; } });
   ctx.changed = true;
 }
 
@@ -319,6 +347,57 @@ function judgeAnswer(ctx, uid, choice) {
   question.answerEndsAt = null;
   question.endsAt = iso(Math.max(Date.parse(question.endsAt), ctx.now + QUIZ_REOPEN_MIN_MS));
   table.phase = 'question';
+}
+
+/**
+ * ジャンルのスキップ (skip = false で取り消し)。受付中は座っている人、1戦の途中は参加者が押せる。
+ * 全員がそろったら maybeSkipGenre が次のジャンルへ移す
+ */
+export function skipQuizGenre(ctx, uid, skip = true) {
+  const { table } = ctx;
+  const on = skip !== false;
+  if (table.match) {
+    const player = participantOf(table, uid);
+    if (!player) throw new QuizError(409, 'この1戦には参加していません。');
+    player.skip = on;
+  } else {
+    const index = seatIndexOf(table, uid);
+    if (index < 0) throw new QuizError(409, '席に座っていません。');
+    table.seats[index].skip = on;
+    table.seats[index].idleSince = ctx.nowIso;
+  }
+  ctx.changed = true;
+}
+
+/** スキップが全員そろっていれば次のジャンルへ移す */
+function maybeSkipGenre(ctx) {
+  const { table } = ctx;
+  if (!table.match) {
+    const seated = table.seats.filter(Boolean);
+    if (!seated.length || !seated.every(seat => seat.skip)) return;
+    table.nextGenre = (genreIndexOf(genreAt(table.nextGenre).key) + 1) % QUIZ_GENRES.length;
+    seated.forEach(seat => { seat.skip = false; });
+    table.lastSkip = { genre: genreAt(table.nextGenre).key, at: ctx.nowIso };
+    ctx.changed = true;
+    return;
+  }
+  const players = activePlayers(table);
+  if (!players.length || !players.every(player => player.skip)) return;
+  const next = (genreIndexOf(table.match.genre) + 1) % QUIZ_GENRES.length;
+  table.match.genre = QUIZ_GENRES[next].key;
+  table.nextGenre = (next + 1) % QUIZ_GENRES.length;
+  players.forEach(player => { player.skip = false; });
+  table.lastSkip = { genre: table.match.genre, at: ctx.nowIso };
+  ctx.changed = true;
+  // 決着した問題 (結果を見せている途中) は1問に数え、決着していない問題は採点せずに捨てる
+  if (table.phase === 'result') {
+    table.match.index += 1;
+    if (table.match.index >= table.match.total) {
+      finishMatch(ctx);
+      return;
+    }
+  }
+  openQuestion(ctx);
 }
 
 function assertQuestion(table, rawNo) {
@@ -363,6 +442,7 @@ export function answerQuiz(ctx, uid, rawNo, rawChoice) {
 /** 締め切りを過ぎた段階を先へ進める (どの操作のあとにも呼ぶ) */
 export function advanceQuiz(ctx) {
   const { table } = ctx;
+  maybeSkipGenre(ctx);
   for (let step = 0; step < 6; step++) {
     if (table.match && !activePlayers(table).length && table.phase !== 'lobby') {
       finishMatch(ctx);
@@ -398,8 +478,13 @@ export function publicQuizTable(table) {
   return {
     phase: table.phase,
     seq: table.seq || 0,
-    subject: QUIZ_SUBJECT,
-    questionCount: QUIZ_QUESTIONS.length,
+    subject: genreAt(table.match ? genreIndexOf(table.match.genre) : table.nextGenre).name,
+    genres: QUIZ_GENRES.map(({ key, name, questions }) => ({ key, name, count: questions.length })),
+    genre: table.match ? table.match.genre : null,
+    nextGenre: genreAt(table.nextGenre).key,
+    charMs: QUIZ_CHAR_MS,
+    lastSkip: table.lastSkip || null,
+    questionCount: genreAt(table.match ? genreIndexOf(table.match.genre) : table.nextGenre).questions.length,
     rewards: QUIZ_REWARDS,
     timing: { lobbyMs: QUIZ_LOBBY_MS, questionMs: QUIZ_QUESTION_MS, answerMs: QUIZ_ANSWER_MS, resultMs: QUIZ_RESULT_MS },
     lobbyEndsAt: table.phase === 'lobby' ? table.lobbyEndsAt || null : null,
@@ -408,16 +493,21 @@ export function publicQuizTable(table) {
       const seat = (table.seats || [])[index];
       if (!seat) return null;
       const player = inMatch.get(seat.uid);
-      return { name: seat.name, ready: Boolean(seat.ready), chips: seat.chips, inMatch: Boolean(player), delta: player ? player.delta : 0 };
+      return {
+        name: seat.name, ready: Boolean(seat.ready), chips: seat.chips, inMatch: Boolean(player), delta: player ? player.delta : 0,
+        skip: Boolean(player ? player.skip : !table.match && seat.skip)
+      };
     }),
     match: table.match ? {
       no: table.match.no,
+      genre: table.match.genre,
       index: table.match.index,
       total: table.match.total,
-      participants: table.match.participants.map(({ name, seat, delta, correct, wrong, left }) => ({ name, seat, delta, correct, wrong, left: Boolean(left) }))
+      participants: table.match.participants.map(({ name, seat, delta, correct, wrong, left, skip }) => ({ name, seat, delta, correct, wrong, left: Boolean(left), skip: Boolean(skip) }))
     } : null,
     question: question ? {
       no: question.no,
+      genre: question.genre || null,
       lecture: question.lecture,
       tags: question.tags,
       text: question.text,

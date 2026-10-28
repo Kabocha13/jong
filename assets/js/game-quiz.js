@@ -4,6 +4,8 @@
 // 締め切り (受付・早押し・解答・結果の表示) を過ぎたら、画面を開いている人が qzTick を送って先へ進める。
 // 見た目は testsite.html (日本茶・和紙・青海波) を引き継ぐ: 掛軸に問題、座布団の席、湯呑みの時計、
 // 正解は茶柱が立って「正解」の印、不正解は水面の波紋と「不正解」の印。
+// 問題文は openAt から charMs (0.1秒) ごとに1文字ずつ出す (サーバーの時刻で数えるので全員そろう)。誰かが押したら全文を出す。
+// ジャンルは1戦ごとにデータベース工学と雑学を交互に出し、全員が「スキップ」を押すと次のジャンルへ移る (61.1〜)。
 
 const QUIZ_POLL_MS = 900;           // 卓を読み直す間隔 (早押しなのでブラックジャックより短く)
 const QUIZ_CHOICE_KEYS = ['A', 'B', 'C', 'D'];
@@ -20,7 +22,10 @@ const quiz = {
     seenQuestion: null, // 描いた問題の番号 (新しい問題が来たら筆で書くように出す)
     seenOutcome: null,  // 結果を見せた問題の番号
     seenMatch: null,    // 番付を見せた1戦の番号 (開いたときに出ていた1戦の番付は見せない)
-    pendingChoice: null // 解答を送っている途中の選択肢
+    pendingChoice: null, // 解答を送っている途中の選択肢
+    typed: -1,          // いま出している問題文の文字数 (1文字ずつ出す)
+    typeTimer: null,
+    seenSkip: null      // 知らせたジャンルのスキップ (lastSkip.at)
 };
 
 const EMPTY_QUIZ_TABLE = { phase: 'lobby', seq: -1, seats: Array(6).fill(null), match: null, question: null, lastMatch: null };
@@ -172,6 +177,12 @@ function renderQuizSeats(view) {
         chip.className = 'qz-seat-state';
         chip.textContent = state.label;
         li.append(lamp, name, rate, chip);
+        if (seat.skip) {
+            const skip = document.createElement('span');
+            skip.className = 'qz-seat-skip';
+            skip.textContent = 'スキップ';
+            li.appendChild(skip);
+        }
         if (seat.inMatch) {
             const delta = document.createElement('span');
             delta.className = `qz-seat-delta ${seat.delta > 0 ? 'is-plus' : seat.delta < 0 ? 'is-minus' : ''}`;
@@ -179,6 +190,36 @@ function renderQuizSeats(view) {
             li.appendChild(delta);
         }
     });
+}
+
+/** 問題文をいま何文字まで出すか (出題前は -1。誰かが押したら・結果では全文) */
+function quizTypedCount(view) {
+    const question = view?.question;
+    if (!question) return 0;
+    const length = [...question.text].length;
+    if (view.phase !== 'question' || question.buzzes.length) return length;
+    const elapsed = quizServerNow() - Date.parse(question.openAt);
+    if (elapsed < 0) return -1;
+    return Math.min(length, Math.floor(elapsed / (view.charMs || 100)) + 1);
+}
+
+/** 問題文を1文字ずつ出す (こまめに数え直し、増えたときだけ書き換える) */
+function typeQuizQuestion() {
+    const view = quiz.table;
+    const question = view?.question;
+    if (!question || !isQuizRoute()) return;
+    const count = quizTypedCount(view);
+    if (count === quiz.typed || count < 0) return;
+    const length = [...question.text].length;
+    const wasFull = quiz.typed >= length;
+    quiz.typed = count;
+    const text = el('qz-question');
+    text.classList.remove('is-waiting');
+    text.textContent = [...question.text].slice(0, count).join('');
+    const done = count >= length;
+    text.classList.toggle('is-typing', !done);
+    // 全部出たら選択肢を出す
+    if (done && !wasFull) renderQuizQuestion(view, false);
 }
 
 function renderQuizQuestion(view, fresh) {
@@ -203,14 +244,19 @@ function renderQuizQuestion(view, fresh) {
         explain.classList.add('hidden');
         return;
     }
-    if (fresh) {
-        // 新しい問題: 筆で書くように出す
-        text.classList.remove('is-brush');
-        void text.offsetWidth;
-        text.classList.add('is-brush');
+    const length = [...question.text].length;
+    const typed = quizTypedCount(view);
+    const full = typed >= length;
+    text.classList.remove('is-brush');
+    if (waiting) {
+        text.textContent = '出題します…';
+        text.classList.remove('is-typing');
+    } else {
+        text.textContent = [...question.text].slice(0, typed).join('');
+        text.classList.toggle('is-typing', !full);
     }
-    text.textContent = waiting ? '出題します…' : question.text;
     text.classList.toggle('is-waiting', Boolean(waiting));
+    quiz.typed = typed;
     tags.innerHTML = '';
     if (!waiting) {
         question.tags.forEach(tag => {
@@ -225,7 +271,8 @@ function renderQuizQuestion(view, fresh) {
     const revealed = view.phase === 'result' && question.answer !== null;
     choices.innerHTML = '';
     choices.classList.toggle('is-answering', mine);
-    if (!waiting) {
+    // 選択肢は問題文が全部出てから
+    if (!waiting && full) {
         question.choices.forEach((choice, index) => {
             const li = document.createElement('li');
             const button = document.createElement('button');
@@ -366,6 +413,12 @@ function animateQuizChanges(view, previous) {
             }
         }
     }
+    if (view.lastSkip && quiz.seenSkip !== view.lastSkip.at) {
+        quiz.seenSkip = view.lastSkip.at;
+        const genre = (view.genres || []).find(item => item.key === view.lastSkip.genre);
+        stampQuiz('skip', '次へ');
+        showMessage(el('qz-message'), `全員がスキップしたので、ジャンルを「${genre ? genre.name : ''}」に変えました。`, 'info');
+    }
     if (view.lastMatch && quiz.seenMatch !== view.lastMatch.no && !view.match) {
         const played = view.lastMatch.ranking.some(item => item.name === quizMe());
         if (played) {
@@ -387,7 +440,7 @@ function renderQuiz() {
         quiz.pendingChoice = null;
         el('qz-ranking').classList.add('hidden');
     }
-    el('qz-subject').textContent = view.subject || 'データベース工学';
+    el('qz-subject').textContent = view.match ? view.subject : `次の1戦: ${view.subject || 'データベース工学'}`;
     el('qz-count').textContent = String(view.questionCount || 0);
     if (view.match) el('qz-match-size').textContent = String(view.match.total);
     renderQuizControls();
@@ -407,6 +460,7 @@ function receiveQuizTable(table, now) {
         quiz.seenQuestion = table.question ? table.question.no : null;
         quiz.seenOutcome = table.phase === 'result' && table.question ? table.question.no : null;
         quiz.seenMatch = table.lastMatch ? table.lastMatch.no : 0;
+        quiz.seenSkip = table.lastSkip ? table.lastSkip.at : null;
     }
     const previous = quiz.table;
     quiz.table = table;
@@ -479,11 +533,10 @@ function renderQuizStatus() {
         num.textContent = String(Math.ceil(left / 1000));
         timer.classList.toggle('is-hurry', left <= 5000 && view.phase !== 'result');
     }
-    // 出題の待ち時間が明けたら問題を出す
+    // 出題の待ち時間が明けたら1文字ずつ出し始める
     if (question && view.phase === 'question' && el('qz-question').classList.contains('is-waiting') && quizServerNow() >= Date.parse(question.openAt)) {
-        renderQuizQuestion(view, true);
+        typeQuizQuestion();
         playQuizTone('open');
-        renderQuizControls();
     }
     renderQuizBuzz();
 }
@@ -511,6 +564,19 @@ function renderQuizControls() {
     el('qz-ready-button').disabled = locked;
     el('qz-unready-button').classList.toggle('hidden', !seat || !lobby || !seat.ready);
     el('qz-unready-button').disabled = locked;
+    // ジャンルのスキップ (受付中は座っている人、1戦の途中は参加者)
+    const voters = view.match ? view.match.participants.filter(player => !player.left) : view.seats.filter(Boolean);
+    const canSkip = view.match ? isQuizPlayer(view) : Boolean(seat);
+    const skipped = voters.some(player => player.name === quizMe() && player.skip);
+    const votes = voters.filter(player => player.skip).length;
+    const other = (view.genres || []).find(genre => genre.key !== (view.match ? view.genre : view.nextGenre));
+    const skipButton = el('qz-skip-button');
+    skipButton.classList.toggle('hidden', !canSkip);
+    skipButton.disabled = locked;
+    skipButton.classList.toggle('is-on', skipped);
+    skipButton.textContent = skipped
+        ? `スキップを取り消す (${votes}/${voters.length})`
+        : `ジャンルをスキップ${other ? ` → ${other.name}` : ''} (${votes}/${voters.length})`;
     el('qz-leave-button').classList.toggle('hidden', !seat);
     el('qz-leave-button').disabled = locked || isMyQuizAnswer(view);
     document.querySelectorAll('#qz-seats [data-qz-sit]').forEach(button => { button.disabled = locked; });
@@ -524,9 +590,12 @@ function renderQuizRules() {
         '「参加する」を押さないまま1戦が始まった人は、席から外れる (座ったままいなくなった人が残らないように)。',
         `問題が出たら早押し。押した人だけが4択から選べる (10秒)。1番目の正解 ${quizSigned(rewards.first)}・2番目の正解 ${quizSigned(rewards.second)}・不正解 (時間切れも) ${quizSigned(rewards.wrong)}。`,
         '1番目が間違えたら、まだ押していない人がもう1人だけ解答できる。',
-        `20秒たっても誰も押さなければ打ち切りで、参加者全員 ${quizSigned(rewards.timeout)}。`,
+        '問題文は0.1秒ごとに1文字ずつ出る。出ている途中でも早押しでき、押すと全文と選択肢が出る。',
+        `問題文が全部出てから20秒たっても誰も押さなければ打ち切りで、参加者全員 ${quizSigned(rewards.timeout)}。`,
         'レートは1問ごとにその場で動く。1日のプレイ回数には数えない。',
-        '問題はデータベース工学 第1〜6回の理解確認問題 (testsite と同じ)。正解と解説は結果のときに出る。'
+        'ジャンルは1戦ごとに「データベース工学」(第1〜6回の理解確認問題) と「雑学」(200問) を交互に出す。',
+        '「ジャンルをスキップ」を全員が押すと次のジャンルへ移る (受付中は座っている全員、1戦の途中は参加者全員。途中なら決着していない問題は採点せずに次のジャンルの問題に替わる)。',
+        '正解と解説は結果のときに出る。'
     ];
     const list = el('qz-rules');
     list.innerHTML = '';
@@ -678,6 +747,7 @@ function openQuiz() {
     if (!quiz.pollTimer) {
         quiz.pollTimer = setInterval(pollQuizTable, QUIZ_POLL_MS);
         quiz.clockTimer = setInterval(tickQuizClock, 200);
+        quiz.typeTimer = setInterval(typeQuizQuestion, 40);
         // 開いたときに一度サーバーで卓を進めておく (誰も開いていないあいだに過ぎた締め切りを片付ける)
         refreshQuizStatus();
     }
@@ -686,6 +756,8 @@ function openQuiz() {
 function closeQuiz() {
     clearInterval(quiz.pollTimer);
     clearInterval(quiz.clockTimer);
+    clearInterval(quiz.typeTimer);
+    quiz.typeTimer = null;
     quiz.pollTimer = null;
     quiz.clockTimer = null;
 }
@@ -695,6 +767,12 @@ function initQuiz() {
     el('qz-ready-button').addEventListener('click', () => sendQuiz('qzReady', { ready: true }));
     el('qz-unready-button').addEventListener('click', () => sendQuiz('qzReady', { ready: false }));
     el('qz-leave-button').addEventListener('click', () => sendQuiz('qzLeave'));
+    el('qz-skip-button').addEventListener('click', () => {
+        const view = quiz.table;
+        const voters = view?.match ? view.match.participants : view?.seats.filter(Boolean) || [];
+        const skipped = voters.some(player => player && player.name === quizMe() && player.skip);
+        sendQuiz('qzSkip', { skip: !skipped });
+    });
     el('qz-buzz').addEventListener('click', buzzQuiz);
     el('qz-ranking-close').addEventListener('click', () => el('qz-ranking').classList.add('hidden'));
     el('qz-ranking').addEventListener('click', event => {

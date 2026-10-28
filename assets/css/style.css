@@ -8267,6 +8267,21 @@ body.vg-story-open { overflow: hidden; }
     text-align: left;
 }
 .qz-question.is-brush { animation: qz-brush 1s cubic-bezier(0.6, 0, 0.3, 1) both; }
+/* 1文字ずつ出している途中は筆先 (カーソル) を点滅させる */
+.qz-question.is-typing::after {
+    content: "";
+    display: inline-block;
+    width: 0.5em;
+    height: 1.1em;
+    margin-left: 2px;
+    vertical-align: -0.15em;
+    background: var(--qz-primary);
+    border-radius: 2px;
+    animation: qz-caret 0.6s steps(1) infinite;
+}
+@keyframes qz-caret { 50% { opacity: 0; } }
+.qz-stamp.is-skip { color: var(--qz-primary-dark); border-color: var(--qz-primary-dark); border-radius: 12px; }
+.qz-room .qz-skip-button.is-on { color: var(--qz-on-primary); background: var(--qz-warn); border-color: transparent; }
 .qz-question.is-waiting { color: var(--qz-muted); animation: qz-breath 1.2s ease-in-out infinite; }
 @keyframes qz-breath { 50% { opacity: 0.45; } }
 
@@ -8581,6 +8596,20 @@ body.vg-story-open { overflow: hidden; }
     color: var(--qz-primary-dark);
     background: var(--qz-card);
     border-radius: 999px;
+}
+.qz-seat-skip {
+    position: absolute;
+    right: -4px;
+    bottom: -6px;
+    z-index: 2;
+    padding: 1px 7px;
+    font-size: 0.66rem;
+    font-weight: 800;
+    color: #fff;
+    background: var(--qz-warn);
+    border-radius: 999px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+    animation: qz-unfurl 0.4s ease both;
 }
 .qz-seat-delta { font-size: 0.8rem; font-weight: 900; color: #fff; }
 .qz-seat-delta.is-plus { color: #e9ffc4; }

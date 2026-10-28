@@ -142,6 +142,7 @@ import {
   publicQuizTable,
   quizTableNames,
   readyQuiz,
+  skipQuizGenre,
   sweepQuizSeats
 } from './quiz-table.js';
 
@@ -3593,7 +3594,7 @@ async function gapporiTableAction(uid, username, mutate) {
 
 // -----------------------------------------------------------------
 // 早押しクイズ (61.0〜。testsite.html のデータベース工学の問題で中間テストの対策)
-//   全員共通の1卓 (最大6席)。進め方は quiz-table.js、問題は quiz-bank.js。
+//   全員共通の1卓 (最大6席)。進め方は quiz-table.js、問題は quiz-bank.js (DB) と quiz-trivia.js (雑学。61.1〜) を1戦ごとに交互。
 //   卓の中身 (答えと uid を含む) は quiz_tables/main、誰でも読める形は quiz_public/main に置く。
 //   賭けは無く、1問ごとに正解・不正解・打ち切りでレートがその場で動く (増減ログは casino_quiz)。
 //   1日のプレイ回数には数えない。
@@ -4040,6 +4041,8 @@ const CASINO_ACTIONS = {
   qzReady: ({ uid, username, body }) => quizTableAction(uid, username, ctx => readyQuiz(ctx, uid, body.ready !== false)),
   qzBuzz: ({ uid, username, body }) => quizTableAction(uid, username, ctx => buzzQuiz(ctx, uid, body.no)),
   qzAnswer: ({ uid, username, body }) => quizTableAction(uid, username, ctx => answerQuiz(ctx, uid, body.no, body.choice)),
+  // ジャンルのスキップ (61.1〜。全員が押すと次のジャンルへ)
+  qzSkip: ({ uid, username, body }) => quizTableAction(uid, username, ctx => skipQuizGenre(ctx, uid, body.skip !== false)),
   qzTick: ({ uid, username }) => quizTableAction(uid, username, () => {})
 };
 
