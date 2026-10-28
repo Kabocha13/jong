@@ -8,6 +8,8 @@
 // 誰かが押したら、その時点で問題文を止める (サーバーが shown に残す)。間違えて次の人が押せるようになったら続きから出す。
 // ジャンルは1戦ごとにデータベース工学と雑学を交互に出し、全員が「スキップ」を押すと次のジャンルへ移る (61.1〜)。
 
+const QUIZ_SEAT_COUNT = 4;          // 席の数 (サーバーの QUIZ_SEATS と同じ。古いサーバーが6席を返しても4席だけ描く)
+const QUIZ_FIT_MIN = 0.55;          // 問題と選択肢を収めるときの文字の縮小の下限 (これでも入らなければ掛軸をスクロール)
 const QUIZ_POLL_MS = 900;           // 卓を読み直す間隔 (早押しなのでブラックジャックより短く)
 const QUIZ_CHOICE_KEYS = ['A', 'B', 'C', 'D'];
 const QUIZ_FONT_URL = 'https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap';
@@ -138,6 +140,7 @@ function quizSeatState(view, seat) {
 
 function renderQuizSeats(view) {
     const list = el('qz-seats');
+    while (list.children.length > view.seats.length) list.lastElementChild.remove();
     view.seats.forEach((seat, index) => {
         // 席の要素は作り直さず中身だけ入れ替える (浮かべている増減と押したときの灯りを消さないため)
         const li = list.children[index] || list.appendChild(document.createElement('li'));
@@ -436,11 +439,47 @@ function animateQuizChanges(view, previous) {
     }
 }
 
+/**
+ * 問題文 (全文) と選択肢・解説が掛軸に収まるように文字を縮める (畳んだりスクロールさせたりしない)。
+ * 1文字ずつ出している途中でも全文で測るので、文字が増えても大きさは変わらない
+ */
+function fitQuizScroll(view = quiz.table) {
+    const box = el('qz-scroll');
+    const text = el('qz-question');
+    if (!box || box.offsetParent === null) return;
+    const question = view?.question;
+    const saved = text.textContent;
+    if (question) text.textContent = question.text;
+    box.classList.remove('is-overflow');
+    // 選択肢を2列と1列の両方で試し、文字を大きくできるほうにする
+    const fitScale = () => {
+        let scale = 1.15;
+        box.style.setProperty('--qz-fs', String(scale));
+        while (box.scrollHeight > box.clientHeight + 1 && scale > QUIZ_FIT_MIN) {
+            scale = Math.max(QUIZ_FIT_MIN, scale - 0.05);
+            box.style.setProperty('--qz-fs', scale.toFixed(2));
+        }
+        return scale;
+    };
+    box.classList.remove('is-one-col');
+    const twoCols = fitScale();
+    box.classList.add('is-one-col');
+    const oneCol = fitScale();
+    if (oneCol <= twoCols) {
+        box.classList.remove('is-one-col');
+        fitScale();
+    }
+    // 下限まで縮めても入らないときだけ掛軸をスクロールできるようにする
+    box.classList.toggle('is-overflow', box.scrollHeight > box.clientHeight + 1);
+    text.textContent = saved;
+}
+
 function renderQuiz() {
     const view = quiz.table || EMPTY_QUIZ_TABLE;
     const fresh = Boolean(view.question) && quiz.seenQuestion !== view.question.no;
     renderQuizSeats(view);
     renderQuizQuestion(view, fresh);
+    fitQuizScroll(view);
     if (fresh) {
         quiz.seenQuestion = view.question.no;
         quiz.pendingChoice = null;
@@ -458,6 +497,7 @@ function renderQuiz() {
 function receiveQuizTable(table, now) {
     if (now) applyQuizClock(now);
     if (!table) return;
+    table = { ...table, seats: (table.seats || []).slice(0, QUIZ_SEAT_COUNT) };
     if (quiz.table && (table.seq ?? 0) < (quiz.table.seq ?? 0)) return;
     if (quiz.table && table.seq === quiz.table.seq && table.updatedAt === quiz.table.updatedAt) return;
     const first = !quiz.table;
@@ -782,6 +822,7 @@ function initQuiz() {
     });
     el('qz-buzz').addEventListener('click', buzzQuiz);
     el('qz-ranking-close').addEventListener('click', () => el('qz-ranking').classList.add('hidden'));
+    window.addEventListener('resize', () => { if (isQuizRoute()) fitQuizScroll(); });
     // ルールと最近の1戦は、1画面に収めるため卓の上に重ねて出す
     const toggleInfo = open => {
         el('qz-info').classList.toggle('hidden', !open);

@@ -792,7 +792,7 @@ export const QUIZ_QUESTIONS = [
       "結合",
       "結合条件"
     ],
-    "question": "departments(id, name, store_id, floor, manager_id)（manager_id はその売場を担当するマネージャの社員番号） と employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） で、FROM departments d JOIN employees e ON d.manager_id = e.manager_id の結果が表すものはどれか。",
+    "question": "departments(id, name, store_id, floor, manager_id=担当マネージャのid) と employees(id, name, salary, manager_id=上司のid, birth_year, start_year) で、FROM departments d JOIN employees e ON d.manager_id = e.manager_id の結果が表すものはどれか。",
     "choices": [
       "各売場のマネージャ本人",
       "マネージャのいない売場",
@@ -1810,7 +1810,7 @@ export const QUIZ_QUESTIONS = [
     "tags": [
       "SQL作成"
     ],
-    "question": "employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） から「1988年生まれの社員の名前」を出力するSQL文はどれか。",
+    "question": "employees(id, name, salary, manager_id=上司のid, birth_year, start_year) から「1988年生まれの社員の名前」を出力するSQL文はどれか。",
     "choices": [
       "SELECT birth_year FROM employees WHERE name=1988;",
       "SELECT name FROM employees WHERE start_year=1988;",
@@ -1895,7 +1895,7 @@ export const QUIZ_QUESTIONS = [
       "自己結合",
       "読解"
     ],
-    "question": "employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） で、SELECT m.name, e.name FROM employees m JOIN employees e ON m.id = e.manager_id WHERE m.salary < e.salary; が検索するものはどれか。",
+    "question": "employees(id, name, salary, manager_id=上司のid, birth_year, start_year) で、SELECT m.name, e.name FROM employees m JOIN employees e ON m.id = e.manager_id WHERE m.salary < e.salary; が検索するものはどれか。",
     "choices": [
       "給料が同じ上司と部下",
       "マネージャでない社員",
@@ -1946,7 +1946,7 @@ export const QUIZ_QUESTIONS = [
       "結合",
       "SQL作成"
     ],
-    "question": "departments(id, name, store_id, floor, manager_id)（manager_id はその売場を担当するマネージャの社員番号） と employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） で、「store_id=5 の売場の名前と、その売場のマネージャの氏名」を出力するSQL文はどれか。",
+    "question": "departments(id, name, store_id, floor, manager_id=担当マネージャのid) と employees(id, name, salary, manager_id=上司のid, birth_year, start_year) で、「store_id=5 の売場の名前と、その売場のマネージャの氏名」を出力するSQL文はどれか。",
     "choices": [
       "SELECT d.name, m.name FROM departments d JOIN employees m ON d.manager_id = m.manager_id WHERE d.store_id = 5;",
       "SELECT d.name FROM departments d WHERE d.manager_id = 5;",
@@ -1963,7 +1963,7 @@ export const QUIZ_QUESTIONS = [
       "結合",
       "選択条件"
     ],
-    "question": "departments(id, name, store_id, floor, manager_id)（manager_id はその売場を担当するマネージャの社員番号） と employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） を FROM departments d JOIN employees m ON d.manager_id = m.id で結合し、「salary が 20000 以上のマネージャと担当の売場名」を出力する。使う WHERE 句はどれか。",
+    "question": "departments(id, name, store_id, floor, manager_id=担当マネージャのid) と employees(id, name, salary, manager_id=上司のid, birth_year, start_year) を FROM departments d JOIN employees m ON d.manager_id = m.id で結合し、「salary が 20000 以上のマネージャと担当の売場名」を出力する。使う WHERE 句はどれか。",
     "choices": [
       "WHERE m.salary > 20000",
       "WHERE salary = 20000",
@@ -1997,7 +1997,7 @@ export const QUIZ_QUESTIONS = [
       "選択条件",
       "演習"
     ],
-    "question": "employees(id, name, salary, manager_id, birth_year, start_year)（manager_id は上司の社員番号） で「23歳以上で入社した社員」を表す WHERE 句はどれか（年齢は年の差で考える）。",
+    "question": "employees(id, name, salary, manager_id=上司のid, birth_year, start_year) で「23歳以上で入社した社員」を表す WHERE 句はどれか（年齢は年の差で考える）。",
     "choices": [
       "WHERE start_year - birth_year >= 23",
       "WHERE birth_year - start_year >= 23",
