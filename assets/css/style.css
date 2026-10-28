@@ -9228,3 +9228,6 @@ body[data-casino-view="quiz"] .casino-back a { min-height: 30px; padding: 2px 12
     .qz-icons { margin-left: 0; justify-content: center; }
     .qz-room .qz-buzz { width: 64px; height: 64px; }
 }
+
+/* 問題文の下の状況の行は出さない (61.7〜。番の人は席の札・選択肢の光・湯呑みの時計でわかる) */
+.qz-room .qz-status { display: none; }
