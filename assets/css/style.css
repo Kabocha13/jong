@@ -8937,3 +8937,158 @@ body.vg-story-open { overflow: hidden; }
     .qz-leaves, .qz-steam { display: none; }
     .qz-stamp.is-show { opacity: 0.95; transform: rotate(-10deg); }
 }
+
+/* -----------------------------------------------------------------
+   早押しクイズを1画面に収める (61.3〜)。どの画面サイズでも、見出し・卓 (問題と4席)・早押しボタンが
+   スクロールせずに見えるように、卓の部屋を「画面の高さ − 下のメニュー − 戻るリンク」に合わせる。
+   問題文と選択肢が長くて入りきらないときは、掛軸の中だけをスクロールする。
+   ----------------------------------------------------------------- */
+body[data-casino-view="quiz"] header.hero { display: none; }
+body[data-casino-view="quiz"] main { margin-top: 8px; margin-bottom: 0; }
+body[data-casino-view="quiz"] .casino-back { margin-bottom: 6px; }
+body[data-casino-view="quiz"] .casino-back a { min-height: 30px; padding: 2px 12px; }
+
+.qz-room {
+    --qz-room-h: calc(100dvh - 92px - env(safe-area-inset-bottom, 0px) - 8px - 36px - 10px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1.2vh, 12px);
+    height: var(--qz-room-h);
+    min-height: 300px;
+    padding: clamp(8px, 1.6vh, 18px) clamp(8px, 2.5vw, 22px);
+}
+@supports not (height: 100dvh) {
+    .qz-room { --qz-room-h: calc(100vh - 92px - env(safe-area-inset-bottom, 0px) - 8px - 36px - 10px); }
+}
+
+/* PC の button の min-width: 210px を打ち消す (早押しボタンが横に伸びないように) */
+.qz-room button { min-width: 0; }
+
+/* 見出しは1行 */
+.qz-head {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px 10px;
+    text-align: left;
+}
+.qz-head .qz-eyebrow { flex: none; margin: 0; padding: 3px 7px; font-size: 0.68rem; }
+.qz-head .qz-title { flex: none; font-size: clamp(1.05rem, 3.6vw, 1.5rem); letter-spacing: 0.08em; }
+.qz-head .qz-lead { flex: 1; min-width: 0; margin: 0; font-size: 0.74rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qz-room .qz-info-button { flex: none; padding: 5px 12px; font-size: 0.78rem; }
+
+/* 卓: 残りの高さを使う。中の掛軸だけがスクロールする */
+.qz-table {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: clamp(6px, 1.2vh, 12px);
+    min-height: 0;
+    padding: clamp(10px, 1.8vh, 20px) clamp(8px, 2.5vw, 22px) clamp(10px, 2vh, 22px);
+    border-radius: 22px 22px 40% 40% / 22px 22px 46px 46px;
+}
+.qz-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: clamp(10px, 1.6vh, 18px) clamp(12px, 2.5vw, 24px);
+    margin-top: 6px;
+    margin-bottom: 6px;
+    scrollbar-width: thin;
+}
+.qz-scroll::before, .qz-scroll::after { display: none; }
+.qz-scroll { box-shadow: 0 0 0 5px rgba(107, 74, 43, 0.85), 0 8px 20px rgba(0, 0, 0, 0.25); }
+.qz-question { margin: clamp(6px, 1.2vh, 14px) 0 8px; min-height: 0; font-size: clamp(0.98rem, 2.2vh, 1.35rem); line-height: 1.55; }
+.qz-tags { margin-bottom: 8px; }
+.qz-choices { gap: 8px; grid-template-columns: 1fr 1fr; }
+.qz-room .qz-choice { gap: 8px; padding: 8px 10px; font-size: clamp(0.8rem, 1.8vh, 0.95rem); }
+.qz-room .qz-choice:has(.qz-choice-who) { padding-top: 22px; }
+.qz-choice-key { width: 28px; height: 26px; }
+.qz-explain { margin-top: 10px; padding: 10px 12px; }
+.qz-timer { width: 40px; height: 40px; }
+.qz-status { flex: none; padding: 5px 12px; font-size: 0.84rem; line-height: 1.4; }
+
+/* 4席を1列に並べる (弧に沿って少しずらす) */
+.qz-seats,
+.qz-seats:where(*) { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(6px, 1.6vw, 14px); padding: 0; flex: none; }
+.qz-seat:nth-child(n) { transform: none; }
+.qz-seat:nth-child(1), .qz-seat:nth-child(4) { transform: translateY(-8px); }
+.qz-seat:nth-child(1) { rotate: 4deg; }
+.qz-seat:nth-child(4) { rotate: -4deg; }
+.qz-seat {
+    min-height: 0;
+    gap: 1px;
+    padding: clamp(8px, 1.4vh, 14px) 4px clamp(5px, 1vh, 9px);
+    border-radius: 12px;
+}
+.qz-seat-name { font-size: clamp(0.76rem, 1.8vh, 0.95rem); }
+.qz-seat-rate { font-size: 0.68rem; }
+.qz-seat-state { padding: 1px 6px; font-size: 0.64rem; }
+.qz-seat-delta { font-size: 0.72rem; }
+.qz-seat-lamp { top: -7px; width: 14px; height: 14px; margin-left: -7px; }
+.qz-seat-empty { font-size: 0.7rem; }
+.qz-room .qz-seat-sit { margin-top: 3px; padding: 4px 6px; font-size: 0.7rem; }
+
+/* 操作: 早押しボタンとほかのボタンを1段に */
+.qz-controls {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 14px;
+}
+.qz-room .qz-buzz {
+    width: clamp(70px, 11vh, 120px);
+    height: clamp(70px, 11vh, 120px);
+    border-width: 3px;
+    box-shadow: 0 6px 0 #6e2416, 0 10px 18px rgba(60, 20, 10, 0.35), inset 0 0 0 3px rgba(255, 255, 255, 0.2);
+}
+.qz-room .qz-buzz:active,
+.qz-room .qz-buzz.is-pressed { transform: translateY(5px); }
+.qz-buzz-face { font-size: clamp(1rem, 2.4vh, 1.6rem); }
+.qz-buzz small { display: none; }
+.qz-lobby { gap: 8px; }
+.qz-room .qz-lobby button { min-width: 0; flex: none; padding: 8px 14px; font-size: 0.85rem; }
+.qz-controls #qz-message { flex: 1 0 100%; margin: 0; }
+.qz-controls #qz-message.hidden { display: none !important; }
+
+/* ルールと最近の1戦: 部屋の上に重ねる */
+.qz-info {
+    position: absolute;
+    inset: clamp(8px, 2vh, 18px);
+    z-index: 9;
+    overflow-y: auto;
+    box-shadow: var(--qz-shadow), 0 0 0 100vmax rgba(29, 28, 23, 0.35);
+    animation: qz-rise 0.3s ease both;
+}
+.qz-room .qz-info-close { float: right; padding: 5px 12px; font-size: 0.8rem; }
+
+/* 低い画面 (横向きのスマホなど): 下のメニューを隠し、早押しボタンを卓の右に置く */
+@media (max-height: 560px) {
+    body[data-casino-view="quiz"] { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    body[data-casino-view="quiz"] footer { display: none; }
+    .qz-room {
+        --qz-room-h: calc(100dvh - env(safe-area-inset-bottom, 0px) - 8px - 36px - 8px);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: auto minmax(0, 1fr);
+        min-height: 0;
+    }
+    .qz-head { grid-column: 1 / -1; }
+    .qz-table { grid-column: 1; grid-row: 2; }
+    .qz-controls { grid-column: 2; grid-row: 2; flex-direction: column; flex-wrap: nowrap; justify-content: center; max-width: 150px; }
+    .qz-lobby { flex-direction: column; }
+    .qz-head .qz-lead { display: none; }
+    .qz-status { padding: 3px 10px; font-size: 0.76rem; }
+    .qz-seat-rate, .qz-seat-delta { display: none; }
+    .qz-room .qz-buzz { width: clamp(64px, 20vh, 100px); height: clamp(64px, 20vh, 100px); }
+}
+@media (max-width: 560px) {
+    .qz-room { padding: 8px 8px; }
+    .qz-table { border-width: 6px; padding-inline: 6px; }
+    .qz-head .qz-eyebrow { max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .qz-head .qz-lead { display: none; }
+    .qz-question { font-size: 0.95rem; }
+}

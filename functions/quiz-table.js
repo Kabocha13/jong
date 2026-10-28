@@ -1,4 +1,4 @@
-// 早押しクイズ (61.0〜) の卓 (1卓・最大6席) の進め方 (Firestore には触らない)。
+// 早押しクイズ (61.0〜) の卓 (1卓・最大4席。61.3 で6席から減らした) の進め方 (Firestore には触らない)。
 // index.js がトランザクションの中で「卓の状態」と「卓に関わる人の財布」を読んで渡し、ここで書き換えた卓と財布を書き戻す。
 // 問題は quiz-bank.js (testsite.html のデータベース工学の問題)。答えは卓の中 (quiz_tables) だけに置き、
 // 誰でも読める形 (quiz_public) には結果が出てから入れる。
@@ -31,7 +31,7 @@ export const QUIZ_GENRES = [
   { key: 'trivia', name: '雑学', questions: QUIZ_TRIVIA }
 ];
 
-export const QUIZ_SEATS = 6;
+export const QUIZ_SEATS = 4;
 export const QUIZ_MATCH_QUESTIONS = 5;
 export const QUIZ_LOBBY_MS = 15 * 1000;
 export const QUIZ_INTRO_MS = 3 * 1000;

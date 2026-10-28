@@ -1,4 +1,4 @@
-// ゲームタブ: 早押しクイズ (61.0〜。全員共通の1卓・最大6席。データベース工学の中間テスト対策)
+// ゲームタブ: 早押しクイズ (61.0〜。全員共通の1卓・最大4席。データベース工学の中間テスト対策)
 // 問題・早押しの順番・採点・レートの増減は Cloud Function (casino の qzJoin / qzReady / qzBuzz / qzAnswer など) が決める。
 // ほかの人の操作は、誰でも読める卓の写し (quiz_public/main) を読み直して反映する。答えと解説は結果が出るまで届かない。
 // 締め切り (受付・早押し・解答・結果の表示) を過ぎたら、画面を開いている人が qzTick を送って先へ進める。
@@ -29,7 +29,7 @@ const quiz = {
     seenSkip: null      // 知らせたジャンルのスキップ (lastSkip.at)
 };
 
-const EMPTY_QUIZ_TABLE = { phase: 'lobby', seq: -1, seats: Array(6).fill(null), match: null, question: null, lastMatch: null };
+const EMPTY_QUIZ_TABLE = { phase: 'lobby', seq: -1, seats: Array(4).fill(null), match: null, question: null, lastMatch: null };
 
 // ------------------------------------------------------------------
 // 卓の読み方
@@ -592,7 +592,7 @@ function renderQuizControls() {
 function renderQuizRules() {
     const rewards = quiz.table?.rewards || { first: 10, second: 5, wrong: -15, timeout: -5 };
     const items = [
-        '最大6人。席に座って「参加する」を押した人で1戦 (5問) を行う。全員が押すとすぐ、誰かが押してから15秒で始まる。',
+        '最大4人。席に座って「参加する」を押した人で1戦 (5問) を行う。全員が押すとすぐ、誰かが押してから15秒で始まる。',
         '「参加する」を押さないまま1戦が始まった人は、席から外れる (座ったままいなくなった人が残らないように)。',
         `問題が出たら早押し。押した人だけが4択から選べる (10秒)。1番目の正解 ${quizSigned(rewards.first)}・2番目の正解 ${quizSigned(rewards.second)}・不正解 (時間切れも) ${quizSigned(rewards.wrong)}。`,
         '1番目が間違えたら、まだ押していない人がもう1人だけ解答できる。',
@@ -782,6 +782,13 @@ function initQuiz() {
     });
     el('qz-buzz').addEventListener('click', buzzQuiz);
     el('qz-ranking-close').addEventListener('click', () => el('qz-ranking').classList.add('hidden'));
+    // ルールと最近の1戦は、1画面に収めるため卓の上に重ねて出す
+    const toggleInfo = open => {
+        el('qz-info').classList.toggle('hidden', !open);
+        el('qz-info-button').setAttribute('aria-expanded', String(open));
+    };
+    el('qz-info-button').addEventListener('click', () => toggleInfo(el('qz-info').classList.contains('hidden')));
+    el('qz-info-close').addEventListener('click', () => toggleInfo(false));
     el('qz-ranking').addEventListener('click', event => {
         if (event.target === el('qz-ranking')) el('qz-ranking').classList.add('hidden');
     });
