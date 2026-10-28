@@ -8949,16 +8949,16 @@ body[data-casino-view="quiz"] .casino-back { margin-bottom: 6px; }
 body[data-casino-view="quiz"] .casino-back a { min-height: 30px; padding: 2px 12px; }
 
 .qz-room {
-    --qz-room-h: calc(100dvh - 92px - env(safe-area-inset-bottom, 0px) - 8px - 36px - 10px);
+    --qz-room-h: calc(100dvh - var(--qz-nav-h, 92px) - env(safe-area-inset-bottom, 0px) - 8px - 36px - 10px);
     display: flex;
     flex-direction: column;
     gap: clamp(6px, 1.2vh, 12px);
     height: var(--qz-room-h);
-    min-height: 300px;
+    min-height: 200px;
     padding: clamp(8px, 1.6vh, 18px) clamp(8px, 2.5vw, 22px);
 }
 @supports not (height: 100dvh) {
-    .qz-room { --qz-room-h: calc(100vh - 92px - env(safe-area-inset-bottom, 0px) - 8px - 36px - 10px); }
+    .qz-room { --qz-room-h: calc(100vh - var(--qz-nav-h, 92px) - env(safe-area-inset-bottom, 0px) - 8px - 36px - 10px); }
 }
 
 /* PC の button の min-width: 210px を打ち消す (早押しボタンが横に伸びないように) */
@@ -9065,12 +9065,9 @@ body[data-casino-view="quiz"] .casino-back a { min-height: 30px; padding: 2px 12
 }
 .qz-room .qz-info-close { float: right; padding: 5px 12px; font-size: 0.8rem; }
 
-/* 低い画面 (横向きのスマホなど): 下のメニューを隠し、早押しボタンを卓の右に置く */
+/* 低い画面 (横向きのスマホなど): 早押しボタンを卓の右に置く */
 @media (max-height: 560px) {
-    body[data-casino-view="quiz"] { padding-bottom: env(safe-area-inset-bottom, 0px); }
-    body[data-casino-view="quiz"] footer { display: none; }
     .qz-room {
-        --qz-room-h: calc(100dvh - env(safe-area-inset-bottom, 0px) - 8px - 36px - 8px);
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         grid-template-rows: auto minmax(0, 1fr);
@@ -9139,11 +9136,8 @@ body[data-casino-view="quiz"] .casino-back a { min-height: 30px; padding: 2px 12
 .qz-table { padding-bottom: clamp(10px, 1.6vh, 18px); border-radius: 20px 20px 28px 28px; }
 .qz-status { font-size: 0.78rem; padding: 4px 10px; }
 
-/* スマホ: 下のメニューを隠す (「ゲーム一覧へ」で戻れる) */
+/* スマホ */
 @media (max-width: 560px) {
-    body[data-casino-view="quiz"] { padding-bottom: env(safe-area-inset-bottom, 0px); }
-    body[data-casino-view="quiz"] footer { display: none; }
-    .qz-room { --qz-room-h: calc(100dvh - env(safe-area-inset-bottom, 0px) - 8px - 36px - 8px); }
     .qz-head .qz-eyebrow { display: none; }
     .qz-room .qz-buzz { width: 76px; height: 76px; }
 }
@@ -9231,3 +9225,8 @@ body[data-casino-view="quiz"] .casino-back a { min-height: 30px; padding: 2px 12
 
 /* 問題文の下の状況の行は出さない (61.7〜。番の人は席の札・選択肢の光・湯呑みの時計でわかる) */
 .qz-room .qz-status { display: none; }
+
+/* 下のメニューは1戦の途中 (早押し中) だけ隠す (61.8〜。どの画面サイズでも。受付中は出す)。game-quiz.js が body に data-quiz-live を付ける */
+body[data-casino-view="quiz"][data-quiz-live="true"] { padding-bottom: env(safe-area-inset-bottom, 0px); }
+body[data-casino-view="quiz"][data-quiz-live="true"] footer { display: none; }
+body[data-casino-view="quiz"][data-quiz-live="true"] .qz-room { --qz-nav-h: 0px; }

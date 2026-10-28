@@ -482,8 +482,18 @@ function fitQuizScroll(view = quiz.table) {
     text.textContent = saved;
 }
 
+/** 1戦の途中 (早押し中) だけ下のメニューを隠す (CSS が body の data-quiz-live を見る) */
+function setQuizLive(live) {
+    const value = String(Boolean(live));
+    if (document.body.dataset.quizLive === value) return;
+    document.body.dataset.quizLive = value;
+    // 部屋の高さが変わるので、問題の文字の大きさを測り直す
+    requestAnimationFrame(() => fitQuizScroll());
+}
+
 function renderQuiz() {
     const view = quiz.table || EMPTY_QUIZ_TABLE;
+    setQuizLive(isQuizRoute() && Boolean(view.match));
     const fresh = Boolean(view.question) && quiz.seenQuestion !== view.question.no;
     renderQuizSeats(view);
     renderQuizQuestion(view, fresh);
@@ -827,6 +837,7 @@ function openQuiz() {
 }
 
 function closeQuiz() {
+    setQuizLive(false);
     clearInterval(quiz.pollTimer);
     clearInterval(quiz.clockTimer);
     clearInterval(quiz.typeTimer);
