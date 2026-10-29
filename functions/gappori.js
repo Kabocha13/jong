@@ -187,7 +187,14 @@ export const GAPPORI_GOLD_RATE = 0.05;   // 57.0 は 0.02、57.1 で 0.05
 export const GAPPORI_GOLD_KINDS = 4;
 export const GAPPORI_GOLD_MAX_PER_KIND = 6;
 export const GAPPORI_GOLD_COMPOSITIONS = compositions(GAPPORI_GOLD_KINDS, GAPPORI_SYMBOL_POCKETS, GAPPORI_GOLD_MAX_PER_KIND);
-const GAPPORI_GOLD_SCALE = 10000;   // ゴールド盤の確率を整数の乱数で引くときの目の細かさ
+const GAPPORI_GOLD_SCALE = 10000;   // ゴールド盤・船長盤の確率を整数の乱数で引くときの目の細かさ
+// 船長盤 (61.10〜): ゴールド盤と同じ GAPPORI_CAPTAIN_BOARD_RATE の確率で (ゴールド盤とは重ならない)、16マスの半分を船長にする。
+// お宝はふだんどおり GAPPORI_KINDS 種類で、残りの GAPPORI_SYMBOL_POCKETS + 1 − GAPPORI_CAPTAIN_BOARD_CAPTAINS マスに並べる。
+// 倍率は船長のマスの数も入れた当たる確率から作る (お宝のマスが減るぶん当たりにくく、倍率は上がる。×1.2 未満で売らない予想はほぼ出ない)。
+// 船長マスへの入りやすさの調整 (gapporiCaptainWeight) はかけない (倍率の前提の確率どおりに球を入れる)
+export const GAPPORI_CAPTAIN_BOARD_RATE = GAPPORI_GOLD_RATE;
+export const GAPPORI_CAPTAIN_BOARD_CAPTAINS = 8;
+export const GAPPORI_CAPTAIN_BOARD_COMPOSITIONS = compositions(GAPPORI_KINDS, GAPPORI_SYMBOL_POCKETS + 1 - GAPPORI_CAPTAIN_BOARD_CAPTAINS, GAPPORI_MAX_PER_KIND);
 
 function shuffle(list, randomInt) {
   const out = list.slice();
@@ -200,21 +207,27 @@ function shuffle(list, randomInt) {
 
 /**
  * 1回ぶんの盤面。kinds は並べる GAPPORI_KINDS 種類 (全部の絵柄から毎回選び、レア度の順に並べる)、counts は絵柄ごとのマスの数、
- * pockets は盤面を時計回りに見たマスの並び (16)。同じ絵柄はまとめて並べ、絵柄の順と船長の位置はランダム
+ * pockets は盤面を時計回りに見たマスの並び (16)。同じ絵柄はまとめて並べ、絵柄の順と船長の位置はランダム。
+ * ゴールド盤なら gold: true、船長盤なら captainBoard: true (船長はばらして並べる)
  */
 export function generateGapporiBoard(randomInt) {
-  const gold = randomInt(GAPPORI_GOLD_SCALE) < Math.round(GAPPORI_GOLD_RATE * GAPPORI_GOLD_SCALE);
+  const roll = randomInt(GAPPORI_GOLD_SCALE);
+  const gold = roll < Math.round(GAPPORI_GOLD_RATE * GAPPORI_GOLD_SCALE);
+  const captainBoard = !gold && roll < Math.round((GAPPORI_GOLD_RATE + GAPPORI_CAPTAIN_BOARD_RATE) * GAPPORI_GOLD_SCALE);
   const kinds = shuffle(GAPPORI_SYMBOLS, randomInt).slice(0, gold ? GAPPORI_GOLD_KINDS : GAPPORI_KINDS)
     .sort((a, b) => GAPPORI_SYMBOLS.indexOf(a) - GAPPORI_SYMBOLS.indexOf(b));
-  const choices = gold ? GAPPORI_GOLD_COMPOSITIONS : GAPPORI_COMPOSITIONS;
+  const choices = gold ? GAPPORI_GOLD_COMPOSITIONS : captainBoard ? GAPPORI_CAPTAIN_BOARD_COMPOSITIONS : GAPPORI_COMPOSITIONS;
   const sizes = choices[randomInt(choices.length)];
   const counts = Object.fromEntries(kinds.map((kind, index) => [kind, sizes[index]]));
-  const groups = shuffle([...kinds.map(kind => Array(counts[kind]).fill(kind)), [GAPPORI_CAPTAIN]], randomInt);
+  const captains = Array.from({ length: captainBoard ? GAPPORI_CAPTAIN_BOARD_CAPTAINS : 1 }, () => [GAPPORI_CAPTAIN]);
+  const groups = shuffle([...kinds.map(kind => Array(counts[kind]).fill(kind)), ...captains], randomInt);
   const ring = groups.flat();
   // 盤面のどこから並べ始めるかもランダムにする (いつも同じ位置から並ばないように)
   const offset = randomInt(ring.length);
   const pockets = [...ring.slice(offset), ...ring.slice(0, offset)];
-  return gold ? { kinds, counts, pockets, gold: true } : { kinds, counts, pockets };
+  if (gold) return { kinds, counts, pockets, gold: true };
+  if (captainBoard) return { kinds, counts, pockets, captainBoard: true };
+  return { kinds, counts, pockets };
 }
 
 /** いまのジャックポットの額のときの JP ルーレットの内訳 (GAPPORI_JP_WHEEL_COUNTS を GAPPORI_JP_WHEEL_STEPS で入れ替えたもの) */
@@ -374,7 +387,8 @@ function hitVectors(caps, total) {
  * 戻り値: { [key]: { normal, chance } }
  */
 export function gapporiProbabilities(board) {
-  const caps = [...board.kinds.map(kind => board.counts[kind]), 1];   // 最後は船長
+  const captains = board.pockets.filter(kind => kind === GAPPORI_CAPTAIN).length;   // ふだんは1、船長盤は GAPPORI_CAPTAIN_BOARD_CAPTAINS
+  const caps = [...board.kinds.map(kind => board.counts[kind]), captains];   // 最後は船長
   const kindCount = board.kinds.length;
   const sets = gapporiPickSets(board).map(picks => {
     const counts = gapporiPickCounts(picks);

@@ -427,7 +427,7 @@ function renderGapporiStatus() {
     } else if (table.phase === 'result') {
         text = `結果発表 次の回まで${gapporiSecondsLeft(table.nextRoundAt)}秒`;
     }
-    el('gp-status').textContent = table.board?.gold ? `✨ゴールド盤 ・ ${text}` : text;
+    el('gp-status').textContent = table.board?.gold ? `✨ゴールド盤 ・ ${text}` : table.board?.captainBoard ? `🏴‍☠️船長盤 ・ ${text}` : text;
 }
 
 function renderGapporiKinds() {
@@ -1262,6 +1262,11 @@ function receiveGapporiTable(table, now) {
         if (table.board.gold && el('gp-wheel')) {
             flashScreen('gold');
             showMessage(el('gp-message'), '✨ ゴールド盤！ この回はお宝が4種類だけで、同じお宝が最大6マス並びます。', 'success');
+        }
+        // 船長盤 (61.10〜): 16マスの半分が船長
+        if (table.board.captainBoard && el('gp-wheel')) {
+            flashScreen('red');
+            showMessage(el('gp-message'), '🏴‍☠️ 船長盤！ この回は16マスの半分が船長です。船長チャンスが来やすく、お宝のマスが少ないぶん倍率が高めです。', 'success');
         }
         gp.shownBalls = firstLook ? gapporiDueBalls(table) : 0;
         gp.spinningFor = -1;

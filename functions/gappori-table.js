@@ -109,8 +109,9 @@ const GAPPORI_RECENT_LIMIT = 12;
 //      57.1 (ゴールド盤 5% と、5個の予想が当たった人へのスタンプ) も別の作業で 21 にしていた /
 //  22: 57.3 で 56.6 と 57.1 を合わせた /
 //  23: 58.2 の 配当の設計値 (還元率 100%) とドクロ旗 1口 5,000 /
-//  24: 59.7 の 倍率を小数第1位までにし、×1.2 未満の予想は売らない (配当の設計値も合わせ直した))
-export const GAPPORI_RULES_VERSION = 24;
+//  24: 59.7 の 倍率を小数第1位までにし、×1.2 未満の予想は売らない (配当の設計値も合わせ直した) /
+//  25: 61.10 の 船長盤 (5% の回は16マスの半分が船長) と、ジャックポットの額で変わる JP ルーレット)
+export const GAPPORI_RULES_VERSION = 25;
 const GAPPORI_CHANCE_SCALE = 1000;   // チャンスの確率を整数の乱数で引くときの目の細かさ
 const GAPPORI_OLD_JACKPOT_SEED = 10000;   // 52.2 までジャックポットに最初に入れていた額 (ルールの版を上げるときに抜く)
 
@@ -345,8 +346,9 @@ function dropBalls(ctx, count, start) {
   const { table } = ctx;
   let at = start;
   for (let i = 0; i < count; i++) {
-    // ジャックポットが貯まっているほど船長マスに入りやすい (内部だけの調整。公開の写しには重みを出さない)
-    table.balls.push(drawGapporiBall(table.board, table.balls, ctx.randomInt, gapporiCaptainWeight(table.jackpot)));
+    // ジャックポットが貯まっているほど船長マスに入りやすい (内部だけの調整。公開の写しには重みを出さない)。船長盤ではかけない
+    const captainWeight = table.board.captainBoard ? 1 : gapporiCaptainWeight(table.jackpot);
+    table.balls.push(drawGapporiBall(table.board, table.balls, ctx.randomInt, captainWeight));
     // 1球ごとの間隔は GAPPORI_BALL_MS ± GAPPORI_BALL_JITTER_MS (画面はこの間隔に合わせて盤面を回す)
     at += GAPPORI_BALL_MS - GAPPORI_BALL_JITTER_MS + ctx.randomInt(GAPPORI_BALL_JITTER_MS * 2 + 1);
     table.ballsAt.push(iso(at));
