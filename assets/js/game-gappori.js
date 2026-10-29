@@ -41,7 +41,7 @@ const GAPPORI_EXTRA_HOLD_MS = 700;      // もう3球の1球が止まってか�
 const GAPPORI_JP_HOLD_MS = 1400;         // JP ルーレットが止まってから、結果 (JP・お宝ゲット・ハズレ) を見せておく間
 const GAPPORI_JP_LABELS = {
     jackpot: 'JP', treasure: 'お宝', miss: 'ハズレ', double: 'JP\n×2', half: 'JP\n½',
-    payout2: '払戻\n×2', extra: 'もう\n3球', plus: 'JP\n+???', minus: 'JP\n−???', plussmall: 'JP\n+??', minussmall: 'JP\n−??', stamp: 'スタンプ'
+    payout2: '払戻\n×2', extra: 'もう\n3球', plus: 'JP\n+????', minus: 'JP\n−???', plussmall: 'JP\n+??', minussmall: 'JP\n−??', stamp: 'スタンプ'
 };   // マスの字 (お宝ゲットは「お宝」。ドクロ旗とスタンプは絵)
 const GAPPORI_STAMP_IMAGE = 'assets/img/gappori/stamp.svg';
 

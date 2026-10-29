@@ -12,6 +12,8 @@ const QUIZ_SEAT_COUNT = 4;          // 席の数 (サーバーの QUIZ_SEATS と
 const QUIZ_FIT_MIN = 0.55;          // 問題と選択肢を収めるときの文字の縮小の下限 (これでも入らなければ掛軸をスクロール)
 const QUIZ_POLL_MS = 900;           // 卓を読み直す間隔 (早押しなのでブラックジャックより短く)
 const QUIZ_CHOICE_KEYS = ['A', 'B', 'C', 'D'];
+// 古いサーバー (61.9 以前) が返す rewards には早さで決める額が無いので、ここで補う (サーバーの QUIZ_REWARDS と同じ)
+const QUIZ_DEFAULT_REWARDS = { fastest: 30, full: 10, slowest: 3, secondRate: 0.5, wrong: -15, timeout: -5 };
 const QUIZ_FONT_URL = 'https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap';
 
 const quiz = {
@@ -220,6 +222,30 @@ function quizTypedCount(view) {
     return Math.min(length, base + Math.floor((now - from) / (view.charMs || 100)) + 1);
 }
 
+/** いま押して正解したら増える額 (サーバーの quiz-table.js の quizPrize と同じ数え方) */
+function quizPrize(view) {
+    const question = view.question;
+    const { fastest, full, slowest, secondRate } = { ...QUIZ_DEFAULT_REWARDS, ...view.rewards };
+    const chars = question.chars ?? [...question.text].length;
+    const order = question.buzzes.length + 1;
+    let prize;
+    if (view.phase === 'answering') {
+        // 1番目の人が解答中に2番目として並ぶときは、1番目と同じ時点で数える
+        prize = question.buzzes[0]?.prize ?? full;
+    } else {
+        const typed = Math.max(0, quizTypedCount(view));
+        if (typed < chars) {
+            prize = full + (fastest - full) * (1 - typed / chars);
+        } else {
+            const fullAt = Date.parse(question.typeFrom || question.openAt) + Math.max(0, chars - (question.typeBase || 0) - 1) * (view.charMs || 100);
+            const late = Math.min(1, Math.max(0, quizServerNow() - fullAt) / (view.timing?.questionMs || 20000));
+            prize = full - (full - slowest) * late;
+        }
+    }
+    if (order > 1) prize *= secondRate;
+    return Math.max(1, Math.round(prize));
+}
+
 /** 問題文を count 文字まで書く。止めているあいだは止めた印を付ける */
 function writeQuizText(question, count) {
     const text = el('qz-question');
@@ -247,7 +273,6 @@ function renderQuizQuestion(view, fresh) {
     const scroll = el('qz-scroll');
     const text = el('qz-question');
     const choices = el('qz-choices');
-    const tags = el('qz-tags');
     const explain = el('qz-explain');
     const waiting = question && quizServerNow() < Date.parse(question.openAt);
     scroll.dataset.phase = view.phase;
@@ -260,7 +285,6 @@ function renderQuizQuestion(view, fresh) {
             : '席に座って「参加する」を押すと1戦が始まります';
         text.classList.remove('is-brush');
         choices.innerHTML = '';
-        tags.innerHTML = '';
         explain.classList.add('hidden');
         return;
     }
@@ -274,15 +298,6 @@ function renderQuizQuestion(view, fresh) {
     }
     text.classList.toggle('is-waiting', Boolean(waiting));
     quiz.typed = typed;
-    tags.innerHTML = '';
-    if (!waiting) {
-        question.tags.forEach(tag => {
-            const span = document.createElement('span');
-            span.className = 'qz-tag';
-            span.textContent = tag;
-            tags.appendChild(span);
-        });
-    }
 
     const mine = isMyQuizAnswer(view);
     const revealed = view.phase === 'result' && question.answer !== null;
@@ -570,7 +585,7 @@ function renderQuizStatus() {
         total = question.buzzes.length ? Math.max(left, 8000) : timing.questionMs;
         const second = question.buzzes.length === 1;
         text = isQuizPlayer(view)
-            ? canQuizBuzz(view) ? (second ? 'もう1人だけ解答できます (正解 +5)。わかったら早押し！' : 'わかったら早押し！ (Space)') : '解答の権利はありません。ほかの人を待っています'
+            ? canQuizBuzz(view) ? (second ? `もう1人だけ解答できます (いま押して正解 ${quizSigned(quizPrize(view))})。わかったら早押し！` : 'わかったら早押し！ (Space)') : '解答の権利はありません。ほかの人を待っています'
             : second ? 'もう1人だけ解答できます' : '早押し受付中';
         tone = 'open';
     } else if (view.phase === 'answering') {
@@ -616,6 +631,8 @@ function renderQuizBuzz() {
     buzz.classList.toggle('hidden', !show);
     buzz.disabled = quiz.busy || !canQuizBuzz(view);
     buzz.classList.toggle('is-live', !buzz.disabled);
+    // いま押して正解したときの増分 (早いほど大きい)
+    el('qz-buzz-prize').textContent = show && !buzz.disabled ? quizSigned(quizPrize(view)) : '';
 }
 
 function renderQuizControls() {
@@ -656,11 +673,12 @@ function renderQuizControls() {
 }
 
 function renderQuizRules() {
-    const rewards = quiz.table?.rewards || { first: 10, second: 5, wrong: -15, timeout: -5 };
+    const rewards = { ...QUIZ_DEFAULT_REWARDS, ...quiz.table?.rewards };
     const items = [
         '最大4人。席に座って「参加する」を押した人で1戦 (5問) を行う。全員が押すとすぐ、誰かが押してから15秒で始まる。',
         '「参加する」を押さないまま1戦が始まった人は、席から外れる (座ったままいなくなった人が残らないように)。',
-        `問題が出たら早押し。押した人だけが4択から選べる (10秒)。1番目の正解 ${quizSigned(rewards.first)}・2番目の正解 ${quizSigned(rewards.second)}・不正解 (時間切れも) ${quizSigned(rewards.wrong)}。`,
+        `問題が出たら早押し。押した人だけが4択から選べる (10秒)。不正解 (時間切れも) ${quizSigned(rewards.wrong)}。`,
+        `正解のレートは早く押すほど多い。問題文の出始めに押して正解 ${quizSigned(rewards.fastest)}、全文が出たところで ${quizSigned(rewards.full)}、そこから20秒かけて ${quizSigned(rewards.slowest)} まで下がる。2番目の人の正解はその半分。いま押したときの額は早押しボタンに出る。`,
         '押せるのは2番目の人まで。1番目の人が解答しているあいだも押せて、1番目が間違えたら2番目の人がすぐ解答する (1番目が正解なら2番目の人は答えず、レートも動かない)。2番目がいなければ、まだ押していない人がもう1人だけ押せる。',
         '選択肢は最初から出て、問題文は0.1秒ごとに1文字ずつ出る。出ている途中でも早押しでき、押した時点で問題文は止まる (解答する人も、止まったところまでで答える)。',
         '1番目が間違えたら、止まったところから問題文の続きが出る。全文は結果のときに出る。',
@@ -713,6 +731,7 @@ function quizDeadline(table) {
 
 function tickQuizClock() {
     renderQuizStatus();
+    if (quiz.table) renderQuizBuzz();
     const deadline = quizDeadline(quiz.table);
     if (!deadline || quiz.ticked === deadline) return;
     if (quizServerNow() < Date.parse(deadline) + 250) return;

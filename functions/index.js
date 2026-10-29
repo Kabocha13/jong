@@ -7,7 +7,7 @@ import { BlackjackRuleError } from './blackjack.js';
 import { buySlotCeiling, normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
 import { SHOP_MAX_COUNT, SHOP_SLOT_BETS, ShopError, publicShopItems, quoteShopItem } from './shop.js';
 import { HL_COST, HL_ROUNDS, HL_WINS_FOR_TOKEN, HlError, TOKEN_LUX_FOREVER, TOKEN_PRO_FOREVER, TOKEN_TRUST_MAX, guessHl, isHlFinished, newHlGame, playerTokens, publicHlGame } from './hilo.js';
-import { GAPPORI_JACKPOT_RATE, GapporiRuleError, settleGapporiStampCard } from './gappori.js';
+import { GapporiRuleError, gapporiJackpotRate, settleGapporiStampCard } from './gappori.js';
 import { NARIAGARI_BETS, playNariagari } from './nariagari.js';
 import {
   VOYAGE_BET,
@@ -3663,7 +3663,7 @@ class GapporiAdminError extends Error {
 function gapporiJackpotInfo(table) {
   return {
     jackpot: Math.floor(Number(table.jackpot) || 0),
-    jackpotRate: GAPPORI_JACKPOT_RATE,   // JP ルーレットで JP が出る確率 (1/16)
+    jackpotRate: gapporiJackpotRate(table.jackpot),   // いまの額で JP ルーレットを回したら JP が出る確率 (1/16〜4/16)
     phase: table.phase || null,
     roundNo: table.roundNo || 0,
     lastAdjust: table.jackpotAdjust || null

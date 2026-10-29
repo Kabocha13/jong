@@ -16,7 +16,10 @@
 //     全部出てから QUIZ_QUESTION_MS 誰も押さなければ打ち切りで、
 //     参加者全員 QUIZ_REWARDS.timeout。
 //   解答 (answering): 押した人が QUIZ_ANSWER_MS のうちに4択から選ぶ (時間切れは不正解)。
-//     1番目の正解 QUIZ_REWARDS.first・2番目の正解 QUIZ_REWARDS.second・不正解 QUIZ_REWARDS.wrong。
+//     正解の増分は押したときの早さで決まる (61.10〜。quizPrize)。問題文の出始めが QUIZ_REWARDS.fastest、
+//     全文が出た時点で QUIZ_REWARDS.full、そこから QUIZ_QUESTION_MS かけて QUIZ_REWARDS.slowest まで下がる。
+//     2番目の正解はその QUIZ_REWARDS.secondRate 倍。不正解は早さによらず QUIZ_REWARDS.wrong
+//     (出始めに当てずっぽうで押すと 1/4×30 − 3/4×15 で損になる)。
 //     押せるのは2番目の人まで (61.5〜)。1番目の人が解答しているあいだも2番目の人は押せて、押した順に並ぶ。
 //     1番目が不正解なら、並んでいる2番目の人がすぐ解答する (1番目が正解なら2番目の人は答えず、増減も無い)。
 //     2番目がまだいなければ、まだ押していない人がもう1回だけ押せる (止めたところから問題文の続きを出す)。
@@ -44,7 +47,7 @@ export const QUIZ_REOPEN_MIN_MS = 8 * 1000;
 export const QUIZ_RESULT_MS = 6 * 1000;
 export const QUIZ_SEAT_IDLE_MS = 5 * 60 * 1000;
 export const QUIZ_MAX_BUZZES = 2;
-export const QUIZ_REWARDS = { first: 10, second: 5, wrong: -15, timeout: -5 };
+export const QUIZ_REWARDS = { fastest: 30, full: 10, slowest: 3, secondRate: 0.5, wrong: -15, timeout: -5 };
 const QUIZ_RECENT_IDS = 80;    // この数の問題は続けて出さない
 const QUIZ_RECENT_LIMIT = 12;  // 口座に残す直近の戦績
 
@@ -111,6 +114,26 @@ export function quizTypedCount(question, now) {
   const base = question.typeBase || 0;
   if (now < from) return base;
   return Math.min(question.chars, base + Math.floor((now - from) / QUIZ_CHAR_MS) + 1);
+}
+
+/**
+ * いま押したら正解でいくら増えるか (order は何番目に押したか)。
+ * 問題文を出している途中は出した割合で fastest → full、全文が出てからは経った時間で full → slowest
+ */
+export function quizPrize(question, now, order = 1) {
+  const { fastest, full, slowest, secondRate } = QUIZ_REWARDS;
+  const typed = quizTypedCount(question, now);
+  let prize;
+  if (typed < question.chars) {
+    prize = full + (fastest - full) * (1 - typed / question.chars);
+  } else {
+    // 全文が出たのは、いま出している区間の始まりから残りの文字ぶんあと
+    const fullAt = Date.parse(question.typeFrom || question.openAt) + Math.max(0, question.chars - (question.typeBase || 0) - 1) * QUIZ_CHAR_MS;
+    const late = Math.min(1, Math.max(0, now - fullAt) / QUIZ_QUESTION_MS);
+    prize = full - (full - slowest) * late;
+  }
+  if (order > 1) prize *= secondRate;
+  return Math.max(1, Math.round(prize));
 }
 
 function iso(ms) {
@@ -223,7 +246,6 @@ function openQuestion(ctx) {
     id: source.id,
     genre: table.match.genre,
     lecture: source.lecture,
-    tags: source.tags || [],
     text: source.question,
     choices: order.map(index => source.choices[index]),
     answer: order.indexOf(source.answer),
@@ -338,8 +360,9 @@ function judgeAnswer(ctx, uid, choice) {
   const correct = choice !== null && choice === question.answer;
   const index = question.buzzes.findIndex(item => item.uid === uid && item.correct === null);
   const order = index + 1;
-  const delta = correct ? (order === 1 ? QUIZ_REWARDS.first : QUIZ_REWARDS.second) : QUIZ_REWARDS.wrong;
   const buzz = question.buzzes[index];
+  // 61.9 以前に押された問題には prize が無い
+  const delta = correct ? buzz.prize ?? (order === 1 ? 10 : 5) : QUIZ_REWARDS.wrong;
   buzz.choice = choice;
   buzz.correct = correct;
   buzz.delta = delta;
@@ -452,14 +475,16 @@ export function buzzQuiz(ctx, uid, rawNo) {
   if (question.buzzes.some(item => item.uid === uid)) throw new QuizError(409, 'この問題ではもう押しています。');
   if (question.buzzes.length >= QUIZ_MAX_BUZZES) throw new QuizError(409, '2人が押したので締め切りました。');
   if (table.phase === 'answering') {
-    // 1番目の人が解答中: 2番目として並ぶ (1番目が間違えたら解答する)
-    question.buzzes.push({ uid, name: participantOf(table, uid).name, choice: null, correct: null, delta: 0, at: ctx.nowIso, chars: question.shown });
+    // 1番目の人が解答中: 2番目として並ぶ (1番目が間違えたら解答する)。問題文は止まっているので、増分は1番目と同じ時点で数える
+    const prize = Math.max(1, Math.round((question.buzzes[0].prize ?? QUIZ_REWARDS.full) * QUIZ_REWARDS.secondRate));
+    question.buzzes.push({ uid, name: participantOf(table, uid).name, choice: null, correct: null, delta: 0, at: ctx.nowIso, chars: question.shown, prize });
     ctx.changed = true;
     return;
   }
   // 押された時点で問題文を止める
+  const prize = quizPrize(question, ctx.now, question.buzzes.length + 1);
   question.shown = quizTypedCount(question, ctx.now);
-  question.buzzes.push({ uid, name: participantOf(table, uid).name, choice: null, correct: null, delta: 0, at: ctx.nowIso, chars: question.shown });
+  question.buzzes.push({ uid, name: participantOf(table, uid).name, choice: null, correct: null, delta: 0, at: ctx.nowIso, chars: question.shown, prize });
   question.answerer = uid;
   question.answerEndsAt = iso(ctx.now + QUIZ_ANSWER_MS);
   table.phase = 'answering';
@@ -550,7 +575,7 @@ export function publicQuizTable(table) {
       no: question.no,
       genre: question.genre || null,
       lecture: question.lecture,
-      tags: question.tags,
+      tags: [],   // 61.10 でタグを出すのをやめた (答えがわかってしまう)。古い画面が読むので空で残す
       text: question.text,
       choices: question.choices,
       openAt: question.openAt,
@@ -561,7 +586,7 @@ export function publicQuizTable(table) {
       shown: question.shown,
       answerer: question.answerer ? nameOf(question.answerer) : null,
       answerEndsAt: question.answerEndsAt,
-      buzzes: question.buzzes.map(({ name, choice, correct, delta, chars, skipped }) => ({ name, choice, correct, delta, chars: chars ?? null, skipped: Boolean(skipped) })),
+      buzzes: question.buzzes.map(({ name, choice, correct, delta, chars, prize, skipped }) => ({ name, choice, correct, delta, chars: chars ?? null, prize: prize ?? null, skipped: Boolean(skipped) })),
       outcome: question.outcome,
       timeout: question.timeout,
       answer: revealed ? question.answer : null,

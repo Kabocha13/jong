@@ -26,7 +26,6 @@ import {
   GAPPORI_CHANCE_RATES,
   GAPPORI_FIRST_BALLS,
   GAPPORI_JACKPOT_LOST_RATE,
-  GAPPORI_JACKPOT_RATE,
   GAPPORI_FLAG_ODDS_MAX,
   GAPPORI_FLAG_ODDS_MIN,
   GAPPORI_FLAG_PRICE,
@@ -68,6 +67,7 @@ import {
   gapporiUnitPrice,
   generateGapporiBoard,
   generateGapporiJpWheel,
+  gapporiJackpotRate,
   isGapporiWin,
   normalizeGapporiPicks
 } from './gappori.js';
@@ -408,9 +408,10 @@ function finishGapporiRound(ctx, start) {
 
   // 船長マスに球が入ったらチャンスタイム: JP ルーレットを1回回す (券を買った人がいる回だけ)
   const captain = table.balls.some(index => table.board.pockets[index] === GAPPORI_CAPTAIN);
-  const jackpot = { captain, rate: GAPPORI_JACKPOT_RATE, wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [], flagOdds: null, flagWinners: [], boost: null, extraBall: null, extraBalls: [], shift: null, stamped: [] };
+  // JP ルーレットの内訳は、回す時点 (この回の積立の前) のジャックポットの額で決まる (61.10〜)
+  const jackpot = { captain, rate: gapporiJackpotRate(table.jackpot), wheel: null, index: null, kind: null, won: false, amount: 0, shares: [], granted: [], flagOdds: null, flagWinners: [], boost: null, extraBall: null, extraBalls: [], shift: null, stamped: [] };
   if (captain && costBy.size) {
-    const wheel = generateGapporiJpWheel(ctx.randomInt);
+    const wheel = generateGapporiJpWheel(ctx.randomInt, table.jackpot);
     jackpot.wheel = wheel.pockets;
     jackpot.index = wheel.index;
     jackpot.kind = wheel.kind;
@@ -627,7 +628,7 @@ export function publicGapporiTable(table) {
     prices: GAPPORI_UNIT_PRICES,
     flag: { price: GAPPORI_FLAG_PRICE, oddsMin: GAPPORI_FLAG_ODDS_MIN, oddsMax: GAPPORI_FLAG_ODDS_MAX },
     jackpot: Math.floor(table.jackpot || 0),
-    jackpotRate: GAPPORI_JACKPOT_RATE,   // JP ルーレットで JP が出る確率 (1/16)
+    jackpotRate: gapporiJackpotRate(table.jackpot),   // いまの額で JP ルーレットを回したら JP が出る確率 (1/16〜4/16)
     ready: (table.ready || []).map(id => table.tickets.find(ticket => ticket.uid === id)?.name).filter(Boolean),
     bettingEndsAt: table.bettingEndsAt || null,
     balls: table.balls || [],
