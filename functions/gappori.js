@@ -37,6 +37,7 @@
 //   (55.1 までは、船長マスで 5%〜50% (外れるたびに上がる) の確率でジャックポットを引いていた)
 //   ジャックポットは外れた券の代金の GAPPORI_JACKPOT_LOST_RATE を 0 から貯めたもの
 //   (外れた券は賭けの約91% なので、賭けの約9% がジャックポットで戻る)。
+//   61.11 からは、ブラックジャック・スロット・成り上がりで賭けた額の GAPPORI_JACKPOT_PLAY_RATE も足す (index.js)。
 //   還元率は 配当 GAPPORI_BASE_RETURNS (チャンスも含めて) + JP 積立 (× GAPPORI_JP_FUND_FACTOR) + JP ルーレットのお宝ゲット = どの個数でも GAPPORI_TARGET_RETURN (105%)
 //   (正確な値は tools/gappori-sim.mjs で測る)
 
@@ -76,6 +77,7 @@ export const GAPPORI_BASE_RETURNS = { 2: 0.7909, 3: 0.7161, 4: 0.653, 5: 0.6243 
 // (58.2 で目標を 105% → 100% にした。57.7〜58.1 は 0.8717・0.7963・0.7418・0.7166 で、お宝ゲット3マスのぶん 108〜112% になっていた)
 // (56.6 で JP ルーレットを入れ替えて、お宝ゲット 2マス・JP 1/2 1マス (JP 積立が長い目で2倍戻る) になったので下げた。56.5 までは 0.9607・0.9155・0.8835・0.8685)
 export const GAPPORI_JACKPOT_LOST_RATE = 0.1;  // 外れた券の代金のうち、ジャックポットに貯める割合
+export const GAPPORI_JACKPOT_PLAY_RATE = 0.1;  // ほかのゲーム (ブラックジャック・スロット・成り上がり) の賭けのうち、ジャックポットに貯める割合 (61.11〜)
 // JP ルーレット (船長マスに球が入った回の最後に、盤面が変わって1回だけ回る)。16マスのうち JP 1マス・お宝ゲット 1マス、残りはハズレ
 export const GAPPORI_JP_WHEEL_POCKETS = 16;
 export const GAPPORI_JP_JACKPOT = 'jackpot';

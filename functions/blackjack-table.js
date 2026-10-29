@@ -10,7 +10,8 @@
 //   全員終わるとディーラーが引いて決着し、払い戻しを財布に足してベット受付に戻る。
 //   決着した勝負は、次に配るまで結果を見せるため卓に残しておく。
 //   カードを絞る人の手は、本人が見て bjOpen を送るまでほかの人の画面では伏せる (決着したあとも同じ)。
-//   賭けないまま TABLE_IDLE_ROUNDS 回続けて勝負が始まった人と、財布を精算した人は席を空ける。
+//   賭けないまま TABLE_IDLE_ROUNDS 回続けて勝負が始まった人と、財布を精算した人は席を空ける (61.11 で 3回 → 1回)。
+//   決着した勝負の賭け金の合計は ctx.wagered に数え、index.js が宝探しのジャックポットに一部を足す (61.11〜)。
 //   サーバーは常駐しないので、締め切りの判定は画面を開いている誰かの bjTick と定期処理で行う。
 
 import {
@@ -27,7 +28,7 @@ import {
 export const TABLE_SEATS = 4;
 export const TABLE_BETTING_MS = 15 * 1000;
 export const TABLE_TURN_MS = 20 * 1000;
-export const TABLE_IDLE_ROUNDS = 3;
+export const TABLE_IDLE_ROUNDS = 1;
 const TABLE_RECENT_LIMIT = 12;
 
 export class TableError extends Error {
@@ -98,6 +99,7 @@ export function createTableContext({ table, wallets, now, randomInt, touchWallet
     touched: new Set(),     // 書き戻す財布
     orphanPayouts: [],      // 財布を精算済みの人へ、レートで直接返すぶん { uid, name, amount, reason }
     broke: new Set(),       // 決着してチップが尽きた人 (index.js がこのあと精算する)
+    wagered: 0,             // この操作で決着した勝負の賭け金の合計
     changed: false
   };
 }
@@ -198,6 +200,7 @@ function finishTableRound(ctx) {
   round.finishedAt = ctx.nowIso;
   round.players.forEach(player => {
     const { bet, returned } = blackjackPlayerTotals(player);
+    ctx.wagered += bet;
     const wallet = ctx.wallets.get(player.uid);
     if (wallet) {
       wallet.chips += returned;
@@ -246,7 +249,7 @@ export function maybeStartRound(ctx) {
   const closed = Boolean(table.bettingEndsAt) && Date.parse(table.bettingEndsAt) <= ctx.now;
   if (!everyone && !closed) return;
 
-  // 賭けなかった人は1回休み。続けて休んだ人は席を空ける
+  // 賭けなかった人は TABLE_IDLE_ROUNDS 回休んだら席を空ける
   seated.forEach(({ seat, index }) => {
     if (seat.bet > 0) {
       seat.idleRounds = 0;

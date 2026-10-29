@@ -7,7 +7,7 @@ import { BlackjackRuleError } from './blackjack.js';
 import { buySlotCeiling, normalizeSlotState, playSlotRound, publicSlotState } from './slot.js';
 import { SHOP_MAX_COUNT, SHOP_SLOT_BETS, ShopError, publicShopItems, quoteShopItem } from './shop.js';
 import { HL_COST, HL_ROUNDS, HL_WINS_FOR_TOKEN, HlError, TOKEN_LUX_FOREVER, TOKEN_PRO_FOREVER, TOKEN_TRUST_MAX, guessHl, isHlFinished, newHlGame, playerTokens, publicHlGame } from './hilo.js';
-import { GapporiRuleError, gapporiJackpotRate, settleGapporiStampCard } from './gappori.js';
+import { GAPPORI_JACKPOT_PLAY_RATE, GapporiRuleError, gapporiJackpotRate, settleGapporiStampCard } from './gappori.js';
 import { NARIAGARI_BETS, playNariagari } from './nariagari.js';
 import {
   VOYAGE_BET,
@@ -3383,9 +3383,27 @@ async function casinoStatus(uid, username) {
 }
 
 /**
+ * ブラックジャック・スロット・成り上がりで賭けた額 wagered の GAPPORI_JACKPOT_PLAY_RATE を、宝探しのジャックポットに足す (61.11〜)。
+ * gappori は同じトランザクションで読んだ宝探しの卓 (無ければ何もしない)。公開の写しも同時に直す
+ */
+function addPlayToGapporiJackpot(transaction, gappori, wagered, nowIso) {
+  if (!gappori || !(wagered > 0)) return;
+  const { tableRef, publicRef } = gapporiTableRefs();
+  const table = {
+    ...gappori,
+    jackpot: (gappori.jackpot || 0) + wagered * GAPPORI_JACKPOT_PLAY_RATE,
+    seq: (gappori.seq || 0) + 1,
+    updatedAt: nowIso
+  };
+  transaction.update(tableRef, { jackpot: table.jackpot, seq: table.seq, updatedAt: table.updatedAt });
+  transaction.set(publicRef, publicGapporiTable(table));
+}
+
+/**
  * 1人で1回ずつ遊ぶゲーム (スロット・成り上がり・航海) の1回。トランザクションの中で
  * 3つの卓 (押さえている額のため)・財布・extraRefs を読み、play(wallet, extraDocs) で財布を書き換えてから書き戻す。
- * play は { result, ...そのほか返したいもの } を返し、ほかの書き込みは write(transaction, played) で行う
+ * play は { result, wagered (賭けた額。宝探しのジャックポットに一部を足す), ...そのほか返したいもの } を返し、
+ * ほかの書き込みは write(transaction, played) で行う
  */
 async function runSoloCasinoPlay(game, uid, username, { extraRefs = [], play, write = () => {} }) {
   const done = await db.runTransaction(async transaction => {
@@ -3398,6 +3416,7 @@ async function runSoloCasinoPlay(game, uid, username, { extraRefs = [], play, wr
     const nowIso = new Date().toISOString();
     const played = play(wallet, extraDocs, nowIso);
     write(transaction, played, nowIso);
+    addPlayToGapporiJackpot(transaction, tables.gappori, played.wagered, nowIso);
     const written = writeCasinoWallets(transaction, loaded, game, null, nowIso);
     return { played, wallet, held: written.held.get(uid) || 0, limit: written.limits.get(uid), chart: written.chart };
   });
@@ -3442,7 +3461,7 @@ async function casinoSlotSpin(uid, username, rawBet) {
       wallet.slotSpins = (wallet.slotSpins || 0) + 1;
       wallet.wagered = (wallet.wagered || 0) + round.bet;
       wallet.slotRecent = [summary, ...(wallet.slotRecent || [])].slice(0, CASINO_RECENT_LIMIT);
-      return { result: { ...outcome, at: now, entered: round.entered, finished: round.finished }, state: round.state };
+      return { result: { ...outcome, at: now, entered: round.entered, finished: round.finished }, state: round.state, wagered: round.bet };
     },
     write: (transaction, played, now) => transaction.set(slotStateRef, { ...played.state, updatedAt: now })
   });
@@ -3474,7 +3493,7 @@ async function casinoNariagariSpin(uid, username, rawBet, rawLayout) {
       wallet.wagered = (wallet.wagered || 0) + bet;
       wallet.nrRecent = [summary, ...(wallet.nrRecent || [])].slice(0, CASINO_RECENT_LIMIT);
       wallet.nrLast = last;
-      return { result: last };
+      return { result: last, wagered: bet };
     }
   });
   return { result: spun.result, session: spun.session };
@@ -3519,6 +3538,7 @@ async function runBlackjackTable(actorUid, mutate, actorName = null) {
       transaction.set(tableRef, context.table);
       transaction.set(publicRef, publicTable(context.table));
     }
+    addPlayToGapporiJackpot(transaction, tables.gappori, context.wagered, context.nowIso);
     const written = writeCasinoWallets(transaction, loaded, 'blackjack', context.table, context.nowIso);
     return { context, written };
   });

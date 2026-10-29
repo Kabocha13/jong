@@ -6,7 +6,7 @@ self.window = self; // firebase-config.js が window へ代入するための互
 
 importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js');
-importScripts('/assets/js/firebase-config.js?v=61.10');
+importScripts('/assets/js/firebase-config.js?v=61.11');
 
 // fetch ハンドラが無いので、新しい版はすぐ有効にしてよい
 self.addEventListener('install', () => self.skipWaiting());

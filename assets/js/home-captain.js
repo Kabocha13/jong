@@ -141,7 +141,7 @@
     });
     art.addEventListener('error', () => wrap.remove());
     art.src = STAND_SRC;
-    import('./voyage-rules.js?v=61.10')
+    import('./voyage-rules.js?v=61.11')
         .then(rules => {
             state.voyage = voyageLine(rules);
             if (state.voyage && !wrap.hidden) refresh();

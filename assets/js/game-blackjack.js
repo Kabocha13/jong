@@ -439,9 +439,9 @@ async function presentBlackjackTable(next) {
         await refreshCasino().catch(error => console.warn('手元チップの更新に失敗:', error));
         prefillBlackjackBet();
     }
-    // 続けて賭けなかったなどで席がなくなったら知らせる (精算して席が消えたときは精算のお知らせが出る)
+    // 賭けなかったなどで席がなくなったら知らせる (精算して席が消えたときは精算のお知らせが出る)
     if (mySeatIndex(previous) >= 0 && mySeatIndex(next) < 0 && !blackjack.leaving && casino.session) {
-        showMessage(el('bj-message'), 'しばらく賭けなかったので席を空けました。', 'info');
+        showMessage(el('bj-message'), '前の勝負で賭けなかったので席を空けました。', 'info');
     }
     renderBlackjackControls();
     return settledMine;

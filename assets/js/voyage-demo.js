@@ -195,7 +195,7 @@ function resetDemo() {
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        rules = await import('./voyage-rules.js?v=61.10');
+        rules = await import('./voyage-rules.js?v=61.11');
     } catch (error) {
         console.error('航海のルール (voyage-rules.js) が読めません:', error);
         el('vg-status').textContent = 'ルールが読み込めませんでした';
